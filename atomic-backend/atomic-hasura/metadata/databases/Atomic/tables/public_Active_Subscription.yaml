@@ -1,0 +1,61 @@
+table:
+  name: Active_Subscription
+  schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check:
+        userId:
+          _eq: X-Hasura-User-Id
+      columns:
+        - id
+        - userId
+        - subscriptionId
+        - transactionId
+        - startDate
+        - endDate
+        - createdDate
+        - updatedAt
+        - deleted
+        - status
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - deleted
+        - status
+        - subscriptionId
+        - transactionId
+        - createdDate
+        - endDate
+        - startDate
+        - updatedAt
+        - id
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - deleted
+        - status
+        - subscriptionId
+        - transactionId
+        - createdDate
+        - endDate
+        - startDate
+        - updatedAt
+        - id
+        - userId
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id
+      check: null
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        userId:
+          _eq: X-Hasura-User-Id

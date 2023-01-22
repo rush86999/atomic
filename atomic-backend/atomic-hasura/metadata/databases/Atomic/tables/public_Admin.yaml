@@ -1,0 +1,17 @@
+table:
+  name: Admin
+  schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - name
+        - token
+        - clientId
+        - clientSecret
+        - resource
+        - password
+        - code
+        - secret
+      filter: {}

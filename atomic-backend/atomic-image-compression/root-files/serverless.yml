@@ -1,0 +1,76 @@
+service: imageCompression
+
+# Add the serverless-webpack plugin
+plugins:
+  - serverless-esbuild
+
+custom:
+  secrets: ${file(secrets.json)}
+  bundle:
+    packagerOptions:
+      scripts:
+        - npm install --arch=x64 --platform=linux sharp
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: prod
+  region: us-east-1
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-IMAGE-BUCKET-ARN"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-IMAGE-BUCKET-ARN/*"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-IMAGE-BUCKET-ARN-uncompressed"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-IMAGE-BUCKET-ARN-uncompressed/*"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-PROFILE-IMAGE-BUCKET-ARN"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-PROFILE-IMAGE-BUCKET-ARN/*"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-PROFILE-IMAGE-BUCKET-ARN-uncompressed"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "YOUR-S3-PROFILE-IMAGE-BUCKET-ARN-uncompressed/*"
+  environment:
+    COMPRESSED_BUCKET: ${self:custom.secrets.compressedBucket}
+    COMPRESSED_BUCKET_PROFILE: ${self:custom.secrets.compressedBucketProfile}
+    UNCOMPRESSED_BUCKET: ${self:custom.secrets.uncompressedBucket}
+    UNCOMPRESSED_BUCKET_PROFILE: ${self:custom.secrets.uncompressedBucketProfile}
+
+
+functions:
+  compressImage:
+    handler: handler.compressImage
+    events:
+      - s3:
+            bucket: YOUR-S3-IMAGE-BUCKET-NAME-uncompressed
+            event: s3:ObjectCreated:*
+            existing: true
+
+  compressImageProfile:
+    handler: handler.compressImageProfile
+    events:
+      - s3:
+            bucket: YOUR-S3-PROFILE-IMAGE-BUCKET-NAME-uncompressed
+            event: s3:ObjectCreated:*
+            existing: true

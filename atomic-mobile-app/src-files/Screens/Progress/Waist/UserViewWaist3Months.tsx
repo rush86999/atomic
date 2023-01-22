@@ -1,0 +1,389 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useWindowDimensions } from 'react-native'
+import { DataStore, SortDirection} from '@aws-amplify/datastore'
+import { dayjs } from '@app/date-utils'
+import { LineChart } from 'react-native-chart-kit'
+import { Bar } from 'react-native-progress'
+import { S3Client } from '@aws-sdk/client-s3'
+import { useNavigation } from '@react-navigation/native'
+import { StackNavigationProp } from '@react-navigation/stack'
+import Spinner from 'react-native-spinkit'
+import {
+  WaistData, Goal, User,
+  Status, PrimaryGoalType,
+  UserProfile,
+} from '@models'
+import Box from '@components/common/Box'
+import Text from '@components/common/Text'
+import * as math from 'mathjs'
+import { palette } from '@theme/theme'
+
+import {
+  getS3AndCredId,
+} from '@progress/Todo/UserTaskHelper'
+import {
+  Post as PostRealm,
+} from '@realm/Post'
+
+type RootStackParamList = {
+  UserCreatePost: {
+    post: PostRealm,
+    userId: string,
+    avatar: string,
+    username: string,
+    profileId: string,
+  },
+  UserViewWaist3Months: undefined,
+}
+
+type UserViewWaist3MonthsNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'UserViewWaist3Months'
+>
+
+interface Dataset {
+  data: number[]
+
+  color?: (opacity: number) => string
+
+  colors?: Array<(opacity: number) => string>
+
+  strokeWidth?: number
+
+  withDots?: boolean
+
+  withScrollableDot?: boolean
+}
+
+type Props = {
+  sub: string,
+}
+
+type data = {
+  labels: string[],
+  datasets: Dataset[],
+}
+
+
+function UserViewWaist3Months(props: Props) {
+  const [dataset, setDataSet] = useState<WaistData[] | null>(null)
+  const [labels, setLabels] = useState<string[] | null>(null)
+  const [chartData, setChartData] = useState<data | null>(null)
+  const [goal, setGoal] = useState<Goal | null>(null)
+  const [stepProgressBar, setWaistProgressBar] = useState<number>(0)
+  const [loading, setLoading] = useState<boolean>(false)
+
+  const userIdEl = useRef<string>(null)
+  const avatarEl = useRef<string>('')
+  const usernameEl = useRef<string>('')
+  const profileIdEl = useRef<string>('')
+  const credIdEl = useRef<string>('')
+  const s3El = useRef<S3Client>(null)
+  const localImagePathEl = useRef<string>('')
+  const activePostEl = useRef<PostRealm>(null)
+
+  const navigation = useNavigation<UserViewWaist3MonthsNavigationProp>()
+
+  const { sub } = props
+
+  useEffect(() => {
+    return () => {
+    }
+  }, [])
+
+  useEffect(() => {
+    getS3AndCredId(s3El, credIdEl)
+  }, []);
+
+  useEffect(() => {
+    const getProfileId = async (userId: string) => {
+      try {
+        const userData = await DataStore.query(User, userId)
+
+        if (userData && userData.profileId) {
+          const profileIdData = userData.profileId
+
+          if (profileIdData) {
+            profileIdEl.current = profileIdData
+            const profileData = await DataStore.query(UserProfile, profileIdData)
+
+            if (profileData?.id) {
+              const {
+                id,
+                username,
+                avatar,
+              } = profileData
+
+              profileIdEl.current = id
+              usernameEl.current = username
+              avatarEl.current = avatar
+            }
+
+          }
+        }
+      } catch (e) {
+      }
+    }
+    if (userIdEl.current) {
+      getProfileId(userIdEl.current)
+    }
+  }, [userIdEl?.current])
+
+  useEffect(() => {
+    const getUserId = async () => {
+      try {
+        const userData = await DataStore.query(User, c => c.sub('eq', sub), {
+          page: 0,
+          limit: 1,
+        })
+
+        if (userData && userData.length > 0) {
+          const { id } = userData[0]
+          userIdEl.current = id
+        }
+      } catch (e) {
+      }
+    }
+
+    if (sub) {
+      getUserId()
+    }
+  }, [sub])
+
+  useEffect(() => {
+    const getWaistGoal = async (userId1: string) => {
+      try {
+
+        const goals = await DataStore.query(Goal, c => c.userId('eq', userId1)
+        .date('beginsWith', dayjs().format('YYYY'))
+        .status('eq', Status.ACTIVE)
+        .primaryGoalType('eq', PrimaryGoalType.WAIST), {
+          page: 0,
+          limit: 100,
+          sort: s => s.date(SortDirection.DESCENDING),
+        })
+
+        const goals1 = await DataStore.query(
+          Goal,
+          c => c.userId('eq', userId1)
+            .date('beginsWith', dayjs().subtract(1, 'y').format('YYYY'))
+            .status('eq', Status.ACTIVE)
+            .primaryGoalType('eq', PrimaryGoalType.WAIST),
+            {
+              page: 0,
+              limit: 100,
+              sort: s => s.date(SortDirection.DESCENDING),
+            },
+          )
+
+        if (goals && goals.length > 0) {
+          setGoal(goals[0]);
+        } else if (goals1 && goals1.length > 0) {
+          setGoal(goals1[0]);
+        }
+      } catch (e) {
+      }
+    }
+    if (userIdEl?.current) {
+      getWaistGoal(userIdEl?.current);
+    }
+  }, [userIdEl?.current])
+
+  useEffect(() => {
+    const updateWaistProgressBar = () => {
+      const currentGoal = goal?.goal as string
+      const newWaistProgressBar: number = (((dataset as WaistData[])[(dataset as WaistData[]).length - 1]['inches'] as number) > parseFloat(currentGoal))
+        ? 1
+        : (math.chain(((dataset as WaistData[])[(dataset as WaistData[]).length - 1]['inches'] as number)).divide(parseFloat(currentGoal)).done())
+
+      setWaistProgressBar(newWaistProgressBar)
+    }
+    if (dataset && dataset.length > 0 && goal && goal.goal) {
+      updateWaistProgressBar()
+    }
+  }, [((dataset && dataset[(dataset as WaistData[]).length - 1] && dataset[(dataset as WaistData[]).length - 1].inches) || 0), ((goal && goal?.goal))])
+
+  useEffect(() => {
+    const getData = async (userId1: string) => {
+      try {
+        const newDates = []
+
+        for(let i = 90; i >= 0; i - 3) {
+          newDates.push(dayjs().subtract(i, 'd').format('YYYY-MM-DD'))
+        }
+
+        const newDatasPromiseArray = newDates.map(async (date) => {
+
+          const datas = await DataStore.query(
+            WaistData,
+            c => c.userId('eq', `${userId1}`)
+              .date('beginsWith', date),
+            {
+              page: 0,
+              limit: 100,
+            }
+          )
+
+          return datas
+        })
+
+
+
+        const newDatasArray = await Promise.all(newDatasPromiseArray)
+
+        const newDatas: WaistData[] = []
+
+        for(let i = 0; i < newDatasArray.length; i++) {
+          newDatas.concat(newDatasArray[i])
+        }
+
+        const newLabels = []
+
+        for(let i = 90; i >= 0; i - 3) {
+          newLabels.push(dayjs().subtract(i, 'd').format('ddd'))
+        }
+
+        let filteredLabels = newLabels;
+
+        newDatas.forEach((v, i) => {
+          if (!v) {
+            filteredLabels = [
+              ...filteredLabels.slice(0, i),
+              ...filteredLabels.slice(i + 1)
+            ]
+          }
+        })
+
+
+        setLabels(filteredLabels)
+
+        setDataSet(newDatas.filter(v => !!v))
+
+      } catch(e) {
+      }
+    }
+
+    if (userIdEl?.current) {
+      getData(userIdEl?.current)
+    }
+
+  }, [userIdEl?.current])
+
+  useEffect(() => {
+    const conformData = () => {
+
+      if (labels && labels.length > 0 && dataset && dataset.length > 0) {
+        const repsDataset = dataset.map((i: WaistData) => i.inches)
+          const data: data = {
+            labels,
+            datasets: [
+              {
+                data: (repsDataset as number[]) || [0],
+              }
+            ]
+          }
+
+          return setChartData(data)
+
+    }
+    }
+    if (dataset && dataset.length > 0 && labels && labels.length > 0) {
+      conformData()
+    }
+  }, [dataset, labels])
+
+  const chartConfig = {
+    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    style: {
+      borderRadius: 16
+    },
+    propsForDots: {
+      r: "6",
+      strokeWidth: "2",
+      stroke: palette.purplePrimary
+    }
+  }
+
+
+  if (loading) {
+    return (
+      <Box flex={1} justifyContent="center" alignItems="center" style={{ width: '100%'}} backgroundColor="lightRegularCardBackground">
+        <Spinner isVisible={true} type="ThreeBounce" size={100} color="#FFFFFF" />
+      </Box>
+    )
+  }
+
+  return (
+    <Box flex={1} justifyContent="center" alignItems="center">
+      <Box my={{ phone: 'm', tablet: 'l' }}>
+        <Text variant="header">
+          3 Months Progress
+        </Text>
+        {chartData?.datasets?.length > 0
+          ? (
+            <LineChart
+              data={(chartData as data)}
+              width={useWindowDimensions().width}
+              height={useWindowDimensions().width/2}
+              yAxisLabel=""
+              yAxisSuffix=""
+              chartConfig={chartConfig}
+              bezier
+            />
+          ) : null}
+      </Box>
+      <Box my={{ phone: 'm', tablet: 'l' }}>
+        <Text variant="header">
+          Daily Waist Inches
+        </Text>
+        <Box>
+          {
+            stepProgressBar > 0
+            && goal?.goal
+            ? (
+              <Box m={{ phone: 's', tablet: 'm' }} >
+                <Box style={{ width: '100%' }} flexDirection="row" justifyContent="space-between">
+                  <Text variant="caption">
+                    Waist
+                  </Text>
+                  {(((dataset as WaistData[])[(dataset as WaistData[]).length - 1]
+                    ['inches'] as number) > 0)
+                    && goal?.goal ? (
+                      <Text variant="caption">
+                        {`${((dataset as WaistData[])
+                          [(dataset as WaistData[]).length - 1]
+                          ['inches'] as number)}/${goal?.goal} Inches`}
+                      </Text>
+                    ) : null}
+                </Box>
+                <Bar progress={stepProgressBar} width={200} />
+              </Box>
+            ) : null
+          }
+        </Box>
+      </Box>
+      <Box my={{ phone: 'm', tablet: 'l' }}>
+        <Text variant="header">
+          Goal
+        </Text>
+        {
+          goal?.goal
+          && (goal?.status === Status.ACTIVE)
+          ? (
+            <Box flexDirection="row" justifyContent="flex-start" alignItems="center">
+              <Text variant="caption" style={{ textAlign: 'center', fontSize: 48, color: palette.purplePrimary }}>
+                {"• "}
+              </Text>
+              <Text variant="caption">
+                {`${goal.goal} Inches`}
+              </Text>
+            </Box>
+          ) : null
+        }
+      </Box>
+    </Box>
+  )
+}
+
+export default UserViewWaist3Months

@@ -1,0 +1,13 @@
+table:
+  name: Contact_Event
+  schema: public
+object_relationships:
+- name: Contact
+  using:
+    foreign_key_constraint_on: contactId
+- name: Event
+  using:
+    foreign_key_constraint_on: eventId
+- name: User
+  using:
+    foreign_key_constraint_on: userId

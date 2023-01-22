@@ -1,0 +1,3 @@
+table:
+  name: GroupEvent
+  schema: public

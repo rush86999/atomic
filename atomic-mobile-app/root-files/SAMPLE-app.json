@@ -1,0 +1,6 @@
+{
+  "name": "YOUR-PROJECT-NAME",
+  "displayName": "Atomic",
+  "release": "YOUR-PACKAGE-NAME+codepush:17",
+  "dist": "NUMBER"
+}

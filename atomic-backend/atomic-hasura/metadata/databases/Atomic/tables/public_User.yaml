@@ -1,0 +1,165 @@
+table:
+  name: User
+  schema: public
+array_relationships:
+  - name: Active_Subscriptions
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Active_Subscription
+          schema: public
+  - name: Attendees
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Attendee
+          schema: public
+  - name: Calendar_Integrations
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Calendar_Integration
+          schema: public
+  - name: Calendars
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Calendar
+          schema: public
+  - name: Categories
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Category
+          schema: public
+  - name: Category_Events
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Category_Event
+          schema: public
+  - name: Conferences
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Conference
+          schema: public
+  - name: Contact_Events
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Contact_Event
+          schema: public
+  - name: Contacts
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Contact
+          schema: public
+  - name: Event_Triggers
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Event_Trigger
+          schema: public
+  - name: Events
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Event
+          schema: public
+  - name: Feedbacks
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Feedback
+          schema: public
+  - name: Group_Users
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Group_User
+          schema: public
+  - name: Invites
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Invite
+          schema: public
+  - name: Reminders
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Reminder
+          schema: public
+  - name: Transactions
+    using:
+      foreign_key_constraint_on:
+        column: userId
+        table:
+          name: Transaction
+          schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check:
+        id:
+          _eq: X-Hasura-User-Id
+      columns:
+        - id
+        - email
+        - name
+        - createdDate
+        - deleted
+        - updatedAt
+        - userPreferenceId
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - deleted
+        - email
+        - name
+        - createdDate
+        - updatedAt
+        - id
+        - userPreferenceId
+      filter:
+        id:
+          _eq: X-Hasura-User-Id
+update_permissions:
+  - role: user
+    permission:
+      columns:
+        - deleted
+        - email
+        - name
+        - createdDate
+        - updatedAt
+        - id
+        - userPreferenceId
+      filter:
+        id:
+          _eq: X-Hasura-User-Id
+      check: null
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        id:
+          _eq: X-Hasura-User-Id

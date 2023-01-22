@@ -1,0 +1,11 @@
+diff --git a/node_modules/react-native-app-auth/react-native-app-auth.podspec b/node_modules/react-native-app-auth/react-native-app-auth.podspec
+index b2de868..1e3e698 100644
+--- a/node_modules/react-native-app-auth/react-native-app-auth.podspec
++++ b/node_modules/react-native-app-auth/react-native-app-auth.podspec
+@@ -14,5 +14,5 @@ Pod::Spec.new do |s|
+   s.source_files  = 'ios/**/*.{h,m}'
+   s.requires_arc = true
+   s.dependency 'React-Core'
+-  s.dependency 'AppAuth', '1.4.0'
++  s.dependency 'AppAuth', '1.5.0'
+ end

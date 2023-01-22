@@ -1,0 +1,3 @@
+table:
+  name: GroupCalendar_GroupEvent
+  schema: public

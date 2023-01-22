@@ -1,0 +1,15 @@
+table:
+  name: Category
+  schema: public
+object_relationships:
+- name: User
+  using:
+    foreign_key_constraint_on: userId
+array_relationships:
+- name: Category_Events
+  using:
+    foreign_key_constraint_on:
+      column: categoryId
+      table:
+        name: Category_Event
+        schema: public

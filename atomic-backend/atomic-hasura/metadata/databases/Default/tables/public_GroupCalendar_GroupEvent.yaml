@@ -1,0 +1,10 @@
+table:
+  name: GroupCalendar_GroupEvent
+  schema: public
+object_relationships:
+- name: GroupCalendar
+  using:
+    foreign_key_constraint_on: groupCalendarId
+- name: GroupEvent
+  using:
+    foreign_key_constraint_on: groupEventId

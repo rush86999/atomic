@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+  elasticsearch:
+    build:
+      context: .
+      dockerfile: Dockerfile.opendistro
+      args:
+        - SECURE_INTEGRATION=${SECURE_INTEGRATION:-false}
+        - OPENDISTRO_VERSION=${OPENDISTRO_VERSION:-latest}
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+    ports:
+      - '9200:9200'
+    user: elasticsearch

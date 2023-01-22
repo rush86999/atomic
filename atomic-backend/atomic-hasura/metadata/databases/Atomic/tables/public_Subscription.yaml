@@ -1,0 +1,26 @@
+table:
+  name: Subscription
+  schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - price
+        - currency
+        - localizedPrice
+        - title
+        - description
+        - introductoryPrice
+        - introductoryPriceAsAmount
+        - introductoryPricePaymentMode
+        - introductoryPriceNumberOfPeriods
+        - introductoryPriceSubscriptionPeriod
+        - subscriptionPeriodNumber
+        - subscriptionPeriodUnit
+        - device
+        - createdDate
+        - updatedAt
+        - deleted
+        - paymentMode
+      filter: {}

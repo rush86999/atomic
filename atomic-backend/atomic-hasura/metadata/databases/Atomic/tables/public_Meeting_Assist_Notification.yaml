@@ -1,0 +1,3 @@
+table:
+  name: Meeting_Assist_Notification
+  schema: public

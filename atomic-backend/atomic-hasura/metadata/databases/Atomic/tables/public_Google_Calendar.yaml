@@ -1,0 +1,3 @@
+table:
+  schema: public
+  name: Google_Calendar

@@ -1,0 +1,13 @@
+table:
+  name: Admin_Beta_Testing
+  schema: public
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - enableTesting
+        - createdDate
+        - updatedAt
+        - deleted
+      filter: {}

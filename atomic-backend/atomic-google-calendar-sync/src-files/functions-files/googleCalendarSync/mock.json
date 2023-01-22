@@ -1,0 +1,9 @@
+{
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{
+    \"calendarIntegrationId\": \"Frederic\",
+    \"calendarId\": \"Frederic\"
+    }"
+}

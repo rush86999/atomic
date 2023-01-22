@@ -1,0 +1,15 @@
+table:
+  name: GroupCategory
+  schema: public
+object_relationships:
+- name: Group
+  using:
+    foreign_key_constraint_on: groupId
+array_relationships:
+- name: GroupCategory_GroupEvents
+  using:
+    foreign_key_constraint_on:
+      column: groupCategoryId
+      table:
+        name: GroupCategory_GroupEvent
+        schema: public
