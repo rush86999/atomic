@@ -1,8 +1,10 @@
-<p align="center">
+h<p align="center">
     <img width="200" src="assets/icon.png" alt="Atomic logo" />
 </p>
 
-<h1 align="center">Atomic - Self Hosted Open Source Alternative to Clockwise & Motion</h1>
+<h1 align="center">Atomic - Self hosted open source AI planner to solve your scheduling problems</h1>
+
+<h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
 
 <p align="center">
     <img src="assets/screen-6.png" width="300" /> <img src="assets/screen-7.png" width="300" />
