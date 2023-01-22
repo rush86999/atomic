@@ -14,7 +14,16 @@
 - ⚠️ `console.log.*$` regex was introduced to remove console logs. Code needs to be edited for side effects. Your IDE should be able to catch most of these or you can wait for an update
 
 ## Table of Contents
-
+- [Disclaimer](#disclaimer)
+- [Table of Contents](#table-of-contents)
+- [Documentation](#documentation)
+- [Demo](#demo)
+- [Features](#features)
+    - [Benefits of Self Hosted](#benefits-of-self-hosted)
+  - [Cloud Hosted Atomic](#cloud-hosted-atomic)
+  - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
+- [Support the Project](#support-the-project)
+- [Contributing](#contributing)
 ## Documentation
 
 - You can find documentation on how to use Atomic at https://docs.atomiclife.app
