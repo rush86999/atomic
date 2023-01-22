@@ -5,7 +5,7 @@
 <h1 align="center">Atomic - Self Hosted Open Source Alternative to Clockwise & Motion</h1>
 
 <p align="center">
-    <img src="assets/screen-6.png" width="300" /> <img src="assets/screen-7.png" width="300" /> <img src="assets/screen-8.png" width="300" />
+    <img src="assets/screen-6.png" width="300" /> <img src="assets/screen-7.png" width="300" />
 
 </p>
 
@@ -71,5 +71,12 @@ You can see a demo video at https://www.atomiclife.app
 - Subscribe to my cloud hosted version so I can keep this project alive (currently in beta and not being charged yet)
 - Follow me on Twitter: https://twitter.com/rish1_2
 
+## Contributing
 
-# atomic
+1. Fork this repository and clone the fork to your machine
+2. Create a branch (`git checkout -b my-new-feature`)
+3. Implement a new feature or fix a bug and add some tests
+4. Commit your changes (`git commit -am 'Added a new feature'`)
+5. Push the branch to your fork on GitHub (`git push origin my-new-feature`)
+6. Create new Pull Request from your fork
+
