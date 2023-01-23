@@ -31,7 +31,7 @@ h<p align="center">
 ## Problem
 Imagine going back and forth for recurring 1:1 meetings in your email for your team.
 Now imagine working in a remote team with different timezones. 
-Now image arranging an ad hoc team meeting that was not planned for your remote team.
+Now imagine arranging an ad hoc team meeting that was not planned for your remote team.
 
 How do you get everyone together without disturbing their work flow (aka tasks)?
 
