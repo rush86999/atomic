@@ -22,6 +22,7 @@ h<p align="center">
     - [Benefits of Self Hosted](#benefits-of-self-hosted)
   - [Cloud Hosted Atomic](#cloud-hosted-atomic)
   - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
+- [Docker](#docker)
 - [Support the Project](#support-the-project)
 - [Contributing](#contributing)
 
@@ -93,6 +94,10 @@ You can see a demo video at https://www.atomiclife.app
 - Same features
 - 1 year support included
 - $15 / month support afterwards
+
+## Docker
+- Dockerized solution is a work in progress
+- See [atomic-docker](./atomic-docker/README.md) branch for more details
 
 ## Support the Project
 - I'm spending 100% of my work time on this project
