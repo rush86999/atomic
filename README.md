@@ -40,6 +40,8 @@ Use AI to find open slots from everyone's calendar and move things around if pos
 
 Add tasks on your calendar from any app. Let the AI scheduler move around these task events while still giving you time to get them done.
 
+Now take this even a step further with events that are modifiable and can be placed somewhere else based on your priorities. Let all of this happen automagically for you on a daily basis before work starts.
+
 ## Documentation
 
 - You can find documentation on how to use Atomic at https://docs.atomiclife.app
