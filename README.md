@@ -11,13 +11,9 @@ h<p align="center">
 
 </p>
 
-## Disclaimer
-- ⚠️ Project is under active development
-- ⚠️ `console.log.*$` regex was introduced to remove console logs. Code needs to be edited for side effects. Your IDE should be able to catch most of these or you can wait for an update
-
 ## Table of Contents
-- [Disclaimer](#disclaimer)
 - [Table of Contents](#table-of-contents)
+- [Disclaimer](#disclaimer)
 - [Problem](#problem)
 - [Documentation](#documentation)
 - [Demo](#demo)
@@ -27,6 +23,11 @@ h<p align="center">
   - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
 - [Support the Project](#support-the-project)
 - [Contributing](#contributing)
+
+
+## Disclaimer
+- ⚠️ Project is under active development
+- ⚠️ `console.log.*$` regex was introduced to remove console logs. Code needs to be edited for side effects. Your IDE should be able to catch most of these or you can wait for an update
 
 ## Problem
 Imagine going back and forth for recurring 1:1 meetings in your email for your team.
