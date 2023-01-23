@@ -17,6 +17,6 @@ Each service currently used needs to be replaced with a containerized docker sol
 4. Cognito - Replace with nhost Auth
 5. SQS - Replace with Apache Kafka + Quarkus for a native docker image
 6. Serverless functions - nHost
-7. SES - Replace with nodemailer but email delivy provider will still be SES
+7. SES - Replace with nodemailer but email delivery provider will still be SES
 8. Optaplanner - Already a native docker container
 
