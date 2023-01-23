@@ -15,6 +15,7 @@ h<p align="center">
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
 - [Problem](#problem)
+  - [What this is not for?](#what-this-is-not-for)
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
@@ -41,6 +42,11 @@ Use AI to find open slots from everyone's calendar and move things around if pos
 Add tasks on your calendar from any app. Let the AI scheduler move around these task events while still giving you time to get them done.
 
 Now take this even a step further with events that are modifiable and can be placed somewhere else based on your priorities. Let all of this happen automagically for you on a daily basis before work starts.
+
+### What this is not for?
+- Replace Calendly links. Calendly links are for arranging fixed meetings that do not change like with your clients.
+- Replace regular scheduled fixed meetings. Fixed time meetings do not get changed. 
+- Creating fixed meetings. Just use your calendar for it.
 
 ## Documentation
 
