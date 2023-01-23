@@ -37,6 +37,9 @@ Now imagine arranging an ad hoc team meeting that was not planned for your remot
 How do you get everyone together without disturbing their work flow (aka tasks)?
 
 Use AI to find open slots from everyone's calendar and move things around if possible to find a good spot for everyone.
+
+Add tasks on your calendar from any app. Let the AI scheduler move around these task events while still giving you time to get them done.
+
 ## Documentation
 
 - You can find documentation on how to use Atomic at https://docs.atomiclife.app
