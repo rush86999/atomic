@@ -18,6 +18,7 @@ h<p align="center">
 ## Table of Contents
 - [Disclaimer](#disclaimer)
 - [Table of Contents](#table-of-contents)
+- [Problem](#problem)
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
@@ -26,6 +27,15 @@ h<p align="center">
   - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
 - [Support the Project](#support-the-project)
 - [Contributing](#contributing)
+
+## Problem
+Imagine going back and forth for recurring 1:1 meetings in your email for your team.
+Now imagine working in a remote team with different timezones. 
+Now image arranging an ad hoc team meeting that was not planned for your remote team.
+
+How do you get everyone together without disturbing their work flow (aka tasks)?
+
+Use AI to find open slots from everyone's calendar and move things around if possible to find a good spot for everyone.
 ## Documentation
 
 - You can find documentation on how to use Atomic at https://docs.atomiclife.app
