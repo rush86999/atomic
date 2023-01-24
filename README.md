@@ -90,7 +90,7 @@ You can see a demo video at https://www.atomiclife.app
     actor John
     participant H as handshake.atomiclife.app
     participant P as AI Scheduler
-    participant Y as Serverless API
+
     participant G as Google Calendar
     Alice->>A: Create a new meeting assist with John & Bob as attendees
     A->>John: Sends handshake link for a possible meeting
@@ -98,8 +98,7 @@ You can see a demo video at https://www.atomiclife.app
     John->>H: Selects time preferences (not availability like a booking link)
     Bob->>H: Also selects time preferences
     H->>P: Submits & starts AI planner after minimum threshold met
-    P->>Y: finds an optimal slots & sends the results to API
-    Y->>G: Creates the new event
+    P->>G: finds an optimal slot &creates the new event
 
 ```
 
