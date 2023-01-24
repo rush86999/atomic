@@ -21,9 +21,9 @@
 - [Features](#features)
     - [Benefits of Self Hosted](#benefits-of-self-hosted)
   - [Cloud Hosted Atomic](#cloud-hosted-atomic)
+  - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
 - [Diagram](#diagram)
   - [Meeting Assist](#meeting-assist)
-  - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
 - [Docker](#docker)
 - [Support the Project](#support-the-project)
 - [Contributing](#contributing)
@@ -90,6 +90,12 @@ You can see a demo video at https://www.atomiclife.app
   - SSO for teams
   - Microsoft Outlook Calendar integration
   - ChatGPT integration for Premium version
+
+### Customize Atomic for your team on your cloud
+- Same level of support & features as cloud hosted version
+- Same features
+- 1 year support included
+- $15 / month support afterwards
 ## Diagram
 
 ### Meeting Assist
@@ -112,14 +118,6 @@ You can see a demo video at https://www.atomiclife.app
     P->>G: finds an optimal slot &creates the new event
 
 ```
-
-
-  
-### Customize Atomic for your team on your cloud
-- Same level of support & features as cloud hosted version
-- Same features
-- 1 year support included
-- $15 / month support afterwards
 
 ## Docker
 - Dockerized solution is a work in progress
