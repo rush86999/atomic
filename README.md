@@ -19,10 +19,10 @@
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
-- [Diagram](#diagram)
-  - [Meeting Assist](#meeting-assist)
     - [Benefits of Self Hosted](#benefits-of-self-hosted)
   - [Cloud Hosted Atomic](#cloud-hosted-atomic)
+- [Diagram](#diagram)
+  - [Meeting Assist](#meeting-assist)
   - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
 - [Docker](#docker)
 - [Support the Project](#support-the-project)
@@ -79,6 +79,17 @@ You can see a demo video at https://www.atomiclife.app
 |Rating| You can rate events to tell Atomic how productive you were for the time block. Next run, Atomic will take it into consideration before the placing the event if it's modifiable|
 | Smart Tags | You can apply settings to tags. These settings will tell Atomic how to apply features or attributes to new events that are tagged by the AI model or manually.|
 
+#### Benefits of Self Hosted
+- Privacy enabled by default
+- Customizable - adjust any parameters to make it work to your requirements
+
+### Cloud Hosted Atomic
+- Prioritized version
+- Full customer support & bug fixes
+- Road map
+  - SSO for teams
+  - Microsoft Outlook Calendar integration
+  - ChatGPT integration for Premium version
 ## Diagram
 
 ### Meeting Assist
@@ -102,17 +113,7 @@ You can see a demo video at https://www.atomiclife.app
 
 ```
 
-#### Benefits of Self Hosted
-- Privacy enabled by default
-- Customizable - adjust any parameters to make it work to your requirements
 
-### Cloud Hosted Atomic
-- Prioritized version
-- Full customer support & bug fixes
-- Road map
-  - SSO for teams
-  - Microsoft Outlook Calendar integration
-  - ChatGPT integration for Premium version
   
 ### Customize Atomic for your team on your cloud
 - Same level of support & features as cloud hosted version
