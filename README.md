@@ -111,7 +111,7 @@ You can see a demo video at https://www.atomiclife.app
     participant G as Google Calendar
     Alice->>A: Create a new meeting assist with John & Bob as attendees
     A->>John: Sends handshake link for a possible meeting
-    A->>Bob: Sends another handshake link as another attendee 
+    A->>Bob: Sends another handshake link to another attendee 
     John->>H: Selects time preferences (not availability like a booking link)
     Bob->>H: Also selects time preferences
     H->>P: Submits & starts AI planner after minimum threshold met
