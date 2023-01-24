@@ -1,4 +1,4 @@
-h<p align="center">
+<p align="center">
     <img width="200" src="assets/icon.png" alt="Atomic logo" />
 </p>
 

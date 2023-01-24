@@ -16,7 +16,8 @@ Each service currently used needs to be replaced with a containerized docker sol
 3. DataStore - Replace with nHost + Apollo client. Already using apollo client.
 4. Cognito - Replace with nhost Auth
 5. SQS - Replace with Apache Kafka + Quarkus for a native docker image
-6. Serverless functions - nHost
+6. Serverless functions - nhost
 7. SES - Replace with nodemailer but email delivery provider will still be SES
 8. Optaplanner - Already a native docker container
+9. S3 Storage - change to nhost/storage
 

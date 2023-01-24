@@ -58,8 +58,8 @@ buck-out/
 *.jsbundle
 
 # Ruby / CocoaPods
-/ios/Pods/
-/vendor/bundle/
+*/ios/Pods/
+*/vendor/bundle/
 
 #amplify-do-not-edit-begin
 amplify/\#current-cloud-backend
