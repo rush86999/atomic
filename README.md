@@ -19,6 +19,8 @@
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
+- [Diagram](#diagram)
+  - [Meeting Assist](#meeting-assist)
     - [Benefits of Self Hosted](#benefits-of-self-hosted)
   - [Cloud Hosted Atomic](#cloud-hosted-atomic)
   - [Customize Atomic for your team on your cloud](#customize-atomic-for-your-team-on-your-cloud)
@@ -76,6 +78,30 @@ You can see a demo video at https://www.atomiclife.app
 |Priority | You can set priority to modifiable events. Priority of 1 is neutral. 1 has no impact on the AI planner's decision making process. Any number > 1 will impact sooner it appears on the calendar relative other high priority events.|
 |Rating| You can rate events to tell Atomic how productive you were for the time block. Next run, Atomic will take it into consideration before the placing the event if it's modifiable|
 | Smart Tags | You can apply settings to tags. These settings will tell Atomic how to apply features or attributes to new events that are tagged by the AI model or manually.|
+
+## Diagram
+
+### Meeting Assist
+```mermaid
+    sequenceDiagram
+    actor Alice
+    participant A as Atomic
+    actor Bob
+    actor John
+    participant H as handshake.atomiclife.app
+    participant P as AI Scheduler
+    participant Y as Serverless API
+    participant G as Google Calendar
+    Alice->>A: Create a new meeting assist with John & Bob as attendees
+    A->>John: Sends handshake link for a possible meeting
+    A->>Bob: Sends another handshake link as another attendee 
+    John->>H: Selects time preferences (not availability like a booking link)
+    Bob->>H: Also selects time preferences
+    H->>P: Submits & starts AI planner after minimum threshold met
+    P->>Y: finds an optimal slots & sends the results to API
+    Y->>G: Creates the new event
+
+```
 
 #### Benefits of Self Hosted
 - Privacy enabled by default
