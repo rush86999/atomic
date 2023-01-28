@@ -125,6 +125,7 @@ You can see a demo video at https://www.atomiclife.app
 
 ## Support the Project
 - I'm spending 100% of my work time on this project
+- Launching on product hunt soon: [Atomic on Product Hunt](https://www.producthunt.com/products/atomic-3)
 - I'm planning a kickstarter project to open source more features on the road map. Subscribe to my [newsletter](https://atomiclifeapp.substack.com/?r=223v8l&utm_campaign=pub&utm_medium=web) where I will notify you when it kicks off
   - Get exclusive early access to new features for supporting the project
 - Star this repository, so I can start an Open Collective to support this project
