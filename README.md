@@ -90,6 +90,7 @@ You can see a demo video at https://www.atomiclife.app
   - SSO for teams
   - Microsoft Outlook Calendar integration
   - ChatGPT integration for Premium version
+  - Zoom video is already integrated. However, it is in approval process & will not work until Zoom Inc. gives green light
 
 ### Customize Atomic for your team on your cloud
 - Same level of support & features as cloud hosted version
