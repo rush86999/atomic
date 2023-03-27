@@ -135,6 +135,7 @@ You can see a demo video at https://www.atomiclife.app
 - Subscribe to my cloud hosted version so I can keep this project alive (currently in beta and not being charged yet)
 - Follow me on Twitter: https://twitter.com/rish1_2
 - Checkout my other project: https://www.gptoverflow.link/
+- Upcoming launch: https://chatgpt.atomiclife.app
 
 ## Contributing
 
