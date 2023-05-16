@@ -116,7 +116,7 @@ You can see a demo video at https://www.atomiclife.app
     John->>H: Selects time preferences (not availability like a booking link)
     Bob->>H: Also selects time preferences
     H->>P: Submits & starts AI planner after minimum threshold met
-    P->>G: finds an optimal slot &creates the new event
+    P->>G: finds an optimal slot & creates the new event
 
 ```
 
