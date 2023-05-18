@@ -91,6 +91,7 @@ You can see a demo video at https://www.atomiclife.app
   - Microsoft Outlook Calendar integration
   - ChatGPT integration for Premium version
   - Zoom video is integrated.
+  - docker self-hosted version
 
 ### Customize Atomic for your team on your cloud
 - Same level of support & features as cloud hosted version
