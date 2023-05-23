@@ -46,7 +46,7 @@ Add tasks on your calendar from any app. Let the AI scheduler move around these 
 
 Now take this even a step further with events that are modifiable and can be placed somewhere else based on your priorities. Let all of this happen automagically for you on a daily basis before work starts.
 
-### Secondar Problem
+### Secondary Problem
 Updating your calendar is a hassle as your priorities change. What if you could teach your calendar your time preferences and priorities? With vector based search, now you can do just that. 
 
 Coming Soon!
