@@ -48,7 +48,7 @@ Now take this even a step further with events that are modifiable and can be pla
 ### Secondary Problem
 Updating your calendar is a hassle as your priorities change. What if you could teach your calendar your time preferences and priorities? With vector based search, now you can do just that. 
 
-Coming Soon!
+### Coming Soon!
 
 It will be easier than ever to teach, find, block, create, meet, schedule, update and more with your calendar using ChatGPT. The goal is to allow a natural conversation with your calendar assistant for your end goals. Initially it will be ChatGPT but as soon as open source models reach parity cheaply, I will switch over to them (Let's hope RedPajama pulls out a cheaper alternative to self-host)
 
