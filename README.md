@@ -15,7 +15,6 @@
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
 - [Problem](#problem)
-  - [What this is not for?](#what-this-is-not-for)
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
@@ -61,10 +60,6 @@ Examples:
 4. "Find an available time slot for a team meeting with [list of attendees]."
 
 For simple 1:1 meetings, you won't need calendly links anymore. Your recipient replies to you and Atomic, and a meeting gets scheduled for you automatically.
-
-### What this is not for?
-- Replace regular scheduled fixed meetings. Fixed time meetings do not get changed. 
-- Creating fixed meetings. Just use your calendar for it.
 
 ## Documentation
 
