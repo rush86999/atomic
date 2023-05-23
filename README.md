@@ -59,7 +59,7 @@ Examples:
 3. "Block off [time frame] for [task or activity]."
 4. "Find an available time slot for a team meeting with [list of attendees]."
 5. "Let's respond to emails either on 8 - 11 am or 2 - 4 pm on weekdays with a priority of 3"
-6. "Let's have [X] meeting on either Mondays or Wednesdays, anytime between 8 - 11 am and keep it a priority 5"
+6. "Let's have [X] meetings on either Mondays or Wednesdays, anytime between 8 - 11 am and keep it a priority 5"
 
 For simple 1:1 meetings, you won't need calendly links anymore. Your recipient replies to you and Atomic, and a meeting gets scheduled for you automatically.
 
