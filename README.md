@@ -60,8 +60,9 @@ Examples:
 3. "Block off [time frame] for [task or activity]."
 4. "Find an available time slot for a team meeting with [list of attendees]."
 
+For simple 1:1 meetings, you won't need calendly links anymore. Your recipient replies to you and Atomic, and a meeting gets scheduled for you automatically.
+
 ### What this is not for?
-- Replace Calendly links. Calendly links are for arranging fixed meetings that do not change like with your clients.
 - Replace regular scheduled fixed meetings. Fixed time meetings do not get changed. 
 - Creating fixed meetings. Just use your calendar for it.
 
