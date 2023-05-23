@@ -51,7 +51,7 @@ Updating your calendar is a hassle as your priorities change. What if you could 
 
 Coming Soon!
 
-It will be easier than ever to teach, find, block, create, meet, schedule, update and more with your calendar using ChatGPT. The goal is to allow a natural conversation with your calendar assistant for your end goals. Initially it will be ChatGPT but as soon as open source models reach parity cheaply, I will switch over to them (Let's hope RedPajama pulls out a chearper alternative to self-host)
+It will be easier than ever to teach, find, block, create, meet, schedule, update and more with your calendar using ChatGPT. The goal is to allow a natural conversation with your calendar assistant for your end goals. Initially it will be ChatGPT but as soon as open source models reach parity cheaply, I will switch over to them (Let's hope RedPajama pulls out a cheaper alternative to self-host)
 
 Examples:
 
