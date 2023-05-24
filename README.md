@@ -71,7 +71,7 @@ For simple 1:1 meetings, you won't need calendly links anymore. Your recipient r
 
 ## Demo
 
-You can see a demo video at https://www.atomiclife.app
+You can see a demo video of current features (not coming soon) at https://www.atomiclife.app
 
 ## Features
 
