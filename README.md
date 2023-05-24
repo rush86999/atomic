@@ -33,20 +33,11 @@
 - ⚠️ `console.log.*$` regex was introduced to remove console logs. Code needs to be edited for side effects. Your IDE should be able to catch most of these or you can wait for an update
 
 ## Problem
-Imagine going back and forth for recurring 1:1 meetings in your email for your team.
-Now imagine working in a remote team with different timezones. 
-Now imagine arranging an ad hoc team meeting that was not planned for your remote team.
+Scheduling and managing time is always a problem. Getting everyone on to meet and finding time that works for everybody. What if you can tell your calendar your time preferences and priorities for things you have to do everyday. Now everyone on your team could do the same thing. Now finding a time becomes easier when everyone's priorities are accounted for. 
 
-How do you get everyone together without disturbing their work flow (aka tasks)?
+Now take this even a step further with time blocks that can be placed somewhere else based on your priorities. The same goes for your team. Let all of this happen automagically for you and your team on a daily basis before work starts.
 
-Use AI to find open slots from everyone's calendar and move things around if possible to find a good spot for everyone.
-
-Add tasks on your calendar from any app. Let the AI scheduler move around these task events while still giving you time to get them done.
-
-Now take this even a step further with events that are modifiable and can be placed somewhere else based on your priorities. Let all of this happen automagically for you on a daily basis before work starts.
-
-### Secondary Problem
-Updating your calendar is a hassle as your priorities change. What if you could teach your calendar your time preferences and priorities? With vector based search, now you can do just that. 
+All of this is possible with vector based search to create a memory for your calendar and Autopilot.
 
 ### Coming Soon!
 
