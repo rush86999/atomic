@@ -11,6 +11,8 @@
 
 </p>
 
+Now available on the web: app.atomiclife.app
+
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
