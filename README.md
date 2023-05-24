@@ -13,6 +13,8 @@
 
 Now available on the web: [app.atomiclife.app](https://app.atomiclife.app)
 
+If you like where this repo is heading, please support me with a star on the top right corner
+
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
