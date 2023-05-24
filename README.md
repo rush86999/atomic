@@ -33,9 +33,9 @@
 - ⚠️ `console.log.*$` regex was introduced to remove console logs. Code needs to be edited for side effects. Your IDE should be able to catch most of these or you can wait for an update
 
 ## Problem
-Scheduling and managing time is always a problem. Getting everyone on to meet and finding time that works for everybody. What if you can tell your calendar your time preferences and priorities for things you have to do everyday. Now everyone on your team could do the same thing. Now finding a time becomes easier when everyone's priorities are accounted for. 
+Scheduling and managing time is always a problem. Finding time that works for everybody is a bigger problem. What if you can tell your calendar your time preferences and priorities for things you have to do everyday. Now what if everyone on your team could do the same thing. Now finding a time becomes easier when everyone's priorities are accounted for. 
 
-Now take this even a step further with time blocks that can be placed somewhere else based on your priorities. The same goes for your team. Let all of this happen automagically for you and your team on a daily basis before work starts.
+Take this even a step further with time blocks that can be placed somewhere else based on your priorities. The same goes for your team. Let all of this happen automagically for you and your team on a daily basis before work starts.
 
 All of this is possible with vector based search to create a memory for your calendar and Autopilot.
 
