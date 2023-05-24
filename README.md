@@ -136,16 +136,12 @@ You can see a demo video at https://www.atomiclife.app
 
 ## Support the Project
 - I'm spending 100% of my work time on this project
-- Launching on product hunt soon: [Atomic on Product Hunt](https://www.producthunt.com/products/atomic-3)
-- I'm planning a kickstarter project to open source more features on the road map. Subscribe to my [newsletter](https://atomiclifeapp.substack.com/?r=223v8l&utm_campaign=pub&utm_medium=web) where I will notify you when it kicks off
-  - Get exclusive early access to new features for supporting the project
 - Star this repository, so I can start an Open Collective to support this project
 - In process of setting up Github Sponsors
-- Follow my public roadmap at https://changemap.co/atomic-life/atomic/. Note: kickstarter campaign will determine feature priority. If you will be supporting the campaign make sure to upvote features you want on the public roadmap.
+- Follow my public roadmap at https://changemap.co/atomic-life/atomic/
 - Subscribe to my cloud hosted version so I can keep this project alive (currently in beta and not being charged yet)
 - Follow me on Twitter: https://twitter.com/rish1_2
 - Checkout my other project: https://www.gptoverflow.link/
-- Upcoming launch: https://chatgpt.atomiclife.app
 - Used Atomic? write a review or let me know!
 
 ## Contributing
