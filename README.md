@@ -11,7 +11,7 @@
 
 </p>
 
-Now available on the web: app.atomiclife.app
+Now available on the web: [app.atomiclife.app](https://app.atomiclife.app)
 
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
