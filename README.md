@@ -14,6 +14,7 @@
 Now available on the web: [app.atomiclife.app](https://app.atomiclife.app)
 
 If you like where this repo is heading, please support me with a star on the top right corner
+
 Feedback requested! -> https://github.com/rush86999/atomic/discussions/8
 
 ## Table of Contents
