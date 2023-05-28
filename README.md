@@ -17,6 +17,8 @@ Now available on the web: [app.atomiclife.app](https://app.atomiclife.app)
 
 🚀🚀🚀 Feedback requested! -> https://github.com/rush86999/atomic/discussions/8 🚀🚀🚀
 
+🚀🚀🚀 Want to test drive Atomic's Chat interface when it comes out? Enroll here as a private beta tester: [Enrollment link](https://5deccb99.sibforms.com/serve/MUIEADCjKtu61pApo9fYmKnbq8448yLp7tF1X56HHKe2AucVGXo-blwzhfEkr2PwlD1LKR3mHdSpMZm90ZSZYKSx44dQ0Le71B_t-AllYPTX5HpmYwyQCFg29MQRr_cM9sm9qi7u4V7_OKalR40laUppTnBjW2A4aG7FB3Jna23ZEKtb7bgKDurGbzNuas1GI-bxffBEhsBPd509) 🚀🚀🚀
+
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
