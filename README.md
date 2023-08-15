@@ -154,7 +154,7 @@ You can see a demo video of current features (not coming soon) at https://www.at
 - Star this repository, so I can start an Open Collective to support this project
 - In process of setting up Github Sponsors
 - Follow my public roadmap at https://changemap.co/atomic-life/atomic/
-- Subscribe to my cloud hosted version so I can keep this project alive (currently in beta and not being charged yet)
+- Subscribe to my cloud hosted version so I can keep this project alive
 - Follow me on Twitter: https://twitter.com/rish1_2
 - Checkout my other project: https://www.gptoverflow.link/
 - Used Atomic? write a review or let me know!
