@@ -15,9 +15,9 @@ Now available on the web: [app.atomiclife.app](https://app.atomiclife.app)
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
 
-Once ChatGPT is integrated and tested, priority will be for a docker compose self hosted file 😀
+Once ChatGPT is integrated and tested, priority will be for a docker-compose self-hosted file 😀
 
-Status update: Coding is finished! testing ChatGPT integration with Calendar.
+Status update: Working on docker-compose self-hosted file.
 
 🚀🚀🚀 Feedback requested! -> https://github.com/rush86999/atomic/discussions/8 🚀🚀🚀
 
