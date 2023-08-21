@@ -2,7 +2,7 @@
     <img width="200" src="assets/icon.png" alt="Atomic logo" />
 </p>
 
-<h1 align="center">Atomic - An open source AutoGPT for your calendar to solve your time problems</h1>
+<h1 align="center">Atomic - An open-source AI scheduler to solve your time problems</h1>
 
 <h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
 
