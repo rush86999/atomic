@@ -64,7 +64,7 @@ docker-compose up -d
 ### 9. Apply Hasura Metadata
 - ```hasura metadata apply --endpoint "http://localhost:8080" --admin-secret "hello123"```
 - Make sure to have hasura cli installed
-- Make to cd into ```project``` directory 
+- Make sure to cd into ```project``` directory 
 
 
 
