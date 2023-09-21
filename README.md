@@ -2,29 +2,29 @@
 
 <h2 align="center">An alternative to Motion, Clockwise & Reclaim powered by ChatGPT</h2>
 
-<p align="center">
+<div align="center">
     <video src='assets/video/multipleTasks.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
     <video src='assets/video/timePreferences.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
     <video src='assets/video/meetingInvite.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
     <video src='assets/video/meetingTime.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
-</p>
+</div>
 
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
