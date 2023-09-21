@@ -43,7 +43,7 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 ### 5. Opensearch setup
 
 1. Change OPENSEARCH_USERNAME and OPENSEARCH_PASSWORD
-2. Generate hash using gen_hash.py
+2. Generate hash using [gen_hash.py](./project/opensearch/gen_hash.py)
 3. Store values in internal_users.yml
 4. Check role_mapping.yml for username provided
 5. Check roles.yml for consistency
