@@ -2,7 +2,7 @@
 
 ## Tech Stack
 - Traefik
-- Optaplanner [kotlin language]
+- [Optaplanner](https://github.com/rush86999/atomic-scheduler/tree/main/kotlin-quarkus)
 - Classification model
 - Node.js
 - Typescript
