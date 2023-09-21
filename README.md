@@ -2,15 +2,13 @@
 
 <h2 align="center">An alternative to Motion, Clockwise & Reclaim powered by ChatGPT</h2>
 
+https://github.com/rush86999/atomic/assets/16848240/da8c0826-573e-44a4-849b-083d61dc4c60
 
-<video width=180 src='assets/video/multipleTasks.mp4' autoplay loop muted></video>
+https://github.com/rush86999/atomic/assets/16848240/b2dc08e8-8e9f-41b5-b249-dadb13b914c6
 
-<video width=180 src='assets/video/timePreferences.mp4' autoplay loop muted></video>
+https://github.com/rush86999/atomic/assets/16848240/9390a703-31fa-4622-b6be-818bf462b3f8
 
-<video width=180 src='assets/video/meetingInvite.mp4' autoplay loop muted></video>
-
-<video width=180 src='assets/video/meetingTime.mp4' autoplay loop muted></video>
-
+https://github.com/rush86999/atomic/assets/16848240/5720e9a3-e4d6-4dce-8e3c-5d614a39e305
 
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
