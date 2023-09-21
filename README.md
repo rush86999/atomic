@@ -2,6 +2,8 @@
 
 <h2 align="center">An alternative to Motion, Clockwise & Reclaim powered by ChatGPT</h2>
 
+⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
+
 https://github.com/rush86999/atomic/assets/16848240/da8c0826-573e-44a4-849b-083d61dc4c60
 
 https://github.com/rush86999/atomic/assets/16848240/b2dc08e8-8e9f-41b5-b249-dadb13b914c6
@@ -10,15 +12,12 @@ https://github.com/rush86999/atomic/assets/16848240/9390a703-31fa-4622-b6be-818b
 
 https://github.com/rush86999/atomic/assets/16848240/5720e9a3-e4d6-4dce-8e3c-5d614a39e305
 
-
-⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
 ⭐⭐⭐ Self hosted now available :) ⭐⭐⭐
 
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
 - [Problem](#problem)
-  - [Coming Soon!](#coming-soon)
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
@@ -41,8 +40,6 @@ Scheduling and managing time is always a problem. Finding time that works for ev
 Take this even a step further with time blocks that can be placed somewhere else based on your priorities. The same goes for your team. Let all of this happen automagically for you and your team on a daily basis before work starts.
 
 All of this is possible with vector based search to create a memory for your calendar and Autopilot.
-
-### Coming Soon!
 
 What if your calendar had a brain?
 
@@ -69,11 +66,6 @@ For simple 1:1 meetings, you won't need calendly links anymore. Your recipient r
 ## Documentation
 
 - You can find documentation on how to use Atomic at https://docs.atomiclife.app
-- Installation for this repo is based on following the README.md files for each directory to completely install Atomic on your own servers
-- The installation process will take some time. Consider reserving a few hours for any trouble shooting
-- [Hasura](https://hasura.io/) connected to a Postgresql database is required to store data
-- [Amplify](https://docs.amplify.aws/) is used for authentication, parts of storage, database
-- [Serverless Framework](https://www.serverless.com/framework/docs) is used for part of a serverless backend
 
 ## Demo
 
