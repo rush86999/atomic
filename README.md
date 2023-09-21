@@ -18,7 +18,6 @@ https://github.com/rush86999/atomic/assets/16848240/5720e9a3-e4d6-4dce-8e3c-5d61
 
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
-- [Disclaimer](#disclaimer)
 - [Problem](#problem)
 - [Documentation](#documentation)
 - [Demo](#demo)
@@ -32,9 +31,6 @@ https://github.com/rush86999/atomic/assets/16848240/5720e9a3-e4d6-4dce-8e3c-5d61
 - [Support the Project](#support-the-project)
 - [Contributing](#contributing)
 
-
-## Disclaimer
-- ⚠️ Project is under active development
 
 ## Problem
 Scheduling and managing time is always a problem. Finding time that works for everybody is a bigger problem. What if you can tell your calendar your time preferences and priorities for things you have to do everyday. Now what if everyone on your team could do the same thing. Now finding a time becomes easier when everyone's priorities are accounted for. 
