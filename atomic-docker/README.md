@@ -36,63 +36,13 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 
 ### 4. Generate Certs for OpenSearch
 
-To generate certificates for OpenSearch using OpenSSL on macOS, you can follow these steps:
-
-- Install OpenSSL using Homebrew²³:
-
-```sh
-brew install openssl
-```
-
-- Create a directory to store your certificates and keys:
-
-```sh
-mkdir opensearch-certs
-cd opensearch-certs
-```
-
-- Generate a CA certificate and key:
-
-```sh
-openssl req -x509 -newkey rsa:4096 -keyout ca.key -out ca.crt -days 365 -nodes -subj '/CN=opensearch-ca'
-```
-
-- Generate a CSR (certificate signing request) and key for each node or client that needs a certificate:
-
-```sh
-openssl req -newkey rsa:4096 -keyout node1.key -out node1.csr -nodes -subj '/CN=node1'
-openssl req -newkey rsa:4096 -keyout node2.key -out node2.csr -nodes -subj '/CN=node2'
-openssl req -newkey rsa:4096 -keyout client.key -out client.csr -nodes -subj '/CN=client'
-```
-
-- Generate certificates from the CSRs using the CA certificate and key:
-
-```sh
-openssl x509 -req -in node1.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out node1.crt
-openssl x509 -req -in node2.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out node2.crt
-openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out client.crt
-```
-
-- Verify the certificates:
-
-```sh
-openssl verify -CAfile ca.crt node1.crt node2.crt client.crt
-```
-
-You should see `OK` for each certificate. Now you have your certificates and keys ready to use with OpenSearch. I hope this helps. 😊
-
-
-(1) Generating self-signed certificates - OpenSearch documentation. https://opensearch.org/docs/latest/security/configuration/generate-certificates/.
-(2) Generate certificates - OpenSearch documentation. https://opensearch.org/docs/1.1/security-plugin/configuration/generate-certificates/.
-(3) Generating self-signed certificates - OpenSearch documentation. https://bing.com/search?q=openssl+mac+generate+certificates+opensearch.
-(4) OpenSearch Security Configuration - How to Set Up Certificates - Opster. https://opster.com/guides/opensearch/opensearch-security/opensearch-security-configuration-certificates/.
-(5) Client certificate authentication - OpenSearch documentation. https://opensearch.org/docs/latest/security/authentication-backends/client-auth/.
+See OpenSearch documentation. https://opensearch.org/docs/latest/security/configuration/generate-certificates/.
 
 ### 5. Opensearch setup
 
-1. change OPENSEARCH_USERNAME and OPENSEARCH_PASSWORD
-2. generate hash using gen_hash.py
-3. store values in internal_users.yml
+1. Change OPENSEARCH_USERNAME and OPENSEARCH_PASSWORD
+2. Generate hash using gen_hash.py
+3. Store values in internal_users.yml
 4. Check role_mapping.yml for username provided
 5. Check roles.yml for consistency
 
