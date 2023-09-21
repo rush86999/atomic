@@ -4,9 +4,11 @@
 
 The build steps are to start a docker compose file on a local machine with Cloudflare tunnel. The tunnel will allow you to sync with Google calendar.
 
-### 1. Get Google Client Ids for Google Calendar
+### 1. Get Cloudflared Setup on your local machine
+- Refer to docs to install and run [Cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/install-and-setup/tunnel-guide/) locally
+- You will need a custom domain
 
-
+### 2. Get Google Client Ids for Google Calendar
 
 To get the client ID and client secret for testing Google Calendar API, you need to follow these steps:
 
@@ -15,7 +17,7 @@ To get the client ID and client secret for testing Google Calendar API, you need
 - Enable the Google Calendar API for your project.
 - Click on Credentials in the left sidebar and then click on Create credentials > OAuth client ID.
 - Select Web application as the application type and enter a name for your client ID.
-- Specify the authorized JavaScript origins and redirect URIs for your web application. For testing purposes, you can use http://localhost or http://localhost:<port_number> as the origin and redirect URI.
+- Specify the authorized JavaScript origins and redirect URIs for your web application. For testing purposes, you can use http://localhost or http://localhost:<port_number> as the origin and redirect URI. For this guide, it will the domain you use for Cloudflared.
 - Click on Create and you will see a pop-up window with your client ID and client secret. Copy and save them somewhere safe.
 
 You can also refer to this [guide](^3^) for more details and screenshots.
@@ -26,9 +28,6 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 (4) how we get client ID and client secret of google calendar in Salesforce .... https://www.forcetalks.com/salesforce-topic/how-we-get-client-id-and-client-secret-of-google-calendar-in-salesforce/.
 (5) undefined. https://console.developers.google.com/apis.
 
-### 2. Get Cloudflared Setup on your local machine
-- Refer to docs to install and run [Cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/install-and-setup/tunnel-guide/) locally
-- You will need a custom domain
 
 ### 3. For Supertokens
 - Configure with Hasura. Read the [SuperTokens Guide](https://supertokens.com/docs/thirdpartyemailpassword/hasura-integration/with-jwt#)
