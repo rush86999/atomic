@@ -1,0 +1,3 @@
+table:
+  name: flyway_schema_history
+  schema: public

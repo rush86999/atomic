@@ -1,3 +1,0 @@
-{
-  "extends": ["tslint:latest", "plugin:react-native-a11y/all"]
-}

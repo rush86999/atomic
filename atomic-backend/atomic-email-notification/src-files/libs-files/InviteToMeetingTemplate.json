@@ -1,9 +1,0 @@
-{
-  "Template": {
-    "TemplateName": "AtomicInviteToMeetingTemplate",
-    "SubjectPart": "Greetings, {{name}}!",
-    "HtmlPart": "<h1>Hello {{name}},</h1><p>You have a pending meeting invite from <a href='mailto:{{hostEmail}}'>{{hostName}}</a>.</p><p>Follow the link to get started:</p><p><a href='{{link}}'>Booking Link</a></p><p>Atomic team</p>",
-    "TextPart": "Hello {{name}},\r\nYou have a pending meeting invite from {{hostName}} (hostEmail).\r\nFollow the link to get started:\r\n{{link}}\r\nAtomic team"
-  }
-}
-

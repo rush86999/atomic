@@ -1,30 +1,40 @@
-<p align="center">
-    <img width="200" src="assets/icon.png" alt="Atomic logo" />
-</p>
-
 <h1 align="center">Atomic - An open-source AI scheduler to solve your time problems</h1>
 
-<h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
+<h2 align="center">An alternative to Motion, Clockwise & Reclaim powered by ChatGPT</h2>
 
 <p align="center">
-    <img src="assets/screen-6.png" width="300" /> <img src="assets/screen-7.png" width="300" />
-
+    <video width="300" src='assets/video/multipleTasks.mp4' autoplay loop muted>
+      Your browser does not support the video tag.
+    </video>
 </p>
 
-Now available on the web: [app.atomiclife.app](https://app.atomiclife.app)
+<p align="center">
+    <video width="300" src='assets/video/timePreferences.mp4' autoplay loop muted>
+      Your browser does not support the video tag.
+    </video>
+</p>
+
+<p align="center">
+    <video width="300" src='assets/video/meetingInvite.mp4' autoplay loop muted>
+      Your browser does not support the video tag.
+    </video>
+</p>
+
+<p align="center">
+    <video width="300" src='assets/video/meetingTime.mp4' autoplay loop muted>
+      Your browser does not support the video tag.
+    </video>
+</p>
+
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
-
-Status update: Working on docker-compose self-hosted file 😀
-
-🚀🚀🚀 Feedback requested! -> https://github.com/rush86999/atomic/discussions/8 🚀🚀🚀
-
-🚀🚀🚀 Want to test drive Atomic's Chat interface when it comes out? Enroll here as a private beta tester: [Enrollment link](https://5deccb99.sibforms.com/serve/MUIEADCjKtu61pApo9fYmKnbq8448yLp7tF1X56HHKe2AucVGXo-blwzhfEkr2PwlD1LKR3mHdSpMZm90ZSZYKSx44dQ0Le71B_t-AllYPTX5HpmYwyQCFg29MQRr_cM9sm9qi7u4V7_OKalR40laUppTnBjW2A4aG7FB3Jna23ZEKtb7bgKDurGbzNuas1GI-bxffBEhsBPd509) 🚀🚀🚀
+⭐⭐⭐ Self hosted now available :) ⭐⭐⭐
 
 ## Table of Contents
 - [Table of Contents](#table-of-contents)
 - [Disclaimer](#disclaimer)
 - [Problem](#problem)
+  - [Coming Soon!](#coming-soon)
 - [Documentation](#documentation)
 - [Demo](#demo)
 - [Features](#features)
@@ -144,24 +154,22 @@ You can see a demo video of current features (not coming soon) at https://www.at
 ```
 
 ## Docker
-- Dockerized solution is a work in progress
+- Self hosted docker compose
 - See [atomic-docker](./atomic-docker/README.md) branch for more details
 
 ## Support the Project
 - I'm spending 100% of my work time on this project
 - Star this repository, so I can start an Open Collective to support this project
 - In process of setting up Github Sponsors
-- Follow my public roadmap at https://changemap.co/atomic-life/atomic/
 - Subscribe to my cloud hosted version so I can keep this project alive
 - Follow me on Twitter: https://twitter.com/rish1_2
-- Checkout my other project: https://www.gptoverflow.link/
 - Used Atomic? write a review or let me know!
 
 ## Contributing
 
 1. Fork this repository and clone the fork to your machine
 2. Create a branch (`git checkout -b my-new-feature`)
-3. Implement a new feature or fix a bug and add some tests
+3. Implement a new feature or fix a bug and add some tests or proof of fix
 4. Commit your changes (`git commit -am 'Added a new feature'`)
 5. Push the branch to your fork on GitHub (`git push origin my-new-feature`)
 6. Create new Pull Request from your fork
