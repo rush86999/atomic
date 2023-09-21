@@ -2,7 +2,7 @@
 
 ## Build Steps
 
-The build steps are to start a docker compose file on a local machine with Cloudflare tunnel. The unnel will allow you to sync with Google calendar.
+The build steps are to start a docker compose file on a local machine with Cloudflare tunnel. The tunnel will allow you to sync with Google calendar.
 
 ### 1. Get Google Client Ids for Google Calendar
 
