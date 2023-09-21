@@ -68,6 +68,7 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 - CLASSIFICATION_PASSWORD is SAME AS API_TOKEN and MUST BE SAME
 - CLASSIFICATION_USERNAME is hard coded
 ### 8. Start docker compose
+- make sure to fill in empty env variables
 
 ```
 cp .env.example .env
