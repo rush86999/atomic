@@ -34,7 +34,7 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 - Configure with Hasura
 - HASURA_GRAPHQL_JWT_SECRET='{ "jwk_url": "{apiDomain}/{apiBasePath}/jwt/jwks.json"}'
 
-### 4.Generate Certs for OpenSearch
+### 4. Generate Certs for OpenSearch
 
 To generate certificates for OpenSearch using OpenSSL on macOS, you can follow these steps:
 
