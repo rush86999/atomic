@@ -31,7 +31,7 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 - You will need a custom domain
 
 ### 3. For Supertokens
-- Configure with Hasura
+- Configure with Hasura. Read the [Guide](https://supertokens.com/docs/thirdpartyemailpassword/hasura-integration/with-jwt#)
 - HASURA_GRAPHQL_JWT_SECRET='{ "jwk_url": "{apiDomain}/{apiBasePath}/jwt/jwks.json"}'
 
 ### 4. Generate Certs for OpenSearch
