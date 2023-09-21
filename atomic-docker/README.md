@@ -99,20 +99,20 @@ You should see `OK` for each certificate. Now you have your certificates and key
 ### 6. Optaplanner sync
 - OPTAPLANNER_USERNAME & OPTAPLANNER_PASSWORD -> sync with add data to table sql command for admin_user table:
   - ```INSERT INTO admin_user (id, username, password, role) VALUES (1, 'admin', 'password', 'admin');```
-    - Change values 2nd and 3rd position part of the ```VALUES``` statemen
+    - Change values 2nd and 3rd position part of the ```VALUES``` t
 
 ### 7. Classification sync
 - CLASSIFICATION_PASSWORD is SAME AS API_TOKEN and MUST BE SAME
 - CLASSIFICATION_USERNAME is hard coded
-
-### 8. Apply Hasura Metadata
-- ```hasura metadata apply --endpoint "http://localhost:8080" --admin-secret "hello123"```
-
-### 9. Start docker compose
+### 8. Start docker compose
 
 ```
 cp .env.example .env
 docker-compose up -d
 ```
+
+### 9. Apply Hasura Metadata
+- ```hasura metadata apply --endpoint "http://localhost:8080" --admin-secret "hello123"```
+
 
 
