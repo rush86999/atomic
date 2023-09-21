@@ -36,7 +36,7 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 
 ### 4. Generate Certs for OpenSearch
 
-See OpenSearch documentation. https://opensearch.org/docs/latest/security/configuration/generate-certificates/.
+- See OpenSearch documentation. https://opensearch.org/docs/latest/security/configuration/generate-certificates/.
 
 ### 5. Opensearch setup
 
@@ -63,6 +63,8 @@ docker-compose up -d
 
 ### 9. Apply Hasura Metadata
 - ```hasura metadata apply --endpoint "http://localhost:8080" --admin-secret "hello123"```
+- Make sure to have hasura cli installed
+- Make to cd into ```project``` directory 
 
 
 
