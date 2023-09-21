@@ -50,7 +50,6 @@
 
 ## Disclaimer
 - ⚠️ Project is under active development
-- ⚠️ `console.log.*$` regex was introduced to remove console logs. Code needs to be edited for side effects. Your IDE should be able to catch most of these or you can wait for an update
 
 ## Problem
 Scheduling and managing time is always a problem. Finding time that works for everybody is a bigger problem. What if you can tell your calendar your time preferences and priorities for things you have to do everyday. Now what if everyone on your team could do the same thing. Now finding a time becomes easier when everyone's priorities are accounted for. 
