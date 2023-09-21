@@ -19,6 +19,9 @@ To get the client ID and client secret for testing Google Calendar API, you need
 - Select Web application as the application type and enter a name for your client ID.
 - Specify the authorized JavaScript origins and redirect URIs for your web application. For testing purposes, you can use http://localhost or http://localhost:<port_number> as the origin and redirect URI. For this guide, it will be the domain you use for Cloudflared.
 - Click on Create and you will see a pop-up window with your client ID and client secret. Copy and save them somewhere safe.
+- You will be generating 2 sets of client Ids. 1 for handshake and 1 for the web. 
+  - Handshake redirect env variable: GOOGLE_REDIRECT_URL: https://${HOST_NAME}/v1/oauth/api/google-calendar-handshake/oauth2callback
+  - Web redirect env variable: NEXT_PUBLIC_GOOGLE_OAUTH_ATOMIC_WEB_REDIRECT_URL: https://${HOST_NAME}/api/google/oauth-callback
 
 You can also refer to this [guide](^3^) for more details and screenshots.
 
