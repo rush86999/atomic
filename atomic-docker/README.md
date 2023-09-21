@@ -17,7 +17,7 @@ To get the client ID and client secret for testing Google Calendar API, you need
 - Enable the Google Calendar API for your project.
 - Click on Credentials in the left sidebar and then click on Create credentials > OAuth client ID.
 - Select Web application as the application type and enter a name for your client ID.
-- Specify the authorized JavaScript origins and redirect URIs for your web application. For testing purposes, you can use http://localhost or http://localhost:<port_number> as the origin and redirect URI. For this guide, it will the domain you use for Cloudflared.
+- Specify the authorized JavaScript origins and redirect URIs for your web application. For testing purposes, you can use http://localhost or http://localhost:<port_number> as the origin and redirect URI. For this guide, it will be the domain you use for Cloudflared.
 - Click on Create and you will see a pop-up window with your client ID and client secret. Copy and save them somewhere safe.
 
 You can also refer to this [guide](^3^) for more details and screenshots.
