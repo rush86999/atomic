@@ -1,7 +1,0 @@
-table:
-  name: Relationship
-  schema: public
-object_relationships:
-- name: Contact
-  using:
-    foreign_key_constraint_on: contactId

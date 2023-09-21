@@ -1,0 +1,3 @@
+table:
+  name: worktime_optaplanner
+  schema: public

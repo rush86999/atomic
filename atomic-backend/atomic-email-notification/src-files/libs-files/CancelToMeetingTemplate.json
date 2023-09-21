@@ -1,9 +1,0 @@
-{
-  "Template": {
-    "TemplateName": "AtomicCancelToMeetingTemplate",
-    "SubjectPart": "Greetings, {{name}}!",
-    "HtmlPart": "<h1>Hello {{name}},</h1><p>Your meeting invite from <a href='mailto:{{hostEmail}}'>{{hostName}}</a> has been cancelled.</p><p>Atomic team</p>",
-    "TextPart": "Hello {{name}},\r\nYour meeting invite from {{hostName}} ({{hostEmail}}) has been cancelled.\r\nAtomic team"
-  }
-}
-

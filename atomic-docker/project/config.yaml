@@ -1,0 +1,3 @@
+version: 3
+endpoint: ${HOST_NAME}
+admin_secret: ${HASURA_GRAPHQL_ADMIN_SECRET}
