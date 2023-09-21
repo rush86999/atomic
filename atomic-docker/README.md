@@ -1,5 +1,15 @@
 # Self hosted docker solution
 
+## Tech Stack
+- Traefik
+- Optaplanner [kotlin language]
+- Classification model
+- Node.js
+- Typescript
+- Opensearch
+- Hasura
+- Postgres
+- Supertokens
 ## Build Steps
 
 The build steps are to start a docker compose file on a local machine with Cloudflare tunnel. The tunnel will allow you to sync with Google calendar.
