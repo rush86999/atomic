@@ -4,7 +4,7 @@
 
 The build steps are to start a docker compose file on a local machine with Cloudflare tunnel. The tunnel will allow you to sync with Google calendar.
 
-### 1. Get Cloudflared Setup on your local machine
+### 1. Get Cloudflared setup on your local machine
 - Refer to docs to install and run [Cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/install-and-setup/tunnel-guide/) locally
 - You will need a custom domain
 
