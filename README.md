@@ -3,25 +3,25 @@
 <h2 align="center">An alternative to Motion, Clockwise & Reclaim powered by ChatGPT</h2>
 
 <p align="center">
-    <video width="300" src='assets/video/multipleTasks.mp4' autoplay loop muted>
+    <video src='assets/video/multipleTasks.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
 </p>
 
 <p align="center">
-    <video width="300" src='assets/video/timePreferences.mp4' autoplay loop muted>
+    <video src='assets/video/timePreferences.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
 </p>
 
 <p align="center">
-    <video width="300" src='assets/video/meetingInvite.mp4' autoplay loop muted>
+    <video src='assets/video/meetingInvite.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
 </p>
 
 <p align="center">
-    <video width="300" src='assets/video/meetingTime.mp4' autoplay loop muted>
+    <video src='assets/video/meetingTime.mp4' autoplay loop muted>
       Your browser does not support the video tag.
     </video>
 </p>
