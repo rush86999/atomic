@@ -64,7 +64,8 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 ### 6. Optaplanner sync
 - OPTAPLANNER_USERNAME & OPTAPLANNER_PASSWORD -> sync with add data to table sql command for admin_user table:
   - ```INSERT INTO admin_user (id, username, password, role) VALUES (1, 'admin', 'password', 'admin');```
-    - Change values 2nd and 3rd position part of the ```VALUES``` t
+    - Change values 2nd and 3rd position part of the ```VALUES``` 
+    - located in ```atomic-docker/project/initdb.d/optaplanner-create-schema.sql```
 
 ### 7. Classification sync
 - CLASSIFICATION_PASSWORD is SAME AS API_TOKEN and MUST BE SAME
