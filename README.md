@@ -1,6 +1,6 @@
 <h1 align="center">Atomic - An open-source AI scheduler to solve your time problems</h1>
 
-<h2 align="center">An alternative to Motion, Clockwise & Reclaim powered by ChatGPT</h2>
+<h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
 
