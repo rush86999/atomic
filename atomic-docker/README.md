@@ -52,14 +52,15 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 ### 4. Generate Certs for OpenSearch
 
 - See OpenSearch documentation. https://opensearch.org/docs/latest/security/configuration/generate-certificates/.
+- Mount volume with certs accordingly to generated files
 
 ### 5. Opensearch setup
 
 1. Change OPENSEARCH_USERNAME and OPENSEARCH_PASSWORD
 2. Generate hash using [gen_hash.py](./project/opensearch/gen_hash.py)
-3. Store values in internal_users.yml
-4. Check role_mapping.yml for username provided
-5. Check roles.yml for consistency
+3. Store values in [internal_users.yml](./project/opensearch/config/internal_users.yml)
+4. Check [role_mapping.yml](./project/opensearch/config/roles_mapping.yml) for username provided
+5. Check [roles.yml](./project/opensearch/config/roles.yml) for consistency
 
 ### 6. Optaplanner sync
 - OPTAPLANNER_USERNAME & OPTAPLANNER_PASSWORD -> sync with add data to table sql command for admin_user table:
