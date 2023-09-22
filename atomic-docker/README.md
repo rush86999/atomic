@@ -10,6 +10,7 @@
 - Hasura
 - Postgres
 - Supertokens
+- Kafka
   
 ## Build Steps
 
