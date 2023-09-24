@@ -73,6 +73,10 @@ You can also refer to this [guide](^3^) for more details and screenshots.
 - CLASSIFICATION_USERNAME is hard coded
 ### 8. Start docker compose
 - make sure to fill in empty env variables
+- make sure the necessary data folders are created for storage such as 
+  - ```./postgres/data```
+  - ```./data```
+  - ```./letsencrypt```
 
 ```
 cp .env.example .env
