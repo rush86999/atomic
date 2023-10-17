@@ -1,4 +1,4 @@
-<h1 align="center">Atomic - An open-source AI scheduler to solve your time problems</h1>
+<h1 align="center">Atomic - An open-source priority-driven AI scheduler to solve your time problems</h1>
 
 <h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
 
@@ -33,17 +33,15 @@ https://github.com/rush86999/atomic/assets/16848240/5720e9a3-e4d6-4dce-8e3c-5d61
 
 
 ## Problem
-Scheduling and managing time is always a problem. Finding time that works for everybody is a bigger problem. What if you can tell your calendar your time preferences and priorities for things you have to do everyday. Now what if everyone on your team could do the same thing. Now finding a time becomes easier when everyone's priorities are accounted for. 
+Scheduling and managing time is always a problem. Finding a time that works for everybody is a bigger problem. What if you can tell your calendar your time preferences and priorities for things you have to do every day? Now what if everyone on your team could do the same thing? Now finding a time becomes easier when everyone's priorities are accounted for. 
 
-Take this even a step further with time blocks that can be placed somewhere else based on your priorities. The same goes for your team. Let all of this happen automagically for you and your team on a daily basis before work starts.
+Let all of this happen automatically for you and your team on a daily basis before work starts.
 
-All of this is possible with vector based search to create a memory for your calendar and Autopilot.
-
-What if your calendar had a brain?
+All of this is possible with vector-based search to create a memory for your calendar and Autopilot.
 
 Memory + Decisions + Natural Conversation Interface => Perfect Time Management Assistant
 
-It will be easier than ever to teach, find, block, create, meet, schedule, update and more with your calendar using ChatGPT. The goal is to allow a natural conversation with your calendar assistant for your end goals.
+It will be easier than ever to teach, find, block, create, meet, schedule, update, and more with your calendar using ChatGPT. The goal is to allow a natural conversation with your calendar assistant for your end goals.
 
 Examples:
 
@@ -52,7 +50,7 @@ Examples:
 3. "Block off [time frame] for [task or activity]."
 4. "Find an available time slot for a team meeting with [list of attendees]."
 5. "Let's respond to emails either on 8 - 11 am or 2 - 4 pm on weekdays with a priority of 3"
-6. "Let's have [X] meetings on either Mondays or Wednesdays, anytime between 8 - 11 am and keep it a priority of 5"
+6. "Let's have [X] meetings on either Mondays or Wednesdays, anytime between 8 - 11 am, and keep it a priority of 5"
 7. "When is my next appointment?"
 8. "What time is my meeting with [person] on [date]?"
 9. "Are there any overlapping events on my calendar?"
