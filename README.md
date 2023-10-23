@@ -1,10 +1,10 @@
 <h1 align="center">Atomic - An open-source priority-driven AI scheduler to solve your time problems</h1>
 
-<h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
+<h2 align="center">An alternative to Motion, Clockwise, Cal.ai & Reclaim</h2>
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
 
-⭐⭐⭐ Self hosted now available :) ⭐⭐⭐
+⭐⭐⭐ Self-hosted now available :) ⭐⭐⭐
 
 
 https://github.com/rush86999/atomic/assets/16848240/da8c0826-573e-44a4-849b-083d61dc4c60
