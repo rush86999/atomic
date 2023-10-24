@@ -1,6 +1,6 @@
 <h1 align="center">Atomic - An open-source AI scheduler to solve your time problems</h1>
 
-<h2 align="center">An alternative to Motion, Clockwise & Reclaim</h2>
+<h2 align="center">An alternative to Motion, Clockwise, Cal.ai & Reclaim</h2>
 
 ⭐⭐⭐ If you like where this repo is heading, please support me with a star on the top right corner ⭐⭐⭐
 
@@ -20,7 +20,6 @@ https://github.com/rush86999/atomic/assets/16848240/5720e9a3-e4d6-4dce-8e3c-5d61
 - [Table of Contents](#table-of-contents)
 - [Problem](#problem)
 - [Documentation](#documentation)
-- [Demo](#demo)
 - [Features](#features)
     - [Benefits of Self Hosted](#benefits-of-self-hosted)
   - [Cloud Hosted Atomic](#cloud-hosted-atomic)
@@ -64,10 +63,6 @@ For simple 1:1 meetings, you won't need calendly links anymore. Your recipient r
 ## Documentation
 
 - You can find documentation on how to use Atomic at https://docs.atomiclife.app
-
-## Demo
-
-You can see a demo video of current features at https://www.atomiclife.app
 
 ## Features
 
