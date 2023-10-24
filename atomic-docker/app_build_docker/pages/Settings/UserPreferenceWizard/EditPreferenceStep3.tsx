@@ -117,7 +117,7 @@ function EditPreferenceStep3(props: Props) {
       <ScrollView style={{ width: '100%' }} contentContainerStyle={{ width: '100%', justifyContent: 'center', alignItems: 'center' }}>
         <Box flex={1} style={{ width: '90%' }} p={{ phone: 's', tablet: 'm' }}>
           <Box flexDirection="row" justifyContent="flex-start" alignItems="center">   
-            <Text variant="optionHeader">Copy over transparency of event to any new events whose details are similar?</Text>
+            <Text variant="optionHeader">Once you set time preferences or priority of an event, copy over transparency of event to any new events whose details are similar?</Text>
           </Box>
           <Box flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
             <Switch1
@@ -131,7 +131,7 @@ function EditPreferenceStep3(props: Props) {
         </Box>
         <Box flex={1} style={{ width: '90%' }} p={{ phone: 's', tablet: 'm' }}>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-start" alignItems="center">  
-            <Text variant="optionHeader">Copy over buffer times to any new events whose details are similar?</Text>
+            <Text variant="optionHeader">Once you set time preferences or priority of an event, copy over buffer times to any new events whose details are similar?</Text>
           </Box>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
               <Switch1
@@ -159,7 +159,7 @@ function EditPreferenceStep3(props: Props) {
         </Box>
         <Box flex={1} style={{ width: '90%' }} p={{ phone: 's', tablet: 'm' }}>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-start" alignItems="center">
-            <Text variant="optionHeader">Copy over reminders to any new events whose details are similar?</Text>
+            <Text variant="optionHeader">Once you set time preferences and priority of an event, copy over reminders to any new events whose details are similar?</Text>
           </Box>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
               <Switch1
@@ -173,7 +173,7 @@ function EditPreferenceStep3(props: Props) {
         </Box>
         <Box flex={1} style={{ width: '90%' }} p={{ phone: 's', tablet: 'm' }}>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-start" alignItems="center">
-            <Text variant="optionHeader">Copy over priority level to any new events whose details are similar for scheduling assists?</Text>
+            <Text variant="optionHeader">In general, once trained, copy over priority level to any new events whose details are similar for scheduling assists?</Text>
           </Box>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
               <Switch1
@@ -187,7 +187,7 @@ function EditPreferenceStep3(props: Props) {
         </Box>
         <Box flex={1} style={{ width: '90%' }} p={{ phone: 's', tablet: 'm' }}>  
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-start" alignItems="center">
-            <Text variant="optionHeader">Copy over time modifiable / time not modifiable value to any new events whose details are similar for scheduling assists? </Text>
+            <Text variant="optionHeader">In general, once trained, copy over time modifiable / time not modifiable value to any new events whose details are similar for scheduling assists? </Text>
           </Box>
           <Box style={{ width: '100%' }} flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
             <Switch1
