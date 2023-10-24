@@ -120,7 +120,7 @@ function EditCategoryStep1(props: Props) {
                 <Box style={{ width: '90%' }} pt={{ phone: 'm', tablet: 's' }}>  
                     <Box flexDirection="row" justifyContent="flex-start" alignItems="center">
                         <Tooltip hasArrow label='Event availability shown in your calendar will be copied over to any new events whose details are similar to this one. Helpful for task events that are synced or created inside Atomic.' bg='purple.700' color='white'>
-                            <Text variant="buttonLink" pt={{ phone: 'm', tablet: 's' }}>Copy over transparency of event to any new events whose details have similar context? (Hint)</Text>
+                            <Text variant="buttonLink" pt={{ phone: 'm', tablet: 's' }}>Once you set time preferences or priority of an event, copy over transparency of event to any new events whose details are similar? (Hint)</Text>
                         </Tooltip>
 
                     </Box>
@@ -137,7 +137,7 @@ function EditCategoryStep1(props: Props) {
                 <Box style={{ width: '90%' }} pt={{ phone: 'm', tablet: 's' }}>
                     <Box flexDirection="row" justifyContent="flex-start" alignItems="center">
                         <Tooltip hasArrow label='Blocked time for before and after the event will be copied over to new events whose details are similar to this one.' bg='purple.700' color='white'>
-                            <Text variant="optionHeader" pt={{ phone: 'm', tablet: 's' }}>Copy over buffer times to any new events whose details have similar context? (Hint)</Text>
+                            <Text variant="optionHeader" pt={{ phone: 'm', tablet: 's' }}>Once you set time preferences or priority of an event, copy over buffer times to any new events whose details have similar context? (Hint)</Text>
                         </Tooltip>   
                     </Box>
                     <Box flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>

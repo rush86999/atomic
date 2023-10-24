@@ -153,7 +153,7 @@ function EditPreferenceStep6(props: Props) {
               </Box>
               <Box style={{ width: '90%' }} pt={{ phone: 'm', tablet: 's' }}>
                   <Box  flexDirection="row" justifyContent="flex-start" alignItems="center"> 
-                      <Text variant="optionHeader">Classify any new events whose details are similar as a &apos;meeting type&apos; event for scheduling assists? </Text>
+                      <Text variant="optionHeader">In general, once trained, classify any new events whose details are similar to a &apos;meeting type&apos; event as a &apos;meeting type&apos; for scheduling assists? </Text>
                   </Box>
                   <Box  flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
                       <Switch1
@@ -167,7 +167,7 @@ function EditPreferenceStep6(props: Props) {
               </Box>
               <Box style={{ width: '90%' }} pt={{ phone: 'm', tablet: 's' }}>
                   <Box  flexDirection="row" justifyContent="flex-start" alignItems="center">  
-                      <Text variant="optionHeader">Classify any new events whose details are similar as an &apos;external meeting type&apos; event (meeting with a contact outside the organization) for scheduling assists? </Text>
+                      <Text variant="optionHeader">In general, once trained, classify any new events whose details are similar to an &apos;external meeting type&apos; event (meeting with a contact outside the organization) as an &apos;external meeting type&apos; for scheduling assists? </Text>
                   </Box>
                   <Box  flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}>
                       <Switch1
