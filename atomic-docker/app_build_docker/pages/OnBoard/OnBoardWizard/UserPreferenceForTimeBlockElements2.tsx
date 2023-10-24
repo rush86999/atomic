@@ -108,7 +108,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
             <Box justifyContent="center" alignItems="flex-start" minHeight="70vh">
                 <Box flex={1} style={{ width: '90%' }} p={{ phone: 's', tablet: 'm' }}>
                     <Box flexDirection="row" justifyContent="flex-start" alignItems="center"  style={{ width: '100%' }}>  
-                        <Text variant="optionHeader">Once you set time preferences and priority of an event, copy over tags to any new events whose details are similar? </Text>
+                        <Text variant="optionHeader">Once you set time preferences or priority of an event, copy over tags to any new events whose details are similar? </Text>
                     </Box>
                     <Box flexDirection="row" justifyContent="flex-end" pt={{ phone: 'm', tablet: 's' }}  style={{ width: '100%' }}>
                         <Switch1

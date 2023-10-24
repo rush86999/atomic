@@ -983,6 +983,9 @@ function UserOnBoard(props: Props) {
                             <Text variant="optionHeader" p={{ phone: 'm', tablet: 'l' }}>
                                 You are few steps away from using artificial intelligence to make your life more productive.
                             </Text>
+                            <Text variant="optionHeader" p={{ phone: 'm', tablet: 'l' }}>
+                                {"Let&apos;s have [X] meetings on either Mondays or Wednesdays, anytime between 8 - 11 am and keep it a priority of 5"}
+                            </Text>
                         </Box>
                         <Box style={{ width: '100%' }} p={{ phone: 'l', tablet: 'xl' }} flexDirection="row" justifyContent="space-between" alignItems="center">
                             <Box />
