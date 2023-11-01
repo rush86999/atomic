@@ -127,7 +127,6 @@ For simple 1:1 meetings, you won't need calendly links anymore. Your recipient r
 - I'm spending 100% of my work time on this project
 - Star this repository, so I can start an Open Collective to support this project
 - In process of setting up Github Sponsors
-- Subscribe to my cloud hosted version so I can keep this project alive
 - Follow me on Twitter: https://twitter.com/rish1_2
 - Used Atomic? write a review or let me know!
 
