@@ -6,6 +6,8 @@
 
 ⭐⭐⭐ Self-hosted now available :) ⭐⭐⭐
 
+For a good user experience use [Groq](https://wow.groq.com/)
+
 
 https://github.com/rush86999/atomic/assets/16848240/da8c0826-573e-44a4-849b-083d61dc4c60
 
