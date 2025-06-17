@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "imports": {
+    "@google_calendar_sync/_libs/*": "./*.js"
+  }
+}
