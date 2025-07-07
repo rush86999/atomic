@@ -194,13 +194,40 @@ def stt_stream(ws): # ws is the WebSocket connection object
             vad_events=True
         )
 
-        if not dg_connection.start(options):
-            app.logger.error("Failed to start Deepgram connection.")
-            ws.send(json.dumps({"error": "Failed to start Deepgram connection."}))
-            ws.close()
-            return
+        from tenacity import retry as tenacity_retry, stop_after_attempt, wait_exponential, retry_if_exception_type as tenacity_retry_if_exception_type
+        # Renamed to avoid conflict with Flask's request.retry if that were a thing, and for clarity.
 
-        app.logger.info("Deepgram connection started with options.")
+        @tenacity_retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=1, max=5),
+            retry=tenacity_retry_if_exception_type(Exception), # Retry on generic exception for connection start
+            before_sleep=lambda retry_state: app.logger.warning(f"Retrying Deepgram live connection start (attempt {retry_state.attempt_number}) due to: {retry_state.outcome.exception()}")
+        )
+        async def _start_dg_connection_with_retry():
+            # dg_connection.start() is synchronous in deepgram-sdk v3, but we are in an async route.
+            # The `start` method itself doesn't return a Future, it configures and starts.
+            # The true async part is handled by the event loop and callbacks.
+            # However, if `start` itself can fail (e.g. network issue during initial handshake if any, or config error),
+            # tenacity can retry it.
+            # For deepgram-sdk v3.x, `dg_connection.start()` is synchronous.
+            # If there's a version mismatch or misunderstanding and it were truly async, this would need `await`.
+            # Based on `note_utils` usage, `dg_connection.start()` is synchronous.
+
+            # Correction: Deepgram SDK v3 `LiveClient.start` is indeed synchronous.
+            # The `async` nature is in how it interacts with an event loop for sending/receiving.
+            # So, the `async def` for `_start_dg_connection_with_retry` is not strictly necessary
+            # for `dg_connection.start()` itself, but `tenacity` handles it fine.
+            # The surrounding `stt_stream` is `async` due to `ws.receive()`.
+
+            if not dg_connection.start(options): # Returns bool success
+                app.logger.error("dg_connection.start() returned False, indicating connection failure.")
+                raise RuntimeError("Failed to start Deepgram live connection (start returned False).")
+            app.logger.info("Deepgram live connection successfully initiated by start().")
+
+        await _start_dg_connection_with_retry() # Call the retry-wrapped connection starter
+        # If this fails after retries, the exception will propagate and be caught by the outer try/except block.
+
+        app.logger.info("Deepgram connection started with options after retry wrapper.")
 
         while True:
             try:
@@ -275,7 +302,42 @@ def handle_stt():
                 options = PrerecordedOptions(model="nova-2", smart_format=True)
 
                 app.logger.info(f"Sending audio file to Deepgram: {temp_audio_path}")
-                response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options, timeout=300)
+
+                # Define the core transcription logic that can be retried
+                from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+                import requests # For requests.exceptions if needed by Deepgram's underlying mechanism or for custom retry conditions
+
+                # Define what exceptions Deepgram SDK might throw that are retryable for pre-recorded
+                # This is a guess; actual exceptions might differ. DeepgramError or specific HTTP-like errors.
+                # We'll retry on general Exception for now and refine if specific exceptions are known.
+                # Or, more specifically, retry on network-type errors if the SDK throws them.
+                # For now, let's assume a generic Exception is okay to retry for transient issues,
+                # or use a custom retry condition if Deepgram SDK has specific error types/codes.
+                # For consistency with note_utils, we can define a similar is_retryable_deepgram_error
+
+                # Assuming Deepgram SDK might raise exceptions that wrap requests.exceptions or similar for network issues
+                # or have its own retryable error types.
+                # For simplicity here, retrying on general Exception or common network errors.
+                @retry(
+                    stop=stop_after_attempt(3),
+                    wait=wait_exponential(multiplier=1, min=2, max=10),
+                    retry=retry_if_exception_type((requests.exceptions.ConnectionError, requests.exceptions.Timeout, Exception)), # Broad: includes general Exception
+                    before_sleep=lambda retry_state: app.logger.info(f"Retrying Deepgram STT call (attempt {retry_state.attempt_number}) for {temp_audio_path} due to: {retry_state.outcome.exception()}")
+                )
+                def _transcribe_with_retry():
+                    # Ensure deepgram client is accessible in this scope if it wasn't global or passed
+                    # It is global here (or rather, module-level 'deepgram')
+                    response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options, timeout=300) # timeout for each attempt
+                    # Basic check for success within the response structure, if applicable, before parsing
+                    if not response.results or not response.results.channels or not response.results.channels[0].alternatives:
+                        # This might indicate an issue not caught as an exception but is an error state
+                        # However, Deepgram SDK usually raises exceptions for API errors.
+                        # This is more of a data validation if the API call itself succeeded but returned unexpected structure.
+                        # For now, assume exceptions are the primary failure mode for retries.
+                        app.logger.warning(f"Deepgram STT response structure for {temp_audio_path} seems incomplete, though no exception was raised.")
+                    return response
+
+                response = _transcribe_with_retry() # Call the retry-wrapped function
 
                 transcription = response.results.channels[0].alternatives[0].transcript
                 app.logger.info(f"Transcription successful for: {temp_audio_path}")
@@ -288,16 +350,22 @@ def handle_stt():
             # This case should ideally be caught by earlier checks, but as a fallback:
             return jsonify({"status": "error", "error": "File processing failed."}), 400
 
-    except Exception as e:
-        app.logger.error(f"Error during STT processing: {e}", exc_info=True)
-        # Check if the error is from Deepgram SDK and try to get more details
+    except Exception as e: # This will catch errors after tenacity retries are exhausted or non-retryable errors by tenacity config
+        app.logger.error(f"Error during STT processing (final, after retries if applicable): {e}", exc_info=True)
+        error_details = str(e)
         if hasattr(e, 'body') and e.body: # some Deepgram errors might have a body
              error_details = str(e.body)
-        else:
-             error_details = str(e)
+
+        # Determine a more specific error code if possible
+        error_code = "DEEPGRAM_STT_ERROR"
+        if isinstance(e, requests.exceptions.Timeout): error_code = "DEEPGRAM_STT_TIMEOUT"
+        elif isinstance(e, requests.exceptions.ConnectionError): error_code = "DEEPGRAM_STT_CONNECTION_ERROR"
+        # Add more specific Deepgram error types if known
+
         return jsonify({
             "status": "error",
-            "error": f"An unexpected error occurred during STT: {error_details}"
+            "error": f"An unexpected error occurred during STT: {error_details}",
+            "code": error_code
         }), 500
     finally:
         if temp_audio_path and os.path.exists(temp_audio_path):
@@ -341,41 +409,54 @@ async def handle_tts():
         filename = f"tts_{uuid.uuid4()}.mp3"
         filepath = os.path.join(AUDIO_OUTPUT_DIR, filename)
 
-        app.logger.info(f"Requesting TTS from Deepgram for text: \"{text_to_speak[:50]}...\"")
-        # The Deepgram SDK's speak.rest.v("1").synthesize is an async method.
-        # Ensure Flask is run with an ASGI server (e.g. Uvicorn, Hypercorn) for `async def` routes.
-        response = await deepgram.speak.rest.v("1").synthesize(source, options, timeout=300)
+        from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+        import requests # For requests.exceptions
 
-        if response and response.stream:
-            with open(filepath, 'wb') as audio_file:
-                async for chunk in response.stream:
-                    if chunk:
-                        audio_file.write(chunk)
-            app.logger.info(f"TTS audio successfully saved to: {filepath}")
-            # Construct URL relative to the Flask app's root for serving the file
-            # The client will need to prepend the base API URL if this Flask app is served under a prefix like /api/audio_processor
-            audio_url = f"/generated_audio/{filename}"
-            return jsonify({
-                "audio_url": audio_url,
-                "status": "success"
-            })
-        else:
-            app.logger.error("Deepgram TTS request did not return a valid stream.")
-            return jsonify({
-                "status": "error",
-                "error": "Failed to get audio stream from Deepgram."
-            }), 500
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=2, max=10),
+            retry=retry_if_exception_type((requests.exceptions.ConnectionError, requests.exceptions.Timeout, Exception)), # Broad: includes general Exception
+            before_sleep=lambda retry_state: app.logger.info(f"Retrying Deepgram TTS call (attempt {retry_state.attempt_number}) for text \"{text_to_speak[:50]}...\" due to: {retry_state.outcome.exception()}")
+        )
+        async def _synthesize_with_retry():
+            app.logger.info(f"Requesting TTS from Deepgram (attempt {'N/A' if not hasattr(_synthesize_with_retry, 'retry') else _synthesize_with_retry.retry.statistics['attempt_number']}) for text: \"{text_to_speak[:50]}...\"")
+            # The Deepgram SDK's speak.rest.v("1").synthesize is an async method.
+            response = await deepgram.speak.rest.v("1").synthesize(source, options, timeout=300) # timeout for each attempt
+            if not response or not response.stream: # Check if response or stream is None
+                app.logger.error("Deepgram TTS request did not return a valid stream object or response itself was None.")
+                # Raise an exception to trigger retry or fail if all retries exhausted
+                raise RuntimeError("Deepgram TTS failed to return a valid stream.")
+            return response
 
-    except Exception as e:
-        app.logger.error(f"Error during TTS processing: {e}", exc_info=True)
-        # Check if the error is from Deepgram SDK and try to get more details
-        if hasattr(e, 'body') and e.body: # some Deepgram errors might have a body
+        response = await _synthesize_with_retry()
+
+        # Stream processing remains the same
+        with open(filepath, 'wb') as audio_file:
+            async for chunk in response.stream:
+                if chunk:
+                    audio_file.write(chunk)
+        app.logger.info(f"TTS audio successfully saved to: {filepath}")
+        audio_url = f"/generated_audio/{filename}"
+        return jsonify({
+            "audio_url": audio_url,
+            "status": "success"
+        })
+
+    except Exception as e: # This will catch errors after tenacity retries are exhausted or non-retryable errors
+        app.logger.error(f"Error during TTS processing (final, after retries if applicable): {e}", exc_info=True)
+        error_details = str(e)
+        if hasattr(e, 'body') and e.body:
              error_details = str(e.body)
-        else:
-             error_details = str(e)
+
+        error_code = "DEEPGRAM_TTS_ERROR"
+        if isinstance(e, requests.exceptions.Timeout): error_code = "DEEPGRAM_TTS_TIMEOUT"
+        elif isinstance(e, requests.exceptions.ConnectionError): error_code = "DEEPGRAM_TTS_CONNECTION_ERROR"
+        elif isinstance(e, RuntimeError) and "Deepgram TTS failed to return a valid stream" in error_details: error_code = "DEEPGRAM_TTS_NO_STREAM"
+
         return jsonify({
             "status": "error",
-            "error": f"An unexpected error occurred during TTS: {error_details}"
+            "error": f"An unexpected error occurred during TTS: {error_details}",
+            "code": error_code
         }), 500
 
 

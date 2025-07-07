@@ -137,6 +137,47 @@ def test_summarize_transcript_gpt_no_api_key(sample_transcript_text): # No mock_
         assert result["status"] == "error"
         assert "OpenAI API key not set or invalid" in result["message"]
 
+def test_summarize_transcript_gpt_retry_on_connection_error(mock_env_keys_and_init_notion, sample_transcript_text):
+    mock_post_responses = [
+        MagicMock(side_effect=requests.exceptions.ConnectionError("Connection failed")),
+        MagicMock(side_effect=requests.exceptions.ConnectionError("Connection failed again")),
+        MagicMock(status_code=200, json=lambda: {"choices": [{"message": {"content": json.dumps({"summary": "Success after retries", "decisions": [], "action_items": []})}}]})
+    ]
+
+    with patch('requests.post', side_effect=mock_post_responses) as mock_post, \
+         patch('note_utils.logger') as mock_logger:
+        result = summarize_transcript_gpt(sample_transcript_text, openai_api_key_param="test_openai_key")
+
+        assert mock_post.call_count == 3
+        assert result["status"] == "success"
+        assert result["data"]["summary"] == "Success after retries"
+
+        # Check logger calls for retries
+        # Example: logger.warning(f"[{operation_name}] Retrying OpenAI API call (attempt {retry_state.attempt_number}) ...")
+        assert mock_logger.warning.call_count == 2
+        first_retry_log = mock_logger.warning.call_args_list[0][0][0]
+        second_retry_log = mock_logger.warning.call_args_list[1][0][0]
+        assert "Retrying OpenAI API call (attempt 2)" in first_retry_log
+        assert "Retrying OpenAI API call (attempt 3)" in second_retry_log
+
+
+def test_summarize_transcript_gpt_no_retry_on_400_error(mock_env_keys_and_init_notion, sample_transcript_text):
+    # Simulate a 400 error, which should not be retried by default
+    mock_response = MagicMock()
+    mock_response.status_code = 400
+    mock_response.text = "Bad Request"
+    mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Client Error", response=mock_response)
+
+    with patch('requests.post', return_value=mock_response) as mock_post, \
+         patch('note_utils.logger') as mock_logger:
+        result = summarize_transcript_gpt(sample_transcript_text, openai_api_key_param="test_openai_key")
+
+        assert mock_post.call_count == 1 # Should not retry on 400
+        assert result["status"] == "error"
+        assert "OPENAI_HTTP_ERROR_400" in result["code"]
+        mock_logger.warning.assert_not_called() # No retry warnings
+
+
 # --- Tests for create_notion_note ---
 
 def test_create_notion_note_with_decisions_and_actions(mock_env_keys_and_init_notion):
@@ -186,6 +227,86 @@ def test_create_notion_note_empty_decisions_actions(mock_env_keys_and_init_notio
 
     assert "Decisions Logged" not in properties
     assert "Action Items Logged" not in properties
+
+# It seems note_utils.APIResponseError would be notion_client.APIResponseError
+# For testing, we need to patch where it's looked up or ensure we can create an instance.
+# Let's assume we can import it or mock it appropriately for the test.
+# If note_utils directly imports APIResponseError from notion_client, we can patch that.
+# from notion_client import APIResponseError # If needed, or mock its structure
+
+@patch('note_utils.logger') # Patch the logger in note_utils
+def test_create_notion_note_retry_on_api_error(mock_logger, mock_env_keys_and_init_notion):
+    mock_notion_instance = mock_env_keys_and_init_notion # This is the mocked notion client instance
+
+    # Simulate APIResponseError that should be retried (e.g., service unavailable)
+    # We need to make sure this error is what notion_api_retry_decorator expects
+    # The decorator retries on APIResponseError or requests.exceptions.RequestException
+    # Let's simulate a service_unavailable APIResponseError
+
+    # If APIResponseError is not easily importable/mockable by structure:
+    class MockAPIResponseError(Exception): # Simple mock, adjust if specific attrs needed
+        def __init__(self, code, body):
+            self.code = code
+            self.body = body
+            super().__init__(f"{code}: {body.get('message', '')}")
+
+    retryable_error = MockAPIResponseError(
+        code="service_unavailable",
+        body={"message": "Notion service is temporarily unavailable."}
+    )
+
+    success_response = {"id": "page_after_retry", "url": "http://notion.so/page_after_retry"}
+
+    # Configure pages.create to fail twice then succeed
+    mock_notion_instance.pages.create.side_effect = [
+        retryable_error,
+        retryable_error,
+        success_response
+    ]
+
+    result = create_notion_note(title="Retry Test Note", content="Content for retry test")
+
+    assert mock_notion_instance.pages.create.call_count == 3
+    assert result["status"] == "success"
+    assert result["data"]["page_id"] == "page_after_retry"
+
+    # Check logger calls for retries
+    # Example: logger.info(f"Notion API call: Retrying attempt {retry_state.attempt_number} ...")
+    assert mock_logger.info.call_count >= 2 # At least 2 retry logs
+    retry_log_calls = [call[0][0] for call in mock_logger.info.call_args_list if "Retrying attempt" in call[0][0]]
+    assert len(retry_log_calls) == 2
+    assert "Retrying attempt 2" in retry_log_calls[0]
+    assert "Retrying attempt 3" in retry_log_calls[1]
+
+
+@patch('note_utils.logger') # Patch the logger
+def test_create_notion_note_no_retry_on_non_retryable_api_error(mock_logger, mock_env_keys_and_init_notion):
+    mock_notion_instance = mock_env_keys_and_init_notion
+
+    class MockAPIResponseError(Exception):
+        def __init__(self, code, body):
+            self.code = code
+            self.body = body
+            super().__init__(f"{code}: {body.get('message', '')}")
+
+    # Simulate a non-retryable error (e.g., validation_error)
+    non_retryable_error = MockAPIResponseError(
+        code="validation_error",
+        body={"message": "Invalid request parameters."}
+    )
+
+    mock_notion_instance.pages.create.side_effect = non_retryable_error
+
+    result = create_notion_note(title="No Retry Test", content="Content")
+
+    assert mock_notion_instance.pages.create.call_count == 1
+    assert result["status"] == "error"
+    assert "NOTION_API_VALIDATION_ERROR" in result["code"] # Based on how create_notion_note formats error codes
+
+    # Ensure no retry logs were made
+    for call_args in mock_logger.info.call_args_list:
+        assert "Retrying attempt" not in call_args[0][0]
+
 
 # --- Tests for process_live_audio_for_notion ---
 
@@ -408,11 +529,248 @@ def test_embed_and_store_date_parsing(
 
     # Test with meeting_date_iso = None
     mock_add_embedding.reset_mock()
-    mock_print.reset_mock() # Reset print mock for this specific assertion
+    # mock_print.reset_mock() # mock_print is for the old print statements. Logger is used now.
+    # Instead, we'd check logger if warnings for date parsing were changed to logger.
+    # For now, the test logic for date parsing with print is kept as is, assuming it might be tested differently
+    # or those prints were deemed acceptable. If they were changed to logger, this part of test needs update.
 
-    embed_and_store_transcript_in_lancedb(
-        notion_page_id="p_none_date", transcript_text="text", meeting_title="title", meeting_date_iso=None
+    # Re-check: The prints in embed_and_store_transcript_in_lancedb for date parsing were changed to logger.warning.
+    # So, this test part needs to be updated to check logger.warning.
+    with patch('note_utils.logger') as mock_module_logger: # Patch logger for this specific call
+        embed_and_store_transcript_in_lancedb(
+            notion_page_id="p_none_date", transcript_text="text", meeting_title="title", meeting_date_iso=None
+        )
+        args, kwargs = mock_add_embedding.call_args
+        assert kwargs["meeting_date"] == fixed_now # Should default to datetime.now()
+        mock_module_logger.warning.assert_any_call("meeting_date_iso not provided. Defaulting to now.")
+
+    # Resetting mock_datetime.fromisoformat side_effect if it was globally set for this test function
+    mock_datetime.fromisoformat.side_effect = None
+
+
+# --- Tests for get_text_embedding_openai retry logic ---
+# Need to import openai for its specific exceptions
+import openai
+
+@patch('note_utils.logger') # Patch logger in note_utils
+@patch('openai.OpenAI') # Patch the OpenAI class constructor
+def test_get_text_embedding_openai_retry_on_api_connection_error(mock_openai_constructor, mock_logger, mock_env_keys_and_init_notion):
+    mock_embeddings_create = MagicMock()
+
+    # Configure the mock client instance and its embeddings.create method
+    mock_openai_instance = mock_openai_constructor.return_value
+    mock_openai_instance.embeddings.create.side_effect = [
+        openai.APIConnectionError("Connection failed", request=None), # request=None is okay for test
+        openai.APIConnectionError("Connection failed again", request=None),
+        MagicMock(data=[MagicMock(embedding=[0.1, 0.2, 0.3])]) # Successful response
+    ]
+
+    text_to_embed = "This is a test text for embedding."
+    result = get_text_embedding_openai(text_to_embed, openai_api_key_param="test_openai_key")
+
+    assert mock_openai_constructor.call_args[1]['api_key'] == "test_openai_key"
+    assert mock_openai_instance.embeddings.create.call_count == 3
+    assert result["status"] == "success"
+    assert result["data"] == [0.1, 0.2, 0.3]
+
+    assert mock_logger.info.call_count >= 5 # 3 attempts logs + 2 retry logs
+    retry_log_calls = [call[0][0] for call in mock_logger.info.call_args_list if "Retrying (attempt" in call[0][0]]
+    assert len(retry_log_calls) == 2
+    assert "Retrying (attempt 2)" in retry_log_calls[0]
+    assert "Retrying (attempt 3)" in retry_log_calls[1]
+
+
+@patch('note_utils.logger')
+@patch('openai.OpenAI')
+def test_get_text_embedding_openai_no_retry_on_authentication_error(mock_openai_constructor, mock_logger, mock_env_keys_and_init_notion):
+    mock_openai_instance = mock_openai_constructor.return_value
+    mock_openai_instance.embeddings.create.side_effect = openai.AuthenticationError("Invalid API key", response=None, body=None)
+
+    text_to_embed = "Test text."
+    result = get_text_embedding_openai(text_to_embed, openai_api_key_param="invalid_key")
+
+    assert mock_openai_instance.embeddings.create.call_count == 1
+    assert result["status"] == "error"
+    assert result["code"] == "OPENAI_AUTH_ERROR"
+
+    # Ensure no retry logs were made
+    for call_args in mock_logger.info.call_args_list:
+        assert "Retrying (attempt" not in call_args[0][0]
+
+
+# --- Tests for transcribe_audio_deepgram (pre-recorded) retry logic ---
+# Need to mock DeepgramClient and its methods
+from deepgram import DeepgramClient, PrerecordedOptions, FileSource # For type hints and potentially mocking structure
+
+@patch('note_utils.logger') # Patch logger in note_utils
+@patch('note_utils.DeepgramClient') # Patch DeepgramClient constructor
+@patch('os.path.exists', return_value=True) # Assume file exists for these tests
+@patch('builtins.open', new_callable=MagicMock) # Mock open to avoid actual file I/O
+def test_transcribe_audio_deepgram_retry_on_exception(
+    mock_open, mock_os_path_exists, mock_deepgram_client_constructor, mock_logger, mock_env_keys_and_init_notion
+):
+    mock_deepgram_prerecorded_v1 = MagicMock()
+    mock_deepgram_instance = mock_deepgram_client_constructor.return_value
+    mock_deepgram_instance.listen.prerecorded.v.return_value = mock_deepgram_prerecorded_v1
+
+    # Simulate failures then success for transcribe_file
+    mock_deepgram_prerecorded_v1.transcribe_file.side_effect = [
+        Exception("Deepgram API transient error"), # Generic exception to match retry decorator
+        Exception("Deepgram API transient error again"),
+        MagicMock(results=MagicMock(channels=[MagicMock(alternatives=[MagicMock(transcript="Success after retries")])]))
+    ]
+
+    audio_file_path = "dummy/path/to/audio.mp3"
+    # Ensure DEEPGRAM_API_KEY_GLOBAL is set via mock_env_keys_and_init_notion or directly if needed
+    # mock_env_keys_and_init_notion sets DEEPGRAM_API_KEY
+
+    result = transcribe_audio_deepgram(audio_file_path)
+
+    assert mock_deepgram_prerecorded_v1.transcribe_file.call_count == 3
+    assert result["status"] == "success"
+    assert result["data"]["transcript"] == "Success after retries"
+
+    # Check logger calls for retries
+    # Example: logger.info(f"Deepgram API call: Retrying attempt {retry_state.attempt_number} ...")
+    # The decorator uses retry_if_exception(is_retryable_deepgram_error), which logs warnings.
+    # Let's check for the generic log message from the decorator's before_sleep.
+    retry_log_calls = [call[0][0] for call in mock_logger.info.call_args_list if "Retrying attempt" in call[0][0]]
+    assert len(retry_log_calls) == 2 # two retries
+    assert "Retrying attempt 2" in retry_log_calls[0] # Logged by tenacity
+    assert "Retrying attempt 3" in retry_log_calls[1] # Logged by tenacity
+
+
+@patch('note_utils.logger')
+@patch('note_utils.DeepgramClient')
+@patch('os.path.exists', return_value=True)
+@patch('builtins.open', new_callable=MagicMock)
+def test_transcribe_audio_deepgram_final_failure_after_retries(
+    mock_open, mock_os_path_exists, mock_deepgram_client_constructor, mock_logger, mock_env_keys_and_init_notion
+):
+    mock_deepgram_prerecorded_v1 = MagicMock()
+    mock_deepgram_instance = mock_deepgram_client_constructor.return_value
+    mock_deepgram_instance.listen.prerecorded.v.return_value = mock_deepgram_prerecorded_v1
+
+    final_error_message = "Persistent Deepgram API error"
+    mock_deepgram_prerecorded_v1.transcribe_file.side_effect = Exception(final_error_message) # Fails all attempts
+
+    audio_file_path = "dummy/path/to/audio.mp3"
+    result = transcribe_audio_deepgram(audio_file_path)
+
+    assert mock_deepgram_prerecorded_v1.transcribe_file.call_count == 3 # Max attempts
+    assert result["status"] == "error"
+    assert final_error_message in result["message"]
+    assert result["code"] == "DEEPGRAM_API_ERROR" # Generic code after retries
+
+    retry_log_calls = [call[0][0] for call in mock_logger.info.call_args_list if "Retrying attempt" in call[0][0]]
+    assert len(retry_log_calls) == 2 # Two retries attempted
+    # Final error is logged by the main try-except block in the function
+    error_log_calls = [call[0][0] for call in mock_logger.error.call_args_list if final_error_message in call[0][0]]
+    assert len(error_log_calls) == 1
+
+
+# --- Tests for transcribe_audio_deepgram_stream connection retry ---
+from deepgram import LiveTranscriptionEvents, LiveOptions
+
+@pytest.mark.asyncio
+@patch('note_utils.logger')
+@patch('note_utils.DeepgramClient') # Patch the constructor
+async def test_transcribe_audio_deepgram_stream_connection_retry(
+    mock_deepgram_client_constructor, mock_logger, mock_env_keys_and_init_notion
+):
+    # Mock the DeepgramClient instance and its live connection object
+    mock_deepgram_instance = mock_deepgram_client_constructor.return_value
+    mock_dg_connection = AsyncMock() # Use AsyncMock for the connection object
+    mock_deepgram_instance.listen.live.v.return_value = mock_dg_connection
+
+    # Configure dg_connection.start to fail twice then succeed
+    # dg_connection.start returns a boolean, True for success, False for initial failure
+    # or can raise an exception. The retry logic handles Exception.
+    mock_dg_connection.start.side_effect = [
+        RuntimeError("Failed to start Deepgram connection (attempt 1)"),
+        RuntimeError("Failed to start Deepgram connection (attempt 2)"),
+        True # Successful start
+    ]
+    # Mock other methods that might be called if connection succeeds to prevent further errors in test
+    mock_dg_connection.finish = AsyncMock()
+    mock_dg_connection.send = MagicMock() # Synchronous method
+
+    # Mock the on_open event to be set when connection is "opened"
+    # This is tricky as the real on_open is a callback set via .on()
+    # For this test, we'll focus on the .start() retries.
+    # We can simplify the audio_chunk_iterator to be empty or minimal.
+    async def mock_audio_chunk_iterator():
+        if False: # No actual audio data needed for this connection test
+            yield b"data"
+
+    # Call the function
+    result = await transcribe_audio_deepgram_stream(
+        mock_audio_chunk_iterator(),
+        deepgram_api_key_param="test_dg_key" # Set via mock_env_keys_and_init_notion
     )
-    args, kwargs = mock_add_embedding.call_args
-    assert kwargs["meeting_date"] == fixed_now # Should default to datetime.now()
-    mock_print.assert_any_call("Warning: meeting_date_iso not provided. Defaulting to now.")
+
+    assert mock_dg_connection.start.call_count == 3
+
+    # Check logger calls for retries
+    # Example: logger.warning(f"DS_LIVE: Retrying Deepgram connection (attempt {retry_state.attempt_number}) ...")
+    retry_log_calls = [call[0][0] for call in mock_logger.warning.call_args_list if "Retrying Deepgram connection" in call[0][0]]
+    assert len(retry_log_calls) == 2
+    assert "(attempt 2)" in retry_log_calls[0]
+    assert "(attempt 3)" in retry_log_calls[1]
+
+    # Depending on how the rest of the stream function behaves with a mock connection
+    # that doesn't fully simulate events, the final result might be an error or success.
+    # For this test, focus is on start retries. If start succeeds, it might try to proceed.
+    # Let's assume if start() is True, it tries to run and might complete "successfully" if iterator is empty.
+    # The function has logic to wait for connection_opened event.
+    # To make this test pass cleanly for the "success" case after retries:
+    # 1. The mock_dg_connection.start needs to eventually return True.
+    # 2. The connection_opened event needs to be set.
+    # We can simulate the on_open callback being triggered indirectly if start() is true.
+    # A simpler way for this unit test is to ensure start is called, and retries happen.
+    # The actual success of the stream depends on many event interactions.
+
+    # If start() returns True, it implies on_open would be called by the SDK.
+    # The test currently checks that start() is called 3 times and logs retries.
+    # The final status of 'result' depends on how the mocked stream behaves after start.
+    # Given the current mock, it's likely to be success if stream iterator is empty.
+    assert result["status"] == "success" # Assuming empty stream after successful connection start
+    assert result["data"]["full_transcript"] == ""
+
+
+@pytest.mark.asyncio
+@patch('note_utils.logger')
+@patch('note_utils.DeepgramClient')
+async def test_transcribe_audio_deepgram_stream_connection_final_failure(
+    mock_deepgram_client_constructor, mock_logger, mock_env_keys_and_init_notion
+):
+    mock_deepgram_instance = mock_deepgram_client_constructor.return_value
+    mock_dg_connection = AsyncMock()
+    mock_deepgram_instance.listen.live.v.return_value = mock_dg_connection
+
+    final_error_message = "Persistent connection failure"
+    mock_dg_connection.start.side_effect = RuntimeError(final_error_message) # Fails all 3 attempts
+
+    async def mock_audio_chunk_iterator():
+        if False: yield b"data"
+
+    result = await transcribe_audio_deepgram_stream(
+        mock_audio_chunk_iterator(),
+        deepgram_api_key_param="test_dg_key"
+    )
+
+    assert mock_dg_connection.start.call_count == 3
+    assert result["status"] == "error"
+    assert final_error_message in result["message"]
+    assert result["code"] == "DEEPGRAM_STREAM_GENERAL_ERROR" # Or more specific if start() failure has one
+
+    retry_log_calls = [call[0][0] for call in mock_logger.warning.call_args_list if "Retrying Deepgram connection" in call[0][0]]
+    assert len(retry_log_calls) == 2
+
+    # Check for the final error log after retries are exhausted
+    final_error_log_found = False
+    for call in mock_logger.error.call_args_list:
+        if final_error_message in call[0][0]:
+            final_error_log_found = True
+            break
+    assert final_error_log_found is True

@@ -18,7 +18,7 @@ except Exception as e:
     sd = None
     SOUNDDEVICE_AVAILABLE = False
     # Logging this at the point of use or server startup might be more relevant
-    # print(f"Warning: sounddevice library not available or failed to initialize: {e}", file=sys.stderr)
+    logging.warning(f"sounddevice library not available or failed to initialize: {e}")
 
 
 # Adjust sys.path to allow imports from parent 'functions' directory
@@ -33,7 +33,7 @@ if AGENTS_DIR not in sys.path:
 try:
     from _utils.lancedb_service import create_meeting_transcripts_table_if_not_exists
 except ImportError as e:
-    print(f"Warning: Failed to import lancedb_service: {e}", file=sys.stderr)
+    logging.warning(f"Failed to import lancedb_service: {e}")
     create_meeting_transcripts_table_if_not_exists = None # Placeholder
 
 # Kafka Consumer (using kafka-python)
@@ -45,7 +45,7 @@ except ImportError:
     KafkaConsumer = None
     KafkaError = Exception # Placeholder
     KAFKA_AVAILABLE = False
-    print("WARNING: kafka-python library not found. Kafka worker cannot start.", file=sys.stderr)
+    logging.warning("kafka-python library not found. Kafka worker cannot start.")
 
 # Agent Imports
 OldZoomAgent, GoogleMeetAgent, MSTeamsAgent = None, None, None # Renamed OldZoomAgent
@@ -60,7 +60,7 @@ try:
     if not SoundDeviceNotAvailableError: SoundDeviceNotAvailableError = OldZoomSdnae
     if not AudioDeviceSelectionError: AudioDeviceSelectionError = OldZoomAse
 except ImportError as e:
-    print(f"Warning: Old ZoomAgent (zoom_agent.py) failed to import: {e}", file=sys.stderr)
+    logging.warning(f"Old ZoomAgent (zoom_agent.py) failed to import: {e}")
 
 try:
     from agents.NewZoomSdkAgent import NewZoomSdkAgent as ImportedNewZoomSdkAgent, ZoomSdkAuthError as NewZoomAuthErr, ZoomSdkAgentError as NewZoomAgentErr, ZoomSdkMeetingError as NewZoomMeetingErr
@@ -69,7 +69,7 @@ try:
     ZoomSdkAgentError = NewZoomAgentErr
     ZoomSdkMeetingError = NewZoomMeetingErr
 except ImportError as e:
-    print(f"Warning: NewZoomSdkAgent failed to import: {e}", file=sys.stderr)
+    logging.warning(f"NewZoomSdkAgent failed to import: {e}")
 
 try:
     from agents.google_meet_agent import GoogleMeetAgent as ImportedGoogleMeetAgent, SoundDeviceNotAvailableError as GMeetSdnae, AudioDeviceSelectionError as GMeetAse
@@ -77,14 +77,14 @@ try:
     if not SoundDeviceNotAvailableError: SoundDeviceNotAvailableError = GMeetSdnae # Still needed for these agents
     if not AudioDeviceSelectionError: AudioDeviceSelectionError = GMeetAse
 except ImportError as e:
-    print(f"Warning: GoogleMeetAgent or its specific exceptions failed to import in worker: {e}", file=sys.stderr)
+    logging.warning(f"GoogleMeetAgent or its specific exceptions failed to import in worker: {e}")
 try:
     from agents.ms_teams_agent import MSTeamsAgent as ImportedMSTeamsAgent, SoundDeviceNotAvailableError as TeamsSdnae, AudioDeviceSelectionError as TeamsAse
     MSTeamsAgent = ImportedMSTeamsAgent
     if not SoundDeviceNotAvailableError: SoundDeviceNotAvailableError = TeamsSdnae
     if not AudioDeviceSelectionError: AudioDeviceSelectionError = TeamsAse
 except ImportError as e:
-    print(f"Warning: MSTeamsAgent or its specific exceptions failed to import in worker: {e}", file=sys.stderr)
+    logging.warning(f"MSTeamsAgent or its specific exceptions failed to import in worker: {e}")
 
 
 # psycopg2 for PostgreSQL connection
@@ -98,7 +98,7 @@ except ImportError:
     sql = None # Placeholder
     RealDictCursor = None # Placeholder
     PSYCOPG2_AVAILABLE = False
-    print("WARNING: psycopg2 library not found. Database status reporting will be disabled.", file=sys.stderr)
+    logging.warning("psycopg2 library not found. Database status reporting will be disabled.")
 
 # note_utils import
 note_utils_module = None
@@ -107,10 +107,10 @@ try:
     note_utils_module = nu_module
     if not hasattr(note_utils_module, 'process_live_audio_for_notion') or \
        not hasattr(note_utils_module, 'init_notion'):
-        print("Error: Required functions (process_live_audio_for_notion, init_notion) not found in note_utils.", file=sys.stderr)
+        logging.error("Required functions (process_live_audio_for_notion, init_notion) not found in note_utils.")
         note_utils_module = None
 except ImportError as e:
-    print(f"Critical Import Error for note_utils in live_meeting_worker: {e}", file=sys.stderr)
+    logging.critical(f"Import Error for note_utils in live_meeting_worker: {e}")
 
 # Constants
 try:
@@ -120,7 +120,7 @@ except ImportError:
         KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         KAFKA_LIVE_MEETING_TOPIC = os.environ.get("KAFKA_LIVE_MEETING_TOPIC", "atom_live_meeting_tasks")
     app_constants = MockAppConstants()
-    print("Warning: Could not import shared constants for Kafka worker. Using fallback values.", file=sys.stderr)
+    logging.warning("Could not import shared constants for Kafka worker. Using fallback values.")
 
 
 # Logging Setup
@@ -137,15 +137,32 @@ DB_CONN_PARAMS = {
     "dbname": os.environ.get("POSTGRES_DB", "atomic_dev")
 }
 
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(psycopg2.OperationalError), # Retry only on OperationalError, which includes connection issues
+    before_sleep=lambda retry_state: logger.info(f"Retrying DB connection (attempt {retry_state.attempt_number}) due to: {retry_state.outcome.exception()}")
+)
 def get_db_connection():
     if not PSYCOPG2_AVAILABLE:
+        logger.warning("psycopg2 not available, cannot connect to DB.")
         return None
+    # The try-except block is now within the retried function.
+    # If retries are exhausted, the final psycopg2.OperationalError will propagate.
+    # Callers of get_db_connection should be prepared to handle this or None.
     try:
+        logger.info(f"Attempting to connect to PostgreSQL DB: {DB_CONN_PARAMS.get('host')}/{DB_CONN_PARAMS.get('dbname')}")
         conn = psycopg2.connect(**DB_CONN_PARAMS)
+        logger.info("Successfully connected to PostgreSQL.")
         return conn
-    except psycopg2.Error as e:
-        logger.error(f"DB Status: Failed to connect to PostgreSQL: {e}", exc_info=True)
-        return None
+    except psycopg2.OperationalError as e: # Specific catch for logging before tenacity retries or if it's the final error
+        logger.error(f"DB Connection: OperationalError connecting to PostgreSQL: {e}") # exc_info=True might be too verbose for each retry attempt, added to caller if needed
+        raise # Re-raise to allow tenacity to handle retries or for the caller to catch final failure
+    except psycopg2.Error as e: # Catch other non-OperationalError psycopg2 errors that shouldn't be retried by this decorator
+        logger.error(f"DB Connection: Non-retryable psycopg2.Error connecting to PostgreSQL: {e}", exc_info=True)
+        return None # For non-OperationalErrors, return None directly
 
 def init_task_status(task_id: str, user_id: str, platform: str, meeting_identifier: str, initial_status: str):
     if not PSYCOPG2_AVAILABLE:
