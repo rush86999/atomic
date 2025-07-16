@@ -16,22 +16,27 @@ if not logger.hasHandlers():
 EMBEDDING_DIMENSION = 1536 # For text-embedding-ada-002 or text-embedding-3-small
 
 # --- LanceDB Connection ---
-LANCEDB_URI = os.getenv("LANCEDB_URI", "./lance_data/prod_db")
+# Import centralized settings
+try:
+    from python_api_service.config import settings
+except ImportError:
+    from ..python_api_service.config import settings
+
 _db_connection_lancedb: Optional[lancedb.DBConnection] = None
 
 async def get_lancedb_connection() -> Optional[lancedb.DBConnection]:
     global _db_connection_lancedb
     if _db_connection_lancedb is None:
-        logger.info(f"Connecting to LanceDB at URI: {LANCEDB_URI}")
+        logger.info(f"Connecting to LanceDB at URI: {settings.LANCEDB_URI}")
         try:
-            if not LANCEDB_URI.startswith("db://") and "://" not in LANCEDB_URI :
-                db_dir = os.path.dirname(LANCEDB_URI)
+            if not settings.LANCEDB_URI.startswith("db://") and "://" not in settings.LANCEDB_URI :
+                db_dir = os.path.dirname(settings.LANCEDB_URI)
                 if db_dir and not os.path.exists(db_dir):
                     os.makedirs(db_dir, exist_ok=True)
                     logger.info(f"Created LanceDB directory: {db_dir}")
-            _db_connection_lancedb = await asyncio.to_thread(lancedb.connect, LANCEDB_URI)
+            _db_connection_lancedb = await asyncio.to_thread(lancedb.connect, settings.LANCEDB_URI)
         except Exception as e:
-            logger.error(f"Failed to connect to LanceDB at {LANCEDB_URI}: {e}", exc_info=True)
+            logger.error(f"Failed to connect to LanceDB at {settings.LANCEDB_URI}: {e}", exc_info=True)
             return None
     return _db_connection_lancedb
 
@@ -53,9 +58,12 @@ except ImportError as e:
 
 
 # --- Table Names ---
+# These are now sourced from the central settings object for consistency.
+DOCUMENTS_TABLE_NAME = settings.LANCEDB_DOCUMENTS_TABLE
+DOCUMENT_CHUNKS_TABLE_NAME = settings.LANCEDB_DOCUMENT_CHUNKS_TABLE
+# The following tables are not yet in the central config, but could be added.
+# For now, keep their os.getenv for backward compatibility or until they are formally added to settings.
 MEETING_TRANSCRIPTS_TABLE_NAME = os.getenv("LANCEDB_TABLE_NAME", "meeting_transcripts_embeddings")
-DOCUMENTS_TABLE_NAME = os.getenv("LANCEDB_DOCUMENTS_TABLE", "generic_documents")
-DOCUMENT_CHUNKS_TABLE_NAME = os.getenv("LANCEDB_DOCUMENT_CHUNKS_TABLE", "document_chunks")
 EMAIL_SNIPPETS_TABLE_NAME = os.getenv("LANCEDB_EMAIL_SNIPPETS_TABLE", "email_snippets")
 NOTION_SUMMARIES_TABLE_NAME = os.getenv("LANCEDB_NOTION_SUMMARIES_TABLE", "notion_page_summaries")
 

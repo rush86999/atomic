@@ -1,12 +1,22 @@
 import meilisearch
-import os
 import logging
 from typing import List, Dict, Any, Optional, Union
 
-logger = logging.getLogger(__name__)
+# Import centralized settings
+# This assumes the python_api_service and ingestion_pipeline can resolve this path.
+# A better long-term solution might be a shared 'common' or 'core' package.
+try:
+    from python_api_service.config import settings
+except ImportError:
+    # Fallback for different execution contexts, though this is less ideal.
+    # It might require `python_api_service` to be in PYTHONPATH.
+    # For now, we assume the runtime environment is set up for this to work.
+    # A more robust solution would be to have a shared config accessible to all services.
+    # This is a temporary measure for the current project structure.
+    from ..python_api_service.config import settings
 
-MEILI_HTTP_ADDR = os.getenv("MEILI_HTTP_ADDR", "http://meilisearch:7700")
-MEILI_MASTER_KEY = os.getenv("MEILI_MASTER_KEY") # Should be set in the environment
+
+logger = logging.getLogger(__name__)
 
 # Global client instance
 _meili_client: Optional[meilisearch.Client] = None
@@ -14,16 +24,16 @@ _meili_client: Optional[meilisearch.Client] = None
 def get_meilisearch_client() -> Optional[meilisearch.Client]:
     """
     Initializes and returns a Meilisearch client instance.
-    Reads URL and master key from environment variables.
+    Reads URL and master key from the centralized settings object.
     """
     global _meili_client
     if _meili_client is None:
-        if not MEILI_MASTER_KEY:
-            logger.error("MEILI_MASTER_KEY environment variable is not set. Cannot initialize Meilisearch client.")
+        if not settings.MEILI_MASTER_KEY:
+            logger.error("MEILI_MASTER_KEY is not set in config. Cannot initialize Meilisearch client.")
             return None
         try:
-            logger.info(f"Initializing Meilisearch client for URL: {MEILI_HTTP_ADDR}")
-            _meili_client = meilisearch.Client(MEILI_HTTP_ADDR, MEILI_MASTER_KEY)
+            logger.info(f"Initializing Meilisearch client for URL: {settings.MEILI_HTTP_ADDR}")
+            _meili_client = meilisearch.Client(settings.MEILI_HTTP_ADDR, settings.MEILI_MASTER_KEY)
             if not _meili_client.is_healthy():
                 logger.warning("Meilisearch client initialized but service is not healthy.")
             else:

@@ -17,16 +17,15 @@ except ImportError:
 try:
     from . import db_oauth_dropbox
     from . import crypto_utils
+    from .config import settings # Import centralized settings
 except ImportError:
     # Fallback for different execution contexts
     import db_oauth_dropbox
     import crypto_utils
+    from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Load Dropbox App credentials from environment
-DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
-DROPBOX_APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
 
 async def get_dropbox_client(user_id: str, db_conn_pool: Optional[Any]) -> Optional[dropbox.Dropbox]:
     """
@@ -36,7 +35,7 @@ async def get_dropbox_client(user_id: str, db_conn_pool: Optional[Any]) -> Optio
     if not DROPBOX_SDK_AVAILABLE:
         logger.error("Dropbox SDK is not installed.")
         return None
-    if not DROPBOX_APP_KEY or not DROPBOX_APP_SECRET:
+    if not settings.DROPBOX_APP_KEY or not settings.DROPBOX_APP_SECRET:
         logger.error("Dropbox App Key/Secret are not configured in the environment.")
         return None
 
@@ -61,8 +60,8 @@ async def get_dropbox_client(user_id: str, db_conn_pool: Optional[Any]) -> Optio
             # The Dropbox SDK can handle the refresh flow automatically if instantiated with the refresh token
             dbx_for_refresh = dropbox.Dropbox(
                 oauth2_refresh_token=refresh_token,
-                app_key=DROPBOX_APP_KEY,
-                app_secret=DROPBOX_APP_SECRET
+                app_key=settings.DROPBOX_APP_KEY,
+                app_secret=settings.DROPBOX_APP_SECRET
             )
 
             try:

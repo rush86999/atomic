@@ -31,14 +31,24 @@ logger = logging.getLogger(__name__)
 # --- Blueprint Setup ---
 dropbox_auth_bp = Blueprint('dropbox_auth_bp', __name__)
 
+# Internal imports
+try:
+    from . import db_oauth_dropbox
+    from . import crypto_utils
+    from .config import settings # Import centralized settings
+except ImportError:
+    import db_oauth_dropbox
+    import crypto_utils
+    from config import settings
+
+logger = logging.getLogger(__name__)
+
+# --- Blueprint Setup ---
+dropbox_auth_bp = Blueprint('dropbox_auth_bp', __name__)
+
 # --- Config / Constants ---
-# These should be loaded from environment variables
-DROPBOX_APP_KEY = os.getenv("DROPBOX_APP_KEY")
-DROPBOX_APP_SECRET = os.getenv("DROPBOX_APP_SECRET")
 # The session key for storing the CSRF token
 CSRF_TOKEN_SESSION_KEY = 'dropbox-auth-csrf-token'
-# The frontend URL to redirect to on success/failure
-FRONTEND_REDIRECT_URL = os.getenv("APP_CLIENT_URL", "http://localhost:3000") + "/settings" # Example redirect to settings page
 
 
 def get_dropbox_oauth_flow(session_obj):
@@ -47,8 +57,8 @@ def get_dropbox_oauth_flow(session_obj):
     redirect_uri = url_for('dropbox_auth_bp.oauth2callback', _external=True)
 
     return DropboxOAuth2Flow(
-        consumer_key=DROPBOX_APP_KEY,
-        consumer_secret=DROPBOX_APP_SECRET,
+        consumer_key=settings.DROPBOX_APP_KEY,
+        consumer_secret=settings.DROPBOX_APP_SECRET,
         redirect_uri=redirect_uri,
         session=session_obj,
         csrf_token_session_key=CSRF_TOKEN_SESSION_KEY,
@@ -127,7 +137,7 @@ async def oauth2callback():
 
         logger.info(f"Successfully completed Dropbox OAuth and saved tokens for user {user_id}.")
         # Redirect to a success page on the frontend
-        return redirect(f"{FRONTEND_REDIRECT_URL}?dropbox_status=success")
+        return redirect(f"{settings.APP_CLIENT_URL}/settings?dropbox_status=success")
 
     except BadRequestException as e:
         logger.error(f"Dropbox OAuth BadRequestException for user {user_id}: {e}")
