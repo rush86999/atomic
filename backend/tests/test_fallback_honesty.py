@@ -46,6 +46,19 @@ CTX = {"canvas_id": CANVAS_ID}
 READ_CTX = {"canvas_id": CANVAS_ID,
             "content": {"subject": "Quote", "rows": []}}
 
+
+@pytest.fixture(autouse=True)
+def _m2_outcome_persistence_enabled(monkeypatch):
+    """M2 outcome persistence and the task lifecycle are flag-gated
+    (CHAT_FINALIZATION_M2 / ATOM_TASK_LIFECYCLE_ENABLED, set in the
+    developer's local backend/.env but absent on clean checkouts).
+    This suite seeds lifecycle records and asserts envelope/row/history
+    outcome agreement, which only holds with both on — pin them
+    explicitly (same pattern as test_finalization_m2.py) instead of
+    inheriting ambient env."""
+    monkeypatch.setenv("CHAT_FINALIZATION_M2", "1")
+    monkeypatch.setenv("ATOM_TASK_LIFECYCLE_ENABLED", "1")
+
 CLAIM = "I've processed your request across all connected platforms."
 
 SUCCESS_REPLY = (
