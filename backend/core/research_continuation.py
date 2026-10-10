@@ -369,6 +369,11 @@ async def _execute_document_read(
             else "read_failed"),
         "served_basis": ("saved_copy" if any_executed else "none"),
         "failure_stage": None,
+        # SOURCE VERSION (owner direction 2026-10-10): the revision the
+        # read served from — the ACTIVE catalog ingest's content_hash
+        # for this file, the same identity current_dataset_version
+        # resolves at reuse.
+        "source_version": _read_source_version(file_name),
         "items": statuses,
         # Same observability as the row-context read: the per-item
         # evidence was returned to the caller and dropped before the
@@ -385,6 +390,18 @@ async def _execute_document_read(
         freshness=None, execution=_exec_facts)
     return {"file": file_name, "statuses": statuses,
             "evidence": evidence}
+
+
+def _read_source_version(file_name: str) -> "str | None":
+    """The served copy's authoritative version for this read: the
+    ACTIVE DatasetEntry content_hash for the file (durable metadata,
+    no model call). None when the catalog cannot answer."""
+    try:
+        from core.sheet_dataset_service import current_dataset_version
+
+        return current_dataset_version(file_name)
+    except Exception:  # noqa: BLE001 — a version-less read stays honest
+        return None
 
 
 def _norm_token(s: Any) -> str:

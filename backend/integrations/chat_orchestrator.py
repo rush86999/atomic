@@ -20749,6 +20749,32 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 except Exception:  # noqa: BLE001
                     record = None
             if record is None:
+                # FORK LINEAGE (evidence only, one hop): a disposable
+                # fork's research lives on the SOURCE canvas's job — the
+                # fork's audit row carries source_canvas_id.
+                try:
+                    from core.database import get_db_session
+                    from core.models import CanvasAudit
+
+                    parent = None
+                    with get_db_session() as _db:
+                        _row = (_db.query(CanvasAudit)
+                                .filter(
+                                    CanvasAudit.canvas_id == str(canvas_id),
+                                    CanvasAudit.action_type == "fork")
+                                .order_by(CanvasAudit.created_at.desc())
+                                .first())
+                        if _row is not None:
+                            parent = str((
+                                _row.details_json
+                                if hasattr(_row, "details_json")
+                                else _row.metadata_json or {}).get(
+                                "source_canvas_id") or "")
+                    if parent and parent != str(canvas_id):
+                        record = tl.find_canvas_evidence_task(parent)
+                except Exception:  # noqa: BLE001 — additive context
+                    record = None
+            if record is None:
                 return None
             observations: List[Dict[str, Any]] = []
             entities: List[str] = []
