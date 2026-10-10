@@ -7382,8 +7382,10 @@ async def _datasets_search_block(
                 # answerable from the receipt alone.
                 "hit_sources": sorted({
                     f"{str((h or {}).get('file') or '')[:80]}"
-                    f"!{str((h or {}).get('sheet')
-                            or (h or {}).get('entity_name') or '')[:40]}"
+                    # single line: a newline inside a single-quoted
+                    # f-string's braces parses only on 3.12+ (PEP 701);
+                    # the test venv is 3.11.
+                    f"!{str((h or {}).get('sheet') or (h or {}).get('entity_name') or '')[:40]}"
                     for h in hits if h})[:12],
                 "matched_files": sorted({
                     str((h or {}).get("file") or (h or {}).get("source")
