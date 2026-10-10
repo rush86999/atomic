@@ -222,3 +222,66 @@ class TestCompletionAuthority:
             "'already done'")
         assert _check(shared) is None or not (
             _check(shared) or {}).get("satisfied")
+
+
+class TestSourceVersionReuse:
+    """Reuse borrows the workbook-binding hash mechanism (owner work
+    order 2026-10-10) — never a second freshness system."""
+
+    def test_same_version_is_reusable(self):
+        from core.workbook_read_artifact import finding_reuse_status
+        assert finding_reuse_status("rev-7", "rev-7") == "current"
+
+    def test_changed_version_requires_revalidation(self):
+        from core.workbook_read_artifact import finding_reuse_status
+        assert finding_reuse_status("rev-7", "rev-8") == "stale"
+
+    def test_missing_version_makes_no_freshness_claim(self):
+        from core.workbook_read_artifact import finding_reuse_status
+        assert finding_reuse_status(None, "rev-8") == "unqualified"
+        assert finding_reuse_status("rev-7", "") == "unqualified"
+        assert finding_reuse_status(None, None) == "unqualified"
+
+    def test_stale_record_is_not_erased(self):
+        """The old version stays as historical evidence — the status
+        function returns a verdict; it deletes nothing."""
+        from core.workbook_read_artifact import finding_reuse_status
+        verdict = finding_reuse_status("rev-7", "rev-8")
+        assert verdict == "stale"
+        # the carried identity is untouched by the check
+        assert finding_reuse_status("rev-7", "rev-8") == "stale"
+
+    def test_manual_value_authority_is_independent_of_workbook_versions(
+            self):
+        """An owner-approved manual quote is authorized by the owner's
+        instruction, not by a workbook revision — the receipt records
+        the decision source, and a workbook change cannot silently
+        replace it (checker authority preference: decision sources
+        outrank workbook reads; test_1 pins the authority in the
+        receipt)."""
+        shared = _run_lane(_brennan_canvas(), _authorized_contract())
+        check = _check(shared) or {}
+        dispositions = {
+            (d["entity_id"], d["field"]): d
+            for d in check.get("value_dispositions") or []}
+        row1 = dispositions[("Roper Whitney 36", "price")]
+        assert (row1["expected"]["authority_source_id"]
+                == "owner-manual-quote"), (
+            "the manual quote stays the authority for row 1's price")
+
+    def test_receipt_carries_the_evidence_source_version(self):
+        from core.chat_canvas_editor import requirement_check
+        contract = _authorized_contract()
+        for item in contract.get("evidence") or []:
+            item["source_version"] = "rev-41"
+        check = requirement_check(
+            message=("Update the draft for rows 1-5 with the approved "
+                     "prices and delivery times. Don't send."),
+            canvas=_brennan_canvas(), authorized=True,
+            expected_prior_audit_id=None, evidence_contract=contract)
+        carried = {
+            (d["entity_id"], d["field"]): d
+            for d in check.get("value_dispositions") or []}
+        sample = carried[("SLE24-16", "price")]
+        assert sample["expected"].get("source_version") == "rev-41", (
+            "the observed-at version rides the receipt verbatim")

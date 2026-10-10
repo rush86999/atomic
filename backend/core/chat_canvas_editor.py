@@ -1565,6 +1565,12 @@ def _value_obligation_dispositions(
             },
             "revision": revision,
         }
+        # REUSED-FINDING PROVENANCE (owner work order 2026-10-10): the
+        # source version the authorized evidence was observed at rides
+        # the receipt — never relabeled fresh by this turn's reuse.
+        for key in ("source_version", "content_hash"):
+            if authority.get(key):
+                record["expected"][key] = str(authority.get(key))[:80]
         observed_rows = [
             item for item in artifact_observations(
                 canvas,

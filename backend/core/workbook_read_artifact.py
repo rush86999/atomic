@@ -1040,6 +1040,31 @@ def _canonical_item(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(text or "").lower())
 
 
+def finding_reuse_status(carried_version: Any,
+                         current_version: Any) -> str:
+    """Whether a persisted finding may serve claims about the CURRENT
+    source (owner work order 2026-10-10 — reuse the workbook-binding
+    hash mechanism, never a second freshness system).
+
+      - both versions present and equal  -> "current" (reusable)
+      - both present, different          -> "stale" (revalidation
+        required for claims about the newer source; the old record
+        STAYS as historical evidence — never erased)
+      - either missing                   -> "unqualified" (no freshness
+        claim may be made — silence, not "fresh")
+
+    NOT applied to owner-decision findings: a manual quote's authority
+    is the owner's instruction, independent of workbook revisions — a
+    workbook change must never silently replace it. Callers gate
+    workbook-sourced evidence only.
+    """
+    carried = str(carried_version or "").strip()
+    current = str(current_version or "").strip()
+    if not carried or not current:
+        return "unqualified"
+    return "current" if carried == current else "stale"
+
+
 def capture_resolved_bindings(
     history_user_texts: Sequence[str],
     structured_result: Optional[Dict[str, Any]],

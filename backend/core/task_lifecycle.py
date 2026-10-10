@@ -786,6 +786,13 @@ def normalize_execution_facts(raw: Any) -> Dict[str, Any]:
         "served_basis": basis,
         "failure_stage": str(stage)[:80] if stage else None,
         "freshness_status": str(freshness)[:40] if freshness else None,
+        # SOURCE VERSION (owner work order 2026-10-10): the workbook
+        # revision (content_hash / evidence_revision) this read served
+        # from — the identity finding_reuse_status compares at reuse.
+        # Execution provenance (served_basis) stays separate: reading an
+        # ingested copy today does not make its contents current.
+        "source_version": (str(raw.get("source_version"))[:80]
+                           if raw.get("source_version") else None),
         "items": items,
         "planning": planning,
         "raw_outcome": raw_outcome,
