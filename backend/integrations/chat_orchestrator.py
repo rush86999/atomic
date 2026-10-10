@@ -10851,6 +10851,40 @@ class ChatOrchestrator:
             if isinstance(_ask_task_local, dict) and isinstance(
                     _ask_task_local.get("request_scope"), dict):
                 _edit_request_scope = _ask_task_local["request_scope"]
+            # DETERMINISTIC EDIT AUTHORIZATION (owner work order
+            # 2026-10-10, the live T1 routing defect): a canvas supplies
+            # context and scope — it does not authorize editing. Resolve
+            # the turn's authorization ONCE, BEFORE reserving or
+            # planning: only the user's own grounded, non-negated
+            # command enters edit planning. A question or advisory about
+            # the draft keeps canvas access and falls through to
+            # research/comparison — it never spends the edit-planning
+            # budget. A failed-edit retry re-plans its ORIGINAL
+            # authorized instruction.
+            _edit_lane_authorized = True
+            if _canvas_ctx and not _canvas_action_bypassed:
+                try:
+                    from core.turn_decision import (
+                        edit_authorization as _edit_auth_fn,
+                    )
+
+                    _edit_probe = (
+                        _edit_retry["instruction"]
+                        if _edit_retry is not None else message)
+                    _edit_auth, _ = _edit_auth_fn(
+                        _edit_probe, "", canvas_id=str(
+                            (_canvas_ctx or {}).get("canvas_id") or ""))
+                    if _edit_auth != "granted":
+                        _edit_lane_authorized = False
+                        logger.info(
+                            "[stage-timing] canvas-edit leg skipped — the "
+                            "turn's own words do not authorize a canvas "
+                            "mutation (deterministic authorization: %r)",
+                            _edit_auth)
+                except Exception:  # noqa: BLE001 — fail open to the
+                    # planner; the scope validator still guards the
+                    # mutation, and the gate must never break the lane
+                    _edit_lane_authorized = True
             _shared_tool: Dict[str, Any] = {
                 "plan_task": _tool_plan_task,
                 "block": None,
@@ -10883,7 +10917,8 @@ class ChatOrchestrator:
                     # with an unavailable planner.
                     _shared_tool["canvas_edit_skipped_read_only"] = True
                     _edit_response = None
-                elif _canvas_ctx and not _canvas_action_bypassed:
+                elif _canvas_ctx and not _canvas_action_bypassed \
+                        and _edit_lane_authorized:
                     # TASK LIFECYCLE (Step 2, flag-gated): reserve the edit
                     # BEFORE the mutation, so an intention that cannot be
                     # persisted never reaches the canvas. A denied
@@ -21749,6 +21784,50 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
 
         from core.chat_canvas_editor import fetch_fresh_data_section
         _edit_requested = _canvas_edit_shaped(message, {"canvas": canvas})
+        # IN-LANE AUTHORIZATION GATE (owner work order 2026-10-10,
+        # defense at the boundary itself): edit-shape NOMINATION is not
+        # permission. Before ANY fresh-data or planning work, the lane
+        # consumes the same deterministic evaluation the caller does —
+        # only the user's own grounded, non-negated command authorizes
+        # canvas-edit planning. The mutation guard (scope validator)
+        # stays as defense in depth behind this.
+        try:
+            # The gate is UNCONDITIONAL: the planner call below runs for
+            # every message that reaches this lane, so a nomination
+            # condition here would still let non-edit turns pay for
+            # edit planning (the live T1 waste). TWO conditions, per
+            # the owner's design: the wording classifier decides this
+            # is edit-CHANNEL material (teaching cues and advisory
+            # objectives are other channels); the deterministic
+            # authorization decides it is PERMITTED (the user's own
+            # grounded, non-negated command). The scope validator
+            # remains the last guard before any mutation.
+            _edit_nomination = _canvas_edit_shaped(
+                message, {"canvas": canvas})
+            from core.turn_decision import (
+                edit_authorization as _lane_auth_fn,
+            )
+
+            _lane_auth, _ = _lane_auth_fn(
+                message, "", canvas_id=str(
+                    (canvas or {}).get("canvas_id")
+                    or (canvas or {}).get("id") or ""))
+            if (not _edit_nomination) or _lane_auth != "granted":
+                if shared_tool_state is not None:
+                    shared_tool_state["canvas_edit_skipped_not_authorized"
+                                      ] = True
+                    shared_tool_state["canvas_edit_no_apply"] = True
+                    shared_tool_state["canvas_edit_no_apply_reason"] = (
+                        "edit_not_authorized")
+                logger.info(
+                    "[canvas-edit] lane refused pre-planning: the "
+                    "turn's own words do not authorize a canvas "
+                    "mutation — canvas access is retained for "
+                    "research/comparison")
+                return None
+        except Exception:  # noqa: BLE001 — the gate never breaks
+            # the lane; the scope validator remains the last guard
+            pass
         fresh = await fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),

@@ -455,8 +455,12 @@ async def test_try_canvas_edit_apply_failure_reply_is_actionable():
                                          updated_content_json=None, reply=""))), \
          patch("core.chat_canvas_editor.apply_canvas_edit", new=AsyncMock(
              return_value=(None, "not_valid_json"))):
+        # grounded command wording (the deterministic authorization
+        # gate refuses ungrounded messages before planning — pinned in
+        # tests/test_edit_lane_authorization_routing.py)
         resp = await orch._try_canvas_edit(
-            "fill in to and cc", [], _email_canvas(), "user-1", "s-1", "exec-1", None,
+            "Fill in the to and cc fields on the draft.", [],
+            _email_canvas(), "user-1", "s-1", "exec-1", None,
         )
     assert resp is not None and resp["data"]["canvas_edit"]["updated"] is False
     assert resp["data"]["canvas_edit"]["reason"] == "not_valid_json"

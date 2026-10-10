@@ -571,3 +571,64 @@ class TestDirectSettlementsCarryReceiptFacts:
         bases = {f.get("parsed", {}).get("basis") for f in findings
                  if isinstance(f.get("parsed"), dict)}
         assert bases == {"U.S. LIST", "CDN LIST"}
+
+
+class TestRetrievalSurvivesReplyFailure:
+    """Owner work order 2026-10-10: research success and narration
+    failure are different stages — a reply that times out after a
+    completed read must not erase the durable findings."""
+
+    def test_failed_reply_stage_leaves_settled_findings_intact(
+            self, lifecycle):
+        from core.task_lifecycle import begin_retrieval_turn
+
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        run_id, op_id = begin_retrieval_turn(
+            lifecycle, {"id": "s1"}, "conv-timeout",
+            "chained required-source lookup: datasets (SLE24-16)",
+            "e-timeout", items=["SLE24-16"], requested_fields=["price"])
+        execution = {"invoked": True, "outcome": "read_succeeded",
+                     "served_basis": "saved_copy", "failure_stage": None,
+                     "items": {"SLE24-16": "single"}}
+        _apply_read_receipt_facts(
+            execution, CONTENT_READ_META["structured_result"],
+            CONTENT_READ_META)
+        from core.task_lifecycle import (
+            finish_retrieval_turn, record_read_outcome,
+        )
+
+        finish_retrieval_turn(
+            lifecycle, run_id, op_id,
+            CONTENT_READ_META["structured_result"], "e-timeout", True,
+            execution=execution)
+        record_read_outcome(
+            lifecycle, run_id, op_id,
+            structured_result=CONTENT_READ_META["structured_result"],
+            freshness=None, execution=execution)
+        # the reply stage then FAILS (deadline) — a separate turn-level
+        # operation records the failure; it must not touch the read
+        reply_exec = {"invoked": True, "outcome": "read_failed",
+                      "served_basis": "none", "failure_stage": "deadline",
+                      "items": {}}
+        run2, op2 = begin_retrieval_turn(
+            lifecycle, {"id": "s1"}, "conv-timeout",
+            "reply narration deadline", "e-timeout",
+            items=["SLE24-16"], requested_fields=["price"])
+        finish_retrieval_turn(
+            lifecycle, run2, op2, {}, "e-timeout", False,
+            execution=reply_exec)
+        record_read_outcome(
+            lifecycle, run2, op2, structured_result=None,
+            freshness=None, execution=reply_exec)
+        # fresh reload: the READ's findings survive the reply failure
+        fresh = _fresh(lifecycle).get_task(run_id)
+        ops = [o for o in fresh.get("operations") or []
+               if o.get("operation_id") == op_id]
+        ex = ops[0].get("execution") or {}
+        assert ex.get("findings"), (
+            "completed retrieval survives the failed narration stage")
+        assert ex.get("source_version") == (
+            "ce61dd3d40cac83d39bd702e4617b91df061c962")
