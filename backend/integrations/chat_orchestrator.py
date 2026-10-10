@@ -2511,6 +2511,38 @@ def _job_scope_items(
         return [], "unresolved"
 
 
+def _apply_read_receipt_facts(
+    execution: Dict[str, Any],
+    structured: Any,
+    identity: Any,
+) -> Dict[str, Any]:
+    """Fill ``findings`` + ``source_version`` on execution facts from
+    the ACTUAL structured read receipt (owner final work order
+    2026-10-10) — the ONE derivation both direct-read settlements use.
+
+    The converter's documented input shape is ``{"structured_result":
+    result}``; the version is the content hash THE READ captured
+    (identity.content_hash, else the receipt's own source_identity) —
+    never the catalog at settlement. Existing attribution on
+    ``execution`` is preserved; best-effort, never raises.
+    """
+    try:
+        receipt = ({"structured_result": structured}
+                   if isinstance(structured, dict) else {})
+        findings = _findings_from_structured_result(receipt)
+        if findings:
+            execution["findings"] = findings
+        src = (structured or {}).get("source_identity") if isinstance(
+            structured, dict) else {}
+        version = str((identity or {}).get("content_hash")
+                      or (src or {}).get("content_hash") or "").strip()
+        if version:
+            execution["source_version"] = version[:80]
+    except Exception:  # noqa: BLE001 — facts are additive
+        pass
+    return execution
+
+
 def _findings_from_structured_result(
         receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Typed findings from a named-file read's structured result (the
@@ -9069,6 +9101,9 @@ class ChatOrchestrator:
                                               .get("targets") or [])
                                 },
                             }
+                            _apply_read_receipt_facts(
+                                _tl_execution, _ask_structured,
+                                _ask_identity)
                             _tlm.finish_retrieval_turn(
                                 _tl_lifecycle, _tl_begin[0], _tl_begin[1],
                                 _ask_structured if isinstance(
@@ -10228,6 +10263,9 @@ class ChatOrchestrator:
                                               .get("targets") or [])
                                 },
                             }
+                            _apply_read_receipt_facts(
+                                _tl_execution, _direct_structured,
+                                _direct_identity)
                             _tlm.finish_retrieval_turn(
                                 _tl_lifecycle, _tl_begin[0], _tl_begin[1],
                                 _direct_structured if isinstance(
