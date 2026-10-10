@@ -891,6 +891,61 @@ def artifact_observations(
                         r"[^a-z0-9]+", " ", str(header).casefold()
                     )
                 ]
+                exact_headers = [
+                    header for header in matching_headers
+                    if _canonical_field_name(header) == field]
+                # NON-MONETARY EXACT COLUMN READ (owner work order
+                # 2026-10-10): the cell IS the observation. The prose
+                # extractor invents numbers from the surrounding body
+                # for non-price fields (lead_time '10–11 weeks' → 10;
+                # 'In Stock' → a gauge number from the description), so
+                # text-valued columns never go through it. MONETARY
+                # fields keep the extractor: currency/basis live in the
+                # document context around the cell, and the comparison
+                # pipeline (field meanings, numeric normalization)
+                # depends on it.
+                if (len(exact_headers) == 1
+                        and not any(
+                            term in field for term in (
+                                "price", "cost", "amount", "rate",
+                                "value"))):
+                    header = exact_headers[0]
+                    raw_value = str(
+                        row.get(header)
+                        if row.get(header) is not None else ""
+                    ).strip()
+                    verification = (
+                        "field_missing"
+                        if not raw_value or raw_value.casefold() in {
+                            "tbd", "n/a"} else "verified")
+                    observation = {
+                        "entity_id": entity_text,
+                        "field": field,
+                        "raw_value": raw_value,
+                        "source": dict(source_data),
+                        "verification": verification,
+                        "field_meaning": str(header),
+                        "entity_attributes": dict(entity_attributes),
+                        "observation_id": (
+                            f"{source_data['source_id']}:"
+                            f"{source_data.get('version') or 'current'}:"
+                            f"{row_number}:{entity_text}:{field}:{header}"
+                        ),
+                        "locator": {
+                            "row": row_number,
+                            "column": str(header),
+                            "source_id": source_data["source_id"],
+                        },
+                    }
+                    from core.workbook_read_artifact import (
+                        _text_source_currency,
+                    )
+
+                    currency = _text_source_currency(raw_value)
+                    if currency:
+                        observation["currency"] = currency
+                    observations.append(observation)
+                    continue
                 for header in matching_headers:
                     raw_value = str(
                         row.get(header)
@@ -1346,12 +1401,209 @@ def _has_concrete_scope_obligations(scope_text: str) -> bool:
     return False
 
 
+_VALUE_REQUEST_RE = re.compile(
+    r"\b(prices?|costs?|delivery|deliveries|lead\s+times?|amounts?|"
+    r"rates?|values?)\b", re.IGNORECASE)
+
+
+def _canonical_value_text(value: Any) -> str:
+    text = re.sub(r"[\u2010-\u2015]", "-", str(value if value is not None
+                                                else ""))
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+def _pure_number(value: Any) -> Optional[Decimal]:
+    """A value that is ENTIRELY a number (optionally currency-prefixed),
+    not merely one that starts with a digit — '10-11 weeks' is a text
+    obligation; '$2,902.00' is numeric."""
+    from core.workbook_read_artifact import _comparison_number
+    text = re.sub(r"[\s\u00a0]", "", str(value if value is not None
+                                         else ""))
+    if not re.fullmatch(
+            r"[(]?-?[$€£¥₹₩₽₺]?\d{1,15}(,\d{3})*(\.\d+)?[)]?", text):
+        return None
+    return _comparison_number(text)
+
+
+def _values_match(expected: Any, observed: Any,
+                  expected_meta: Dict[str, Any],
+                  observed_obs: Dict[str, Any]) -> bool:
+    expected_number = _pure_number(expected)
+    observed_number = _pure_number(observed)
+    if expected_number is not None and observed_number is not None:
+        if expected_number != observed_number:
+            return False
+    elif (_canonical_value_text(expected)
+            != _canonical_value_text(observed)):
+        return False
+    for key in ("currency", "unit", "basis"):
+        if (expected_meta.get(key) is not None
+                and observed_obs.get(key) is not None
+                and observed_obs.get(key) != expected_meta.get(key)):
+            return False
+    return True
+
+
+def _value_obligation_dispositions(
+    message: str,
+    canvas: Dict[str, Any],
+    evidence_contract: Dict[str, Any],
+    revision: str,
+) -> List[Dict[str, Any]]:
+    """Per-obligation value dispositions from the AUTHORIZED evidence
+    contract (owner work order 2026-10-10): for every entity/field the
+    contract's non-artifact, non-historical evidence speaks to, record
+    the expected value WITH its authority, the observed value in the
+    authoritative canvas, the revision checked, and a disposition.
+
+    Approval is never inferred from the canvas's existing contents: no
+    authorized source observation for an obligation means UNRESOLVED,
+    never satisfied. Findings stay separate from authorization — the
+    satisfaction claim rests on the evidence's own authority (owner
+    decision > designated workbook read), while ``actions`` continue to
+    gate CHANGES elsewhere.
+    """
+    evidence = [
+        dict(item) for item in
+        ((evidence_contract or {}).get("evidence") or [])
+        if isinstance(item, dict)]
+    fields = sorted({
+        str(item.get("field") or "") for item in evidence
+        if str(item.get("field") or "")})
+    # ADDRESSED ROWS (row-range repair, 2026-10-10): a request naming a
+    # row range obliges the entities LIVING in those rows — alternatives
+    # beyond the range are not requested, even when the contract
+    # carries them. Entities the canvas does not locate stay required
+    # (unresolvable is never silently excused).
+    range_end = _requested_row_range([message])
+    required_entities: List[str] = []
+    seen_e = set()
+    for item in evidence:
+        source = item.get("source") or {}
+        if str(source.get("source_type") or "") == "artifact":
+            continue
+        entity = str(item.get("entity_id") or "").strip()
+        if not entity or entity.casefold() in seen_e:
+            continue
+        seen_e.add(entity.casefold())
+        required_entities.append(entity)
+    if range_end is not None:
+        located: Dict[str, Optional[int]] = {}
+        for entity in required_entities:
+            rows_seen = [
+                ((item.get("locator") or {}).get("row"))
+                for item in artifact_observations(
+                    canvas,
+                    requested_entities=[entity],
+                    requested_fields=fields or None)
+                if isinstance((item.get("locator") or {}).get("row"),
+                              int)]
+            located[entity] = min(rows_seen) if rows_seen else None
+        # RANK, not raw row number: the table's header row offsets the
+        # locator (data row 1 is locator row 2), while the request's
+        # "rows 1-5" counts DATA rows. The Nth distinct located row is
+        # data row N.
+        ranked = sorted(
+            row for row in located.values() if row is not None)
+        rank_of = {row: idx + 1 for idx, row in enumerate(ranked)}
+        required_entities = [
+            e for e in required_entities
+            if located[e] is None
+            or rank_of.get(located[e], range_end + 1) <= range_end]
+    dispositions: List[Dict[str, Any]] = []
+    entity_fields: List[tuple] = []
+    seen = set()
+    for item in evidence:
+        source = item.get("source") or {}
+        if str(source.get("source_type") or "") == "artifact":
+            continue
+        if str(source.get("temporal_role") or "") == "historical":
+            continue
+        entity = str(item.get("entity_id") or "").strip()
+        field = str(item.get("field") or "").strip()
+        if not entity or not field:
+            continue
+        if entity.casefold() not in {e.casefold()
+                                     for e in required_entities}:
+            continue
+        key = (entity.casefold(), field)
+        if key in seen:
+            continue
+        entity_fields.append((entity, field))
+        seen.add(key)
+    for entity, field in entity_fields:
+        candidates = [
+            item for item in evidence
+            if str(item.get("entity_id") or "").casefold()
+            == entity.casefold()
+            and str(item.get("field") or "") == field
+            and str((item.get("source") or {}).get("source_type")
+                    or "") != "artifact"
+            and str((item.get("source") or {}).get("temporal_role")
+                    or "") != "historical"]
+        authority = sorted(
+            candidates,
+            key=lambda c: 0 if str(
+                (c.get("source") or {}).get("source_type")
+                or "") in {"supplier_quote", "decision", "owner"}
+            else 1)[0]
+        expected_raw = authority.get("raw_value")
+        record = {
+            "entity_id": entity,
+            "field": field,
+            "expected": {
+                "raw_value": str(expected_raw),
+                "currency": authority.get("currency"),
+                "unit": authority.get("unit"),
+                "basis": authority.get("basis"),
+                "authority_source_id": str(
+                    (authority.get("source") or {}).get("source_id")
+                    or ""),
+                "authority_source_type": str(
+                    (authority.get("source") or {}).get("source_type")
+                    or ""),
+            },
+            "revision": revision,
+        }
+        observed_rows = [
+            item for item in artifact_observations(
+                canvas,
+                requested_entities=[entity],
+                requested_fields=[field])
+            if _comparison_verified_local(item)]
+        if expected_raw in (None, "") or len(observed_rows) != 1:
+            record["disposition"] = "unresolved"
+            record["observed"] = None
+            record["detail"] = (
+                "no authorized source value" if expected_raw in (None, "")
+                else f"{len(observed_rows)} canvas observations")
+        else:
+            observed = observed_rows[0]
+            record["observed"] = str(observed.get("raw_value") or "")
+            record["disposition"] = (
+                "satisfied" if _values_match(
+                    expected_raw, observed.get("raw_value"),
+                    record["expected"], observed) else "unsatisfied")
+            record["detail"] = (
+                f"expected {record['expected']['raw_value']} "
+                f"({record['expected']['authority_source_id']}); "
+                f"observed {record['observed']}")
+        dispositions.append(record)
+    return dispositions
+
+
+def _comparison_verified_local(observation: Dict[str, Any]) -> bool:
+    return str(observation.get("verification") or "").lower() in {
+        "verified", "stored", "calculated"}
+
+
 def requirement_check(
     *,
     message: str,
     canvas: Optional[Dict[str, Any]],
     authorized: bool,
     expected_prior_audit_id: Optional[str],
+    evidence_contract: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Decide, from RECORDS, whether an authorized edit is already
     satisfied by the authoritative draft — the evidence a served decline
@@ -1369,6 +1621,16 @@ def requirement_check(
       3. AUTHORITATIVE REVISION — the draft the check reads is the one
          the caller expected to edit. A revision the caller did not
          expect (or a concurrent change) cannot certify "already done".
+      4. AUTHORIZED VALUE EVIDENCE (owner work order 2026-10-10) — a
+         value-shaped request ("the approved prices and delivery
+         times") is satisfied only when the evidence CONTRACT supplied
+         to drafting carries an authorized source value for every
+         requested obligation AND the authoritative canvas matches it
+         (``_value_obligation_dispositions``: expected+authority,
+         observed, revision, disposition per obligation). Approval is
+         never inferred from the canvas's existing contents: without
+         the contract the obligation is UNRESOLVED — never satisfied by
+         table preservation.
 
     SATISFACTION vs PRESERVATION (2026-10-10 correction): the scope
     contract (``_validate_scoped_edit``) guards MUTATIONS — it proves a
@@ -1448,9 +1710,45 @@ def requirement_check(
         # Neither a scope-bearing request nor a header obligation: the
         # check cannot parse this into postconditions. Unconfirmed.
         return None
+    # VALUE OBLIGATIONS (owner work order 2026-10-10): a value-shaped
+    # request is satisfied only from the AUTHORIZED evidence contract —
+    # never from table structure. Without a contract the obligation is
+    # UNRESOLVED, which blocks completion exactly like unsatisfied.
+    value_dispositions: List[Dict[str, Any]] = []
+    if _VALUE_REQUEST_RE.search(message):
+        if isinstance(evidence_contract, dict) and (
+                evidence_contract.get("evidence")
+                or evidence_contract.get("actions")):
+            value_dispositions = _value_obligation_dispositions(
+                message, canvas, evidence_contract, observed)
+            all_settled = bool(value_dispositions) and all(
+                d["disposition"] == "satisfied"
+                for d in value_dispositions)
+            failing = [d for d in value_dispositions
+                       if d["disposition"] != "satisfied"]
+            obligations.append({
+                "kind": "value_obligations",
+                "disposition": ("satisfied" if all_settled
+                                else (failing[0]["disposition"]
+                                      if failing else "unresolved")),
+                "detail": (
+                    f"{len(value_dispositions)} authorized value "
+                    "obligations hold"
+                    if all_settled else "; ".join(
+                        f"{d['entity_id']} {d['field']}: "
+                        f"{d['disposition']} ({d.get('detail') or ''})"
+                        for d in failing[:4]))[:300],
+            })
+        else:
+            obligations.append({
+                "kind": "value_obligations",
+                "disposition": "unresolved",
+                "detail": ("no authorized evidence contract carried the "
+                           "approved values")[:120],
+            })
     unsatisfied = [o for o in obligations
-                   if o["disposition"] == "unsatisfied"]
-    return {
+                   if o["disposition"] != "satisfied"]
+    receipt = {
         "satisfied": bool(obligations) and not unsatisfied,
         "obligations": obligations,
         "unmet": [o["detail"] for o in unsatisfied],
@@ -1458,39 +1756,65 @@ def requirement_check(
         "revision": (observed or None),
         "authorized": True,
     }
+    if value_dispositions:
+        receipt["value_dispositions"] = value_dispositions
+    return receipt
 
 
-# Only consulted on a CHECK-CERTIFIED no-op path, where satisfaction is
-# already a record fact — never as a general message filter.
-_NOOP_CONTRADICTION_RE = re.compile(
-    r"can'?t|cannot|not provided|please supply|please provide"
-    r"|i (don'?t|do not) (have|see)|no .* (provided|available)|missing",
-    re.I)
+def noop_completion_reply(
+    check: Optional[Dict[str, Any]],
+    model_reply: str = "",
+) -> Optional[str]:
+    """The completion message for a served decline — built ONLY from a
+    VALIDATED requirement-check receipt (owner work order 2026-10-10).
 
+    Validation is structural, not textual: the receipt must certify
+    authorization, canvas identity, and obligation dispositions that
+    are ALL satisfied with at least one obligation present. Anything
+    else returns None — the caller keeps an unconfirmed decline. There
+    is deliberately NO classifier of model wording: a valid receipt
+    renders what the receipt establishes (per-obligation, with the
+    revision and the value authority); an invalid one renders nothing.
+    The planner's prose is diagnostic, not part of the confirmation —
+    it belongs in the evidence artifact (``canvas_decline_requirement_
+    check`` and the lane's planning receipt), never in the claim.
 
-def noop_completion_reply(check: Optional[Dict[str, Any]],
-                          model_reply: str) -> str:
-    """The completion message for a REQUIREMENT-CHECK-CERTIFIED no-op.
-
-    Completion authority is the check (authorization + canvas identity +
-    authoritative revision + obligation dispositions), never the model's
-    prose — live S3 (2026-10-10, candidate 9f0a27da4): the served
-    planner declined with "the approved prices ... are not provided in
-    the canvas" while the check certified the draft already holds them;
-    shipping that sentence as the confirmation told the user prices
-    were missing on a COMPLETED turn. A decline reply that contradicts
-    the certification (an inability / missing-inputs claim) is replaced
-    by the record-derived sentence; the model's words survive as a
-    transparent tail, never as the claim.
+    Returns the deterministic confirmation string, or None.
     """
-    reply = str(model_reply or "").strip()
-    if reply and not _NOOP_CONTRADICTION_RE.search(reply):
-        return reply[:300]
-    base = ("The draft already reflects the requested values — no "
-            "changes were needed, and nothing was sent.")
-    if reply:
-        return f"{base} (The planner noted: {reply[:200]})"
-    return base
+    if not isinstance(check, dict):
+        return None
+    if check.get("authorized") is not True:
+        return None
+    if not str(check.get("canvas_id") or "").strip():
+        return None
+    obligations = [
+        dict(o) for o in (check.get("obligations") or [])
+        if isinstance(o, dict) and o.get("disposition")]
+    if not obligations:
+        return None
+    if any(o.get("disposition") != "satisfied" for o in obligations):
+        return None
+    revision = str(check.get("revision") or "").strip()
+    rev_tag = f" (revision {revision[:24]})" if revision else ""
+    value_rows = [
+        d for d in (check.get("value_dispositions") or [])
+        if isinstance(d, dict) and d.get("disposition") == "satisfied"]
+    if value_rows:
+        listed = "; ".join(
+            f"{d.get('entity_id')} {d.get('field')} = "
+            f"{(d.get('expected') or {}).get('raw_value')} "
+            f"per {(d.get('expected') or {}).get('authority_source_id')}"
+            for d in value_rows[:5])
+        sentence = (
+            f"Verified on the current draft{rev_tag}: {listed}. "
+            "No changes were needed, and nothing was sent.")
+    else:
+        named = [f"{o.get('kind')}" for o in obligations][:4]
+        sentence = (
+            f"Verified on the current draft{rev_tag}: "
+            f"{', '.join(named)} hold. No changes were needed, and "
+            "nothing was sent.")
+    return sentence
 
 
 def _validate_scoped_edit(

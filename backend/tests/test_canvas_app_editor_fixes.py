@@ -918,18 +918,39 @@ class TestRangeNoOpCompletion:
         return {"canvas_id": "cv-s3-test", "canvas_type": "email",
                 "content": {"body": body or _brennan_style_body()}}
 
-    def test_already_correct_draft_satisfies_the_range_request(self):
+    def test_structural_range_check_still_needs_a_contract_for_values(self):
+        """STRUCTURE only: the range branch's own scope obligation
+        holds. The value dimension ("approved prices and delivery
+        times") is pinned in tests/test_noop_completion_authority.py —
+        without an authorized contract it is UNRESOLVED and blocks
+        completion (owner case 5), so this pin carries a contract."""
+        from tests.test_noop_completion_authority import (
+            _authorized_contract as _auth_contract,
+        )
         result = requirement_check(
             message=_S3_RANGE_REQUEST, canvas=self._canvas(),
-            authorized=True, expected_prior_audit_id=None)
+            authorized=True, expected_prior_audit_id=None,
+            evidence_contract=None)
         assert result is not None
-        assert result["satisfied"] is True, result
-        assert result["unmet"] == []
+        assert result["satisfied"] is False, (
+            "a value-shaped request never completes on structure alone")
+        assert result["unmet"], result
+
+        contract = _auth_contract()
+        # the pin canvas (_brennan_style_body) has different row texts
+        # than the authority fixture; keep THIS pin structural by using
+        # a contract whose evidence matches nothing here is NOT wanted —
+        # instead assert the range branch directly:
+        scope_only = requirement_check(
+            message="Update the draft for rows 1-5.",
+            canvas=self._canvas(),
+            authorized=True, expected_prior_audit_id=None)
+        assert scope_only is not None and scope_only["satisfied"] is True
+        assert scope_only["unmet"] == []
 
     def test_range_beyond_the_draft_stays_unsatisfied(self):
         result = requirement_check(
-            message=("Update the draft for rows 1-9 with the approved "
-                     "prices. Don't send."),
+            message="Update the draft for rows 1-9. Don't send.",
             canvas=self._canvas(),  # only 8 data rows exist
             authorized=True, expected_prior_audit_id=None)
         assert result is not None and result["satisfied"] is False
@@ -945,42 +966,62 @@ class TestRangeNoOpCompletion:
 
 
 class TestNoopCompletionReply:
-    """A CHECK-CERTIFIED no-op's completion message is record-derived
-    when the model's decline prose contradicts the certification (live
-    S3 v2: 'the approved prices ... are not provided' shipped as the
-    confirmation of a COMPLETED turn over a draft holding them)."""
+    """Confirmation wording is deterministic from a VALIDATED receipt
+    (owner work order 2026-10-10): noop_completion_reply examines its
+    check — authorization, canvas identity, and obligation dispositions
+    all satisfied — and renders only what the receipt establishes. No
+    model prose is classified; an invalid receipt renders NOTHING."""
 
-    def test_contradicting_decline_is_replaced_with_the_check_sentence(
-            self):
+    def test_valid_value_receipt_renders_obligations(self):
         from core.chat_canvas_editor import noop_completion_reply
-        out = noop_completion_reply(
-            {"satisfied": True},
-            "I can't update rows 1-5 because the approved prices are "
-            "not provided in the request, canvas, or conversation. "
-            "Please supply them.")
-        assert out.startswith(
-            "The draft already reflects the requested values")
+        check = {
+            "authorized": True, "canvas_id": "cv-1",
+            "revision": "audit-9",
+            "satisfied": True,
+            "obligations": [
+                {"kind": "scope_postconditions",
+                 "disposition": "satisfied"},
+                {"kind": "value_obligations",
+                 "disposition": "satisfied"}],
+            "value_dispositions": [
+                {"entity_id": "SLE24-16", "field": "price",
+                 "disposition": "satisfied",
+                 "expected": {"raw_value": "$8,984.00",
+                              "authority_source_id": "tennsmith-sheet"}}],
+        }
+        out = noop_completion_reply(check, "any model words are ignored")
+        assert out.startswith("Verified on the current draft")
+        assert "revision audit-9" in out
+        assert "SLE24-16 price = $8,984.00 per tennsmith-sheet" in out
         assert "nothing was sent" in out
-        assert "(The planner noted:" in out, (
-            "the model's words survive as a transparent tail")
 
-    def test_agreeing_decline_passes_through(self):
+    def test_invalid_or_incomplete_receipts_render_nothing(self):
         from core.chat_canvas_editor import noop_completion_reply
-        agree = ("The draft already reflects the approved values — "
-                 "no changes needed.")
-        assert noop_completion_reply({"satisfied": True}, agree) == agree
+        assert noop_completion_reply(None) is None
+        assert noop_completion_reply({}) is None
+        assert noop_completion_reply({"satisfied": True}) is None, (
+            "satisfaction alone is not a receipt")
+        assert noop_completion_reply({
+            "authorized": True, "canvas_id": "cv", "satisfied": True,
+            "obligations": []}) is None, (
+            "no obligations = nothing established")
+        assert noop_completion_reply({
+            "authorized": True, "canvas_id": "cv", "satisfied": False,
+            "obligations": [
+                {"kind": "value_obligations",
+                 "disposition": "unresolved"}]}) is None
 
-    def test_empty_reply_gets_the_check_sentence(self):
+    def test_model_words_never_become_the_claim(self):
         from core.chat_canvas_editor import noop_completion_reply
-        out = noop_completion_reply({"satisfied": True}, "")
-        assert "already reflects the requested values" in out
-
-    def test_contradiction_regex_is_scoped_to_certified_noops(self):
-        # The regex itself is only ever consulted after the requirement
-        # check certified satisfaction — this pin keeps its vocabulary
-        # from drifting into a general message filter.
-        from core.chat_canvas_editor import _NOOP_CONTRADICTION_RE
-        assert _NOOP_CONTRADICTION_RE.search("cannot update")
-        assert _NOOP_CONTRADICTION_RE.search("Please supply the prices")
-        assert not _NOOP_CONTRADICTION_RE.search(
-            "already reflects the approved values")
+        check = {
+            "authorized": True, "canvas_id": "cv", "revision": "a1",
+            "satisfied": True,
+            "obligations": [
+                {"kind": "value_obligations",
+                 "disposition": "satisfied"}],
+        }
+        out = noop_completion_reply(
+            check,
+            "I can't update - the approved prices are not provided.")
+        assert "can't" not in out and "not provided" not in out, (
+            "the planner's prose stays diagnostic, never the claim")

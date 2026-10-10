@@ -4357,6 +4357,62 @@ _EXEC_FAILED_OUTCOMES = frozenset(
     ("read_failed", "search_failed", "not_dispatched"))
 
 
+#: UNMET-OBLIGATION VOCABULARY (owner work order 2026-10-10). A bare
+#: "unconfirmed" says work was attempted but proves nothing about WHERE
+#: it stopped, so every caller re-derives the boundary by hand. The
+#: tokens below are read off the SAME durable records this resolver
+#: already inspects — operation execution outcomes and open-question
+#: evidence — so this adds no parallel status system. Ordered: the first
+#: match wins.
+_UNMET_OBLIGATION_TOKENS: Tuple[Tuple[str, str], ...] = (
+    ("not_dispatched", "source_not_consulted"),
+    ("search_failed", "execution_failed"),
+    ("read_failed", "execution_failed"),
+    ("identity unsupported", "identity_unsupported"),
+    ("identity-unsupported", "identity_unsupported"),
+    ("parts-number", "identity_unsupported"),
+    ("ambiguous", "multiple_bases"),
+    ("search_returned_no_receipt", "no_source_returned_in_scope"),
+    ("search_succeeded_empty", "no_source_returned_in_scope"),
+    ("read_returned_no_receipt", "read_without_receipt"),
+)
+
+
+def _unmet_obligation(
+        record: Optional[Dict[str, Any]],
+        this_ops: List[Dict[str, Any]],
+        open_work: List[str]) -> str:
+    """Name the first unmet obligation from the durable records.
+
+    ``no_durable_record`` — nothing recorded for this turn; ``no_running_
+    source`` — records exist but no outcome token was written. The
+    open-work list is itself record-derived (it is built from the task
+    revision's questions), so an empty record with open work is still
+    evidence, not absence.
+    """
+    haystacks: List[str] = [str(e) for e in (open_work or [])]
+    for op in this_ops:
+        ex = op.get("execution") if isinstance(op, dict) else None
+        if isinstance(ex, dict):
+            haystacks.append(str(ex.get("outcome") or ""))
+    if record is not None:
+        try:
+            revision = (record or {}).get("task_revision") or {}
+            for q in revision.get("unresolved") or []:
+                if isinstance(q, dict):
+                    haystacks.append(str(q.get("evidence") or ""))
+                    haystacks.append(str(q.get("question") or ""))
+        except Exception:  # noqa: BLE001 — diagnosis only
+            pass
+    if not haystacks or not any(h.strip() for h in haystacks):
+        return "no_durable_record"
+    blob = " ".join(haystacks).lower()
+    for needle, token in _UNMET_OBLIGATION_TOKENS:
+        if needle in blob:
+            return token
+    return "no_running_source"
+
+
 def _turn_evidence_set(record: Optional[Dict[str, Any]],
                        execution_id: Any,
                        extra_ids: Any = None) -> Dict[str, Any]:
@@ -4727,6 +4783,13 @@ def _fallback_turn_outcome(
         if continuation_id:
             state["continuation_id"] = continuation_id
         state["delivered"] = bool(validated)
+        # UNMET OBLIGATION (owner work order 2026-10-10): an unconfirmed
+        # turn names WHERE it stopped, derived from the records above —
+        # never invented. A completed/partial/failed token already
+        # carries its own meaning and gains nothing here.
+        if state["state"] in ("unconfirmed", "partial"):
+            state["unmet_obligation"] = _unmet_obligation(
+                record, this_ops, open_work)
     except Exception:  # noqa: BLE001 — the gate never blocks the turn
         state = {"state": "unconfirmed", "open_work": [],
                  "delivered": False, "work_turn": False}
@@ -4767,10 +4830,33 @@ def _fallback_outcome_text(outcome: Dict[str, Any],
     if state == "completed":
         return ("Your request completed this turn."
                 + read_note)
+    # UNCONFIRMED — name the boundary from the resolved obligation so
+    # the reply says WHERE it stopped instead of "try again".
+    _obligation = str(outcome.get("unmet_obligation") or "")
+    _hints = {
+        "no_durable_record": "nothing recorded work for this request "
+                            "this turn",
+        "no_running_source": "no source outcome was recorded for this "
+                             "request",
+        "source_not_consulted": "no source was consulted this turn",
+        "no_source_returned_in_scope": "the sources searched this turn "
+                                       "returned nothing in scope",
+        "read_without_receipt": "a read ran but returned no usable "
+                                "receipt",
+        "identity_unsupported": "the candidate row did not satisfy the "
+                                "item identity",
+        "multiple_bases": "several candidate values remain unresolved",
+        "execution_failed": "the lookup itself failed this turn",
+    }
+    _stopped = _hints.get(
+        _obligation, "the unfinished obligation was not recorded")
     return ("I couldn't confirm what happened with your request "
             "just now — no result was delivered and I can't verify "
             "the turn's outcome."
-            + read_note + " Please try again.")
+            + f" Where it stopped: {_stopped}."
+            + read_note
+            + (f" Still open: {work}." if work else "")
+            + " Please try again.")
 
 
 _FALLBACK_OUTCOME_ERROR_CODES = {
@@ -21626,36 +21712,46 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             requirement_check as _requirement_check_fn,
                         )
 
+                        # AUTHORIZED VALUE EVIDENCE (owner work order
+                        # 2026-10-10): the contract drafting already
+                        # holds — the same object fed to the planner —
+                        # is the approved-value record the check
+                        # consumes. Its absence leaves value obligations
+                        # UNRESOLVED: the decline stays unconfirmed.
                         _requirement_check = _requirement_check_fn(
                             message=message,
                             canvas=canvas,
                             authorized=bool(_edit_requested),
                             expected_prior_audit_id=(
                                 expected_prior_audit_id),
+                            evidence_contract=(
+                                shared_tool_state.get("objective_evidence")
+                                if isinstance(shared_tool_state, dict)
+                                and isinstance(
+                                    shared_tool_state.get(
+                                        "objective_evidence"), dict)
+                                else None),
                         )
                     except Exception:  # noqa: BLE001 — never assert
                         _requirement_check = None
                     shared_tool_state["canvas_decline_requirement_check"] = (
                         _requirement_check)
-                    if bool((_requirement_check or {}).get("satisfied")):
+                    # SINGLE VALIDATION PATH (owner work order
+                    # 2026-10-10): the receipt exists IFF the validated
+                    # receipt renders — noop_completion_reply returns
+                    # None for anything but a fully-satisfied,
+                    # authorized, identity-bound check. Its wording is
+                    # receipt-derived; the planner's prose stays
+                    # diagnostic (this blackboard's check record), never
+                    # the claim.
+                    _completion = (
+                        _noop_completion_fn(_requirement_check)
+                        if _noop_completion_fn else None)
+                    if _completion:
                         shared_tool_state[
                             "canvas_edit_decline_noop"] = True
-                        # The completion message is CHECK-DERIVED when the
-                        # model's decline prose contradicts the
-                        # certification (live S3 v2, 2026-10-10: a
-                        # "prices not provided" decline shipped as the
-                        # confirmation of a COMPLETED no-op over a draft
-                        # holding the approved prices).
                         shared_tool_state[
-                            "canvas_edit_decline_reply"] = (
-                                _noop_completion_fn(
-                                    _requirement_check,
-                                    _decline_reply)
-                                if _noop_completion_fn
-                                else (_decline_reply[:300] or
-                                      "The draft already reflects the "
-                                      "approved values — no changes were "
-                                      "needed, and nothing was sent."))
+                            "canvas_edit_decline_reply"] = _completion
             return None
         if not _edit_requested:
             if shared_tool_state is not None:

@@ -673,12 +673,33 @@ class TestCalcClassificationAndNoopReceipt:
         import core.chat_canvas_editor as cce
 
         # a draft that ALREADY satisfies the request: six rows, the
-        # approved price present
+        # approved price present, and the AUTHORIZED EVIDENCE CONTRACT
+        # carrying those approved values (owner work order 2026-10-10:
+        # a value-shaped request completes only from authorized value
+        # evidence — never from table preservation alone).
         body = ("<table><tr><th>Machine</th><th>Price</th></tr>" + "".join(
             f"<tr><td>Roll bender {i}</td><td>$9,900</td></tr>"
             for i in range(1, 6)) + "</table>")
         canvas = {"canvas_id": "cv-noop-1", "canvas_type": "email",
                   "content": {"body": body}}
+        from core.workbook_read_artifact import build_source_comparison
+        _obs = [
+            {"entity_id": f"Roll bender {i}", "field": "price",
+             "raw_value": "$9,900",
+             "source": {"source_id": "approved-price-sheet",
+                        "source_type": "workbook"},
+             "verification": "verified", "column": "Price"}
+            for i in range(1, 6)]
+        _obs += [
+            dict(o, source={"source_id": "cv-noop-1",
+                            "source_type": "artifact"})
+            for o in list(_obs)]
+        contract = build_source_comparison(
+            _obs, requested_entities=[f"Roll bender {i}"
+                                      for i in range(1, 6)],
+            requested_fields=["Price"],
+            artifact_source_ids=["cv-noop-1"],
+            authorized_actions=["edit_artifact"])
 
         class _Plan:
             wants_edit = False
@@ -692,7 +713,7 @@ class TestCalcClassificationAndNoopReceipt:
         # patched attribute)
         monkeypatch.setattr(cce, "plan_canvas_edit", _plan_ok)
 
-        shared = {}
+        shared = {"objective_evidence": contract}
         orch = co.chat_orchestrator
         _aio.run(orch._try_canvas_edit(
             "Update the draft for all 6 rows with the approved prices.",
@@ -1212,16 +1233,37 @@ class TestNoOpAuthorityIsARecord:
 
     def test_satisfied_requirement_completes(self):
         """The positive case: the authorized edit's requirement is
-        already met by the authoritative draft."""
+        already met by the authoritative draft AND the authorized
+        evidence carries the approved value (owner work order
+        2026-10-10: value requests complete only from evidence)."""
         from core.chat_canvas_editor import requirement_check
+        from core.workbook_read_artifact import build_source_comparison
+        contract = build_source_comparison(
+            [
+                {"entity_id": "VIPUL", "field": "price",
+                 "raw_value": "$9,900",
+                 "source": {"source_id": "vipul-quote",
+                            "source_type": "supplier_quote"},
+                 "verification": "verified"},
+                {"entity_id": "VIPUL", "field": "price",
+                 "raw_value": "$9,900",
+                 "source": {"source_id": "cv-1",
+                            "source_type": "artifact"},
+                 "verification": "verified"},
+            ],
+            requested_entities=["VIPUL"], requested_fields=["price"],
+            artifact_source_ids=["cv-1"],
+            decision_source_ids=["vipul-quote"],
+            authorized_actions=["edit_artifact"])
         out = requirement_check(
             message="Update the draft with the VIPUL price $9,900.",
             canvas={"canvas_id": "cv-1",
                     "content": {"body": "VIPUL slitter $9,900"},
                     "latest_audit_id": "audit-7"},
-            authorized=True, expected_prior_audit_id="audit-7")
+            authorized=True, expected_prior_audit_id="audit-7",
+            evidence_contract=contract)
         assert out is not None
-        assert out["satisfied"] is True
+        assert out["satisfied"] is True, out
         assert out["canvas_id"] == "cv-1"
         assert out["authorized"] is True
 
