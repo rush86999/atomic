@@ -20738,42 +20738,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 canvas or {}).get("id")
             if not canvas_id:
                 return None
-            record = None
-            try:
-                record = tl.find_active_task_for_canvas(str(canvas_id))
-            except Exception:  # noqa: BLE001
-                record = None
-            if record is None:
-                try:
-                    record = tl.find_canvas_evidence_task(str(canvas_id))
-                except Exception:  # noqa: BLE001
-                    record = None
-            if record is None:
-                # FORK LINEAGE (evidence only, one hop): a disposable
-                # fork's research lives on the SOURCE canvas's job — the
-                # fork's audit row carries source_canvas_id.
-                try:
-                    from core.database import get_db_session
-                    from core.models import CanvasAudit
-
-                    parent = None
-                    with get_db_session() as _db:
-                        _row = (_db.query(CanvasAudit)
-                                .filter(
-                                    CanvasAudit.canvas_id == str(canvas_id),
-                                    CanvasAudit.action_type == "fork")
-                                .order_by(CanvasAudit.created_at.desc())
-                                .first())
-                        if _row is not None:
-                            parent = str((
-                                _row.details_json
-                                if hasattr(_row, "details_json")
-                                else _row.metadata_json or {}).get(
-                                "source_canvas_id") or "")
-                    if parent and parent != str(canvas_id):
-                        record = tl.find_canvas_evidence_task(parent)
-                except Exception:  # noqa: BLE001 — additive context
-                    record = None
+            record, _inherited = self._canvas_evidence_record(
+                tl, str(canvas_id))
             if record is None:
                 return None
             observations: List[Dict[str, Any]] = []
@@ -20793,10 +20759,19 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 items = ex.get("items") if isinstance(
                     ex.get("items"), dict) else {}
                 src_ver = ex.get("source_version")
+                parsed_items = [k for k in items.keys() if str(k).strip()]
                 for f in (ex.get("findings") or []):
                     if not isinstance(f, dict):
                         continue
-                    entity = (sorted(items.keys())[0] if items else "")
+                    # THE FINDING'S OWN SUBJECT (owner correction
+                    # 2026-10-10): the settle stamps each finding's
+                    # item; the first-sorted-item fallback is legal ONLY
+                    # when the operation is single-item (attribution
+                    # unambiguous). Multi-item findings without an item
+                    # are dropped rather than misattributed.
+                    entity = (str(f.get("item") or "").strip()
+                              or (parsed_items[0] if len(
+                                  parsed_items) == 1 else ""))
                     field = str(f.get("field") or "")
                     raw = f.get("raw")
                     if (not entity or not field
@@ -20805,9 +20780,19 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     source_full = str(f.get("source") or "")
                     file_id = (source_full.split("!")[0]
                                if "!" in source_full else source_full)
+                    parsed = f.get("parsed") if isinstance(
+                        f.get("parsed"), dict) else {}
                     observations.append({
                         "entity_id": entity, "field": field,
                         "raw_value": str(raw),
+                        # MEANING PRESERVED (owner correction): basis/
+                        # currency/unit and the full file!sheet!row
+                        # location ride the evidence — PRICE vs
+                        # U.S. LIST vs CDN LIST keep their distinctions
+                        "basis": parsed.get("basis"),
+                        "currency": parsed.get("currency"),
+                        "unit": parsed.get("unit"),
+                        "source_location": source_full or None,
                         "source": {
                             "source_id": file_id or "job-record",
                             "source_type": "workbook"},
@@ -20915,6 +20900,74 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             **ev,
         }
 
+    def _canvas_bound_record(
+        self, tl: Any, canvas_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """ONE evidence-only record policy (owner correction
+        2026-10-10): applicable ACTIVE findings first, then relevant
+        COMPLETED findings — same exact canvas binding, same workspace
+        scoping, for every caller."""
+        try:
+            record = tl.find_active_task_for_canvas(canvas_id)
+        except Exception:  # noqa: BLE001
+            record = None
+        if record is None:
+            try:
+                record = tl.find_canvas_evidence_task(canvas_id)
+            except Exception:  # noqa: BLE001
+                record = None
+        return record
+
+    @staticmethod
+    def _record_has_findings(record: Optional[Dict[str, Any]]) -> bool:
+        """'Applicable' = the record actually carries typed findings —
+        an empty new-fork job must not shadow the parent's research."""
+        for op in ((record or {}).get("operations") or []):
+            if isinstance(op, dict) and (
+                    (op.get("execution") or {}).get("findings")):
+                return True
+        return False
+
+    def _fork_source_canvas(self, canvas_id: str) -> Optional[str]:
+        """The fork's source canvas id from its own audit row (one hop)."""
+        try:
+            from core.database import get_db_session
+            from core.models import CanvasAudit
+
+            with get_db_session() as _db:
+                _row = (_db.query(CanvasAudit)
+                        .filter(
+                            CanvasAudit.canvas_id == str(canvas_id),
+                            CanvasAudit.action_type == "fork")
+                        .order_by(CanvasAudit.created_at.desc())
+                        .first())
+                if _row is None:
+                    return None
+                parent = str((_row.details_json
+                              if hasattr(_row, "details_json")
+                              else _row.metadata_json or {}).get(
+                                  "source_canvas_id") or "")
+                return parent or None
+        except Exception:  # noqa: BLE001 — additive context
+            return None
+
+    def _canvas_evidence_record(
+        self, tl: Any, canvas_id: str,
+    ) -> "tuple[Optional[Dict[str, Any]], Optional[str]]":
+        """(record, inherited_from): the canvas's own applicable record,
+        else the fork's source canvas's applicable record (one hop,
+        EVIDENCE ONLY — inheritance never carries mutation authority).
+        An empty fork job does not shadow the parent's findings."""
+        record = self._canvas_bound_record(tl, canvas_id)
+        if self._record_has_findings(record):
+            return record, None
+        parent = self._fork_source_canvas(canvas_id)
+        if parent and parent != str(canvas_id):
+            parent_record = self._canvas_bound_record(tl, parent)
+            if self._record_has_findings(parent_record):
+                return parent_record, parent
+        return record, None
+
     def _canvas_job_findings(
         self,
         user_id: str,
@@ -20960,25 +21013,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             # best-effort handler swallowed it — so this whole adapter
             # returned None and the drafting contract never received the
             # job's research at all.
-            record = None
-            if canvas_id:
-                try:
-                    record = tl.find_active_task_for_canvas(str(canvas_id))
-                except Exception:  # noqa: BLE001
-                    record = None
-            if record is None and canvas_id:
-                # COMPLETED-JOB EVIDENCE (owner direction 2026-10-10):
-                # the active-task lookup searches non-terminal work
-                # only, so finished research vanished from fresh-session
-                # evidence resolution. Fall back to the terminal record
-                # — EVIDENCE ONLY: no reactivation, no mutation
-                # authority, exact canvas binding (fork lineage rules
-                # below still apply).
-                try:
-                    record = tl.find_canvas_evidence_task(str(canvas_id))
-                except Exception:  # noqa: BLE001
-                    record = None
-            inherited_from: Optional[str] = None
+            record, inherited_from = (
+                self._canvas_evidence_record(tl, str(canvas_id))
+                if canvas_id else (None, None))
             if record is None and canvas_id:
                 # FORK LINEAGE (round 64, live DRAFT6): a disposable fork
                 # starts a NEW job with an empty ledger — the research the

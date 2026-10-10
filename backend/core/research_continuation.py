@@ -257,6 +257,7 @@ async def _execute_document_read(
     statuses: Dict[str, str] = {}
     evidence: List[str] = []
     any_executed = False
+    _scan_identity = None
     for item in items:
         try:
             scan = await asyncio.wait_for(
@@ -265,6 +266,9 @@ async def _execute_document_read(
                     workspace_id, file_name=file_name, max_matches=8),
                 timeout=_READ_TIMEOUT_SECONDS)
             any_executed = True
+            _ident = (scan or {}).get("source_identity") or {}
+            if _ident.get("content_hash"):
+                _scan_identity = str(_ident["content_hash"])[:80]
         except Exception as exc:  # noqa: BLE001 — per-item isolation
             statuses[item] = ""
             evidence.append(f"{item}: lookup failed "
@@ -369,11 +373,12 @@ async def _execute_document_read(
             else "read_failed"),
         "served_basis": ("saved_copy" if any_executed else "none"),
         "failure_stage": None,
-        # SOURCE VERSION (owner direction 2026-10-10): the revision the
-        # read served from — the ACTIVE catalog ingest's content_hash
-        # for this file, the same identity current_dataset_version
-        # resolves at reuse.
-        "source_version": _read_source_version(file_name),
+        # SOURCE VERSION (owner correction 2026-10-10): the identity
+        # the READ receipt carried — the content_hash of the entries
+        # actually scanned, captured at read time. Never re-queried
+        # from the catalog here: an ingest between read and settlement
+        # must not stamp version-B identity onto version-A values.
+        "source_version": _scan_identity,
         "items": statuses,
         # Same observability as the row-context read: the per-item
         # evidence was returned to the caller and dropped before the
@@ -390,18 +395,6 @@ async def _execute_document_read(
         freshness=None, execution=_exec_facts)
     return {"file": file_name, "statuses": statuses,
             "evidence": evidence}
-
-
-def _read_source_version(file_name: str) -> "str | None":
-    """The served copy's authoritative version for this read: the
-    ACTIVE DatasetEntry content_hash for the file (durable metadata,
-    no model call). None when the catalog cannot answer."""
-    try:
-        from core.sheet_dataset_service import current_dataset_version
-
-        return current_dataset_version(file_name)
-    except Exception:  # noqa: BLE001 — a version-less read stays honest
-        return None
 
 
 def _norm_token(s: Any) -> str:
@@ -861,6 +854,10 @@ async def _execute_row_read(
                 col, val = cands[0][0], cands[0][1]
                 _typed_findings.append({
                     "field": field, "column": col, "raw": str(val),
+                    # the finding's OWN subject (owner correction
+                    # 2026-10-10): multi-item operations must not have
+                    # every finding attributed to the first sorted item
+                    "item": item,
                     "parsed": cands[0][2] if len(cands[0]) > 2 else None,
                     # single-line f-string expression: a multi-line one is
                     # a SyntaxError on Python < 3.12, and the 3.11 test

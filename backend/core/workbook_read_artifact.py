@@ -3524,6 +3524,8 @@ def _normalise_comparison_observation(observation: Dict[str, Any]) -> Dict[str, 
         # read recorded (finding_reuse_status).
         "source_version": (
             str(item.get("source_version") or "").strip() or None),
+        "source_location": (
+            str(item.get("source_location") or "").strip() or None),
         "field_meaning": str(
             item.get("field_meaning") or item.get("column") or ""
         ).strip() or None,

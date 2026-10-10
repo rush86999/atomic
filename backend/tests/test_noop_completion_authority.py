@@ -18,6 +18,7 @@ owner's manual-quote decision) carries the approved values.
 """
 import asyncio
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -537,3 +538,206 @@ class TestCompletedJobReachesFreshSessionCheck:
         assert disp["expected"]["authority_source_type"] == (
             "supplier_quote"), (
             "a supplier quote never acquires owner-decision authority")
+
+
+class TestReadSettleVersionRace:
+    """The finding records the version the READ receipt carried — not
+    whichever catalog version is current at settlement (owner
+    correction 2026-10-10). read A -> catalog moves to B -> settle:
+    the finding retains A."""
+
+    def test_settle_stamps_the_read_receipt_identity(self, monkeypatch):
+        import asyncio
+
+        import core.research_continuation as rc
+
+        captured = {}
+
+        def _fake_finish(lifecycle, run_id, op_id, a, b, ok, execution=None):
+            captured["execution"] = execution
+
+        def _fake_record(*a, **k):
+            captured["record"] = k
+
+        class _Scan:
+            @staticmethod
+            def find_all(item, user_id, workspace_id, file_name=None,
+                         max_matches=8):
+                return {
+                    "matches": [], "per_file": {}, "total_matches": 0,
+                    "source_identity": {"file_name": "tennsmith.xlsx",
+                                        "content_hash": "hash-A"},
+                }
+
+        import core.sheet_dataset_service as _sds
+
+        monkeypatch.setattr(_sds, "find_all_occurrences_sync",
+                            _Scan.find_all)
+        import core.task_lifecycle as _tl_mod
+
+        monkeypatch.setattr(_tl_mod, "finish_retrieval_turn",
+                            _fake_finish)
+        monkeypatch.setattr(_tl_mod, "record_read_outcome",
+                            _fake_record)
+        monkeypatch.setattr(
+            "core.sheet_dataset_service.current_dataset_version",
+            lambda ident: "hash-B")
+        lifecycle = MagicMock()
+        lifecycle.create_operation.return_value = {
+            "operation_id": "op-x"}
+        asyncio.run(rc._execute_document_read(
+            lifecycle, "run-x", "u1", "default", "tennsmith.xlsx",
+            items=["SLE24-16"], action_inputs={
+                "requested_fields": ["price"]}))
+        ex = captured.get("execution") or {}
+        assert ex.get("source_version") == "hash-A", (
+            "the settle stamps the version the READ receipt carried — "
+            f"not the current catalog version; got {ex.get('source_version')!r}")
+
+
+class TestTwoItemMultiBasisReconstruction:
+    """Each finding keeps its OWN subject and meaning through
+    reconstruction (owner correction 2026-10-10): a multi-item
+    operation's PRICE / U.S. LIST / CDN LIST findings must not all
+    collapse onto the first sorted item, and parsed basis/currency/unit
+    plus the file!sheet!row location survive."""
+
+    def _record(self):
+        def findings_for(item):
+            return [
+                {"item": item, "field": "price", "raw": "$8,984.00",
+                 "parsed": {"value": 8984.0, "currency": "CAD",
+                            "basis": "list"},
+                 "source": f"tennsmith.xlsx!Tennsmith!row{338}"},
+                {"item": item, "field": "delivery", "raw": "11–12 weeks",
+                 "source": f"tennsmith.xlsx!Tennsmith!row{338}"}]
+        return {
+            "run_id": "job-m", "status": "achieved",
+            "task_revision": {"provenance": {"canvas_id": "cv-multi"},
+                              "entities": []},
+            "operations": [{
+                "operation_id": "op-multi", "operation_type": "retrieve",
+                "execution": {
+                    "invoked": True, "outcome": "read_succeeded",
+                    "served_basis": "saved_copy",
+                    "source_version": "rev-A",
+                    "items": {"No. 381": "matched",
+                              "SLE24-16": "matched"},
+                    "findings": findings_for("No. 381")
+                    + findings_for("SLE24-16")},
+            }],
+        }
+
+    def test_findings_keep_their_own_items_and_meaning(self):
+        from integrations import chat_orchestrator as co
+
+        orch = co.chat_orchestrator
+        record = self._record()
+        with patch.object(co, "_task_lifecycle_for") as tlf:
+            tlf.return_value = MagicMock(**{
+                "find_active_task_for_canvas.return_value": None,
+                "find_canvas_evidence_task.return_value": record})
+            contract = orch._canvas_job_evidence_contract(
+                {"canvas_id": "cv-multi", "content": {"body": ""}})
+        assert contract is not None
+        by_key = {
+            (e.get("entity_id"), e.get("field")): e
+            for e in contract.get("evidence") or []
+            if e.get("entity_id") in ("No. 381", "SLE24-16")}
+        assert ("No. 381", "price") in by_key and (
+            "SLE24-16", "price") in by_key, (
+            "two items, both attributed to their own subject")
+        for (ent, _f), e in by_key.items():
+            assert e.get("source_location") == (
+                f"tennsmith.xlsx!Tennsmith!row338"), (
+                "the file!sheet!row location survives")
+        price_381 = by_key[("No. 381", "price")]
+        assert price_381.get("currency") == "CAD", (
+            "parsed currency survives reconstruction")
+        assert price_381.get("basis") == "list", (
+            "parsed basis survives reconstruction")
+
+
+class TestCatalogResolutionScoping:
+    """Version resolution is workspace-scoped and identity-stable:
+    same-name sources in different workspaces stay separate, and an
+    ambiguous identity resolves to NOTHING (never the globally newest
+    file with that name)."""
+
+    def _engine(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+
+        from core.database import Base
+
+        from core.models import DatasetEntry
+
+        self._DatasetEntry = DatasetEntry
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine,
+                                 tables=[DatasetEntry.__table__])
+        return engine, sessionmaker(bind=engine, expire_on_commit=False)
+
+    def _entry(self, ws, fname, hash_):
+        from core.models import DatasetEntry  # noqa: F401 — re-exported to tests
+        self._DatasetEntry = DatasetEntry
+        return {"workspace_id": ws, "file_name": fname,
+                "content_hash": hash_, "status": "active",
+                "source_kind": "file", "source": "test",
+                "external_id": f"{ws}:{fname}", "entity_name": "s",
+                "dataset_name": f"ds_{ws}_{hash_[:6]}",
+                "parquet_path": "/tmp/x.parquet", "columns_json": []}
+
+    def test_same_name_different_workspaces_stay_separate(self):
+        from contextlib import contextmanager
+
+        import core.sheet_dataset_service as sds
+
+        engine, Session = self._engine()
+        with Session() as s:
+            s.add(self._DatasetEntry(**self._entry("ws-A", "quote.xlsx",
+                                             "hash-A")))
+            s.add(self._DatasetEntry(**self._entry("ws-B", "quote.xlsx",
+                                             "hash-B")))
+            s.commit()
+
+        @contextmanager
+        def _cat():
+            sess = Session()
+            try:
+                yield sess
+            finally:
+                sess.close()
+
+        with patch.object(sds, "_catalog_session", _cat):
+            assert sds.current_dataset_version(
+                "quote.xlsx", workspace_id="ws-A") == "hash-A"
+            assert sds.current_dataset_version(
+                "quote.xlsx", workspace_id="ws-B") == "hash-B"
+
+    def test_ambiguous_identity_is_unresolved_not_newest(self):
+        from contextlib import contextmanager
+
+        import core.sheet_dataset_service as sds
+
+        engine, Session = self._engine()
+        with Session() as s:
+            s.add(self._DatasetEntry(**self._entry(
+                "ws-A", "quote.xlsx", "hash-A1")))
+            s.add(self._DatasetEntry(**self._entry(
+                "ws-A", "quote.xlsx", "hash-A2")))
+            s.commit()
+
+        @contextmanager
+        def _cat():
+            sess = Session()
+            try:
+                yield sess
+            finally:
+                sess.close()
+
+        with patch.object(sds, "_catalog_session", _cat):
+            assert sds.current_dataset_version(
+                "quote.xlsx", workspace_id="ws-A") is None, (
+                "two distinct active sources for one identity: no "
+                "version is the answer")

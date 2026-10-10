@@ -120,33 +120,54 @@ def _catalog_session():
         yield db
 
 
-def current_dataset_version(file_identity: str) -> "str | None":
+def current_dataset_version(file_identity: str,
+                            workspace_id: str = "default",
+                            ) -> "str | None":
     """The ACTIVE ingest's content_hash for this source identity — the
     authoritative source version, read from durable catalog metadata
     (owner direction 2026-10-10). No model call, no re-read: a fresh
     session can check unchanged source versions from the catalog alone.
 
-    Returns None when the catalog holds no active entry for the
-    identity — the caller owes that finding NO freshness claim.
+    SCOPED (owner correction 2026-10-10): the query is
+    workspace-constrained and matches the STABLE identity only
+    (external_id, then exact file_name within that workspace). When
+    distinct active sources remain plausible for the identity, the
+    version is UNRESOLVED — None — never the globally newest file with
+    that name.
     """
     name = str(file_identity or "").strip()
     if not name:
         return None
+    ws = str(workspace_id or "default").strip() or "default"
     from core.models import DatasetEntry
+    from sqlalchemy import or_ as _or
 
     with _catalog_session() as db:
-        row = (
+        base = (
             db.query(DatasetEntry)
             .filter(
                 DatasetEntry.source_kind == "file",
                 DatasetEntry.status == "active",
-                (DatasetEntry.file_name == name)
-                | (DatasetEntry.external_id == name)
-                | (DatasetEntry.dataset_name == name),
+                # named workspaces stay separate; legacy rows with no
+                # workspace are the deployment-shared cache
+                _or(DatasetEntry.workspace_id == ws,
+                    DatasetEntry.workspace_id.is_(None)),
             )
-            .order_by(DatasetEntry.ingested_at.desc())
-            .first()
         )
+        row = (base.filter(
+            DatasetEntry.external_id == name).first())
+        if row is None:
+            candidates = (base.filter(
+                DatasetEntry.file_name == name)
+                .order_by(DatasetEntry.ingested_at.desc()).all())
+            # same-name sources must not collapse: one PLURAL answer is
+            # no answer
+            distinct = {
+                str(c.content_hash or "") for c in candidates}
+            if len(candidates) == 1:
+                row = candidates[0]
+            elif len(distinct) > 1 or len(candidates) > 1:
+                return None
         return row.content_hash if row else None
 
 
@@ -1579,6 +1600,18 @@ def find_all_occurrences_sync(
             result["files_scanned"] += 1
             if file_hit:
                 per_file[fname] = per_file.get(fname, 0) + file_hit
+            # READ RECEIPT IDENTITY (owner correction 2026-10-10): the
+            # content_hash of the entries ACTUALLY scanned — recorded at
+            # read time, never re-queried at settlement (an ingest
+            # between read and settle must not stamp version-B identity
+            # onto version-A values).
+            if file_hit and not result.get("source_identity"):
+                result["source_identity"] = {
+                    "file_name": fname,
+                    "content_hash": str(
+                        (sheet_entries[0] or {}).get("content_hash")
+                        or ""),
+                }
     finally:
         if con is not None:
             try:
