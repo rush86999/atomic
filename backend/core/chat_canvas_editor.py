@@ -1449,6 +1449,7 @@ def _value_obligation_dispositions(
     canvas: Dict[str, Any],
     evidence_contract: Dict[str, Any],
     revision: str,
+    current_source_revision: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Per-obligation value dispositions from the AUTHORIZED evidence
     contract (owner work order 2026-10-10): for every entity/field the
@@ -1456,12 +1457,15 @@ def _value_obligation_dispositions(
     the expected value WITH its authority, the observed value in the
     authoritative canvas, the revision checked, and a disposition.
 
-    Approval is never inferred from the canvas's existing contents: no
-    authorized source observation for an obligation means UNRESOLVED,
-    never satisfied. Findings stay separate from authorization — the
-    satisfaction claim rests on the evidence's own authority (owner
-    decision > designated workbook read), while ``actions`` continue to
-    gate CHANGES elsewhere.
+    FRESHNESS IS ENFORCED HERE, NOT MERELY DISPLAYED (owner correction
+    2026-10-10): a workbook-sourced finding whose recorded source
+    version differs from the CURRENT authoritative revision (resolved
+    this turn by the caller) is STALE — the obligation is UNRESOLVED
+    until revalidated; the old record is retained, never erased. A
+    workbook finding with NO version anchor makes no freshness claim
+    and likewise cannot certify. Owner-decision findings (manual
+    quotes) carry independent authority and are exempt. Approval is
+    never inferred from the canvas's existing contents.
     """
     evidence = [
         dict(item) for item in
@@ -1577,12 +1581,40 @@ def _value_obligation_dispositions(
                 requested_entities=[entity],
                 requested_fields=[field])
             if _comparison_verified_local(item)]
+        # FRESHNESS AT THE REUSE BOUNDARY (owner correction): workbook
+        # findings certify only against their own recorded version.
+        _src_type = str((authority.get("source") or {}).get(
+            "source_type") or "")
+        _decision_sourced = _src_type in {
+            "supplier_quote", "decision", "owner"}
+        _reuse = "current"
+        if not _decision_sourced:
+            from core.workbook_read_artifact import finding_reuse_status
+            _reuse = finding_reuse_status(
+                authority.get("source_version"),
+                current_source_revision)
         if expected_raw in (None, "") or len(observed_rows) != 1:
             record["disposition"] = "unresolved"
             record["observed"] = None
             record["detail"] = (
                 "no authorized source value" if expected_raw in (None, "")
                 else f"{len(observed_rows)} canvas observations")
+        elif _reuse == "stale":
+            record["disposition"] = "unresolved"
+            record["observed"] = str(observed_rows[0].get("raw_value")
+                                     or "")
+            record["detail"] = (
+                f"source changed since observation "
+                f"({record['expected'].get('source_version') or 'no version'}"
+                f" recorded, {current_source_revision} authoritative) — "
+                "revalidation required")
+        elif _reuse == "unqualified":
+            record["disposition"] = "unresolved"
+            record["observed"] = str(observed_rows[0].get("raw_value")
+                                     or "")
+            record["detail"] = (
+                "workbook finding carries no source version — no "
+                "freshness claim, revalidation required")
         else:
             observed = observed_rows[0]
             record["observed"] = str(observed.get("raw_value") or "")
@@ -1610,6 +1642,7 @@ def requirement_check(
     authorized: bool,
     expected_prior_audit_id: Optional[str],
     evidence_contract: Optional[Dict[str, Any]] = None,
+    current_source_revision: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Decide, from RECORDS, whether an authorized edit is already
     satisfied by the authoritative draft — the evidence a served decline
@@ -1726,7 +1759,8 @@ def requirement_check(
                 evidence_contract.get("evidence")
                 or evidence_contract.get("actions")):
             value_dispositions = _value_obligation_dispositions(
-                message, canvas, evidence_contract, observed)
+                message, canvas, evidence_contract, observed,
+                current_source_revision=current_source_revision)
             all_settled = bool(value_dispositions) and all(
                 d["disposition"] == "satisfied"
                 for d in value_dispositions)

@@ -685,7 +685,7 @@ class TestCalcClassificationAndNoopReceipt:
         from core.workbook_read_artifact import build_source_comparison
         _obs = [
             {"entity_id": f"Roll bender {i}", "field": "price",
-             "raw_value": "$9,900",
+             "raw_value": "$9,900", "source_version": "rev-A",
              "source": {"source_id": "approved-price-sheet",
                         "source_type": "workbook"},
              "verification": "verified", "column": "Price"}
@@ -712,6 +712,21 @@ class TestCalcClassificationAndNoopReceipt:
         # the editor module — patch it there (per-call lookup sees the
         # patched attribute)
         monkeypatch.setattr(cce, "plan_canvas_edit", _plan_ok)
+
+        # the fresh leg resolves the source THIS turn at the SAME
+        # revision the findings were read at (owner correction:
+        # workbook findings certify only against their recorded
+        # version)
+        from core.chat_canvas_editor import FreshDataResult as _FDR
+
+        async def _fresh_ok(*a, **k):
+            return _FDR(section="", needed=False, ok=True, block="",
+                        evidence_contract={
+                            "source": {"evidence_revision": "rev-A"},
+                            "evidence": contract.get("evidence") or [],
+                            "actions": contract.get("actions") or []})
+
+        monkeypatch.setattr(cce, "fetch_fresh_data_section", _fresh_ok)
 
         shared = {"objective_evidence": contract}
         orch = co.chat_orchestrator

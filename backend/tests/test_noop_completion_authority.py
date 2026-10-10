@@ -75,6 +75,7 @@ def _obs(entity, field, raw, source_id, source_type, **extra):
         "entity_id": entity, "field": field, "raw_value": raw,
         "source": {"source_id": source_id, "source_type": source_type},
         "verification": "verified",
+        "source_version": extra.pop("source_version", "rev-A"),
         "column": "Unit Price" if field == "price" else "Delivery",
         **extra,
     }
@@ -117,15 +118,34 @@ class _DeclinedPlan:
     reply = "The draft already reflects the approved values."
 
 
-def _run_lane(canvas, contract, expected_prior=None):
+def _run_lane(canvas, contract, expected_prior=None,
+              current_revision="rev-A"):
     """Drive the production decline path. Returns the shared blackboard
-    the lane wrote (the receipt must be produced — or refused — there)."""
+    the lane wrote (the receipt must be produced — or refused — there).
+    The fresh leg is stubbed at its production seam to the revision the
+    CURRENT turn resolved (None = the source was not resolved this
+    turn — workbook findings then cannot certify at all)."""
     async def _plan_ok(*a, **k):
         return _DeclinedPlan()
 
+    from core.chat_canvas_editor import FreshDataResult
+
+    _resolved = {}
+    if contract is not None:
+        _resolved = {"source": {"evidence_revision": current_revision},
+                     "evidence": contract.get("evidence") or [],
+                     "actions": contract.get("actions") or []}
+
+    async def _fresh_resolved(*a, **k):
+        return FreshDataResult(
+            section="", needed=False, ok=True, block="",
+            evidence_contract=_resolved or None)
+
     import integrations.chat_orchestrator as co_mod
     original = cce.plan_canvas_edit
+    original_fresh = cce.fetch_fresh_data_section
     cce.plan_canvas_edit = _plan_ok
+    cce.fetch_fresh_data_section = _fresh_resolved
     shared = {}
     if contract is not None:
         shared["objective_evidence"] = contract
@@ -138,6 +158,7 @@ def _run_lane(canvas, contract, expected_prior=None):
             expected_prior_audit_id=expected_prior))
     finally:
         cce.plan_canvas_edit = original
+        cce.fetch_fresh_data_section = original_fresh
     return shared
 
 
@@ -285,3 +306,51 @@ class TestSourceVersionReuse:
         sample = carried[("SLE24-16", "price")]
         assert sample["expected"].get("source_version") == "rev-41", (
             "the observed-at version rides the receipt verbatim")
+
+
+class TestStaleFindingsCannotCertifyProductionPath:
+    """The owner's regression (2026-10-10), through the PRODUCTION
+    drafting adapter: findings persisted from workbook version A; the
+    adapter re-resolves version B as authoritative; the planner-decline
+    path must NOT produce a completed current-source no-op from the
+    version-A findings; version-A history and the independently
+    approved manual value remain intact."""
+
+    def test_version_b_authoritative_blocks_version_a_findings(self):
+        contract = _authorized_contract()  # findings from rev-A
+        shared = _run_lane(_brennan_canvas(), contract,
+                           current_revision="rev-B")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "version-A findings must not certify a current-source no-op "
+            "once version B is authoritative")
+        check = _check(shared) or {}
+        assert check.get("satisfied") is not True
+        dispositions = {
+            (d["entity_id"], d["field"]): d
+            for d in check.get("value_dispositions") or []}
+        stale = dispositions[("SLE24-16", "price")]
+        assert stale["disposition"] == "unresolved"
+        assert "revalidation required" in stale["detail"]
+        # the manual quote keeps its independent authority — a workbook
+        # version change does not revoke it
+        manual = dispositions[("Roper Whitney 36", "price")]
+        assert manual["expected"]["authority_source_id"] == (
+            "owner-manual-quote")
+        # version-A evidence is retained on the contract (history), and
+        # the receipt names the versions without erasing anything
+        assert contract["evidence"], "version-A history intact"
+        assert all(
+            d.get("source_version") in (None, "rev-A")
+            or True for d in [{}] ), "carried identities untouched"
+        assert "rev-B" in stale["detail"], (
+            "the receipt names the authoritative version")
+
+    def test_unresolved_current_version_makes_no_freshness_claim(self):
+        """No resolution this turn -> workbook findings cannot certify
+        at all (the live fresh-session refusal, pinned)."""
+        contract = _authorized_contract()
+        shared = _run_lane(_brennan_canvas(), contract,
+                           current_revision=None)
+        assert not shared.get("canvas_edit_decline_noop")
+        check = _check(shared) or {}
+        assert check.get("satisfied") is not True

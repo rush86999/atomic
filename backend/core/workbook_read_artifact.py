@@ -3518,6 +3518,12 @@ def _normalise_comparison_observation(observation: Dict[str, Any]) -> Dict[str, 
         "basis": basis,
         "effective_date": str(item.get("effective_date") or "").strip() or None,
         "observed_at": str(item.get("observed_at") or "").strip() or None,
+        # SOURCE VERSION (owner correction 2026-10-10): the workbook
+        # revision the observation was read at — carried THROUGH
+        # normalization so reuse checks compare the same identity the
+        # read recorded (finding_reuse_status).
+        "source_version": (
+            str(item.get("source_version") or "").strip() or None),
         "field_meaning": str(
             item.get("field_meaning") or item.get("column") or ""
         ).strip() or None,

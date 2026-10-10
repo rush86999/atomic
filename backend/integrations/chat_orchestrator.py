@@ -21718,6 +21718,19 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # is the approved-value record the check
                         # consumes. Its absence leaves value obligations
                         # UNRESOLVED: the decline stays unconfirmed.
+                        # CURRENT AUTHORITATIVE REVISION (owner
+                        # correction 2026-10-10): when the fresh leg
+                        # resolved the source THIS turn, its revision is
+                        # what workbook findings are checked against —
+                        # reuse never relabels stale findings fresh.
+                        _fresh_contract = (
+                            fresh.evidence_contract
+                            if fresh is not None and isinstance(
+                                getattr(fresh, "evidence_contract", None),
+                                dict) else None)
+                        _current_rev = str(
+                            (_fresh_contract or {}).get("source", {})
+                            .get("evidence_revision") or "") or None
                         _requirement_check = _requirement_check_fn(
                             message=message,
                             canvas=canvas,
@@ -21731,6 +21744,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     shared_tool_state.get(
                                         "objective_evidence"), dict)
                                 else None),
+                            current_source_revision=_current_rev,
                         )
                     except Exception:  # noqa: BLE001 — never assert
                         _requirement_check = None
