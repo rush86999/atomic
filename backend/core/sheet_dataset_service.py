@@ -120,6 +120,36 @@ def _catalog_session():
         yield db
 
 
+def current_dataset_version(file_identity: str) -> "str | None":
+    """The ACTIVE ingest's content_hash for this source identity — the
+    authoritative source version, read from durable catalog metadata
+    (owner direction 2026-10-10). No model call, no re-read: a fresh
+    session can check unchanged source versions from the catalog alone.
+
+    Returns None when the catalog holds no active entry for the
+    identity — the caller owes that finding NO freshness claim.
+    """
+    name = str(file_identity or "").strip()
+    if not name:
+        return None
+    from core.models import DatasetEntry
+
+    with _catalog_session() as db:
+        row = (
+            db.query(DatasetEntry)
+            .filter(
+                DatasetEntry.source_kind == "file",
+                DatasetEntry.status == "active",
+                (DatasetEntry.file_name == name)
+                | (DatasetEntry.external_id == name)
+                | (DatasetEntry.dataset_name == name),
+            )
+            .order_by(DatasetEntry.ingested_at.desc())
+            .first()
+        )
+        return row.content_hash if row else None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Extraction
 # ─────────────────────────────────────────────────────────────────────────────

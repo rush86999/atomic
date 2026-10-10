@@ -1256,7 +1256,7 @@ class TestNoOpAuthorityIsARecord:
         contract = build_source_comparison(
             [
                 {"entity_id": "VIPUL", "field": "price",
-                 "raw_value": "$9,900",
+                 "raw_value": "$9,900", "observed_at": "2026-10-08",
                  "source": {"source_id": "vipul-quote",
                             "source_type": "supplier_quote"},
                  "verification": "verified"},

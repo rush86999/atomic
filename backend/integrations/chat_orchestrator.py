@@ -4708,6 +4708,50 @@ def _fallback_turn_outcome(
                     if isinstance(a, dict) and a.get("next_action"):
                         work_turn = True
                         open_work.append(str(a["next_action"]))
+        # 5b. INFORMATIONAL COMPARISON (owner work order 2026-10-10):
+        #     reporting workbook BASES does not require the owner to
+        #     select one. When this turn delivered the requested values
+        #     and the ONLY open obligations are owner decisions about
+        #     WHICH basis applies, with no calculation or mutation
+        #     waiting on that choice, the comparison COMPLETES with the
+        #     surviving candidates reported and the unresolved basis
+        #     clearly labelled — the selection question is part of the
+        #     answer, not unfinished work. A selection that a
+        #     calculation or an edit depends on still blocks.
+        labelled_decisions: List[str] = []
+        try:
+            from core.task_lifecycle import (
+                next_unfinished_work as _nuw, open_unresolved_questions,
+            )
+
+            _snap = _nuw(record) or {} if isinstance(record, dict) else {}
+            _actions = _snap.get("actions") or []
+            _exhausted = _snap.get("exhausted") or []
+            _open_qs = (open_unresolved_questions(record)
+                        if isinstance(record, dict) else [])
+            _decision_qs = [q for q in _open_qs
+                            if str(q.get("kind") or "") == "business_decision"]
+            _other_qs = [q for q in _open_qs
+                         if str(q.get("kind") or "") != "business_decision"]
+            _basis_only = all(
+                re.search(r"\b(?:which|what).{0,40}\bbasis\b|"
+                          r"\bbasis applies\b",
+                          str(q.get("question") or ""), re.IGNORECASE)
+                for q in _decision_qs)
+            _selection_bound_ops = [
+                op for op in ((record or {}).get("operations") or [])
+                if str((op.get("operation_type") or "")).lower()
+                in ("calculate", "edit")
+                and str(op.get("status") or "").lower() in (
+                    "pending", "running", "created", "reserved", "open")]
+            if (validated and _decision_qs and _basis_only
+                    and not _other_qs and not _actions and not _exhausted
+                    and not _selection_bound_ops):
+                labelled_decisions = [
+                    " ".join(str(q.get("question") or "").split())[:200]
+                    for q in _decision_qs][:3]
+        except Exception:  # noqa: BLE001 — additive, never blocks
+            labelled_decisions = []
 
         # 6. CONTINUATION BOUND TO THIS OPERATION. Another operation's
         #    running continuation must not certify this turn.
@@ -4759,8 +4803,13 @@ def _fallback_turn_outcome(
             state["state"] = "failed"
         elif continuation and not validated:
             state["state"] = "continuation_queued"
-        elif validated and open_work:
+        elif validated and open_work and not labelled_decisions:
             state["state"] = "partial"
+        elif validated and labelled_decisions:
+            # The informational comparison is delivered; the basis
+            # choice rides the answer, labelled, not as a blocker.
+            state["state"] = "completed"
+            state["labelled_decisions"] = labelled_decisions
         elif validated:
             state["state"] = "completed"
         elif work_turn:
@@ -8306,6 +8355,50 @@ class ChatOrchestrator:
                             "request_id": _td_interpretation.get(
                                 "request_id"),
                         }
+                # SUBJECT ADMISSION (owner work order 2026-10-10): ONE
+                # authority for which products this request is about.
+                # The accepted interpretation IS the subject set when it
+                # is valid — independent text-mining fragments are never
+                # appended after it (the live defect: an interpreted
+                # request for ONE machine carried four entities, three
+                # of them clause fragments, and their obligations
+                # blocked completion). Aliases collapse to one subject;
+                # a manufacturer name alone is not a product unless the
+                # request is manufacturer-wide. Deterministic
+                # authorization stays separate from interpretation.
+                try:
+                    from core.subject_admission import admit_subjects
+
+                    _admitted = admit_subjects(
+                        message, _td_interpretation,
+                        (context or {}).get("canvas")
+                        or {"canvas_id": _canvas_id_from_context(context)},
+                        deterministic_targets=list(
+                            _ask_task.get("requested_targets") or []))
+                except Exception as _adm_err:  # noqa: BLE001
+                    _admitted = None
+                    logger.debug("[subject-admission] skipped: %r",
+                                 _adm_err)
+                if isinstance(_admitted, dict) and _admitted.get(
+                        "subjects"):
+                    _ask_task["admitted_subjects"] = list(
+                        _admitted["subjects"])
+                    _ask_task["admitted_aliases"] = dict(
+                        _admitted.get("aliases") or {})
+                    _ask_task["admitted_origin"] = _admitted.get("origin")
+                    if isinstance(_shared_tool, dict):
+                        _shared_tool["admitted_subjects"] = list(
+                            _admitted["subjects"])
+                        _shared_tool["admitted_aliases"] = dict(
+                            _admitted.get("aliases") or {})
+                elif isinstance(_admitted, dict) and _admitted.get(
+                        "clarification"):
+                    # NO defensible subject: the request gets ONE scope
+                    # clarification, never a read obligation per mined
+                    # fragment.
+                    _ask_task["scope_clarification"] = True
+                    if isinstance(_shared_tool, dict):
+                        _shared_tool["scope_clarification"] = True
                 if not _ask_task.get("requested_targets"):
                     if _ask_active:
                         # Active-objective inheritance for vague follow-up
@@ -8465,11 +8558,19 @@ class ChatOrchestrator:
                                 if str(f).strip()][:6]
                         except Exception:  # noqa: BLE001
                             _begin_fields = []
+                        # ADMITTED SUBJECTS (owner work order 2026-10-10):
+                        # the interpretation's accepted set, alias-
+                        # collapsed, becomes the job's entities. The raw
+                        # requested_targets are only the FALLBACK when no
+                        # admission was possible (interpretation
+                        # unavailable with no defensible identifier).
+                        _begin_items = list(
+                            _ask_task.get("admitted_subjects")
+                            or _ask_task.get("requested_targets") or [])
                         _tl_begin = _tlm.begin_retrieval_turn(
                             _tl_lifecycle, session, session_id, message,
                             _execution_id,
-                            items=list(
-                                _ask_task.get("requested_targets") or []),
+                            items=_begin_items,
                             requested_fields=_begin_fields,
                             agent_id=getattr(self, "_turn_agent_id", None),
                             canvas_id=_canvas_id_from_context(context))
@@ -14550,6 +14651,21 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             except Exception:  # noqa: BLE001 — bookkeeping only
                 _plan_mentions = []
             _requested_targets: List[str] = []
+            # ADMITTED SUBJECTS FIRST (owner work order 2026-10-10): when
+            # this turn's request was admitted at the request-to-job
+            # boundary, the blackboard carries the accepted, alias-
+            # collapsed subject set. The miner below is the FALLBACK for
+            # turns with no admission — it must not append fragments to a
+            # set the interpretation already established.
+            if isinstance(shared_tool_state, dict) and shared_tool_state.get(
+                    "admitted_subjects"):
+                _requested_targets = [
+                    str(t) for t in shared_tool_state["admitted_subjects"]
+                    if str(t).strip()]
+                if isinstance(shared_tool_state, dict):
+                    shared_tool_state.setdefault(
+                        "admitted_aliases",
+                        shared_tool_state.get("admitted_aliases") or {})
             try:
                 from core.workbook_read_artifact import extract_targets
 
@@ -20593,6 +20709,106 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         """Addressable contacts named by taught text, or []."""
         return re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", text or "")
 
+    def _canvas_job_evidence_contract(
+        self,
+        canvas: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Contract-shaped evidence from the canvas-bound job's durable
+        typed findings (owner direction 2026-10-10): COMPLETED research
+        reaches a fresh-session requirement check through the SAME
+        record the adapter reads — active job first, then the
+        evidence-only terminal record. Findings only: ``actions`` stay
+        empty (a completed job authorizes no new change). Each finding
+        carries its own source identity and the read's recorded
+        source_version, so the checker's per-source freshness
+        comparison has real identities to compare. Best-effort: None
+        when no record or no findings — never a fabricated contract.
+        """
+        try:
+            from core.chat_canvas_editor import artifact_observations
+            from core.workbook_read_artifact import (
+                build_source_comparison,
+            )
+
+            tl = _task_lifecycle_for(
+                getattr(self, "tenant_id", None), None)
+            if tl is None:
+                return None
+            canvas_id = (canvas or {}).get("canvas_id") or (
+                canvas or {}).get("id")
+            if not canvas_id:
+                return None
+            record = None
+            try:
+                record = tl.find_active_task_for_canvas(str(canvas_id))
+            except Exception:  # noqa: BLE001
+                record = None
+            if record is None:
+                try:
+                    record = tl.find_canvas_evidence_task(str(canvas_id))
+                except Exception:  # noqa: BLE001
+                    record = None
+            if record is None:
+                return None
+            observations: List[Dict[str, Any]] = []
+            entities: List[str] = []
+            fields: List[str] = []
+            seen_ops: set = set()
+            for op in (record.get("operations") or []):
+                if not isinstance(op, dict):
+                    continue
+                ex = op.get("execution") or {}
+                if not isinstance(ex, dict):
+                    continue
+                op_id = str(op.get("operation_id") or "")
+                if op_id in seen_ops:
+                    continue
+                seen_ops.add(op_id)
+                items = ex.get("items") if isinstance(
+                    ex.get("items"), dict) else {}
+                src_ver = ex.get("source_version")
+                for f in (ex.get("findings") or []):
+                    if not isinstance(f, dict):
+                        continue
+                    entity = (sorted(items.keys())[0] if items else "")
+                    field = str(f.get("field") or "")
+                    raw = f.get("raw")
+                    if (not entity or not field
+                            or raw in (None, "")):
+                        continue
+                    source_full = str(f.get("source") or "")
+                    file_id = (source_full.split("!")[0]
+                               if "!" in source_full else source_full)
+                    observations.append({
+                        "entity_id": entity, "field": field,
+                        "raw_value": str(raw),
+                        "source": {
+                            "source_id": file_id or "job-record",
+                            "source_type": "workbook"},
+                        "source_version": (
+                            str(src_ver) if src_ver else None),
+                        "verification": "verified",
+                    })
+                    if entity not in entities:
+                        entities.append(entity)
+                    if field not in fields:
+                        fields.append(field)
+            if not observations:
+                return None
+            observations.extend(artifact_observations(
+                {"canvas_id": canvas_id,
+                 "content": (canvas or {}).get("content")},
+                requested_entities=entities,
+                requested_fields=fields))
+            return build_source_comparison(
+                observations,
+                requested_entities=entities,
+                requested_fields=fields,
+                artifact_source_ids=[str(canvas_id)],
+                authorized_actions=[])
+        except Exception:  # noqa: BLE001 — additive context
+            return None
+
     def _teaching_header_evidence(
         self, agent_id: Optional[str], message: str
     ) -> Dict[str, Any]:
@@ -20722,6 +20938,18 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             if canvas_id:
                 try:
                     record = tl.find_active_task_for_canvas(str(canvas_id))
+                except Exception:  # noqa: BLE001
+                    record = None
+            if record is None and canvas_id:
+                # COMPLETED-JOB EVIDENCE (owner direction 2026-10-10):
+                # the active-task lookup searches non-terminal work
+                # only, so finished research vanished from fresh-session
+                # evidence resolution. Fall back to the terminal record
+                # — EVIDENCE ONLY: no reactivation, no mutation
+                # authority, exact canvas binding (fork lineage rules
+                # below still apply).
+                try:
+                    record = tl.find_canvas_evidence_task(str(canvas_id))
                 except Exception:  # noqa: BLE001
                     record = None
             inherited_from: Optional[str] = None
@@ -21731,6 +21959,24 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         _current_rev = str(
                             (_fresh_contract or {}).get("source", {})
                             .get("evidence_revision") or "") or None
+                        _session_contract = (
+                            shared_tool_state.get("objective_evidence")
+                            if isinstance(shared_tool_state, dict)
+                            and isinstance(
+                                shared_tool_state.get(
+                                    "objective_evidence"), dict)
+                            else None)
+                        # FRESH-SESSION RESOLUTION (owner direction
+                        # 2026-10-10): no session cache does not mean no
+                        # evidence — the canvas-bound job's completed
+                        # record reaches the check through the same
+                        # adapter read. Its findings resolve freshness
+                        # PER SOURCE from the durable catalog, so the
+                        # fresh-leg revision (a different probe's
+                        # resolution) must not override them here.
+                        _job_contract = (
+                            self._canvas_job_evidence_contract(canvas)
+                            if _session_contract is None else None)
                         _requirement_check = _requirement_check_fn(
                             message=message,
                             canvas=canvas,
@@ -21738,13 +21984,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             expected_prior_audit_id=(
                                 expected_prior_audit_id),
                             evidence_contract=(
-                                shared_tool_state.get("objective_evidence")
-                                if isinstance(shared_tool_state, dict)
-                                and isinstance(
-                                    shared_tool_state.get(
-                                        "objective_evidence"), dict)
-                                else None),
-                            current_source_revision=_current_rev,
+                                _session_contract or _job_contract),
+                            current_source_revision=(
+                                _current_rev if _session_contract
+                                is not None else None),
                         )
                     except Exception:  # noqa: BLE001 — never assert
                         _requirement_check = None

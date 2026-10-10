@@ -974,6 +974,37 @@ class TaskLifecycle:
                 return record
         return None
 
+    def find_canvas_evidence_task(
+        self, canvas_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Evidence-only lookup: the newest COMPLETED canvas-bound task.
+
+        ``find_active_task_for_canvas`` searches non-terminal work only,
+        so completed research vanished from fresh-session evidence
+        resolution (owner direction 2026-10-10). This lookup READS the
+        terminal record for its durable findings — it never reactivates
+        the job, never grants mutation authority (callers use it to
+        build evidence, never to transition), and never falls back to
+        the user's latest conversation. Workspace scoping comes from
+        the runs store; fork lineage is preserved by matching the
+        canvas binding exactly — a fork resolves only a job bound to
+        the fork's own id, never the parent's.
+        """
+        canvas = str(canvas_id or "").strip()
+        if not canvas:
+            return None
+        runs = self.runs.list_runs(
+            status="achieved", include_terminal=True, limit=200)
+        for run in runs:
+            record = self.get_task(run["id"])
+            if record is None:
+                continue
+            provenance = (record.get("task_revision") or {}).get(
+                "provenance") or {}
+            if str(provenance.get("canvas_id") or "") == canvas:
+                return record
+        return None
+
     # ------------------------------------------------- atomic mutation
     # Every state change below goes through _mutate: read the fresh
     # record, compute the new lifecycle purely, then apply it with a

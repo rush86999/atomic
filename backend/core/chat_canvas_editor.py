@@ -1581,18 +1581,53 @@ def _value_obligation_dispositions(
                 requested_entities=[entity],
                 requested_fields=[field])
             if _comparison_verified_local(item)]
-        # FRESHNESS AT THE REUSE BOUNDARY (owner correction): workbook
-        # findings certify only against their own recorded version.
+        # FRESHNESS AT THE REUSE BOUNDARY (owner correction): source
+        # roles have DIFFERENT rules. An OWNER DECISION carries
+        # independent authorization — version- and date-exempt. A
+        # SUPPLIER QUOTE proves what was quoted, not owner approval: it
+        # is DATED evidence and needs its own date anchor. A WORKBOOK
+        # finding is version-bound: it certifies only against its
+        # recorded version compared with the authoritative version of
+        # ITS OWN source — resolved this turn by the fresh leg when it
+        # probed that source, otherwise from the durable catalog
+        # (DatasetEntry active row), never a model call.
         _src_type = str((authority.get("source") or {}).get(
             "source_type") or "")
-        _decision_sourced = _src_type in {
-            "supplier_quote", "decision", "owner"}
-        _reuse = "current"
-        if not _decision_sourced:
+        _decision_sourced = _src_type in {"decision", "owner"}
+        _supplier_quoted = _src_type == "supplier_quote"
+        record["source_role"] = (
+            "owner_decision" if _decision_sourced else
+            "supplier_quote_dated" if _supplier_quoted else
+            "workbook_version_bound")
+        if _decision_sourced or _supplier_quoted:
+            # owner decision: independent authorization. supplier quote:
+            # DATED evidence — gated below on its own date anchor, never
+            # on a workbook version it does not carry.
+            _reuse = "current"
+        else:
             from core.workbook_read_artifact import finding_reuse_status
+            _source_id = str((authority.get("source") or {}).get(
+                "source_id") or "")
+            if current_source_revision:
+                _cur = current_source_revision
+            else:
+                try:
+                    from core.sheet_dataset_service import (
+                        current_dataset_version,
+                    )
+
+                    _cur = current_dataset_version(_source_id)
+                except Exception:  # noqa: BLE001 — no catalog answer
+                    _cur = None
             _reuse = finding_reuse_status(
-                authority.get("source_version"),
-                current_source_revision)
+                authority.get("source_version"), _cur)
+        if (_supplier_quoted and _reuse == "current"
+                and not (authority.get("effective_date")
+                         or authority.get("observed_at"))):
+            _reuse = "unqualified"
+            record["detail"] = (
+                "supplier quote carries no date anchor — its validity "
+                "cannot be claimed")
         if expected_raw in (None, "") or len(observed_rows) != 1:
             record["disposition"] = "unresolved"
             record["observed"] = None
@@ -1606,8 +1641,8 @@ def _value_obligation_dispositions(
             record["detail"] = (
                 f"source changed since observation "
                 f"({record['expected'].get('source_version') or 'no version'}"
-                f" recorded, {current_source_revision} authoritative) — "
-                "revalidation required")
+                f" recorded, {_cur} authoritative for "
+                f"{_source_id or 'this source'}) — revalidation required")
         elif _reuse == "unqualified":
             record["disposition"] = "unresolved"
             record["observed"] = str(observed_rows[0].get("raw_value")

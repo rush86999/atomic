@@ -92,7 +92,7 @@ def _authorized_contract():
                   else "tennsmith-quote-sheet")
         observations.append(
             _obs(entity, "price", price, source,
-                 "supplier_quote" if source.startswith("owner")
+                 "decision" if source.startswith("owner")
                  else "workbook"))
         observations.append(
             _obs(entity, "delivery", deliv, "tennsmith-quote-sheet",
@@ -354,3 +354,186 @@ class TestStaleFindingsCannotCertifyProductionPath:
         assert not shared.get("canvas_edit_decline_noop")
         check = _check(shared) or {}
         assert check.get("satisfied") is not True
+
+
+class TestCompletedJobReachesFreshSessionCheck:
+    """The owner's finish sequence (2026-10-10): complete the research
+    job, start a session with NO evidence cache, resolve its
+    canvas-bound findings through the production adapter, reconstruct
+    the contract, and drive the decline check. The job-evidence
+    fallback supplies the contract (fresh-leg stub resolves nothing),
+    so per-source freshness comes from the durable catalog."""
+
+    def _job_record(self, rev="rev-A"):
+        """An ACHIEVED canvas-bound job whose operations carry typed
+        findings with the read's recorded source_version — the durable
+        shape the adapter reads."""
+        findings = [
+            {"field": "price", "raw": "$8,984.00", "parsed": {
+                "value": 8984.0, "currency": "CAD"},
+             "source": "tennsmith.xlsx!Tennsmith!row338"},
+            {"field": "delivery", "raw": "11–12 weeks",
+             "source": "tennsmith.xlsx!Tennsmith!row338"},
+        ]
+        roper = [
+            {"field": "price", "raw": "$2,902.00",
+             "source": "roper-quote.xlsx!Quote!row2"}]
+        return {
+            "run_id": "job-1", "status": "achieved",
+            "task_revision": {"provenance": {"canvas_id": "cv-s3-auth"},
+                              "entities": []},
+            "operations": [
+                {"operation_id": "op-1", "operation_type": "retrieve",
+                 "execution": {"invoked": True,
+                               "outcome": "read_succeeded",
+                               "served_basis": "saved_copy",
+                               "source_version": rev,
+                               "items": {"SLE24-16": "matched"},
+                               "findings": findings}},
+                {"operation_id": "op-2", "operation_type": "retrieve",
+                 "execution": {"invoked": True,
+                               "outcome": "read_succeeded",
+                               "served_basis": "live",
+                               "source_version": rev,
+                               "items": {"Roper Whitney 36": "matched"},
+                               "findings": roper}},
+            ],
+        }
+
+    def _run_fresh_session(self, record, catalog_rev=None,
+                           manual_value=True):
+        """No session cache: shared carries nothing. The lifecycle is
+        stubbed at the production lookup (find_active_task_for_canvas →
+        None; find_canvas_evidence_task → the completed record). The
+        catalog answers per-source version queries."""
+        from unittest.mock import patch
+
+        class _TL:
+            def find_active_task_for_canvas(self, cid):
+                return None
+
+            def find_canvas_evidence_task(self, cid):
+                return record
+
+        async def _plan_ok(*a, **k):
+            return _DeclinedPlan()
+
+        import integrations.chat_orchestrator as co_mod
+
+        class _Catalog:
+            def __init__(self, rev):
+                self.rev = rev
+
+            def current_dataset_version(self, identity):
+                return self.rev
+
+        # workbook findings from op-1 quote tennsmith.xlsx; op-2 reads
+        # roper-quote.xlsx — give each its own authoritative version
+        versions = {"tennsmith.xlsx": catalog_rev,
+                    "roper-quote.xlsx": "rev-A"}
+
+        original_planner = cce.plan_canvas_edit
+        original_fresh = cce.fetch_fresh_data_section
+        cce.plan_canvas_edit = _plan_ok
+
+        async def _fresh_none(*a, **k):
+            from core.chat_canvas_editor import FreshDataResult
+            return FreshDataResult("", False, True)
+
+        cce.fetch_fresh_data_section = _fresh_none
+        shared = {}
+        try:
+            with patch.object(
+                    co_mod, "_task_lifecycle_for",
+                    return_value=_TL()), patch(
+                    "core.sheet_dataset_service.current_dataset_version",
+                    side_effect=lambda ident: versions.get(
+                        str(ident).split("!")[0], catalog_rev)):
+                import asyncio
+                asyncio.run(co_mod.chat_orchestrator._try_canvas_edit(
+                    "Update the draft for rows 1-5 with the approved "
+                    "prices and delivery times. Don't send.",
+                    [], _brennan_canvas(), "user_1", "sess-fresh",
+                    "exec-fresh", None, shared_tool_state=shared))
+        finally:
+            cce.plan_canvas_edit = original_planner
+            cce.fetch_fresh_data_section = original_fresh
+        return shared
+
+    def test_unchanged_sources_and_satisfied_values_complete(self):
+        shared = self._run_fresh_session(
+            self._job_record(rev="rev-A"), catalog_rev="rev-A")
+        check = _check(shared) or {}
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            "completed-job evidence reaches a fresh-session requirement "
+            f"check; check={check}")
+        assert check.get("satisfied") is True
+
+    def test_one_changed_source_leaves_others_and_manual_intact(self):
+        shared = self._run_fresh_session(
+            self._job_record(rev="rev-A"), catalog_rev="rev-B")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "the changed source's obligations must not certify")
+        check = _check(shared) or {}
+        dispositions = {
+            (d["entity_id"], d["field"]): d
+            for d in check.get("value_dispositions") or []}
+        stale = dispositions[("SLE24-16", "price")]
+        assert stale["disposition"] == "unresolved"
+        assert "revalidation required" in stale["detail"]
+        current = dispositions[("Roper Whitney 36", "price")]
+        assert current["disposition"] == "satisfied", (
+            "unrelated current evidence stays satisfied")
+
+    def test_supplier_quote_without_owner_approval_has_no_manual_authority(
+            self):
+        """A supplier quote proves what was quoted — its receipt role
+        stays supplier_quote_dated and it never becomes a protected
+        manual value (that requires owner-instruction provenance)."""
+        record = self._job_record(rev="rev-A")
+        quote_only = {
+            "run_id": "job-2", "status": "achieved",
+            "task_revision": {"provenance": {"canvas_id": "cv-s3-auth"},
+                              "entities": []},
+            "operations": [{
+                "operation_id": "op-q", "operation_type": "retrieve",
+                "execution": {
+                    "invoked": True, "outcome": "read_succeeded",
+                    "served_basis": "live", "source_version": "rev-A",
+                    "items": {"SLE24-16": "matched"},
+                    "findings": [{"field": "price",
+                                  "raw": "$7,500.00",
+                                  "source": (
+                                      "vendor-quote.pdf!Q!row1")}]},
+            }],
+        }
+        shared = self._run_fresh_session(
+            quote_only, catalog_rev="rev-A")
+        check = _check(shared) or {}
+        dispositions = {
+            (d["entity_id"], d["field"]): d
+            for d in check.get("value_dispositions") or []}
+        d = dispositions[("SLE24-16", "price")]
+        # $7,500 does not match the draft's $8,984 — and even where a
+        # quote value matched, its role stays supplier_quote_dated
+        assert d["expected"]["authority_source_type"] == "workbook", (
+            "the job finding is workbook-sourced evidence")
+        from core.chat_canvas_editor import requirement_check
+        quote_check = requirement_check(
+            message="Update the draft with the SLE24-16 price.",
+            canvas=_brennan_canvas(), authorized=True,
+            expected_prior_audit_id=None,
+            evidence_contract={
+                "evidence": [
+                    {"entity_id": "SLE24-16", "field": "price",
+                     "raw_value": "$8,984.00",
+                     "source": {"source_id": "vendor-quote.pdf",
+                                "source_type": "supplier_quote"},
+                     "source_version": "rev-A",
+                     "observed_at": "2026-10-08",
+                     "verification": "verified"}]})
+        disp = (quote_check.get("value_dispositions") or [])[0]
+        assert disp["source_role"] == "supplier_quote_dated"
+        assert disp["expected"]["authority_source_type"] == (
+            "supplier_quote"), (
+            "a supplier quote never acquires owner-decision authority")
