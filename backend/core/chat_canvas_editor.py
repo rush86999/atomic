@@ -601,9 +601,28 @@ def _requested_product_count(messages: List[str]) -> Optional[int]:
                 between = lower[base.end():alternatives.start()]
                 return left + right + (1 if re.search(
                     r"\b(?:sle|tgk|gsl|tk)\w*\d|\b\d{3,}\b", between) else 0)
-        row_range = re.search(r"\brows?\s*(\d+)\s*(?:-|to|through)\s*(\d+)\b", lower)
+    return None
+
+
+def _requested_row_range(messages: List[str]) -> Optional[int]:
+    """The END row of an ADDRESSED RANGE ("rows 1-5", "rows 3 through 7"),
+    or None when the request names no range.
+
+    A range ADDRESSES rows that must exist and carry the requested
+    values — it never sets the table's TOTAL row count (live S3,
+    2026-10-10: "rows 1-5" over a draft whose rows 6-8 are the protected
+    alternatives block produced scope_row_count:8!=5, an unsatisfied
+    obligation for a draft that was already correct). Totals stay with
+    ``_requested_product_count``; this is the address form.
+    """
+    for text in messages:
+        row_range = re.search(
+            r"\brows?\s*(\d+)\s*(?:-|to|through)\s*(\d+)\b",
+            str(text or "").lower())
         if row_range:
-            return int(row_range.group(2))
+            start, end = int(row_range.group(1)), int(row_range.group(2))
+            if end >= start:
+                return end
     return None
 
 
@@ -1314,6 +1333,8 @@ def _has_concrete_scope_obligations(scope_text: str) -> bool:
     text = str(scope_text or "")
     if _requested_product_count([text]) is not None:
         return True
+    if _requested_row_range([text]) is not None:
+        return True
     if _scope_requirements([text]):
         return True
     if _scope_codes([text]):
@@ -1457,7 +1478,15 @@ def _validate_scoped_edit(
     old_body = _body_from_content(current)
     new_body = _body_from_content(new_content)
     rows = _table_rows(new_body)
+    # ROW-RANGE vs TOTAL (live S3, 2026-10-10): an addressed range
+    # ("rows 1-5") obliges those rows to EXIST — a draft may legitimately
+    # carry more rows beyond the range (the protected alternatives
+    # block). Only an explicit TOTAL ("the 5 machines") demands an exact
+    # row count.
+    range_end = _requested_row_range(request_messages)
     expected = _requested_product_count(request_messages)
+    if range_end is not None and len(rows) < range_end:
+        return f"scope_row_count:{len(rows)}<{range_end}"
     if expected is not None and len(rows) != expected:
         return f"scope_row_count:{len(rows)}!={expected}"
     new_tokens = _scope_tokens(new_body)
@@ -1526,8 +1555,9 @@ def _request_scope_section(
 ) -> str:
     messages = [message] + _scope_user_messages(history)
     count = _requested_product_count(messages)
+    range_end = _requested_row_range(messages)
     requirements = _scope_requirements(messages)
-    if not count and not requirements and not fresh_data:
+    if not count and not range_end and not requirements and not fresh_data:
         return ""
     lines = [
         "SCOPE AND ACCEPTANCE CONTRACT — reconcile the current request with "
@@ -1535,7 +1565,17 @@ def _request_scope_section(
         "The current request and source-backed evidence outrank earlier drafts; "
         "do not preserve a missing or unnamed row from an earlier attempt.",
     ]
-    if count:
+    if range_end is not None:
+        # ADDRESSED RANGE, not a total (live S3, 2026-10-10): the exact-
+        # count line here made the planner destroy the protected rows
+        # beyond the range (or decline when it correctly refused to).
+        lines.append(
+            f"Rows 1 through {range_end} of the product table are "
+            "addressed: each must exist and carry the requested values. "
+            "Do not remove or renumber any row outside that addressed "
+            "range."
+        )
+    elif count:
         lines.append(
             f"The finished product table must contain exactly {count} data "
             "rows, counting only product rows and excluding the header."
