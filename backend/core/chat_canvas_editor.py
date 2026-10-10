@@ -1460,6 +1460,39 @@ def requirement_check(
     }
 
 
+# Only consulted on a CHECK-CERTIFIED no-op path, where satisfaction is
+# already a record fact — never as a general message filter.
+_NOOP_CONTRADICTION_RE = re.compile(
+    r"can'?t|cannot|not provided|please supply|please provide"
+    r"|i (don'?t|do not) (have|see)|no .* (provided|available)|missing",
+    re.I)
+
+
+def noop_completion_reply(check: Optional[Dict[str, Any]],
+                          model_reply: str) -> str:
+    """The completion message for a REQUIREMENT-CHECK-CERTIFIED no-op.
+
+    Completion authority is the check (authorization + canvas identity +
+    authoritative revision + obligation dispositions), never the model's
+    prose — live S3 (2026-10-10, candidate 9f0a27da4): the served
+    planner declined with "the approved prices ... are not provided in
+    the canvas" while the check certified the draft already holds them;
+    shipping that sentence as the confirmation told the user prices
+    were missing on a COMPLETED turn. A decline reply that contradicts
+    the certification (an inability / missing-inputs claim) is replaced
+    by the record-derived sentence; the model's words survive as a
+    transparent tail, never as the claim.
+    """
+    reply = str(model_reply or "").strip()
+    if reply and not _NOOP_CONTRADICTION_RE.search(reply):
+        return reply[:300]
+    base = ("The draft already reflects the requested values — no "
+            "changes were needed, and nothing was sent.")
+    if reply:
+        return f"{base} (The planner noted: {reply[:200]})"
+    return base
+
+
 def _validate_scoped_edit(
     current: Any,
     new_content: Any,

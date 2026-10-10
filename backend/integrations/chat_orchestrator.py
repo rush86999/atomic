@@ -21619,8 +21619,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     _decline_reply = str(
                         getattr(plan, "reply", "") or "").strip()
                     _requirement_check = None
+                    _noop_completion_fn = None
                     try:
                         from core.chat_canvas_editor import (
+                            noop_completion_reply as _noop_completion_fn,
                             requirement_check as _requirement_check_fn,
                         )
 
@@ -21638,12 +21640,22 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     if bool((_requirement_check or {}).get("satisfied")):
                         shared_tool_state[
                             "canvas_edit_decline_noop"] = True
+                        # The completion message is CHECK-DERIVED when the
+                        # model's decline prose contradicts the
+                        # certification (live S3 v2, 2026-10-10: a
+                        # "prices not provided" decline shipped as the
+                        # confirmation of a COMPLETED no-op over a draft
+                        # holding the approved prices).
                         shared_tool_state[
                             "canvas_edit_decline_reply"] = (
-                                _decline_reply[:300] or
-                                "The draft already reflects the approved "
-                                "values — no changes were needed, and "
-                                "nothing was sent.")
+                                _noop_completion_fn(
+                                    _requirement_check,
+                                    _decline_reply)
+                                if _noop_completion_fn
+                                else (_decline_reply[:300] or
+                                      "The draft already reflects the "
+                                      "approved values — no changes were "
+                                      "needed, and nothing was sent."))
             return None
         if not _edit_requested:
             if shared_tool_state is not None:

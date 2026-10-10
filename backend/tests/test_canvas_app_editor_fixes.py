@@ -942,3 +942,45 @@ class TestRangeNoOpCompletion:
         assert requirement_check(
             message="hello?", canvas=self._canvas(),
             authorized=True, expected_prior_audit_id=None) is None
+
+
+class TestNoopCompletionReply:
+    """A CHECK-CERTIFIED no-op's completion message is record-derived
+    when the model's decline prose contradicts the certification (live
+    S3 v2: 'the approved prices ... are not provided' shipped as the
+    confirmation of a COMPLETED turn over a draft holding them)."""
+
+    def test_contradicting_decline_is_replaced_with_the_check_sentence(
+            self):
+        from core.chat_canvas_editor import noop_completion_reply
+        out = noop_completion_reply(
+            {"satisfied": True},
+            "I can't update rows 1-5 because the approved prices are "
+            "not provided in the request, canvas, or conversation. "
+            "Please supply them.")
+        assert out.startswith(
+            "The draft already reflects the requested values")
+        assert "nothing was sent" in out
+        assert "(The planner noted:" in out, (
+            "the model's words survive as a transparent tail")
+
+    def test_agreeing_decline_passes_through(self):
+        from core.chat_canvas_editor import noop_completion_reply
+        agree = ("The draft already reflects the approved values — "
+                 "no changes needed.")
+        assert noop_completion_reply({"satisfied": True}, agree) == agree
+
+    def test_empty_reply_gets_the_check_sentence(self):
+        from core.chat_canvas_editor import noop_completion_reply
+        out = noop_completion_reply({"satisfied": True}, "")
+        assert "already reflects the requested values" in out
+
+    def test_contradiction_regex_is_scoped_to_certified_noops(self):
+        # The regex itself is only ever consulted after the requirement
+        # check certified satisfaction — this pin keeps its vocabulary
+        # from drifting into a general message filter.
+        from core.chat_canvas_editor import _NOOP_CONTRADICTION_RE
+        assert _NOOP_CONTRADICTION_RE.search("cannot update")
+        assert _NOOP_CONTRADICTION_RE.search("Please supply the prices")
+        assert not _NOOP_CONTRADICTION_RE.search(
+            "already reflects the approved values")
