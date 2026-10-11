@@ -902,6 +902,13 @@ async def _execute_row_read(
                     "field": field, "column": col, "raw": str(val),
                     "item": item,
                     "source_version": _row_version,
+                    # THE VERSION GAP IS ON THE RECORD IN EVERY BRANCH
+                    # (verifier replay ecf33f8e1): the policy-applied
+                    # branch persisted its finding WITHOUT the mismatch
+                    # keys — under the full captured teaching the gap
+                    # went silent again.
+                    "taught_source_mismatch": _taught_mismatch,
+                    "taught_source": (_taught_name or None),
                     "parsed": (pol["selected"][2] if len(
                         pol["selected"]) > 2 else None),
                     "source": (f"{cand.get('_resolved_file') or act.get('file')}"
