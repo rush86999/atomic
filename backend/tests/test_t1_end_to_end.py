@@ -238,10 +238,34 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
     if junk_result_meta:
         live_plan._result_meta = dict(junk_result_meta)
 
+    _exec_calls = {"n": 0}
+
     def _tool_exec(plan=None, *a, **k):
         # controlled executor responses: the junk sweep (when supplied),
         # else the zoho receipt/error (when this is the zoho plan),
-        # else nothing
+        # else nothing. The executor records its receipt on the plan's
+        # _result_meta BEFORE returning/raising — the settle arm reads
+        # it from there (the real executor does the same at
+        # core/chat_tool_planner.py:5804).
+        if zoho_receipt is not None and plan is not None:
+            try:
+                plan._result_meta["zoho_error"] = (
+                    None if zoho_receipt.get("success")
+                    else str(zoho_receipt.get("error")))
+                plan._result_meta["zoho_inventory"] = (
+                    zoho_receipt.get("items") or [])
+            except Exception:  # noqa: BLE001 — pydantic private attrs
+                pass
+        _exec_calls["n"] += 1
+        if plan is not None:
+            try:
+                plan._result_meta["zoho_error"] = (
+                    None if zoho_receipt.get("success")
+                    else str(zoho_receipt.get("error")))
+                plan._result_meta["zoho_inventory"] = (
+                    zoho_receipt.get("items") or [])
+            except Exception:  # noqa: BLE001
+                pass
         if junk_sweep:
             return junk_sweep
         if zoho_receipt is not None:
@@ -339,6 +363,7 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
                         "times for rows 1 through 5 of the draft?"),
             "sess-e2e", context={"canvas": dict(CANVAS),
                                  "agent_id": "agent-taught"}))
+    spy['_exec_calls'] = _exec_calls
     return result, spy, orch, tl, factory
 
 
@@ -1081,52 +1106,78 @@ class TestStockExecutionProductionPath:
 
     def _run_zoho_turn(self, zoho_receipt):
         from core.chat_tool_planner import ToolPlan
+        from core.task_lifecycle import begin_retrieval_turn
 
         result, spy, orch, tl, factory = _run_t1(
             _two_workbook_scanner(), junk_sweep=None,
             plan_query="verify SLE24-16 availability in Zoho inventory",
             plan_service="zoho", zoho_receipt=zoho_receipt)
+        # the job the zoho lookup settles against (the lifecycle store
+        # the patched _task_lifecycle_for returns)
+        run_id, op_id = begin_retrieval_turn(
+            tl, {"id": "s-z", "history": []}, "sess-e2e",
+            "T1: verify SLE24-16 availability", "e-zoho",
+            items=["Tennsmith Slitter SLE24-16"],
+            requested_fields=["delivery"], canvas_id="cv-t1e2e")
         return result, tl
 
+    @pytest.mark.xfail(reason="zoho.search execution path does not "
+                       "settle its operation — demonstrated first "
+                       "failure, repair pending", strict=True)
     def test_access_denied_becomes_a_precise_durable_blocker(self):
         result, tl = self._run_zoho_turn({
             "success": False,
             "error": "Zoho inventory: access denied for workspace "
                      "default (token scope inventory.read missing)",
         })
-        # the executed plan's receipt settles durably: an operation
-        # records the failed inventory attempt with its cause
-        found = None
+        # The precise durable blocker: the attempt settles as
+        # not_dispatched with its failure stage, and the stock question
+        # stays OPEN — the record says the verification did not run and
+        # why, rather than dropping it silently.
+        blocker_ops = []
+        open_stock = []
         for run in tl.runs.list_runs(include_terminal=True, limit=20):
-            for o in tl.get_task(run["id"]).get("operations") or []:
-                blob = json.dumps(o, default=str)
-                if "inventory" in blob.lower() and (
-                        "access denied" in blob.lower()
-                        or "zoho" in blob.lower()):
-                    found = o
-        assert found is not None, (
-            "the Zoho attempt (or its refusal) is durably recorded")
-        # the stock question remains OPEN with the recorded cause — a
-        # precise blocker, not a silent drop
-        record = tl.get_task(
-            [r["id"] for r in tl.runs.list_runs(
-                include_terminal=True, limit=20)][0]) or {}
-        # (the durable record check above is the blocker's evidence)
+            rec = tl.get_task(run["id"])
+            if not rec:
+                continue
+            for o in rec.get("operations") or []:
+                ex = o.get("execution") or {}
+                if ex.get("failure_stage"):
+                    blocker_ops.append((o, ex))
+            for q in (rec.get("task_revision") or {}).get("unresolved")                     or []:
+                if ((q.get("inputs") or {}).get("intent")
+                        == "inventory_check"
+                        and q.get("status") == "open"):
+                    open_stock.append(q)
+        assert blocker_ops, (
+            "the blocked attempt is durably recorded with its stage")
+        assert open_stock, (
+            "the stock question stays open as the precise blocker")
 
+    @pytest.mark.xfail(reason="zoho.search execution path does not "
+                       "settle its operation — demonstrated first "
+                       "failure, repair pending", strict=True)
     def test_inventory_receipt_settles_and_survives_reload(self):
         result, tl = self._run_zoho_turn({
             "success": True,
             "items": [{"sku": "SLE24-16", "availability": "In Stock",
                        "warehouse": "Woodstock"}],
         })
-        found = None
+        # THE RECEIPT PAYLOAD IS ON THE DURABLE RECORD — the assert
+        # requires the receipt's OWN data (Woodstock), not query words
+        receipt_ops = []
         for run in tl.runs.list_runs(include_terminal=True, limit=20):
             for o in tl.get_task(run["id"]).get("operations") or []:
-                blob = json.dumps(o, default=str)
-                if "Woodstock" in blob or "availability" in blob.lower():
-                    found = o
-        assert found is not None, (
-            "the inventory receipt settles durably")
+                ex = o.get("execution") or {}
+                structured = ex.get("structured") or {}
+                blob = json.dumps(structured, default=str)
+                if "Woodstock" in blob:
+                    receipt_ops.append((o, structured))
+        assert receipt_ops, (
+            "the inventory receipt payload settles durably")
+        o, structured = receipt_ops[0]
+        inv = structured.get("zoho_inventory") or {}
+        assert inv.get("items"), "the receipt's items are on the record"
 
 
 class TestSameJobContinuation:

@@ -2744,6 +2744,14 @@ def _search_execution_receipt(
     meta = getattr(plan, "_result_meta", None) or {}
     if not isinstance(meta, dict):
         meta = {}
+    # INVENTORY RECEIPT (owner work order 2026-10-11, the continuation
+    # execution boundary): an authorized inventory lookup's receipt is
+    # a structured retrieval record — it enters the same settled
+    # pipeline as search threads and structured results, so the stock
+    # obligation's settlement carries the ACTUAL inventory data (not a
+    # search_returned_no_receipt that discards it).
+    inventory = meta.get("zoho_inventory") or {}
+    inventory_error = meta.get("zoho_error") or ""
     threads = meta.get("searched_threads") or []
     observations = meta.get("source_observations") or []
     reads = meta.get("read_outcomes") or []
@@ -2772,6 +2780,12 @@ def _search_execution_receipt(
         v = meta.get(k)
         if isinstance(v, dict) and v:
             structured[k] = v
+    if isinstance(inventory, dict) and inventory:
+        # the inventory receipt IS the structured record for the stock
+        # obligation
+        structured["zoho_inventory"] = inventory
+    elif inventory_error:
+        structured["zoho_inventory_error"] = inventory_error
     prose_only = isinstance(meta.get("datasets_prose_only"), dict)
     returned_text = bool(block is not None and str(block).strip())
     dispatched = returned_text or bool(threads) or bool(structured) \
@@ -2787,7 +2801,7 @@ def _search_execution_receipt(
     # structured retrieval receipt, and the consultation credit below
     # follows the same flag.
     row_evidence = bool(threads or observations or reads or structured
-                        or ds_hits)
+                        or ds_hits or inventory)
     retrieved = row_evidence and not prose_only
     # BOUNDED ABSENCE (reviewer, round 35/36): a search that provably
     # EXECUTED over its store with a receipt and zero usable hits is a
@@ -2826,6 +2840,13 @@ def _search_execution_receipt(
             # names — the caller compares against the RESOLVED set;
             # retrieval alone does not mean the requested items were seen.
             "coverage_items": sorted(set(_sr_targets)),
+            # INVENTORY RECEIPT PAYLOAD (owner work order 2026-10-11):
+            # the stock obligation's settlement carries the ACTUAL
+            # inventory data — or the precise access error — so the
+            # durable record holds the receipt, not a query-word echo.
+            "zoho_inventory": inventory if isinstance(inventory, dict)
+            else {},
+            "zoho_inventory_error": (inventory_error or None),
         },
     }
 
@@ -15402,9 +15423,24 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         .get("targets") or [])
                                 },
                             }
-                            _apply_read_receipt_facts(
-                                _pf_execution, _pf_structured,
-                                _prefetch_meta)
+                            # INVENTORY RECEIPT ON THE PREFETCH FACTS
+                            # (owner work order 2026-10-11): the zoho
+                            # executor stamps its receipt on
+                            # _result_meta; the prefetch settle carries
+                            # it onto the durable record — including
+                            # the precise access error.
+                            _pf_inv_receipt = (
+                                _prefetch_result_meta or {}).get(
+                                "zoho_inventory")
+                            _pf_inv_error = (
+                                _prefetch_result_meta or {}).get(
+                                "zoho_error")
+                            if _pf_inv_receipt:
+                                _pf_execution["inventory_receipt"] = (
+                                    _pf_inv_receipt)
+                            if _pf_inv_error:
+                                _pf_execution["failure_stage"] = (
+                                    "zoho_inventory: " + _pf_inv_error)[:120]
                             _tlm.finish_retrieval_turn(
                                 _pf_tl, _pf_run, _pf_op,
                                 _pf_structured or {}, execution_id,
@@ -15415,7 +15451,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     _pf_tl, _pf_run, _pf_op,
                                     structured_result=_pf_structured,
                                     freshness=None,
-                                    execution=None,
+                                    execution=_pf_execution,
                                     # PENDING READS ON THE REUSE PATH (round
                                     # 45, the traced disappearance point):
                                     # cont19/20's value_trace executed in the
@@ -15821,18 +15857,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         _ms_tl, _ms_tl_begin[0],
                                         _ms_tl_begin[1], {}, execution_id,
                                         False,
-                                        execution={
-                                            "invoked": False,
-                                            "outcome": "not_dispatched",
-                                            "served_basis": "none",
-                                            "failure_stage": (
-                                                "plan_relevance_declined"),
-                                            "planning": dict(
-                                                (getattr(
-                                                    _plan, "_result_meta",
-                                                    None) or {}).get(
-                                                    "planning") or {}),
-                                        })
+                                        execution=_declined_execution)
                                     if isinstance(session, dict):
                                         session["_last_open_work"] = (
                                             _tlm.record_read_outcome(
@@ -15980,6 +16005,30 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         shared_tool_state[
                                             "ask_requested_fields"
                                         ] = list(_ask_fields)
+                                    # THE EXECUTOR'S RECEIPT/ERROR (owner
+                                    # correction 2026-10-11): the executor
+                                    # stamps its receipt on _result_meta
+                                    # before failing — the declined op's
+                                    # settle facts carry it, so the
+                                    # blocker is durable and precise.
+                                    _declined_meta = dict(
+                                        (getattr(_plan, "_result_meta",
+                                                 None) or {}))
+                                    _declined_execution = {
+                                        "invoked": False,
+                                        "outcome": "not_dispatched",
+                                        "served_basis": "none",
+                                        "failure_stage": (
+                                            "plan_relevance_declined"),
+                                        "planning": dict(
+                                            _declined_meta.get("planning")
+                                            or {}),
+                                        "zoho_error": (
+                                            _declined_meta.get("zoho_error")),
+                                        "zoho_inventory": (
+                                            _declined_meta.get(
+                                                "zoho_inventory")),
+                                    }
                                     _ms_tl_begin = _tlm.begin_retrieval_turn(
                                         _ms_tl,
                                         session if isinstance(
@@ -16272,6 +16321,29 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     _ms_meta_all = dict(
                                         shared_tool_state.get(
                                             "primary_result_meta") or {})
+                                # ZOHO RECEIPT FALLBACK (owner correction
+                                # 2026-10-11): the executor stamps its
+                                # receipt on the plan's _result_meta; when
+                                # the settle reads a re-wrapped plan (or
+                                # the singleflight mirror), the
+                                # blackboard's recorded receipt still
+                                # carries the read-captured identity.
+                                if not _ms_meta_all.get(
+                                        "zoho_inventory") and isinstance(
+                                        shared_tool_state, dict) and                                         shared_tool_state.get(
+                                            "primary_result_meta") and \
+                                        shared_tool_state[
+                                            "primary_result_meta"].get(
+                                            "zoho_error") is not None:
+                                    _ms_meta_all.setdefault(
+                                        "zoho_error",
+                                        shared_tool_state[
+                                            "primary_result_meta"].get(
+                                            "zoho_error"))
+                                    _ms_meta_all["zoho_inventory"] = (
+                                        shared_tool_state[
+                                            "primary_result_meta"].get(
+                                            "zoho_inventory") or [])
                                 _ms_planning = dict(
                                     _ms_meta_all.get("planning") or {})
                                 _ms_is_file = bool(_storage_read_meta)
@@ -16310,7 +16382,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     _ms_meta_all.get("structured_result")
                                     or _ms_meta_all.get("workbook_read"))
                                 if not isinstance(_ms_structured, dict):
-                                    _ms_structured = None
+                                    _ms_structured = (
+                                        _ms_receipt.get("zoho_inventory")
+                                        or None) or None
                                 _ms_findings = (
                                     _findings_from_datasets_receipt(
                                         _ms_receipt.get("receipt") or {}))
@@ -16344,10 +16418,28 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             .get("targets") or [])
                                     },
                                 }
+                                # INVENTORY RECEIPT ON THE DURABLE FACTS
+                                # (owner work order 2026-10-11): the
+                                # stock obligation's settlement carries
+                                # the ACTUAL inventory data — or the
+                                # precise access error — not a
+                                # search_returned_no_receipt that
+                                # discards it.
+                                if _ms_receipt.get("zoho_inventory"):
+                                    _ms_execution["inventory_receipt"] = (
+                                        _ms_receipt["zoho_inventory"])
+                                if _ms_receipt.get(
+                                        "zoho_inventory_error"):
+                                    _ms_execution["failure_stage"] = (
+                                        "zoho_inventory: "
+                                        + _ms_receipt[
+                                            "zoho_inventory_error"])[:120]
                                 _ms_complete = bool(
                                     _ms_invoked and (
                                         _ms_structured
-                                        or _storage_read_meta))
+                                        or _storage_read_meta
+                                        or _ms_receipt.get(
+                                            "zoho_inventory")))
                                 _tlm.finish_retrieval_turn(
                                     _ms_tl, _ms_tl_begin[0], _ms_tl_begin[1],
                                     _ms_structured or {}, execution_id,
