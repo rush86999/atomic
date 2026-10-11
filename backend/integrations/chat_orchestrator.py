@@ -16571,10 +16571,28 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 # attached canvas dispatches the same scan machinery
                 # with the lifecycle begun before dispatch.
                 _research_block = None
+                # THE BLOCK MUST BE EVIDENCE FOR THIS REQUEST (owner
+                # work order 2026-10-11, the t1r4 boundary): a
+                # pre-fallback token sweep ("roper", 103 files of junk)
+                # fills _tool_block without addressing the resolved
+                # scope — the existing relevance gate decides whether
+                # the block may stand in for the request's evidence.
+                _block_rejected = False
+                if _tool_block:
+                    try:
+                        _block_rejected = bool(_evidence_rejected(
+                            _tool_block, message, history,
+                            request_reference, canvas_context,
+                            _canvas_edit_shaped(
+                                message, {"canvas": canvas_context})))
+                    except Exception:  # noqa: BLE001 — the gate must
+                        # never break the fallback decision
+                        _block_rejected = False
                 if (not _resume_original or not _plan_mentions) \
                         and isinstance(shared_tool_state, dict) \
                         and shared_tool_state.get("job_scope_items") \
-                        and canvas_context and not _tool_block:
+                        and canvas_context \
+                        and (not _tool_block or _block_rejected):
                     try:
                         _research_block = (
                             await asyncio.wait_for(
