@@ -102,7 +102,8 @@ def _orch_with_store():
     return orch, tl, factory
 
 
-def _run_t1(scanner):
+def _run_t1(scanner, junk_sweep=None, plan_query=None,
+            plan_service="outlook"):
     """The REAL turn with the LIVE failure's plan: a served
     outlook.search plan that the relevance gate declines."""
     orch, tl, factory = _orch_with_store()
@@ -135,8 +136,10 @@ def _run_t1(scanner):
     # THE LIVE PLAN: outlook.search over a query the relevance gate
     # declines (the captured t1r2 branch)
     live_plan = ToolPlan(
-        use_tool=True, service="outlook", intent="search",
-        query="Requested Machinery & Alternatives — recent correspondence",
+        use_tool=True, service=plan_service, intent="search",
+        query=(plan_query or
+               "Requested Machinery & Alternatives — recent "
+               "correspondence"),
         reason="supervisor asked about the quote")
 
     with ExitStack() as st:
@@ -159,7 +162,7 @@ def _run_t1(scanner):
             patch("core.chat_tool_planner.plan_tool_use",
                   new=AsyncMock(return_value=live_plan)),
             patch("core.chat_tool_planner.execute_tool_plan",
-                  new=AsyncMock(return_value="")),
+                  new=AsyncMock(return_value=junk_sweep or "")),
             patch("core.memory_context_assembler.assembly_enabled",
                   return_value=False),
             patch("core.chat_mini_app_authoring.try_handle",
@@ -236,6 +239,26 @@ class TestT1EndToEnd:
             "typed findings persist from the workbook receipt")
         assert versions == {"hash-live-A"}, (
             "the read-captured version survives")
+
+    def test_junk_sweep_block_cannot_stand_in_for_the_scope(self):
+        """The t1r4 boundary, faithfully: an ON-REQUEST datasets.search
+        plan (query 'roper' — lexically passes the relevance gate)
+        executes an UNSCOPED sweep (103 files for one token) whose
+        block fills the evidence. The executed block is evidence-
+        REJECTED and the canvas-scoped dispatch serves the resolved
+        scope instead."""
+        junk = ("LIVE TOOL EXECUTION — datasets.search\n"
+                "What the lookup actually returned (all ingested "
+                "spreadsheets searched for \"roper\", 103 files):\n"
+                "- PRICE VIPUL (6).xlsx — sheet Sheet1 — row 9: 164990")
+        result, spy, orch, tl, factory = _run_t1(
+            _live_shaped_scanner(), junk_sweep=junk,
+            plan_query="roper", plan_service="datasets")
+        found, versions, statuses = _durable(tl)
+        assert any("SLE24-16" in (s or "") for s in spy["scans"]), (
+            "the junk sweep did not prevent the scoped dispatch")
+        assert found and versions == {"hash-live-A"}, (
+            "typed findings persist despite the standing junk block")
 
     def test_every_obligation_evidenced_or_explicitly_unresolved(self):
         result, spy, orch, tl, factory = _run_t1(

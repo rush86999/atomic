@@ -16386,6 +16386,42 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         _tool_block = _compose_lookup_evidence(
                             _gate_msg, _plan, _live_block, _mail_lines,
                         )
+                        # ON-REQUEST RELEVANCE (owner work order
+                        # 2026-10-11, the t1r4 boundary): a plan whose
+                        # query lexically passes ("roper" appears in the
+                        # request) can still execute an UNSCOPED sweep —
+                        # 103 files for one token — and its block then
+                        # stands in for the resolved scope's evidence.
+                        # The existing relevance gate judges the
+                        # EXECUTED block; when it rejects, the
+                        # canvas-scoped dispatch serves the resolved
+                        # obligations (the decline arm's handoff covers
+                        # the off-request case; this covers on-request).
+                        if _tool_block and isinstance(
+                                shared_tool_state, dict) \
+                                and shared_tool_state.get(
+                                    "job_scope_items") and canvas_context:
+                            try:
+                                if _evidence_rejected(
+                                        _tool_block, message, history,
+                                        request_reference, canvas_context,
+                                        _canvas_edit_shaped(
+                                            message,
+                                            {"canvas": canvas_context})):
+                                    _rd_block = (
+                                        await self.
+                                        _canvas_scoped_research_dispatch(
+                                            message, user_id, workspace_id,
+                                            session, session_id,
+                                            execution_id, canvas_context,
+                                            shared_tool_state))
+                                    if _rd_block:
+                                        _tool_block = _rd_block
+                            except Exception as _rd_err:  # noqa: BLE001
+                                logger.warning(
+                                    "[research-dispatch] on-request "
+                                    "relevance follow-up failed: %r",
+                                    _rd_err)
                         _source_observations = list(
                             (getattr(_plan, "_result_meta", None) or {}).get(
                                 "source_observations"
