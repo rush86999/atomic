@@ -67,6 +67,15 @@ BYOK_ENCRYPTION_KEY=$BYOK_KEY
 DATABASE_URL=sqlite:///./atom_dev.db
 ENVIRONMENT=development
 
+# Chat execution contract (verified paths require these). The value must be
+# exactly 1 — readers compare == "1", so true/yes DO NOT enable (see
+# backend/.env.example §6). Without them a fresh install runs the legacy
+# path: no exact-execution failure reporting (M1), no finalized-outcome
+# persistence (M2), no durable task lifecycle (task correction).
+CHAT_FINALIZATION_M1=1
+CHAT_FINALIZATION_M2=1
+ATOM_TASK_LIFECYCLE_ENABLED=1
+
 # Add your LLM API key here (at least one required for AI features):
 # OPENAI_API_KEY=sk-your-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-key-here

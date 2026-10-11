@@ -1,0 +1,37 @@
+{
+  "J1.config-parity": {
+    "status": "verified",
+    "evidence": "journey_matrix/parity_after_fix_20261011_181142_82cd6e.json (+ before_fix record)",
+    "notes": "fresh_install_parity probe: before-fix all 3 gates MISSING; after fix gates effective in load-order-faithful subprocess, real TaskLifecycle constructs; gate source literals re-verified",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-11T22:13:49+00:00"
+  },
+  "J1.boot": {
+    "status": "verified",
+    "evidence": "journey_matrix/parity_after_fix_20261011_181142_82cd6e.json (boot section)",
+    "notes": "real uvicorn main_api_app on generated env, scratch DB: healthy in 7.4s, /api/health 200 with identity",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-11T22:13:49+00:00"
+  },
+  "J1.signin": {
+    "status": "verified",
+    "evidence": "journey_matrix/parity_after_fix_j1_20261011_181713_5334b5.json",
+    "notes": "fresh register 200+token, POST /api/auth/login 200+token, bootstrap-admin login 200 \u2014 all on scratch world",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-11T22:17:54+00:00"
+  },
+  "J1.workspace": {
+    "status": "verified",
+    "evidence": "journey_matrix/parity_after_fix_j1_20261011_181713_5334b5.json",
+    "notes": "product creates default tenant+workspace at register (auth_endpoints:326); /me returns bound workspace_id; GET /api/dashboard/feed 200 proves the workspace resolves for real use",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-11T22:17:54+00:00"
+  },
+  "J1.quickstart-install": {
+    "status": "untested",
+    "evidence": null,
+    "notes": "env-generation + boot stages ARE proven by the probe every run, but clean-state venv creation (pip install from nothing) was not exercised here \u2014 existing venv reused; CI setup job partially covers",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-11T22:17:54+00:00"
+  }
+}
