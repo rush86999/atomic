@@ -2298,6 +2298,12 @@ def begin_retrieval_turn(
         # A9/A10: read_returned_no_receipt while the isolated drive
         # bound six candidates). Fields are only ever ADDED here, never
         # replaced — existing contracts stand.
+        # ENTITIES ARE NEVER REPLACED (owner order 2026-10-11 —
+        # continuation binding): a resumed job's durable subject set is
+        # the job's scope; a later turn's mined tokens (locator words
+        # like "Tennsmith row 338" mining "338") are NOT new subjects
+        # and must not overwrite it. Only a task with no entities of
+        # its own adopts this turn's items.
         _rev_now = ((record or {}).get("task_revision") or {})
         if requested_fields and not (
                 _rev_now.get("requested_fields") or []):
@@ -2309,8 +2315,8 @@ def begin_retrieval_turn(
                     _rev_now.get("objective_text") or "").strip()
                 else _bounded_text(
                     str(_rev_now.get("objective_text")), 500),
-                "entities": (_entities_from_items(items)
-                             or list(_rev_now.get("entities") or [])),
+                "entities": (list(_rev_now.get("entities") or [])
+                             or _entities_from_items(items)),
                 "requested_fields": list(requested_fields),
             })
         # SHELL BACKFILL (round 39 diagnosis): the objective and entities
@@ -2325,8 +2331,8 @@ def begin_retrieval_turn(
                 "kind": "revise_objective",
                 "requested_change": _bounded_text(message, 500),
                 "objective_text": _bounded_text(message, 500),
-                "entities": (_entities_from_items(items)
-                             or list(_rev.get("entities") or [])),
+                "entities": (list(_rev.get("entities") or [])
+                             or _entities_from_items(items)),
                 "removed_entity_ids": [],
                 "requested_fields": list(requested_fields or []),
             })
@@ -2552,6 +2558,7 @@ def next_unfinished_work(
     *,
     attempt_cap: int = UNRESOLVED_ATTEMPT_CAP,
     max_actions: int = 3,
+    by: str = "planner",
 ) -> Dict[str, Any]:
     """Select the next useful work from the OPEN question set.
 

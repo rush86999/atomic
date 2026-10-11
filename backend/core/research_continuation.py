@@ -1703,8 +1703,32 @@ async def research_continuation_cycle(max_reads: int = _CYCLE_MAX_READS
             except Exception as _mig_err:  # noqa: BLE001
                 logger.debug("row-successor migration skipped: %r",
                              _mig_err)
-            work = next_unfinished_work(record)
+            work = next_unfinished_work(record, by=_WORKER_ID)
             acts = _read_actions(work.get("actions") or [])
+            # ANOTHER WORKER'S ACTIVE CLAIM IS NOT DOUBLE-EXECUTED
+            # (owner correction 2026-10-11, item 1): an unexpired claim
+            # held by a DIFFERENT worker skips the question here — the
+            # view above stays complete for assertions and the reply
+            # leg; only THIS worker's execution dedupes.
+            import time as _time
+
+            def _other_active_claim(q):
+                claim = q.get("exec_claim") or {}
+                holder = str(claim.get("by") or "").strip()
+                if not holder or holder == _WORKER_ID:
+                    return False
+                try:
+                    return time.time() - float(claim.get("at") or 0) < 120.0
+                except (TypeError, ValueError):
+                    return False
+
+            _claimed_elsewhere = {
+                str(q.get("question_id")) for q in
+                open_unresolved_questions(record)
+                if _other_active_claim(q)}
+            acts = [a for a in acts
+                    if str(a.get("question_id"))
+                    not in _claimed_elsewhere]
             if not acts:
                 continue
             conv = record.get("conversation_id") or ""

@@ -194,7 +194,7 @@ def _orch_with_store():
 def _run_t1(scanner, junk_sweep=None, plan_query=None,
             plan_service="outlook", row_reader=None, lessons=None,
             scanner_tracks_files=False, catalog_files=None,
-            message=None, zoho_receipt=None):
+            message=None, zoho_receipt=None, junk_result_meta=None):
     """The REAL turn with the LIVE failure's plan: a served
     outlook.search plan that the relevance gate declines."""
     orch, tl, factory = _orch_with_store()
@@ -232,6 +232,25 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
                "Requested Machinery & Alternatives — recent "
                "correspondence"),
         reason="supervisor asked about the quote")
+    # the executed plan's result metadata (what the settle arm reads):
+    # a junk sweep carries its own source identity so the settle can
+    # run to completion and produce the standing block
+    if junk_result_meta:
+        live_plan._result_meta = dict(junk_result_meta)
+
+    def _tool_exec(plan=None, *a, **k):
+        # controlled executor responses: the junk sweep (when supplied),
+        # else the zoho receipt/error (when this is the zoho plan),
+        # else nothing
+        if junk_sweep:
+            return junk_sweep
+        if zoho_receipt is not None:
+            if zoho_receipt.get("success"):
+                return "ZOHO INVENTORY: " + json.dumps(
+                    zoho_receipt.get("items") or [])
+            return ("ZOHO INVENTORY ERROR: "
+                    + str(zoho_receipt.get("error")))
+        return ""
 
     with ExitStack() as st:
         for cm in [
@@ -253,12 +272,7 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
             patch("core.chat_tool_planner.plan_tool_use",
                   new=AsyncMock(return_value=live_plan)),
             patch("core.chat_tool_planner.execute_tool_plan",
-                  new=AsyncMock(side_effect=lambda plan=None, *a, **k: (
-                      ("ZOHO INVENTORY ERROR: "
-                       + str(zoho_receipt.get("error")))
-                      if not zoho_receipt.get("success")
-                      else ("ZOHO INVENTORY: "
-                            + json.dumps(zoho_receipt.get("items") or []))))),
+                  new=AsyncMock(side_effect=_tool_exec)),
             patch("core.memory_context_assembler.assembly_enabled",
                   return_value=False),
             patch("core.chat_mini_app_authoring.try_handle",
@@ -756,15 +770,23 @@ class TestStockSuccessorSelection:
         assert stock, (
             "the stock question is SELECTED as work: "
             f"{json.dumps(actions, default=str)[:400]}")
-        # the active claim is NOT re-selected — the assertion reads the
-        # REAL claim API's shape (exec_claim with by/at), not an invented
-        # field
-        action_qids = {str(a.get("question_id")) for a in actions}
-        for q in open_unresolved_questions(record):
-            claim = q.get("exec_claim") or {}
-            if claim.get("by"):
-                assert str(q.get("question_id")) not in action_qids, (
-                    "another worker's active claim is left alone")
+        # the ACTIVE row-read claim (held by 'worker-other') is left to
+        # its holder: the durable claim API refuses a second holder
+        # within the TTL — the API-level guarantee that holds the
+        # duplication boundary (the next_unfinished_work VIEW stays
+        # complete by design; the execution dedupe lives in the worker
+        # cycle)
+        from core.task_lifecycle import claim_questions_for_execution
+
+        manual_q = [q for q in open_unresolved_questions(record)
+                    if "Manual Flanger" in str(q.get("item") or "")]
+        assert manual_q, "the Manual Flanger question is present"
+        second_holder = claim_questions_for_execution(
+            tl, run_id, [str(manual_q[0].get("question_id"))],
+            by="worker-second", ttl_seconds=300)
+        assert not second_holder, (
+            "the active claim refuses a second holder — no duplicate "
+            "execution")
 
     def test_the_workbook_reader_never_executes_stock_work(self):
         from core.research_continuation import _read_actions

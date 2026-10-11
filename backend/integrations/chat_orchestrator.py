@@ -7033,6 +7033,9 @@ class ChatOrchestrator:
             # question would let the file-ask lane claim the turn before
             # the resume machinery runs.
             _cont_text = " ".join(str(message or "").split())
+            logger.info("[DBG4] continuation-detection reached; bare=%s",
+                        _cont_bare := bool(
+                            _CONTINUATION_RE.fullmatch(_cont_text or "")))
             _cont_bare = bool(_CONTINUATION_RE.fullmatch(_cont_text or ""))
             try:
                 _cont_text = " ".join(str(message or "").split())
@@ -16158,9 +16161,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 # The live leg failed/timed out. Mail evidence (when
                                 # present) still answers the question, so it must LEAD
                                 # the block and the failure is demoted to a note.
+                                import traceback as _tb
+
                                 logger.warning(
-                                    f"planned live lookup failed ({_planned}): {_live_err!r}"
-                                )
+                                    f"planned live lookup failed ({_planned}): "
+                                    f"{_tb.format_exc()[-400:]}")
                                 _ms_exec_error = (
                                     f"{type(_live_err).__name__}: "
                                     f"{str(_live_err)[:120]}")
@@ -17378,6 +17383,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             session.get("_continuation_seed") or {})
                 except Exception:  # noqa: BLE001 — seed is optional
                     _resume_seed = {}
+                # The bound job's requested subjects (assigned when the
+                # resume block runs; empty otherwise — the reuse block
+                # then falls back to the chain items).
+                _bound_subjects: List[str] = []
                 _resume_run = str(_resume_seed.get("run_id") or "")
                 _resume_reads_done: List[str] = []
                 if _resume_run:
@@ -17389,34 +17398,26 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                    if _rs_tl is not None else None)
                         _rs_canvas_ok = False
                         if isinstance(_rs_rec, dict):
+                            _rs_canvas_now = None
+                            if isinstance(canvas_context, dict):
+                                _rs_canvas_now = (
+                                    canvas_context.get("canvas_id")
+                                    or canvas_context.get("id"))
+                            elif isinstance(canvas_context, str) \
+                                    and canvas_context.strip():
+                                _rs_canvas_now = canvas_context.strip()
                             _rs_prov = (
                                 (_rs_rec.get("task_revision") or {}).get(
                                     "provenance") or {})
                             _rs_canvas_ok = (
                                 str(_rs_prov.get("canvas_id") or "")
-                                == str(_chain_canvas_id() or ""))
+                                == str(_rs_canvas_now or ""))
                         if _rs_rec is not None and _rs_canvas_ok:
                             from core.task_lifecycle import (
                                 next_unfinished_work as _rs_nuw,
                             )
 
                             _rs_work = _rs_nuw(_rs_rec)
-                            _rs_prior_reads = set()
-                            try:
-                                _rs_open = (
-                                    (session or {}).get(
-                                        "_last_open_work") or {})
-                                for _rs_a in (
-                                        _rs_open.get("actions") or []):
-                                    _rs_nx = str(
-                                        _rs_a.get("next_action")
-                                        or "").lower()
-                                    if _rs_nx.startswith("read "):
-                                        _rs_prior_reads.add((
-                                            str(_rs_a.get("item")
-                                                or "").strip().lower()))
-                            except Exception:  # noqa: BLE001
-                                _rs_prior_reads = set()
                             _rs_lessons: List[Dict[str, Any]] = []
                             try:
                                 _rs_lessons = (
@@ -17425,6 +17426,21 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     if agent_id else [])
                             except Exception:  # noqa: BLE001
                                 _rs_lessons = []
+                            # THE BOUND JOB'S REQUESTED SUBJECTS —
+                            # what this continuation's work is ABOUT;
+                            # both the reads and the reuse decision use
+                            # these, never the message's locator words.
+                            _bound_subjects = []
+                            for _e in ((_rs_rec.get("task_revision")
+                                        or {}).get("entities") or []):
+                                if not isinstance(_e, dict):
+                                    continue
+                                if str(_e.get("role") or "requested") \
+                                        != "requested":
+                                    continue
+                                _eid = str(_e.get("id") or "").strip()
+                                if _eid and _eid not in _bound_subjects:
+                                    _bound_subjects.append(_eid)
                             for _ra in (_rs_work.get("actions") or []):
                                 if len(_resume_reads_done) >= 4 or \
                                         _resume_turn_left() < 18.0:
@@ -17437,8 +17453,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 _ra_item = str(
                                     _ra.get("item") or "").strip()
                                 if not _ra_file or not _ra_item:
-                                    continue
-                                if _ra_item.lower() in _rs_prior_reads:
                                     continue
                                 _ra_fields = [
                                     str(f) for f in
@@ -17461,6 +17475,35 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 _ra_qids = [
                                     str(_ra.get("question_id") or "")]
                                 _ra_qids = [q for q in _ra_qids if q]
+                                # DURABLE CLAIM (the worker's own
+                                # protocol): the fenced settlement inside
+                                # the row read requires THIS worker to
+                                # hold a fresh claim on the question —
+                                # without it the read executes and then
+                                # leaves its operation pending.
+                                if _ra_qids:
+                                    try:
+                                        from core.research_continuation import (  # noqa: E501
+                                            _WORKER_ID as _ra_worker,
+                                        )
+                                        from core.task_lifecycle import (
+                                            claim_questions_for_execution,
+                                        )
+
+                                        _ra_qids = [str(q) for q in
+                                                    claim_questions_for_execution(  # noqa: E501
+                                                        _rs_tl, _resume_run,
+                                                        _ra_qids,
+                                                        by=_ra_worker,
+                                                        ttl_seconds=300.0)]
+                                    except Exception:  # noqa: BLE001
+                                        _ra_qids = []
+                                if not _ra_qids:
+                                    logger.info(
+                                        "[planner-boundary] resumed read "
+                                        "skipped — no claimable open "
+                                        "question for %s", _ra_item)
+                                    continue
                                 try:
                                     if _ra_sheet and _ra_row:
                                         from core.research_continuation import (  # noqa: E501
@@ -17550,9 +17593,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         )
 
                         _ru_open = _ru_ouq(_ru_record) or []
-                        _ru_subjects = [
-                            str(s).strip() for s in
-                            (_chain_items or []) if str(s).strip()]
+                        _ru_subjects = list(_bound_subjects or [])
                         if _ru_subjects and not (
                                 is_retrieval_refresh_request(message)):
                             _ru_findings = []
@@ -17629,19 +17670,36 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             str(_ru_e)[:200] for _ru_e in
                                             (_ru_ex.get("evidence")
                                              or []))
+                                        # item KEYS carry the searched
+                                        # scope even when per-item
+                                        # statuses are empty (a mailbox
+                                        # sweep's statuses usually are)
+                                        _ru_items = {
+                                            str(k).strip().lower()
+                                            for k in (
+                                                (_ru_ex.get("items")
+                                                 or {}).keys())}
                                         _ru_txt = (
                                             str(_ru_o.get(
                                                 "requested_change")
                                                 or "") + " " + _ru_ev
                                         ).lower()
-                                        if ("outlook" in _ru_txt
-                                                or "mail" in _ru_txt
-                                                or "thread" in _ru_txt
-                                                or "correspondence" in
-                                                _ru_txt) and any(
+                                        _ru_mail_marked = (
+                                            "outlook" in _ru_txt
+                                            or "mail" in _ru_txt
+                                            or "thread" in _ru_txt
+                                            or "correspondence" in
+                                            _ru_txt)
+                                        _ru_covers = any(
                                             _ru_s.lower() in _ru_txt
                                             for _ru_s in _ru_subjects
-                                            if _ru_s):
+                                            if _ru_s) or (
+                                                _ru_items and
+                                                _ru_items & {
+                                                    s.lower()
+                                                    for s in
+                                                    _ru_subjects})
+                                        if _ru_mail_marked and _ru_covers:
                                             _ru_mail_ok = True
                                             break
                                     _ru_mail_open = any(
@@ -21648,6 +21706,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         # (the reply leg's stash runs later, inside reply generation):
         # the dispatch must not depend on ordering. The stash is a
         # cache; resolution uses the same existing mechanism.
+        logger.info("[DBG5] dispatch entered; cached=%r canvas=%r",
+                    (shared_tool_state or {}).get("job_scope_items"),
+                    bool(canvas_context))
         scope_items = [
             str(t).strip() for t in
             ((shared_tool_state or {}).get("job_scope_items") or [])
