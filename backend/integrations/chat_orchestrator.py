@@ -10862,6 +10862,7 @@ class ChatOrchestrator:
             # budget. A failed-edit retry re-plans its ORIGINAL
             # authorized instruction.
             _edit_lane_authorized = True
+            _edit_lane_auth_error: Optional[str] = None
             if _canvas_ctx and not _canvas_action_bypassed:
                 try:
                     from core.turn_decision import (
@@ -10881,10 +10882,21 @@ class ChatOrchestrator:
                             "turn's own words do not authorize a canvas "
                             "mutation (deterministic authorization: %r)",
                             _edit_auth)
-                except Exception:  # noqa: BLE001 — fail open to the
-                    # planner; the scope validator still guards the
-                    # mutation, and the gate must never break the lane
-                    _edit_lane_authorized = True
+                except Exception as _auth_err:
+                    # FAIL CLOSED for editing (owner correction
+                    # 2026-10-10): when authorization cannot be
+                    # evaluated, edit planning is SKIPPED — never
+                    # assumed. Read-only research access is retained
+                    # (the reply leg owns it). The evaluation error is
+                    # recorded as its own stage, distinct from an
+                    # explicit denial.
+                    _edit_lane_authorized = False
+                    _edit_lane_auth_error = str(_auth_err)[:160]
+                    logger.warning(
+                        "[stage-timing] canvas-edit leg skipped — edit "
+                        "authorization could not be EVALUATED (%s); "
+                        "read-only research access retained",
+                        _edit_lane_auth_error)
             _shared_tool: Dict[str, Any] = {
                 "plan_task": _tool_plan_task,
                 "block": None,
@@ -15203,6 +15215,16 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _pf_structured = (
                                 _prefetch_result_meta.get(
                                     "structured_result")
+                                # SAME RECEIPT CONTRACT AS THE DIRECT-READ
+                                # LANES (owner work order 2026-10-10): the
+                                # typed record the planner stamps on the
+                                # STORAGE meta is the convertible receipt.
+                                # `workbook_read` is the raw scan artifact
+                                # (rows under coverage.outcomes, no
+                                # targets) and stays the LAST resort — it
+                                # must never mask a convertible record.
+                                or _prefetch_meta.get(
+                                    "structured_result")
                                 or _prefetch_meta.get("workbook_read"))
                             if not isinstance(_pf_structured, dict):
                                 _pf_structured = None
@@ -15226,35 +15248,46 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _pf_invoked = bool(
                                 _prefetch_meta or _tool_block)
                             _pf_ok = bool(_pf_structured)
+                            # ONE DERIVATION, THREE SETTLEMENTS (owner
+                            # work order 2026-10-10): the reused read's
+                            # receipt facts (findings + the version the
+                            # read captured) ride this settlement too —
+                            # a successful reply must not leave the
+                            # durable evidence chain empty on the path
+                            # the real job uses.
+                            _pf_execution = {
+                                "invoked": _pf_invoked,
+                                "outcome": (
+                                    "read_succeeded"
+                                    if _pf_ok else
+                                    "read_returned_no_receipt"
+                                    if _pf_invoked else
+                                    "not_dispatched"),
+                                "served_basis": (
+                                    "saved_copy"
+                                    if _pf_invoked else "none"),
+                                "failure_stage": None,
+                                "planning": dict(
+                                    (_prefetch_result_meta.get(
+                                        "planning") or {})),
+                                "items": {
+                                    str((t or {}).get("item") or ""):
+                                        str(((t or {}).get(
+                                            "identity") or {}).get(
+                                            "status") or "")
+                                    for t in (
+                                        (_pf_structured or {})
+                                        .get("targets") or [])
+                                },
+                            }
+                            _apply_read_receipt_facts(
+                                _pf_execution, _pf_structured,
+                                _prefetch_meta)
                             _tlm.finish_retrieval_turn(
                                 _pf_tl, _pf_run, _pf_op,
                                 _pf_structured or {}, execution_id,
                                 _pf_ok,
-                                execution={
-                                    "invoked": _pf_invoked,
-                                    "outcome": (
-                                        "read_succeeded"
-                                        if _pf_ok else
-                                        "read_returned_no_receipt"
-                                        if _pf_invoked else
-                                        "not_dispatched"),
-                                    "served_basis": (
-                                        "saved_copy"
-                                        if _pf_invoked else "none"),
-                                    "failure_stage": None,
-                                    "planning": dict(
-                                        (_prefetch_result_meta.get(
-                                            "planning") or {})),
-                                    "items": {
-                                        str((t or {}).get("item") or ""):
-                                            str(((t or {}).get(
-                                                "identity") or {}).get(
-                                                "status") or "")
-                                        for t in (
-                                            (_pf_structured or {})
-                                            .get("targets") or [])
-                                    },
-                                })
+                                execution=_pf_execution)
                             session["_last_open_work"] = (
                                 _tlm.record_read_outcome(
                                     _pf_tl, _pf_run, _pf_op,
@@ -21825,9 +21858,24 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "mutation — canvas access is retained for "
                     "research/comparison")
                 return None
-        except Exception:  # noqa: BLE001 — the gate never breaks
-            # the lane; the scope validator remains the last guard
-            pass
+        except Exception as _lane_auth_err:
+            # FAIL CLOSED for editing (owner correction 2026-10-10):
+            # an unevaluable authorization skips edit planning — the
+            # scope validator remains the last guard, and the error is
+            # recorded separately from an explicit denial.
+            if shared_tool_state is not None:
+                shared_tool_state["canvas_edit_skipped_not_authorized"] = (
+                    True)
+                shared_tool_state["canvas_edit_no_apply"] = True
+                shared_tool_state["canvas_edit_no_apply_reason"] = (
+                    "edit_authorization_error")
+                shared_tool_state["canvas_edit_authorization_error"] = (
+                    str(_lane_auth_err)[:160])
+            logger.warning(
+                "[canvas-edit] lane skipped pre-planning: authorization "
+                "could not be EVALUATED (%s) — read-only research "
+                "access retained", str(_lane_auth_err)[:160])
+            return None
         fresh = await fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),

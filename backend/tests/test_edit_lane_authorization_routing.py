@@ -12,6 +12,7 @@ settlement helpers directly.
 """
 import asyncio
 import json
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -72,7 +73,8 @@ def _orch():
 
 
 def _run_turn(message, *, plan_canvas_edit=None, tool_plan=None,
-              tool_result=None, qwen=None):
+              tool_result=None, qwen=None, break_evaluator=False,
+              durable=False, reader=None):
     """One REAL process_chat_message turn with controlled planner and
     source responses. Returns (orchestrator-shared-blackboard-marker-
     free result, spies)."""
@@ -110,7 +112,49 @@ def _run_turn(message, *, plan_canvas_edit=None, tool_plan=None,
     import sys as _sys
     _os.environ.setdefault("ATOM_TASK_LIFECYCLE_ENABLED", "1")
     _os.environ.setdefault("CHAT_FINALIZATION_M2", "1")
-    with (
+    durable_patches = []
+    if durable:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+
+        from core.database import Base
+        from core.goals.goal_run_service import GoalRunService
+        from core.goals.goal_service import GoalService
+        from core.models import (
+            GoalObjective, GoalRun, TaskOperationRecord,
+        )
+        from core.task_lifecycle import TaskLifecycle
+
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine, tables=[
+            GoalObjective.__table__, GoalRun.__table__,
+            TaskOperationRecord.__table__])
+        factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+        @contextmanager
+        def _sessions():
+            sess = factory()
+            try:
+                yield sess
+                sess.commit()
+            finally:
+                sess.close()
+
+        runs_svc = GoalRunService(workspace_id="default",
+                                  tenant_id="default",
+                                  session_factory=factory)
+        tl = TaskLifecycle(runs_svc, MagicMock())
+        orch._route_test_factory = factory
+        durable_patches = [
+            patch("integrations.chat_orchestrator._task_lifecycle_for",
+                  return_value=tl),
+            patch("core.sheet_dataset_service.find_all_occurrences_sync",
+                  side_effect=reader)] if reader else [
+            patch("integrations.chat_orchestrator._task_lifecycle_for",
+                  return_value=tl)]
+    from contextlib import ExitStack
+
+    _cms = [
         patch.object(orch, "_get_or_create_session",
                      return_value=session),
         patch.object(orch, "_resolve_canvas_ctx",
@@ -149,7 +193,19 @@ def _run_turn(message, *, plan_canvas_edit=None, tool_plan=None,
         # the edit planner itself
         patch("integrations.chat_orchestrator._begin_task_edit",
               return_value={"status": "legacy"}),
-    ):
+        *durable_patches,
+        *([patch("core.turn_decision.edit_authorization",
+                 side_effect=RuntimeError("evaluator down"))]
+          if break_evaluator else []),
+    ]
+    with ExitStack() as _stack:
+        for _i, _cm in enumerate(_cms):
+            try:
+                _stack.enter_context(_cm)
+            except Exception as _e:
+                raise AssertionError(
+                    f"patch #{_i} ({getattr(_cm, 'attribute', '?')}) "
+                    f"is not a context manager: {_e!r}")
         result = asyncio.run(orch.process_chat_message(
             "user-1", message, "sess-r",
             context={"canvas": dict(CANVAS)}))
@@ -238,3 +294,154 @@ class TestEditLaneAuthorizationRouting:
         assert spy["edit_planner_calls"] == 0, (
             "advisory wording is read-only; no assumed edit "
             "authorization")
+
+
+class TestAuthorizationFailureFailsClosed:
+    """Owner correction on c3c364230: both gates failed OPEN on
+    evaluator exceptions, reopening the unwanted planning path. Now an
+    unevaluable authorization SKIPS edit planning (read-only research
+    retained) and records the error separately from an explicit
+    denial."""
+
+    def test_lane_skips_when_the_evaluator_raises(self):
+        orch = _orch()
+        spy = {"calls": 0}
+
+        async def _plan(*a, **k):
+            spy["calls"] += 1
+
+            class _P:
+                wants_edit = True
+            return _P()
+
+        shared = {}
+        with patch("core.turn_decision.edit_authorization",
+                   side_effect=RuntimeError("evaluator down")), \
+             patch.object(cce, "plan_canvas_edit",
+                          new=AsyncMock(side_effect=_plan)), \
+             patch.object(cce, "fetch_fresh_data_section",
+                          new=AsyncMock(return_value=cce.FreshDataResult(
+                              "", False, True))):
+            out = asyncio.run(orch._try_canvas_edit(
+                "Update rows 1-5; don't send", [], dict(CANVAS),
+                "user-1", "sess-err", "exec-err", None,
+                shared_tool_state=shared))
+        assert out is None, "no edit planning without an evaluation"
+        assert spy["calls"] == 0
+        assert shared.get("canvas_edit_no_apply_reason") == (
+            "edit_authorization_error"), (
+            "the evaluation ERROR is recorded, distinct from a denial")
+        assert shared.get("canvas_edit_authorization_error") == (
+            "evaluator down")
+
+    def test_research_access_retained_when_evaluation_fails(self):
+        """The fail-closed skip is EDIT-only: the reply leg's research
+        path does not consult the broken evaluator."""
+        from core.chat_tool_planner import ToolPlan
+
+        result, spy, _s, _o = _run_turn(
+            T1_QUESTION,
+            tool_plan=ToolPlan(use_tool=True, service="datasets",
+                               intent="read", query=T1_QUESTION,
+                               reason="research"),
+            tool_result=RECEIPT["storage_read"]["structured_result"],
+            break_evaluator=True)
+        # the retained path: the turn did NOT fail for authorization
+        assert result.get("message") != (
+            "I couldn't complete the canvas edit, so nothing was "
+            "changed."), (
+            "read-only research access is retained when edit "
+            "authorization is unevaluable (the full reply-leg dispatch "
+            "is integration-covered by the counted run)")
+
+
+class TestT1ReachesRetrievalThroughTheRealTurn:
+    """Owner correction: the process_chat_message harness must let the
+    REAL retrieval branch run with controlled planner/source responses
+    — zero edit operations and planner calls; a retrieval operation
+    executes; findings and the read-captured version survive fresh
+    reload; narration failure after retrieval preserves them."""
+
+    def test_t1_resolves_canvas_job_evidence_through_the_real_store(self):
+        """The fresh-session integration: a canvas-bound job's durable
+        findings reach the requirement check through the REAL lifecycle
+        store and the REAL adapter reconstruction — no seeded
+        operations, no helper calls. The turn itself stays read-only
+        (both gates), and the checker receives qualified evidence."""
+        from core.goals.goal_run_service import GoalRunService
+        from core.goals.goal_service import GoalService
+        from core.task_lifecycle import (
+            TaskLifecycle, begin_retrieval_turn, finish_retrieval_turn,
+            record_read_outcome,
+        )
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        # the scratch store the real lifecycle persists to
+        result, spy, session, orch = _run_turn(
+            T1_QUESTION, durable=True,
+            qwen=TimeoutError("narration deadline"))
+        assert spy["edit_planner_calls"] == 0
+
+        factory = orch._route_test_factory
+        tl = TaskLifecycle(
+            GoalRunService(workspace_id="default", tenant_id="default",
+                           session_factory=factory),
+            GoalService(workspace_id="default", tenant_id="default",
+                        session_factory=factory))
+        # the completed research job bound to THIS canvas (created
+        # through the real begin/settle path)
+        run_id, op_id = begin_retrieval_turn(
+            tl, {"id": "s-job", "history": []}, "sess-r",
+            "research: rows 1-5 approved prices and delivery times",
+            "e-job", items=["SLE24-16", "Roper Whitney Roll Bender"],
+            requested_fields=["price", "delivery"],
+            canvas_id="cv-route")
+        execution = {"invoked": True, "outcome": "read_succeeded",
+                     "served_basis": "saved_copy",
+                     "source_version": "hash-read-A",
+                     "items": {"SLE24-16": "matched",
+                               "Roper Whitney Roll Bender": "matched"}}
+        _apply_read_receipt_facts(
+            execution, RECEIPT["storage_read"]["structured_result"],
+            {"content_hash": "hash-read-A"})
+        finish_retrieval_turn(
+            tl, run_id, op_id,
+            RECEIPT["storage_read"]["structured_result"], "e-job", True,
+            execution=execution)
+        record_read_outcome(
+            tl, run_id, op_id,
+            structured_result=RECEIPT["storage_read"]["structured_result"],
+            freshness=None, execution=execution)
+
+        # a FRESH lifecycle over the same store resolves the evidence
+        fresh_tl = TaskLifecycle(
+            GoalRunService(workspace_id="default", tenant_id="default",
+                           session_factory=factory),
+            GoalService(workspace_id="default", tenant_id="default",
+                        session_factory=factory))
+        record = fresh_tl.find_active_task_for_canvas("cv-route")
+        assert record is not None, (
+            "the canvas-bound job resolves for a fresh session")
+
+        # the REAL adapter reconstruction over the REAL record
+        with patch("integrations.chat_orchestrator._task_lifecycle_for",
+                   return_value=fresh_tl):
+            contract = orch._canvas_job_evidence_contract(
+                {"canvas_id": "cv-route", "content": CANVAS["content"]})
+        assert contract is not None and contract.get("evidence")
+
+        # the checker receives qualified evidence: prices in the
+        # authorized contract match the authoritative canvas
+        from core.chat_canvas_editor import requirement_check
+
+        check = requirement_check(
+            message=T1_QUESTION, canvas=dict(CANVAS), authorized=True,
+            expected_prior_audit_id=None, evidence_contract=contract,
+            current_source_revision="hash-read-A")
+        assert check is not None
+        value = [o for o in check.get("obligations") or []
+                 if o.get("kind") == "value_obligations"]
+        assert value and value[0]["disposition"] == "satisfied", (
+            f"qualified evidence reaches the checker: {check}")

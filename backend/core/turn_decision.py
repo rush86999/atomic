@@ -193,6 +193,18 @@ _ARTIFACT_TARGET_RE = re.compile(
     re.IGNORECASE,
 )
 
+# HEADER-FIELD TARGETS (owner correction 2026-10-10): "fill in To and
+# CC" is a legitimate instruction to edit an open email canvas's header
+# fields — missing recipient EVIDENCE may need clarification, but the
+# instruction is not inherently unauthorized. Deliberately TIGHT
+# phrases only: a bare "to" would match "rows 1 to 5".
+_HEADER_FIELD_TARGET_RE = re.compile(
+    r"\b(?:cc|bcc)\b|"
+    r"\bto\s+(?:and\s+)?(?:cc|bcc)\b|"
+    r"\b(?:to|cc|bcc)\s+(?:fields?|lines?|recipients?|address(?:es)?)\b",
+    re.IGNORECASE,
+)
+
 
 def _continuation_decision(
     message: str, session: Optional[Dict[str, Any]],
@@ -274,14 +286,16 @@ def _user_grounded_edit_instruction(message: str) -> str:
     "rebuild the draft … -- rebuild the draft" yields the message.
     """
     t = (message or "").strip()
-    if not t or not _ARTIFACT_TARGET_RE.search(t):
+    if not t or not (_ARTIFACT_TARGET_RE.search(t)
+                     or _HEADER_FIELD_TARGET_RE.search(t)):
         return ""
     # FILENAMES ARE NOT COMMANDS (2026-09-30 scenario eval): "Copy of
     # Consolidated Price List 2019 - Linmac Update.xlsx" carries
     # 'Update' as part of the NAME — an edit verb inside a filename
     # span never grounds an instruction.
     scrubbed = _FILENAME_SPAN_RE.sub(" ", t)
-    if not _ARTIFACT_TARGET_RE.search(scrubbed):
+    if not (_ARTIFACT_TARGET_RE.search(scrubbed)
+            or _HEADER_FIELD_TARGET_RE.search(scrubbed)):
         return ""
     for m in _EDIT_VERB_RE.finditer(scrubbed):
         if _GOVERNED_VERB_RE.search(scrubbed[:m.start()]):
