@@ -2770,18 +2770,32 @@ def _search_execution_receipt(
     dispatched = returned_text or bool(threads) or bool(structured) \
         or bool(ds)
     ds_hits = int(ds.get("hits") or 0) if isinstance(ds, dict) else 0
-    retrieved = bool(threads or observations or reads or structured
-                     or ds_hits or vt_covered) and not prose_only
+    # COVERAGE IS NOT RETRIEVAL (2026-10-11, the live T1 boundary): a
+    # coverage-only trace names the documents carrying each item but
+    # reads no rows — it is a LEAD (it creates pending-read actions
+    # downstream), never a satisfied source obligation and never an
+    # established absence. Row evidence = threads, observations, read
+    # outcomes, a structured result, or dataset hits. This restores the
+    # round-34 rule the coverage shortcut overrode: success requires a
+    # structured retrieval receipt, and the consultation credit below
+    # follows the same flag.
+    row_evidence = bool(threads or observations or reads or structured
+                        or ds_hits)
+    retrieved = row_evidence and not prose_only
     # BOUNDED ABSENCE (reviewer, round 35/36): a search that provably
     # EXECUTED over its store with a receipt and zero usable hits is a
     # valid empty search — established absence, scoped to what it
     # searched. The meta key being PRESENT (even empty) is the execution
     # record; its absence means no receipt at all. Zero hits from an
-    # UNRECEIPTED search proves nothing.
+    # UNRECEIPTED search proves nothing. Coverage is excluded: a trace
+    # that located documents leaves leads OPEN (its pending reads), it
+    # never establishes that the rows are absent.
     executed_search = ("searched_threads" in meta) or bool(observations) \
         or bool(reads) or bool(structured) or (
             isinstance(ds, dict) and bool(ds.get("files_searched"))) \
         or ("value_trace" in meta)
+    bounded_absence = bool(executed_search and not retrieved
+                           and not vt_covered)
     _sr_targets = []
     _sr = structured.get("structured_result")
     if isinstance(_sr, dict):
@@ -2792,7 +2806,7 @@ def _search_execution_receipt(
     return {
         "dispatched": dispatched,
         "retrieved": retrieved,
-        "bounded_absence": bool(executed_search and not retrieved),
+        "bounded_absence": bounded_absence,
         "receipt": {
             "structured_keys": sorted(structured),
             "searched_threads": len(threads),
@@ -15802,9 +15816,15 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                                 workspace_id, session,
                                                 session_id, execution_id,
                                                 canvas_context,
-                                                shared_tool_state))
+                                                shared_tool_state,
+                                                agent_id=agent_id))
                                         if _rd_block and not _tool_block:
                                             _tool_block = _rd_block
+                                        if _rd_block and isinstance(
+                                                shared_tool_state, dict):
+                                            shared_tool_state[
+                                                "canvas_research_block_scoped"
+                                            ] = True
                                     except Exception as _rd_err:  # noqa: BLE001
                                         logger.warning(
                                             "[research-dispatch] "
@@ -16399,6 +16419,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # the off-request case; this covers on-request).
                         if _tool_block and isinstance(
                                 shared_tool_state, dict) \
+                                and not shared_tool_state.get(
+                                    "canvas_research_block_scoped") \
                                 and shared_tool_state.get(
                                     "job_scope_items") and canvas_context:
                             try:
@@ -16414,7 +16436,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             message, user_id, workspace_id,
                                             session, session_id,
                                             execution_id, canvas_context,
-                                            shared_tool_state))
+                                            shared_tool_state,
+                                            agent_id=agent_id))
                                     if _rd_block:
                                         _tool_block = _rd_block
                             except Exception as _rd_err:  # noqa: BLE001
@@ -16635,7 +16658,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self._canvas_scoped_research_dispatch(
                                     message, user_id, workspace_id,
                                     session, session_id, execution_id,
-                                    canvas_context, shared_tool_state),
+                                    canvas_context, shared_tool_state,
+                                    agent_id=agent_id),
                                 timeout=60))
                     except Exception as _rd_err:  # noqa: BLE001
                         logger.warning(
@@ -16643,6 +16667,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _rd_err)
                     if _research_block:
                         _tool_block = _research_block
+                        if isinstance(shared_tool_state, dict):
+                            shared_tool_state[
+                                "canvas_research_block_scoped"] = True
                 if _resume_original and _plan_mentions and not _tool_block:
                     try:
                         import types as _types
@@ -17827,8 +17854,28 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                                 # after a fresh reload.
                                                 if isinstance(_vt_sr, dict) \
                                                         and _vt_sr:
+                                                    # SNAPSHOT (2026-10-11,
+                                                    # the live T1 boundary):
+                                                    # the read stamps its
+                                                    # receipt by UPDATING
+                                                    # the plan's shared
+                                                    # storage_read dict in
+                                                    # place — a later read
+                                                    # on the same plan
+                                                    # rewrites what an
+                                                    # earlier append
+                                                    # retained (observed:
+                                                    # two chained reads
+                                                    # settled as the same
+                                                    # finding twice, the
+                                                    # first read's row
+                                                    # lost). The capture
+                                                    # owns a deep copy.
+                                                    import copy as _cp
+
                                                     _read_receipt_metas.append(
-                                                        _vt_sr)
+                                                        _cp.deepcopy(
+                                                            _vt_sr))
                                                 logger.info(
                                                     "[planner-boundary] "
                                                     "chained read persisted "
@@ -21239,161 +21286,234 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         evidence_lines: List[str] = []
         _dispatch_error: Optional[str] = None
         from core.research_continuation import (
+            _execute_row_read as _worker_row_read,
             _item_code_tokens as _code_tokens,
-            _norm_token as _norm,
         )
 
-        _IDENTITY_HEADERS = ("model", "description", "item", "part",
-                             "code", "sku", "product")
+        # THE ACTING AGENT'S TEACHING (owner correction 2026-10-11):
+        # loaded ONCE through the existing getter — it names the
+        # DESIGNATED workbook(s) and carries the price-basis policy
+        # apply_taught_policy consumes. Broad discovery never outranks
+        # it.
+        _lessons: List[Dict[str, Any]] = []
+        try:
+            from core.database import get_db_session as _gs3
+            from core.student_learning_service import (
+                get_agent_lessons as _gal,
+            )
+
+            if agent_id:
+                with _gs3() as _db3:
+                    _lessons = _gal(_db3, agent_id,
+                                    query=message or "", limit=12)
+        except Exception:  # noqa: BLE001 — teaching is additive
+            _lessons = []
+        _taught_files: List[str] = []
+        for _l in _lessons:
+            _t = " ".join(str(_l.get("lesson") or _l.get("summary")
+                              or "").split())
+            # SUFFIX VARIANTS (live finding: the greedy left capture
+            # took the whole sentence — 'Always price quotes from the
+            # Consolidated Price List 2019.xlsx'). A workbook mention
+            # is the extension-terminated token plus up to three
+            # preceding tokens; each suffix is a candidate file name
+            # and the scan's file filter decides which exists.
+            _toks = _t.split()
+            for _i, _tok in enumerate(_toks):
+                if not re.search(
+                        r"\.(?:xlsx|xlsm|csv|tsv)$", _tok, re.I):
+                    continue
+                for _span in (4, 3, 2, 1):
+                    if _i - _span + 1 < 0:
+                        continue
+                    _cand = " ".join(
+                        _toks[_i - _span + 1:_i + 1]).strip()
+                    if _cand:
+                        _taught_files.append(_cand)
+        _taught_files = list(dict.fromkeys(
+            f.strip() for f in _taught_files if f.strip()))[:6]
+
+        findings: List[Dict[str, Any]] = []
+        statuses: Dict[str, str] = {}
+        receipts: List[Dict[str, Any]] = []
+        evidence_lines: List[str] = []
+        _dispatch_error: Optional[str] = None
+
+        async def _scan(value: str, file_name: Optional[str] = None):
+            scan = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _scan_fn, value, user_id, workspace_id,
+                    file_name=file_name, max_matches=6),
+                timeout=30)
+            receipt = (scan or {}).get("source_identity") or {}
+            if receipt.get("content_hash"):
+                receipts.append({"source_identity": dict(receipt),
+                                 "targets": []})
+            return (scan or {}).get("matches") or []
+
+        def _candidates_from(matches: List[Dict[str, Any]],
+                             file_hint: Optional[str]):
+            """Adapt find_all's per-CELL matches to the WORKER's
+            candidate contract ({sheet, row, identity_column,
+            identity_cell}), grouped PER FILE — the worker's act is
+            one file per call; mixing files mispairs row reads."""
+            from core.research_continuation import (
+                IDENTIFIER_COLUMN_RE as _id_col_re,
+            )
+
+            groups: Dict[str, List[Dict[str, Any]]] = {}
+            seen = set()
+            for m in matches:
+                file_id = str(m.get("file") or file_hint or "")
+                sheet = str(m.get("sheet") or "")
+                cell = str(m.get("cell") or "")
+                row_num = int(re.sub(r"\D", "", cell) or 0)
+                key = f"{file_id}!{sheet}!{row_num}"
+                if row_num <= 0 or key in seen:
+                    continue
+                seen.add(key)
+                # IDENTITY ANCHOR (owner correction 2026-10-11): the
+                # candidate's identity cell must come from an
+                # IDENTIFIER column when the row's matching cells
+                # include one — a price cell as the identity anchor
+                # made every row identity-unsupported.
+                same_row = [x for x in matches
+                            if str(x.get("file") or "") == file_id
+                            and str(x.get("sheet") or "") == sheet
+                            and str(x.get("cell") or "") == cell]
+                anchor = next(
+                    (x for x in same_row
+                     if _id_col_re.search(str(x.get("column") or ""))),
+                    same_row[0] if same_row else m)
+                groups.setdefault(file_id, []).append({
+                    "sheet": sheet, "row": row_num,
+                    "identity_column": str(anchor.get("column") or ""),
+                    "identity_cell": str(anchor.get("value") or ""),
+                })
+            return groups
+
+        async def _delegate(item: str, matches: List[Dict[str, Any]],
+                            file_hint: Optional[str],
+                            designated: bool) -> None:
+            """THE WORKER'S OWN MACHINERY (owner instruction: adapt
+            inputs, never copy logic) — identity corroboration, typed
+            field binding, taught policy, ambiguity preservation, and
+            its own fenced settlement. One act PER FILE: the worker's
+            contract is a single file per call."""
+            groups = _candidates_from(matches, file_hint)
+            for group_file, cands in groups.items():
+                act = {
+                    "item": item,
+                    "requested_fields": list(fields),
+                    "identity_context": str(item),
+                    "file": group_file,
+                    "candidates": cands,
+                }
+                if designated:
+                    act["provenance"] = {"source": "lesson"}
+                await _worker_row_read(
+                    tl, run_id, user_id, workspace_id, act, [],
+                    agent_lessons=_lessons)
+
+        def _rollup(designated_files: List[str]) -> None:
+            """Fold THIS run's worker operations into the aggregate
+            STATUS map + evidence — and NOTHING else. The worker's ops
+            are the detailed findings records (each carrying its own
+            read version); copying findings here created the
+            cross-file attribution defect. The evidence contract reads
+            the worker's ops directly."""
+            try:
+                _rec = tl.get_task(run_id) or {}
+                _seen = getattr(_rollup, "_seen", set())
+                for _o in _rec.get("operations") or []:
+                    _oid = str(_o.get("operation_id") or "")
+                    if _oid in _seen or _o.get(
+                            "operation_type") != "retrieve":
+                        continue
+                    _ex = _o.get("execution") or {}
+                    if not _ex.get("items") and not _ex.get("findings"):
+                        continue
+                    _seen.add(_oid)
+                    _is_desig = any(
+                        t in str(_o.get("requested_change") or "")
+                        for t in designated_files)
+                    for it, st in (_ex.get("items") or {}).items():
+                        if not str(st):
+                            continue
+                        cur = statuses.get(str(it))
+                        if cur in (None, "", "located"):
+                            statuses[str(it)] = (
+                                str(st) if _is_desig
+                                else ("matched-supplementary"
+                                      if str(st) == "matched"
+                                      else str(st)))
+                    for _e in _ex.get("evidence") or []:
+                        evidence_lines.append(str(_e)[:200])
+            except Exception as _roll_err:  # noqa: BLE001
+                logger.info(
+                    "[research-dispatch] rollup read skipped: %r",
+                    _roll_err)
+
         try:
             for item in scope_items:
+                # 1) TAUGHT SOURCES FIRST: the designated workbook(s)
+                # are scanned with the file filter; the worker binds
+                # under strict identity. An older ingest appearing
+                # first in broad discovery cannot win.
+                bound_designated = False
+                for tf in _taught_files:
+                    try:
+                        matches = await _scan(item, file_name=tf)
+                        if not matches:
+                            for token in _code_tokens(item):
+                                matches = await _scan(
+                                    token, file_name=tf)
+                                if matches:
+                                    break
+                    except Exception:  # noqa: BLE001 — per-file isolation
+                        continue
+                    if not matches:
+                        continue
+                    await _delegate(item, matches, tf, True)
+                    bound_designated = True
+                    break
+                # 2) BROAD DISCOVERY (supplementary): only for subjects
+                # the designated sources could not bind.
+                if bound_designated:
+                    continue
                 try:
-                    scan = await asyncio.wait_for(
-                        asyncio.to_thread(
-                            _scan_fn, item, user_id, workspace_id,
-                            max_matches=4),
-                        timeout=30)
+                    matches = await _scan(item)
+                    if not matches:
+                        for token in _code_tokens(item):
+                            matches = await _scan(token)
+                            if matches:
+                                break
                 except Exception as scan_err:  # noqa: BLE001
                     statuses[item] = ""
                     evidence_lines.append(
                         f"{item}: lookup failed "
                         f"({type(scan_err).__name__}: {scan_err})")
                     continue
-                receipt = (scan or {}).get("source_identity") or {}
-                if receipt.get("content_hash"):
-                    receipts.append({
-                        "source_identity": dict(receipt),
-                        "targets": []})
-                matches = (scan or {}).get("matches") or []
-                # CODE-TOKEN FALLBACK (owner work order 2026-10-11, the
-                # live-matching boundary): the canvas resolves PROSE
-                # subjects ("Tennsmith Slitter SLE24-16") while catalog
-                # rows carry the code in an identity column
-                # (MODEL NO.=SLE24-16, DESCRIPTION="Single Wheel
-                # Slitter") — the phrase needle never matches. The
-                # subject's own code tokens (the existing extractor)
-                # re-scan, and a hit counts only when the token
-                # actually appears in an identity-ish cell of the row —
-                # discovery stays honest, an incidental number never
-                # certifies.
-                if not matches:
-                    for token in _code_tokens(item):
-                        try:
-                            scan = await asyncio.wait_for(
-                                asyncio.to_thread(
-                                    _scan_fn, token, user_id,
-                                    workspace_id, max_matches=4),
-                                timeout=20)
-                        except Exception:  # noqa: BLE001
-                            continue
-                        receipt = (scan or {}).get(
-                            "source_identity") or {}
-                        if receipt.get("content_hash"):
-                            receipts.append({
-                                "source_identity": dict(receipt),
-                                "targets": []})
-                        cand = (scan or {}).get("matches") or []
-                        bound = []
-                        for m in cand:
-                            row = m.get("row") or {}
-                            for h, v in row.items():
-                                if (any(k in str(h).lower()
-                                        for k in _IDENTITY_HEADERS)
-                                        and _norm(token) in _norm(v)):
-                                    bound.append(m)
-                                    break
-                        if bound:
-                            matches = bound
-                            break
                 if not matches:
                     statuses[item] = ""
                     evidence_lines.append(f"{item}: no matching row")
                     continue
-                # per-requested-field values from the matched row — a
-                # column whose header carries the field noun; several
-                # candidate columns stay DISTINCT (basis preserved)
-                # LIVE MATCH SHAPE (the counted-run finding): find_all
-                # returns per-CELL matches {file, sheet, cell, column,
-                # value} — the full row comes from the EXISTING row
-                # reader (read_sheet_row_sync), whose headers+row dict
-                # the field binding consumes. The binding cell's row
-                # number locates the row in the same file+sheet.
-                _m0 = matches[0]
-                sheet = str(_m0.get("sheet") or "")
-                cell = str(_m0.get("cell") or "")
-                src_file = str(_m0.get("file")
-                               or receipt.get("file_name")
-                               or "catalog")
-                row, headers = {}, []
-                try:
-                    from core.sheet_dataset_service import (
-                        read_sheet_row_sync as _row_reader,
-                    )
-
-                    _row_num = int(re.sub(r"\D", "", cell) or 0)
-                    if _row_num > 0:
-                        _full = await asyncio.wait_for(
-                            asyncio.to_thread(
-                                _row_reader, src_file, sheet, _row_num,
-                                user_id, workspace_id),
-                            timeout=20)
-                        if isinstance(_full, dict):
-                            headers = list(_full.get("headers") or [])
-                            row = dict(_full.get("row") or {})
-                except Exception as _row_err:  # noqa: BLE001 — the
-                    # per-cell values remain the fallback below
-                    logger.info(
-                        "[research-dispatch] row read skipped for %s: "
-                        "%r", item, _row_err)
-                if not row:
-                    row = {"column": _m0.get("column"),
-                           "value": _m0.get("value")}
-                    headers = [str(_m0.get("column") or "")]
-                for field in fields:
-                    cand_cols = [
-                        str(h) for h in headers
-                        if field in str(h).lower()
-                        or (field == "delivery" and
-                            "lead" in str(h).lower())]
-                    if not cand_cols:
-                        continue
-                    col = cand_cols[0]
-                    raw = str(row.get(col) or "").strip()
-                    if not raw:
-                        continue
-                    parsed: Dict[str, Any] = {"raw": raw}
-                    try:
-                        from decimal import Decimal as _Dec
-
-                        parsed["value"] = float(
-                            _Dec(raw.replace(",", "")
-                                 .replace("$", "")))
-                        parsed["currency"] = (
-                            "CAD" if "cdn" in col.lower()
-                            or "cad" in col.lower() else None)
-                    except Exception:  # noqa: BLE001 — text values
-                        pass
-                    parsed["basis"] = col
-                    findings.append({
-                        "item": item, "field": field,
-                        "column": col, "raw": raw, "parsed": parsed,
-                        "source": f"{src_file}!{sheet}!{cell}"})
-                    statuses[item] = "matched"
-                    evidence_lines.append(
-                        f"{item}: {field} = {raw} ({col}, "
-                        f"{src_file}!{sheet}!{cell})")
-                if item not in statuses or not statuses.get(item):
-                    statuses[item] = "located"
+                await _delegate(item, matches, None, False)
+            _rollup(_taught_files)
         except Exception as disp_err:  # noqa: BLE001 — surfaced, not silent
             _dispatch_error = f"{type(disp_err).__name__}: {disp_err}"[:120]
-        # the READ-CAPTURED version: from the scan receipts, never the
-        # catalog at settlement
+        # PER-FINDING SOURCE IDENTITY (owner correction 2026-10-11):
+        # each finding already carries ITS OWN source_version (from the
+        # row read that produced it). The execution-level version is
+        # set ONLY when every finding shares one identity — with
+        # multiple files, one file's hash must never be attributed to
+        # another file's values.
         _read_version = None
-        for r in receipts:
-            if (r.get("source_identity") or {}).get("content_hash"):
-                _read_version = str(
-                    r["source_identity"]["content_hash"])[:80]
-                break
+        _finding_versions = {
+            str(f.get("source_version") or "") for f in findings
+            if f.get("source_version")}
+        if len(_finding_versions) == 1 and _finding_versions:
+            _read_version = next(iter(_finding_versions))
         execution = {
             "invoked": True,
             "outcome": ("read_succeeded" if findings and not
@@ -21406,27 +21526,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             "items": statuses,
             "requested_fields": fields,
         }
-        if findings:
-            execution["findings"] = findings
-        if _read_version:
-            execution["source_version"] = _read_version
+        # NO FINDINGS COPY (owner correction 2026-10-11): the worker's
+        # ops are the detailed findings records — an aggregate copy
+        # with re-derived sources is exactly the cross-file
+        # attribution defect. The envelope's evidence contract reads
+        # the worker's ops directly.
         structured = None
-        if receipts and findings:
-            structured = {
-                "source_identity": dict(receipts[0]["source_identity"]),
-                "requested_fields": fields,
-                "targets": [
-                    {"item": f.get("item"),
-                     "identity": {"status": "single"},
-                     "field": {"status": "single", "values": [
-                         {"col": f.get("column"),
-                          "basis": (f.get("parsed") or {}).get("basis"),
-                          "value": (f.get("parsed") or {}).get("value"),
-                          "display": f.get("raw")}]}}
-                    for f in findings],
-                "coverage": {"read_status": "success" if
-                             not _dispatch_error else "partial"},
-            }
         try:
             _apply_read_receipt_facts(execution, structured, {})
             _ok = bool(findings) and not _dispatch_error

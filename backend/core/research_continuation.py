@@ -258,6 +258,7 @@ async def _execute_document_read(
     evidence: List[str] = []
     any_executed = False
     _scan_identity = None
+    _item_versions: Dict[str, str] = {}
     for item in items:
         try:
             scan = await asyncio.wait_for(
@@ -269,12 +270,43 @@ async def _execute_document_read(
             _ident = (scan or {}).get("source_identity") or {}
             if _ident.get("content_hash"):
                 _scan_identity = str(_ident["content_hash"])[:80]
+                # PER-ITEM VERSION (owner correction 2026-10-11): the
+                # scan receipt that produced THIS item's matches — with
+                # multiple files, one file's hash must never be
+                # attributed to another file's values.
+                _item_versions[item] = _scan_identity
         except Exception as exc:  # noqa: BLE001 — per-item isolation
             statuses[item] = ""
             evidence.append(f"{item}: lookup failed "
                             f"({type(exc).__name__})")
             continue
         matches = (scan or {}).get("matches") or []
+        # CODE-TOKEN RESCAN (owner correction 2026-10-11, worker-side):
+        # the canvas resolves PROSE subjects while catalog rows carry
+        # the code in an identity column — the phrase needle never
+        # matches. The subject's own code tokens (the existing
+        # extractor) re-scan under the SAME file filter; identity is
+        # still decided downstream (classify + binder), so an
+        # incidental number never certifies.
+        if not matches:
+            for _tok in _item_code_tokens(item):
+                try:
+                    scan = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            find_all_occurrences_sync, _tok, user_id,
+                            workspace_id, file_name=file_name,
+                            max_matches=8),
+                        timeout=_READ_TIMEOUT_SECONDS)
+                except Exception:  # noqa: BLE001 — per-token isolation
+                    continue
+                _ident2 = (scan or {}).get("source_identity") or {}
+                if _ident2.get("content_hash"):
+                    _scan_identity = str(
+                        _ident2["content_hash"])[:80]
+                    _item_versions[item] = _scan_identity
+                matches = (scan or {}).get("matches") or []
+                if matches:
+                    break
         _raw_rf = list((action_inputs or {}).get(
             "requested_fields") or [])
         _cls_specs = (_resolve_field_specs(None, _raw_rf)
@@ -818,6 +850,15 @@ async def _execute_row_read(
         supporting.append(
             {"cand": cand, "bound": bound, "_row_result": row_result})
     _typed_findings: List[Dict[str, Any]] = []
+    # THE SUPPORTED ROW'S OWN READ VERSION (owner correction
+    # 2026-10-11): from the row's four-layer capture — the serving
+    # copy identity the row reader reported, never another scan's.
+    _row_version = None
+    if len(supporting) == 1:
+        _src0 = ((supporting[0].get("_row_result") or {}).get("source")
+                 or {})
+        _row_version = str(_src0.get("content_hash")
+                           or _src0.get("entry_id") or "")[:80] or None
     if len(supporting) == 1:
         bound = supporting[0]["bound"]
         cand = supporting[0]["cand"]
@@ -838,6 +879,19 @@ async def _execute_row_read(
             _policy[field] = pol
             if pol["applied"]:
                 col, val = pol["selected"][0], pol["selected"][1]
+                # THE POLICY-SELECTED VALUE IS A TYPED FINDING (owner
+                # correction 2026-10-11): evidence alone left the
+                # durable record without the value the policy selected
+                # — drafting could never reuse it.
+                _typed_findings.append({
+                    "field": field, "column": col, "raw": str(val),
+                    "item": item,
+                    "source_version": _row_version,
+                    "parsed": (pol["selected"][2] if len(
+                        pol["selected"]) > 2 else None),
+                    "source": (f"{cand.get('_resolved_file') or act.get('file')}"
+                               f"!{cand.get('sheet')}"
+                               f"!row{cand.get('row')}")})
                 statuses[item] = "matched"
                 evidence.append(
                     f"{item}: {field} = {val} ({col}; policy: "
@@ -858,6 +912,10 @@ async def _execute_row_read(
                     # 2026-10-10): multi-item operations must not have
                     # every finding attributed to the first sorted item
                     "item": item,
+                    # the finding's OWN read version (owner correction
+                    # 2026-10-11): the serving-copy identity the row
+                    # reader reported for THIS row
+                    "source_version": _row_version,
                     "parsed": cands[0][2] if len(cands[0]) > 2 else None,
                     # single-line f-string expression: a multi-line one is
                     # a SyntaxError on Python < 3.12, and the 3.11 test
@@ -1114,6 +1172,10 @@ async def _execute_row_read(
         "served_basis": ("saved_copy" if act.get("candidates")
                          else "none"),
         "failure_stage": None,
+        # THE SUPPORTED ROW'S READ VERSION (owner correction 2026-10-11):
+        # the serving-copy identity the row reader reported — the same
+        # identity each finding carries.
+        "source_version": _row_version,
         "items": statuses,
         # DIAGNOSTIC EVIDENCE + THE INPUTS THAT PRODUCED IT (2026-10-09):
         # `evidence` used to be returned to the caller and dropped before

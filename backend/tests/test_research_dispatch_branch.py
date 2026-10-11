@@ -75,11 +75,17 @@ def _scan(relevant=True):
                     "source_identity": {"file_name": "w.xlsx",
                                         "content_hash": "hash-read-A"}}
         pcol, pval, dcol, dval = rows[item]
-        return {"matches": [{
-            "headers": ["DESCRIPTION", pcol, dcol],
-            "row": {"DESCRIPTION": item, pcol: pval, dcol: dval},
-            "sheet": "Tennsmith", "cell": "C101"}],
-            "per_file": {}, "total_matches": 1,
+        # per-CELL matches with the file identity (the live shape the
+        # worker's candidate adapter groups by) — the subject needle
+        # matches the DESCRIPTION cell too (faithful find_all)
+        return {"matches": [
+            {"file": "quote-workbook.xlsx", "sheet": "Tennsmith",
+             "cell": "C101", "column": "DESCRIPTION", "value": item},
+            {"file": "quote-workbook.xlsx", "sheet": "Tennsmith",
+             "cell": "C101", "column": pcol, "value": pval},
+            {"file": "quote-workbook.xlsx", "sheet": "Tennsmith",
+             "cell": "C101", "column": dcol, "value": dval}],
+            "per_file": {}, "total_matches": 3,
             "source_identity": {"file_name": "quote-workbook.xlsx",
                                 "content_hash": "hash-read-A"}}
     return _fn
@@ -207,7 +213,9 @@ def _run_turn(message, scanner, narrate="reply text"):
                        "row": {"DESCRIPTION": "Tennsmith Slitter "
                                               "SLE24-16",
                                "U.S. LIST": "8,984",
-                               "DELIVERY": "11-12 weeks"}}
+                               "DELIVERY": "11-12 weeks"},
+                       "source": {"file_name": fn,
+                                  "content_hash": "hash-read-A"}}
                       if rn == 101 else None)),
         ]:
             st.enter_context(cm)
