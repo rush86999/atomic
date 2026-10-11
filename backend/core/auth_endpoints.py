@@ -331,6 +331,16 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db), _r
         db.add(workspace)
         db.flush()
 
+        # ISOLATION (2026-10-11, journey J3): the workspace row alone is not
+        # enough. Upload/search scope by the User.workspaces RELATIONSHIP
+        # (secondary user_workspaces) — an empty association made
+        # current_user.workspaces resolve [] for every registered user, so
+        # their documents all landed in the shared "default_shared" LanceDB
+        # store: any registered user could read any other's uploads. Populate
+        # the association the same commit that sets users.workspace_id.
+        new_user.workspaces.append(workspace)
+        db.flush()
+
         new_user.tenant_id = tenant.id
         new_user.workspace_id = workspace.id
         db.commit()

@@ -84,15 +84,53 @@ source** (upload or file ingest), **one business-record connector**, and
 is not proof that its user workflow works. Extend the same contract to
 the advertised connector set only after the first wave holds.
 
-## Current status (2026-10-11, campaign open)
+## Current status (2026-10-11, campaign open — first wave J1–J3)
 
 | Journey | Status | Evidence |
 |---------|--------|----------|
-| J1 | **4/5 verified** — config parity, boot, sign-in, workspace creation pass on a fresh-install scratch world; clean-state venv creation still `untested` | `journey_matrix/parity_before_fix_*.json` (fail: all three gates missing), `parity_after_fix_j1_*.json` (pass: gates effective, TaskLifecycle constructs, uvicorn boots healthy 7.4s, register/login/me/dashboard-feed + admin login all 200) |
-| J2–J9 | `untested` at the fresh-install level | Privileged-world capability evidence exists for J4/J5/J6/J7/J9 (see journey registry harness mapping) |
+| J1 | **4/5 verified** — config parity (incl. lifecycle OPERATION: begin→settle→fresh-reload→idempotent replay), boot, sign-in, workspace creation; clean-state venv creation `untested` | `journey_matrix/parity_hardened2_*.json`, `browser_signed_in_*.json` (real-form login + auth cookie) |
+| J2 | **3/5 verified, 1 FAILING (root-caused), 1 blocked** — BYOK product path + restart persistence + local-provider registration pass; **real-reply FAILING**: the chat leg never sees workspace-scoped providers | `journey_matrix/j2_model_setup_*.json`; root cause in `journey_status.json` record `J2.real-reply` |
+| J3 | **3/3 verified** — upload, authorized read, cross-workspace denial (two isolation defects found and fixed en route) | `journey_matrix/j3_source_connection_*.json` (before/after runs) |
 
-Query live statuses: `python3 journey_contract.py --list` (registry:
-`backend/scripts/orchestration_acceptance/journey_contract.py`).
+**Release gate** (`journey_contract.py --check --strict --release`): currently
+**FAILING — J2** is the bounded repair blocking the first-wave release.
+
+### Product defects this contract has found (all boundary-proven)
+
+1. **Fresh-install config gap** (fixed 2026-10-11): quickstart generated an
+   env missing the three `=="1"`-gated execution flags every harness armed
+   for itself. `fresh_install_parity.py` now gates it permanently.
+2. **BYOK key store broken on fresh installs** (fixed): quickstart's
+   `token_urlsafe(32)` secret is 43 chars; Fernet rejects it, so every
+   Settings→AI store call 404'd. Fixed in quickstart; parity probe rejects
+   malformed keys.
+3. **Cross-workspace document leak** (fixed): register never populated the
+   `user_workspaces` association, so every registered user's documents
+   landed in the shared `default_shared` store — any registered user could
+   read any other's uploads. Fixed at registration + FK-first resolution
+   at the upload/search boundary. (Found by J3 run 1; before/after runs
+   recorded.)
+4. **Manual uploads unsearchable** (fixed): the LanceDB row carried
+   `freshness_status=None` while search filters `== 'fresh'` — invisible
+   on any table carrying the column. Upload now stamps 'fresh' (aligned
+   with its own PG mirror).
+5. **Workspace-scoped providers invisible to chat** (OPEN — owner repair
+   needed in `chat_orchestrator.py`, which carries uncommitted peer work):
+   `ChatOrchestrator.__init__` builds `LLMService` without `workspace_id`;
+   the handler then looks under literal `"default"` and finds nothing a
+   real user registered. Chat returns `no_llm_provider` for every real
+   tenant/workspace. Bounded fix recorded in the `J2.real-reply` registry
+   record. Also flagged: `ATOM_LOCAL_ONLY=true` does not pin routing while
+   a BYOK key is stored, and `GET /api/ai/providers/{id}/keys/{name}`
+   cannot see tenant-scoped keys (evidence recorded, not asserted).
+
+Harness-isolation defects found by the campaign's own runs (fixed in
+`journey_runtime.py`, each with a live observation recorded in the code):
+dotenv refills scrubbed provider credentials (now pinned empty), the BYOK
+vault anchors to `backend/data` regardless of `ATOM_DATA_DIR` (now
+overridden), and `LANCEDB_URI` was never redirected (scratch worlds were
+writing the dev's memory store — dev-store rows/dirs from this session
+were surgically removed; backup in `/tmp/byok_keys_backup_20261011.json`).
 
 **The J1 finding this contract opens with:** `scripts/quickstart.sh`
 generated an environment without `ATOM_TASK_LIFECYCLE_ENABLED`,

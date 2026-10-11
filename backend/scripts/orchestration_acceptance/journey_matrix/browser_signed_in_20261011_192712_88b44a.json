@@ -1,0 +1,20 @@
+{
+  "journey": "browser-signed-in-path",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "started_at": "2026-10-11T23:25:48+00:00",
+  "backend_boot": {
+    "booted": true,
+    "seconds": 5.2,
+    "status": "healthy",
+    "pid": 32712,
+    "git_commit": "618125225c9b"
+  },
+  "user": {
+    "workspace_id": "7fcefe25-1500-4a1a-8111-5cda339f8f0f"
+  },
+  "frontend_port": 52486,
+  "login_page_title": "",
+  "pass": false,
+  "error": "TimeoutError: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation to \"<function ImplToApiMapping.wrap_handler.<locals>.wrapper_func at 0x10bf987d0>\" until 'load'\n============================================================",
+  "backend_log_tail": "y other getUpdates request; make sure that only one bot instance is running\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

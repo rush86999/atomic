@@ -1,0 +1,27 @@
+{
+  "journey": "browser-signed-in-path",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "started_at": "2026-10-11T23:33:42+00:00",
+  "frontend_port": 3001,
+  "backend_port_chosen": 52915,
+  "backend_boot": {
+    "booted": true,
+    "seconds": 5.2,
+    "status": "healthy",
+    "pid": 34845,
+    "git_commit": "618125225c9b"
+  },
+  "user": {
+    "workspace_id": "faee3d02-7077-4c3f-a286-a319e854e3e3"
+  },
+  "cors_probe": {
+    "origin": "http://localhost:3001",
+    "status": 200,
+    "aca": "http://localhost:3001",
+    "backend_base": "http://127.0.0.1:52915"
+  },
+  "frontend_origin_allowed": true,
+  "pass": false,
+  "error": "RuntimeError: frontend dev server did not come up",
+  "backend_log_tail": "ker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery: {'candidates': 0, 'deferred_in_flight': 0, 'delivered': 0, 'failed': 0}\nINFO:core.user_activity_service:State transition batch processed: 0 users, 0 transitions\nINFO:workers.activity_state_worker:ActivityStateWorker cycle completed in 0.00s\nINFO:workers.queue_processing_worker:QueueProcessingWorker cycle completed in 0.00s\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

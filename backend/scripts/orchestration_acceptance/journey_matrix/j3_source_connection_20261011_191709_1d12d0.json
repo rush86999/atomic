@@ -1,0 +1,46 @@
+{
+  "journey": "J3",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "started_at": "2026-10-11T23:17:02+00:00",
+  "boot": {
+    "booted": true,
+    "seconds": 5.2,
+    "status": "healthy",
+    "pid": 30935,
+    "git_commit": "618125225c9b"
+  },
+  "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j3_source_connection_08iw8m5t/run/atom.db",
+  "byok_vault_isolated": true,
+  "user_a": {
+    "workspace_id": "5285797b-64e6-4772-8ab6-6a6ade752b4f"
+  },
+  "upload": {
+    "http": 200,
+    "success": true,
+    "doc_id": null,
+    "raw_head": "{\"success\": true, \"data\": {\"file_name\": \"journey_probe_8a7dbf.md\", \"size_bytes\": 199, \"extracted_chars\": 199}, \"timestamp\": \"2026-10-11T23:17:09.171671+00:00\", \"message\": \"Document uploaded and indexed successfully\"}"
+  },
+  "authorized_read": {
+    "http": 200,
+    "n_results": 20,
+    "marker_in_results": true,
+    "raw_head": "{\"query\": \"ACCEPTANCE-MARKER-f84c86c1d68a7dbf\", \"results\": [{\"id\": \"ba8b8616-73e1-47ee-bc1d-a04315e107a5\", \"title\": \"journey_probe_8a7dbf.md\", \"content_preview\": \"# Journey probe document\\n\\nACCEPTANCE-MARKER-f84c86c1d68a7dbf\\n\\nQuarterly revenue for the journ"
+  },
+  "user_b": {
+    "workspace_id": "7d5369cb-948d-4f7a-b906-cf78e8fc7119"
+  },
+  "isolation_check": {
+    "http": 200,
+    "n_results": 20,
+    "marker_in_results": true,
+    "raw_head": "{\"query\": \"ACCEPTANCE-MARKER-f84c86c1d68a7dbf\", \"results\": [{\"id\": \"ba8b8616-73e1-47ee-bc1d-a04315e107a5\", \"title\": \"journey_probe_8a7dbf.md\", \"content_preview\": \"# Journey probe document\\n\\nACCEPTANCE-MARKER-f84c86c1d68a7dbf\\n\\nQuarterly revenue for the journ"
+  },
+  "workspaces_distinct": true,
+  "assertions": {
+    "J3.upload": true,
+    "J3.authorized-read": true,
+    "J3.isolation": false
+  },
+  "pass": false,
+  "uvicorn_log_tail": "e.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nWARNING:core.hybrid_retrieval_service:sentence_transformers not available, reranking disabled\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/auth/register -> 200\nINFO:core.embedding_service:Generated 4 embeddings in batch\nINFO:main_api_app:\u2713 Memory assembler warmed\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/auth/login\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/auth/login -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/auth/me\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/auth/me -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/documents/search\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/documents/search -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

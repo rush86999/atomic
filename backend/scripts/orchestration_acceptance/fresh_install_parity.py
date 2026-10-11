@@ -33,11 +33,21 @@ Method:
      backend/.env first, no override) and evaluate the three comparisons
      verbatim; then construct the REAL lifecycle wiring exactly as
      _task_lifecycle_for does (TaskLifecycle(GoalRunService, GoalService))
-     against a scratch DATABASE_URL.
+     and run one real operation against a scratch DATABASE_URL —
+     begin -> settle (pending->running->applied) -> reload through FRESH
+     service instances -> idempotent-key replay — because construction is
+     weaker than operation. Scratch storage overrides are applied AFTER
+     the generated env (the generated URL is relative) and the resolved
+     path is asserted to sit inside the scratch directory (2026-10-11
+     review findings #1 and #4).
   4. --boot: launch the real uvicorn app on a free port with the generated
      env (DATABASE_URL/ATOM_DATA_DIR redirected to scratch — a probe must
      never touch backend/data/atom.db or atom_dev.db) and require
-     GET /api/health to report identity.
+     GET /api/health to report identity. This stage is labeled
+     configuration-parity-plus-public-API-smoke: it is NOT a pristine
+     install proof (the child inherits the parent env and the repo's
+     backend/.env loads unconditionally). Pristine certification requires
+     the run_isolated code export, which excludes .env.
 
 Known limitation, recorded rather than hidden: in a dirty checkout the
 boot check cannot be a perfectly pristine fresh install, because
@@ -54,6 +64,7 @@ Results JSON (no secrets) lands in journey_matrix/.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -132,13 +143,25 @@ def parse_quickstart_env() -> Dict[str, Any]:
                          "template drift; update this probe")
     block = m.group(2)
 
-    # Secret vars the script generates before the heredoc:
-    #   NAME=$(python3 -c "import secrets; print(secrets.token_urlsafe(N))")
-    gen = {mm.group(1): secrets.token_urlsafe(int(mm.group(2)))
-           for mm in re.finditer(
-               r"^\s*(\w+)=\$\(python3 -c \"import secrets; "
-               r"print\(secrets\.token_urlsafe\((\d+)\)\)\"\)\s*$",
-               text, re.M)}
+    # Secret vars the script generates before the heredoc. Two patterns:
+    # token_urlsafe secrets, and the BYOK Fernet key (which MUST be a valid
+    # 44-char Fernet key — token_urlsafe(32) is 43 chars and cryptography
+    # rejects it, which bricked Settings->AI on every fresh install until
+    # 2026-10-11, journey J2 evidence).
+    gen: Dict[str, str] = {}
+    for mm in re.finditer(
+            r"^\s*(\w+)=\$\(python3 -c \"import secrets; "
+            r"print\(secrets\.token_urlsafe\((\d+)\)\)\"\)\s*$",
+            text, re.M):
+        gen[mm.group(1)] = secrets.token_urlsafe(int(mm.group(2)))
+    for mm in re.finditer(
+            r"^\s*(\w+)=\$\(python3 -c \"from cryptography\.fernet import "
+            r"Fernet; print\(Fernet\.generate_key\(\)\.decode\(\)\)\"\)"
+            r"\s*$", text, re.M):
+        # stdlib-equivalent of Fernet.generate_key(): 32 random bytes,
+        # urlsafe-base64 (44 chars) — a key cryptography accepts.
+        gen[mm.group(1)] = base64.urlsafe_b64encode(
+            secrets.token_bytes(32)).decode()
     leftovers = sorted(set(re.findall(r"\$(\w+)", block)) - set(gen))
     if leftovers:
         raise SystemExit(f"heredoc references vars quickstart does not "
@@ -181,7 +204,28 @@ def static_audit(env: Dict[str, str]) -> Dict[str, Any]:
             ok = False
         per_gate[name] = {"raw": raw, "verdict": verdict,
                           "required": spec["value"], "why": spec["why"]}
-    return {"ok": ok, "gates": per_gate}
+    secrets_check = _audit_generated_secrets(env)
+    if not secrets_check["ok"]:
+        ok = False
+    return {"ok": ok, "gates": per_gate, "secrets": secrets_check}
+
+
+def _audit_generated_secrets(env: Dict[str, str]) -> Dict[str, Any]:
+    """Well-formedness of generated secrets. The BYOK vault Fernet-encrypts
+    provider keys at rest; a malformed BYOK_ENCRYPTION_KEY makes every
+    Settings->AI store call fail (found live 2026-10-11, journey J2)."""
+    out: Dict[str, Any] = {"ok": True, "keys": {}}
+    raw = env.get("BYOK_ENCRYPTION_KEY")
+    if raw is None:
+        return {"ok": True, "keys": {"BYOK_ENCRYPTION_KEY": "not-generated"}}
+    try:
+        from cryptography.fernet import Fernet
+        Fernet(raw.encode())
+        out["keys"]["BYOK_ENCRYPTION_KEY"] = "valid_fernet"
+    except Exception as exc:  # noqa: BLE001
+        out["keys"]["BYOK_ENCRYPTION_KEY"] = f"INVALID: {exc}"
+        out["ok"] = False
+    return out
 
 
 def verify_gate_sources() -> Dict[str, Any]:
@@ -216,23 +260,76 @@ gates = {
     "CHAT_FINALIZATION_M2": os.getenv("CHAT_FINALIZATION_M2") == "1",
 }
 lifecycle = {"constructed": False}
+operation = {"begin": False, "settle": False, "fresh_reload": False,
+             "idempotent_replay": False}
 if gates["ATOM_TASK_LIFECYCLE_ENABLED"]:
     try:
-        from core.database import get_db_session
+        from core.database import get_db_session, Base, engine
+        import core.models  # noqa: F401 — register Base subclasses
+        from core.auto_dev import models as _autodev_models  # noqa: F401
+        # The scratch DB is EMPTY — the probe child must create the schema
+        # exactly as app startup does (main_api_app.py: Base.metadata.
+        # create_all with late model modules registered first).
+        Base.metadata.create_all(bind=engine)
         from core.goals.goal_run_service import GoalRunService
         from core.goals.goal_service import GoalService
         from core.task_lifecycle import TaskLifecycle
         ws, tn = "parity-probe", "default"
-        lc = TaskLifecycle(
-            GoalRunService(workspace_id=ws, tenant_id=tn,
-                           session_factory=get_db_session),
-            GoalService(workspace_id=ws, tenant_id=tn,
-                        session_factory=get_db_session))
+
+        def _services():
+            return (GoalRunService(workspace_id=ws, tenant_id=tn,
+                                   session_factory=get_db_session),
+                    GoalService(workspace_id=ws, tenant_id=tn,
+                                session_factory=get_db_session))
+
+        lc = TaskLifecycle(*_services())
         lifecycle = {"constructed": True, "type": type(lc).__name__}
+
+        # OPERATION check (2026-10-11 review #4): construction is weaker
+        # than operation. One real begin -> settle -> FRESH-INSTANCE reload
+        # against the scratch DB proves the enabled flag reaches working
+        # persistence.
+        created = lc.create_task(
+            conversation_id="parity-op-probe",
+            objective_text="acceptance probe: begin settle reload")
+        run_id = created["run_id"]
+        operation["run_id"] = run_id
+        operation["begin"] = True
+
+        op = lc.create_operation(
+            run_id, op_type="calculate",
+            requested_change="parity probe settle",
+            idempotency_key="parity-probe-op-1")
+        op_id = op["operation_id"]
+        lc.transition_operation(run_id, op_id, "running")
+        lc.transition_operation(run_id, op_id, "applied")
+        operation["settle"] = True
+
+        # FRESH instances, new sessions, same scratch DB: the settled
+        # state must be readable back, and the idempotency key must
+        # replay the SAME operation instead of creating a duplicate.
+        lc2 = TaskLifecycle(*_services())
+        reloaded = lc2.get_task(run_id) or {}
+        ops2 = reloaded.get("operations") or []
+        operation["fresh_reload"] = bool(
+            ops2 and ops2[0].get("operation_id") == op_id
+            and ops2[0].get("status") == "applied")
+        replay = lc2.create_operation(
+            run_id, op_type="calculate",
+            requested_change="parity probe settle",
+            idempotency_key="parity-probe-op-1")
+        operation["idempotent_replay"] = (
+            replay.get("operation_id") == op_id)
     except Exception as exc:  # noqa: BLE001
         lifecycle = {"constructed": False,
                      "error": f"{type(exc).__name__}: {exc}"}
-print("@@@" + json.dumps({"gates": gates, "lifecycle": lifecycle}))
+print("@@@" + json.dumps({
+    "gates": gates,
+    "lifecycle": lifecycle,
+    "operation": operation,
+    # Actual DB the child resolved (parent asserts it is inside scratch).
+    "db_env": os.environ.get("DATABASE_URL"),
+}))
 '''
 
 
@@ -243,16 +340,31 @@ def dynamic_probe(env: Dict[str, str], env_file: Path) -> Dict[str, Any]:
     child.write_text(PROBE_CHILD)
     cenv = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "HOME": os.environ.get("HOME", str(Path.home())),
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "DATABASE_URL": f"sqlite:///{scratch}/probe.db",
-            "ATOM_DATA_DIR": f"{scratch}/data"}
+            "PYTHONDONTWRITEBYTECODE": "1"}
     cenv.update(env)  # the generated env, as a fresh install's process env
+    # Scratch storage wins LAST (review #1): the generated DATABASE_URL is
+    # relative (sqlite:///./atom_dev.db) and must never resolve outside
+    # the scratch directory.
+    cenv["DATABASE_URL"] = f"sqlite:///{scratch}/probe.db"
+    cenv["ATOM_DATA_DIR"] = f"{scratch}/data"
+    resolved = os.path.abspath(
+        cenv["DATABASE_URL"].split("sqlite:///", 1)[-1])
+    if not resolved.startswith(str(scratch)):
+        raise RuntimeError(f"probe storage isolation violated: {resolved}")
     res = subprocess.run([str(py), str(child), str(BACKEND), str(env_file)],
                          capture_output=True, text=True, timeout=300,
                          env=cenv, cwd=str(scratch))
     for line in res.stdout.splitlines():
         if line.startswith("@@@"):
-            return json.loads(line[3:])
+            out = json.loads(line[3:])
+            out["resolved_db"] = resolved
+            # Belt and braces: what the child itself saw.
+            child_db = out.get("db_env") or ""
+            child_resolved = os.path.abspath(
+                child_db.split("sqlite:///", 1)[-1]) if child_db else ""
+            out["child_db_inside_scratch"] = (
+                child_resolved.startswith(str(scratch)))
+            return out
     return {"error": "probe child produced no result",
             "stderr_tail": res.stderr[-800:]}
 
@@ -298,7 +410,14 @@ def boot_check(env: Dict[str, str], timeout_s: float = 150.0,
         cwd=str(BACKEND), env=cenv,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     t0 = time.monotonic()
-    out: Dict[str, Any] = {"port": port}
+    out: Dict[str, Any] = {"port": port,
+                           # Review #2: this is NOT a pristine-install proof.
+                           # The child inherits the parent env and the repo's
+                           # backend/.env is loaded unconditionally, so this
+                           # stage certifies configuration parity plus a
+                           # public-API smoke — nothing more. A pristine run
+                           # needs the run_isolated code export (no .env).
+                           "mode": "configuration_parity_plus_public_api_smoke"}
     try:
         while time.monotonic() - t0 < timeout_s:
             if proc.poll() is not None:
@@ -412,9 +531,16 @@ def run(env_block: str, label: str, do_boot: bool,
     if do_boot:
         result["boot"] = boot_check(_dotenv_parse_text(env_block),
                                     journey_j1=journey_j1)
+    ops = dyn.get("operation") or {}
     parity_ok = (static["ok"] and sources["ok"]
                  and all(dyn.get("gates", {}).values())
-                 and dyn.get("lifecycle", {}).get("constructed") is True)
+                 and dyn.get("lifecycle", {}).get("constructed") is True
+                 # review #1: the scratch DB must be what the child saw
+                 and dyn.get("child_db_inside_scratch") is True
+                 # review #4: the flag must reach working persistence
+                 and ops.get("begin") is True and ops.get("settle") is True
+                 and ops.get("fresh_reload") is True
+                 and ops.get("idempotent_replay") is True)
     if do_boot:
         parity_ok = parity_ok and result["boot"].get("booted") is True
     result["parity_ok"] = parity_ok

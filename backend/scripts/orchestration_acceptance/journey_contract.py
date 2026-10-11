@@ -65,25 +65,41 @@ JOURNEYS: List[Dict[str, Any]] = [
      ]},
     {"id": "J2", "name": "Model setup",
      "assertions": [
-         {"id": "J2.byok-add",
-          "check": "one BYOK provider (or ATOM_LOCAL_ONLY + Ollama) added "
-                   "through Settings > AI / public API; key encrypted at rest",
-          "harness": "preview_stack.seed_byok_store (privileged seeding only)"},
+         {"id": "J2.byok-add-product-path",
+          "check": "one BYOK provider key stored THROUGH the product "
+                   "(POST /api/ai/providers/{id}/keys — the Settings -> AI "
+                   "call) and readable back (decrypts)",
+          "harness": f"{HARNESS}/j2_model_setup.py world B"},
+         {"id": "J2.byok-survive-restart",
+          "check": "the product-stored key survives a REAL restart (same "
+                   "run dir/DB, new process) and still decrypts",
+          "harness": f"{HARNESS}/j2_model_setup.py world B"},
+         {"id": "J2.local-provider-product-path",
+          "check": "local inference configured through the product "
+                   "(POST /api/local-models register/discover/capabilities) "
+                   "with a live Ollama",
+          "harness": f"{HARNESS}/j2_model_setup.py world A"},
          {"id": "J2.real-reply",
-          "check": "a chat turn produces a REAL model reply (not mock, no "
-                   "coding-agent intervention)"},
+          "check": "a chat turn produces a REAL provider-served reply (not "
+                   "mock, no coding-agent intervention)",
+          "harness": f"{HARNESS}/j2_model_setup.py world A"},
          {"id": "J2.tool-planning",
           "check": "tool planning selects a tool for a tool-shaped ask"},
      ]},
     {"id": "J3", "name": "Source connection",
      "assertions": [
-         {"id": "J3.connect",
+         {"id": "J3.upload",
           "check": "connect/ingest one document source through the normal "
-                   "product path"},
+                   "product path (POST /api/document-ingestion/upload)",
+          "harness": f"{HARNESS}/j3_source_connection.py"},
          {"id": "J3.authorized-read",
-          "check": "the authorized workspace retrieves the source content"},
+          "check": "the authorized workspace retrieves the source content "
+                   "(GET /api/documents/search finds the marker)",
+          "harness": f"{HARNESS}/j3_source_connection.py"},
          {"id": "J3.isolation",
-          "check": "a DIFFERENT workspace cannot retrieve it"},
+          "check": "a DIFFERENT workspace cannot retrieve it (second fresh "
+                   "user searches the same marker: zero results)",
+          "harness": f"{HARNESS}/j3_source_connection.py"},
      ]},
     {"id": "J4", "name": "Research",
      "assertions": [
@@ -161,6 +177,49 @@ JOURNEYS: List[Dict[str, Any]] = [
 
 VALID_STATUSES = ("verified", "failing", "untested")
 
+# Declared release scope (first wave): the journeys that must be STRICT
+# before the product can claim the advertised core loop. `--check --strict
+# --release` gates on exactly these. Small on purpose: one document source,
+# one business-record connector path, one controlled outbound destination.
+RELEASE_SCOPE = ("J1", "J2", "J3")
+
+
+def _candidate_identity() -> Dict[str, str]:
+    """Commit + dirty-tracked identity captured at record time. A verified
+    record without identity is unauditable — rejected, not warned."""
+    import subprocess
+    def _run(*argv: str) -> str:
+        try:
+            out = subprocess.run(
+                list(argv), cwd=str(BACKEND.parent), capture_output=True,
+                text=True, timeout=15).stdout.strip()
+            return out or "unknown"
+        except Exception:
+            return "unknown"
+    commit = _run("git", "rev-parse", "HEAD")
+    if commit in ("", "unknown"):
+        raise SystemExit("cannot capture candidate identity (git rev-parse "
+                         "failed) — refusing to record a verified status "
+                         "without identity")
+    return {"commit": commit,
+            "dirty_tracked": _run("git", "status", "--short",
+                                  "--untracked-files=no")}
+
+
+def _validate_evidence(evidence: Optional[str]) -> str:
+    if not evidence or not evidence.strip():
+        raise SystemExit("verified records require --evidence "
+                         "(a path or a precise pointer)")
+    first = evidence.split("(", 1)[0].strip().rstrip(")")
+    if not first:
+        raise SystemExit("--evidence must lead with a file pointer")
+    for base in (BACKEND.parent, BACKEND, Path(__file__).resolve().parent):
+        cand = (base / first) if not Path(first).is_absolute() else Path(first)
+        if cand.exists():
+            return str(cand)
+    raise SystemExit(f"--evidence pointer does not exist: {first!r} — "
+                     f"record the evidence file first, then reference it")
+
 
 def load_records() -> Dict[str, Dict[str, Any]]:
     if not STATUS_FILE.exists():
@@ -227,29 +286,59 @@ def cmd_record(a_id: str, status: str, evidence: Optional[str],
     if a_id not in known:
         raise SystemExit(f"unknown assertion id {a_id!r}; "
                          f"known: {sorted(known)}")
+    if status not in VALID_STATUSES:
+        raise SystemExit(f"status must be one of {VALID_STATUSES}")
+    record: Dict[str, Any] = {
+        "status": status,
+        "evidence": evidence,
+        "notes": notes,
+        "campaign": campaign,
+        "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
+                                     time.gmtime()),
+    }
+    if status == "verified":
+        # Review #3: an unauditable verified record is worse than untested.
+        if not campaign or not campaign.strip():
+            raise SystemExit("verified records require --campaign "
+                             "(candidate/configuration identity context)")
+        # Validate the pointer resolves, store the PORTABLE form the caller
+        # gave (verifier note: absolute /Users/... paths in the registry are
+        # non-portable).
+        _validate_evidence(evidence)
+        record["evidence_path"] = evidence.split("(")[0].strip()
+        record["identity"] = _candidate_identity()
     records = load_records()
-    records[a_id] = {"status": status,
-                     "evidence": evidence,
-                     "notes": notes,
-                     "campaign": campaign,
-                     "recorded_at": time.strftime(
-                         "%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())}
+    records[a_id] = record
     save_records(records)
     print(f"recorded {a_id} = {status}")
 
 
-def cmd_check(strict: bool) -> int:
+def _in_scope(j: Dict[str, Any], scope: Optional[tuple]) -> bool:
+    return scope is None or j["id"] in scope
+
+
+def cmd_check(strict: bool, release: bool, scope_str: Optional[str]) -> int:
+    scope: Optional[tuple] = None
+    if release:
+        scope = RELEASE_SCOPE
+    elif scope_str:
+        scope = tuple(s.strip() for s in scope_str.split(",") if s.strip())
     m = build_matrix(load_records())
-    failing = [j["id"] for j in m["journeys"] if j["status"] == "FAILING"]
-    untested = [j["id"] for j in m["journeys"] if j["status"] == "UNTESTED"]
+    journeys = [j for j in m["journeys"] if _in_scope(j, scope)]
+    failing = [j["id"] for j in journeys if j["status"] == "FAILING"]
+    untested = [j["id"] for j in journeys if j["status"] == "UNTESTED"]
+    label = (f"release scope {', '.join(scope)}" if release
+             else (f"scope {', '.join(scope)}" if scope
+                   else "all journeys"))
     if failing:
-        print(f"FAILING journeys: {', '.join(failing)}")
+        print(f"FAILING ({label}): {', '.join(failing)}")
         return 1
     if strict and untested:
-        print(f"UNTESTED journeys (strict): {', '.join(untested)}")
+        print(f"UNTESTED in strict {label}: {', '.join(untested)}")
         return 1
-    print(f"no failing journeys; untested: "
-          f"{', '.join(untested) if untested else 'none'}")
+    print(f"no failing journeys ({label}); untested: "
+          f"{', '.join(untested) if untested else 'none'}"
+          f"{' [strict]' if strict else ''}")
     return 0
 
 
@@ -258,7 +347,12 @@ def main() -> int:
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--check", action="store_true")
-    ap.add_argument("--strict", action="store_true")
+    ap.add_argument("--strict", action="store_true",
+                    help="--check also fails on UNTESTED journeys")
+    ap.add_argument("--release", action="store_true",
+                    help=f"--check against the declared release scope "
+                         f"({', '.join(RELEASE_SCOPE)})")
+    ap.add_argument("--scope", help="comma-separated journey ids")
     ap.add_argument("--record", metavar="ASSERTION_ID")
     ap.add_argument("--status", choices=VALID_STATUSES)
     ap.add_argument("--evidence")
@@ -272,7 +366,7 @@ def main() -> int:
                    args.campaign)
         return 0
     if args.check:
-        return cmd_check(args.strict)
+        return cmd_check(args.strict, args.release, args.scope)
     if args.json:
         cmd_json()
         return 0

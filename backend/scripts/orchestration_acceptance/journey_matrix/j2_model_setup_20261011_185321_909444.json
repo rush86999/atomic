@@ -1,0 +1,64 @@
+{
+  "journey": "J2",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "provider": "openrouter",
+  "local_model": "llama3.1",
+  "started_at": "2026-10-11T22:47:35+00:00",
+  "world_a": {
+    "world": "A_local_inference",
+    "boot": {
+      "booted": true,
+      "seconds": 6.2,
+      "status": "healthy",
+      "pid": 25468,
+      "git_commit": "618125225c9b"
+    },
+    "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j2_world_a_local_q6l6xdnw/run/atom.db",
+    "error": "ReadTimeout: timed out",
+    "uvicorn_log_tail": "te: 1 provider(s) on provider-level cooldown \u2014 excluded before ranking: openrouter\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:[structured-pool] depth=1 candidates=[('openrouter', 'deepseek/deepseek-v4-pro')] attempted=False credit_failed=[]\nERROR:core.llm.byok_handler:All structured candidates SKIPPED before dispatch (gate/budget/rate exclusions; 1 of 1 examined) \u2014 no request was made\nERROR:core.llm.byok_handler:All structured candidates SKIPPED before dispatch (gate/budget/rate exclusions; 1 of 1 examined) \u2014 no request was made\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'\nWARNING:integrations.chat_orchestrator:[provider] reply leg returned provider failure as content \u2014 terminal failed outcome\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nWARNING:core.finalization:[apply-dbg] state=None work_turn=None noop=None success_in=False\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "world_b": {
+    "world": "B_byok_product_path",
+    "boot": {
+      "booted": true,
+      "seconds": 8.3,
+      "status": "healthy",
+      "pid": 26280,
+      "git_commit": "618125225c9b"
+    },
+    "store_key": {
+      "http": 200,
+      "success": true,
+      "key_id_present": true
+    },
+    "before_restart": {
+      "keys_http": 200,
+      "openrouter_keys": 5,
+      "decrypts": true
+    },
+    "tenant_key_status_inconsistency": {
+      "http": 404
+    },
+    "restart": {
+      "booted": true,
+      "seconds": 6.3,
+      "restart_number": 1
+    },
+    "after_restart": {
+      "keys_http": 200,
+      "openrouter_keys": 5,
+      "decrypts": true
+    },
+    "assertions": {
+      "J2.byok-add-product-path": true,
+      "J2.byok-survive-restart": true
+    },
+    "uvicorn_log_tail": "Slack Enhanced Service initialized\nINFO:core.lazy_integration_registry:\u2713 Loaded ai\nINFO:main_api_app:\u2713 Auto-loaded: ai\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/ai/keys\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence_transformers not available (error: No module named 'sentence_transformers'), embeddings will be disabled\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence-transformers unavailable \u2014 trying FastEmbed\nWARNING:api.byok_routes:BYOK_ENCRYPTION_KEY differs from the persisted key file \u2014 keeping the env override. Credentials stored under the file's key will not decrypt.\nINFO:integrations.atom_communication_ingestion_pipeline:Using FastEmbed (bge-small, 384-dim) for communication embeddings\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/ai/keys -> 200\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing atom_communications table\nINFO:integrations.atom_communication_ingestion_pipeline:FTS index enabled on 'content' column\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing ingestion_metadata table\nINFO:integrations.atom_communication_ingestion_pipeline:LanceDB memory manager initialized successfully\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "assertions": {
+    "J2.byok-add-product-path": true,
+    "J2.byok-survive-restart": true
+  },
+  "pass": true,
+  "uvicorn_log_tail": null
+}

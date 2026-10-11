@@ -80,12 +80,18 @@ class RemoveMemoryResponse(BaseModel):
 
 # Helper to get workspace_id from the authenticated user
 def get_workspace_id(current_user: Optional[User] = None) -> str:
-    """Resolve the caller's workspace (primary membership, else "default").
+    """Resolve the caller's workspace for store isolation.
 
-    Previously a stub that always returned "default" — every user's ingestion
-    settings were read from/written to the default workspace's store.
+    ISOLATION ORDER (2026-10-11, journey J3): the FK users.workspace_id
+    FIRST, relationship second. The relationship (secondary
+    user_workspaces) was empty for every product-registered user, so this
+    fell through to "default" — a SHARED store — and any registered user
+    could read any other's documents. The FK is always set by the register
+    flow; the relationship only breaks it for pre-existing rows.
     """
     try:
+        if current_user and getattr(current_user, "workspace_id", None):
+            return current_user.workspace_id
         if current_user and current_user.workspaces:
             return current_user.workspaces[0].id
     except Exception:
@@ -560,7 +566,13 @@ async def upload_document(
 
         ws_id = None
         try:
-            if current_user and getattr(current_user, "workspaces", None):
+            # ISOLATION (journey J3): users.workspace_id FK first — the
+            # workspaces relationship is empty for registered users whose
+            # user_workspaces row predates the register-flow fix, and a None
+            # here lands the upload in the SHARED "default_shared" store.
+            if current_user and getattr(current_user, "workspace_id", None):
+                ws_id = current_user.workspace_id
+            elif current_user and getattr(current_user, "workspaces", None):
                 ws_id = current_user.workspaces[0].id
         except Exception as ws_err:
             logger.warning(f"Workspace resolution failed for upload: {ws_err}")
@@ -588,6 +600,12 @@ async def upload_document(
             user_id=str(current_user.id),
             doc_id=doc_id,
             workspace_id=ws_id,
+            # Align the LanceDB row with the PG mirror below, which stamps
+            # 'fresh': search filters documents to freshness_status=='fresh'
+            # (core/lancedb_handler.py search), so an unstamped row was
+            # permanently invisible — manual uploads returned nothing on any
+            # table carrying the column (journey J3, 2026-10-11).
+            extra_columns={"freshness_status": "fresh"},
         )
 
         if not success:
