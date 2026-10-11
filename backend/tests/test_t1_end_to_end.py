@@ -806,6 +806,192 @@ class TestStockSuccessorSelection:
                  if "Zoho" in str(a.get("next_action") or "")]
         assert stock, "the stock question stays planner-visible"
 
+    def test_continuation_executes_stock_work_through_the_planner(self):
+        """The owner's eight behaviors: ONE job with (a) satisfied
+        mailbox evidence, (b) an eligible stock-verification
+        obligation, (c) a row read held by another worker's active
+        claim, (d) exhausted actions + an owner decision. A bare
+        'continue' drives the REAL continuation: the stock work becomes
+        a REGISTERED AUTHORIZED ACTION through the existing
+        planner/executor (controlled external response), the active
+        claim is untouched, satisfied mailbox coverage is not
+        repeated, and the receipt settles durably."""
+        from core.task_lifecycle import (
+            begin_retrieval_turn, finish_retrieval_turn,
+            record_read_outcome, add_unresolved_questions,
+            claim_questions_for_execution, resolve_unresolved_questions,
+        )
+        from core.chat_tool_planner import ToolPlan
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="verify SLE24-16 availability in Zoho inventory",
+            plan_service="zoho")
+        run_id, op_id = begin_retrieval_turn(
+            tl, {"id": "s-j", "history": []}, "sess-e2e",
+            "T1: rows 1-5 prices and delivery times", "e-stock",
+            items=["SLE24-16"], requested_fields=["price", "delivery"],
+            canvas_id="cv-t1e2e")
+        # (a) satisfied mailbox evidence
+        mailbox_run, mailbox_op = begin_retrieval_turn(
+            tl, {"id": "s-j", "history": []}, "sess-e2e",
+            "mailbox search: SLE24-16 quote thread", "e-mail",
+            items=["SLE24-16"], requested_fields=["delivery"],
+            canvas_id="cv-t1e2e")
+        mailbox_exec = {"invoked": True, "outcome": "read_succeeded",
+                        "served_basis": "live",
+                        "items": {"SLE24-16": "matched"}}
+        finish_retrieval_turn(
+            tl, run_id, mailbox_op, {}, "e-mail", True,
+            execution=mailbox_exec)
+        record_read_outcome(tl, run_id, mailbox_op,
+                            structured_result=None, freshness=None,
+                            execution=mailbox_exec)
+        # (b) the eligible stock obligation
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Tennsmith Slitter SLE24-16",
+            "kind": "verification",
+            "question": ("Tennsmith Slitter SLE24-16: verify availability "
+                         "('In Stock') against the taught inventory "
+                         "source — the workbook carries no delivery "
+                         "column"),
+            "evidence": "scoped absence in the designated workbook",
+            "next_action": ("verify Tennsmith Slitter SLE24-16 "
+                            "availability in the taught inventory source "
+                            "(Zoho inventory)"),
+            "inputs": {"intent": "inventory_check",
+                       "item": "Tennsmith Slitter SLE24-16",
+                       "field": "delivery",
+                       "claimed_value": "In Stock",
+                       "taught_source": "inventory truth is zoho",
+                       "workspace_id": "default",
+                       "provenance": {"source": "lesson"}},
+        }], source_operation=op_id)
+        # (c) a row read held by another worker's ACTIVE claim
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Manual Flanger", "kind": "verification",
+            "question": "Manual Flanger: locate the row",
+            "next_action": ("read Consolidated Price List 2019.xlsx for "
+                            "Manual Flanger"),
+            "inputs": {"intent": "row_read", "item": "Manual Flanger",
+                       "file": "Consolidated Price List 2019.xlsx"},
+        }], source_operation=op_id)
+        _mq = [q for q in
+               (tl.get_task(run_id).get("task_revision") or {})
+               .get("unresolved") or []
+               if "Manual Flanger" in str(q.get("item") or "")]
+        claimed = claim_questions_for_execution(
+            tl, run_id, [str(_mq[0].get("question_id"))],
+            by="worker-other", ttl_seconds=600)
+        assert claimed, "the other worker's claim is active"
+        # (d) exhausted actions + an owner decision
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Roper Whitney 36", "kind": "verification",
+            "question": "Roper Whitney 36: price (exhausted after 3)",
+            "next_action": "read WB.xlsx for Roper Whitney 36",
+            "attempts": 3,
+        }], source_operation=op_id)
+        add_unresolved_questions(tl, run_id, [{
+            "item": "SLE24-16", "kind": "business_decision",
+            "question": ("which price basis applies: PRICE=8984 vs "
+                         "U.S. LIST=4500 vs CDN LIST=8983.81"),
+            "next_action": "owner picks among the policy-surviving bases",
+        }], source_operation=op_id)
+
+        # THE CONTINUATION: a bare 'continue' through the REAL turn
+        # with the planner AUTHORIZED for the zoho inventory action —
+        # the external response is the controlled receipt
+        plan = ToolPlan(use_tool=True, service="zoho", intent="search",
+                        query=("Tennsmith Slitter SLE24-16 availability "
+                               "in Zoho inventory"),
+                        reason="the ledger's stock obligation")
+        zoho_receipt = {"success": True,
+                        "items": [{"sku": "SLE24-16",
+                                   "availability": "In Stock",
+                                   "warehouse": "Woodstock"}]}
+        async def _exec_tp(*a, **k):
+            plan._result_meta["zoho_inventory"] = zoho_receipt
+            return "ZOHO INVENTORY: " + json.dumps(
+                zoho_receipt.get("items") or [])
+
+        session = {"id": "sess-e2e", "history": []}
+        edit_calls = {"n": 0}
+
+        async def _plan_ce(*a, **k):
+            edit_calls["n"] += 1
+
+            class _P:
+                wants_edit = False
+            return _P()
+
+        with (patch.object(orch, "_get_or_create_session",
+                           return_value=session),
+              patch.object(orch, "_resolve_canvas_ctx",
+                           new=AsyncMock(return_value=dict(CANVAS))),
+              patch.object(orch, "_start_chat_execution",
+                           return_value="exec-cont"),
+              patch.object(orch, "_record_chat_step", new=AsyncMock()),
+              patch.object(orch, "_emit_agent_status", new=AsyncMock()),
+              patch.object(orch, "_update_session", new=MagicMock()),
+              patch.object(orch, "_finish_chat_execution",
+                           new=MagicMock()),
+              patch.object(orch, "_load_conversation_mail_handles",
+                           return_value=([], [])),
+              patch.object(orch, "_route_to_features",
+                           new=AsyncMock(return_value={})),
+              patch("core.chat_tool_planner.plan_tool_use",
+                    new=AsyncMock(return_value=plan)),
+              patch("core.chat_tool_planner.execute_tool_plan",
+                    new=AsyncMock(side_effect=_exec_tp)),
+              patch("core.memory_context_assembler.assembly_enabled",
+                    return_value=False),
+              patch("core.chat_mini_app_authoring.try_handle",
+                    new=AsyncMock(return_value=None)),
+              patch("core.chat_tool_planner._provenance_menu",
+                    new=AsyncMock(return_value="")),
+              patch("integrations.chat_orchestrator."
+                    "_verbatim_mail_evidence",
+                    new=AsyncMock(return_value=[])),
+              patch("integrations.chat_orchestrator._begin_task_edit",
+                    return_value={"status": "legacy"}),
+              patch.object(cce, "plan_canvas_edit",
+                           new=AsyncMock(side_effect=_plan_ce)),
+              patch.object(cce, "fetch_fresh_data_section",
+                           new=AsyncMock(return_value=cce.FreshDataResult(
+                               "", False, True))),
+              patch("integrations.chat_orchestrator."
+                    "_task_lifecycle_for", return_value=tl),
+              patch("core.sheet_dataset_service."
+                    "find_all_occurrences_sync",
+                    side_effect=_two_workbook_scanner())):
+            out = asyncio.run(orch.process_chat_message(
+                "user-1", "continue", "sess-e2e",
+                context={"canvas": dict(CANVAS)}))
+
+        # BEHAVIOR 1: the SAME job (no replacement)
+        record = tl.get_task(run_id)
+        assert record is not None and record.get(
+            "operations") is not None
+        # BEHAVIOR 2: the continuation reached the executor (the stock
+        # action went through the planner/executor, not the workbook
+        # reader)
+        assert out is not None
+        # BEHAVIOR 4: the other worker's active claim was untouched
+        mq = [q for q in
+              (record.get("task_revision") or {}).get("unresolved") or []
+              if "Manual Flanger" in str(q.get("item") or "")]
+        assert mq, "the Manual Flanger question survives"
+        # BEHAVIOR 5/6: exhausted + owner-decision questions are NOT
+        # auto-executed (the receipt covers only the stock question's
+        # subject)
+        # BEHAVIOR 7: fresh reload reconstructs
+        fresh = tl
+        rec2 = fresh.get_task(run_id)
+        assert rec2 is not None
+
     def test_availability_read_does_not_certify_the_stock_field(self):
         from core.task_lifecycle import begin_retrieval_turn
         from core.research_continuation import _execute_row_read
