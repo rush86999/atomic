@@ -604,6 +604,24 @@ def _requested_product_count(messages: List[str]) -> Optional[int]:
     return None
 
 
+_ROW_RANGE_RE = re.compile(
+    r"\brows?\s*(\d+)\s*(?:-|to|through)\s*(\d+)\b")
+
+
+def _requested_row_span(messages: List[str]) -> Optional[tuple]:
+    """(start, end) of an ADDRESSED row range, or None. Shares the
+    range detector with ``_requested_row_range`` — one parser, both
+    consumers (the editor wants the end as 'first N rows'; the job
+    scope wants the span as 'rows start..end')."""
+    for text in messages:
+        m = _ROW_RANGE_RE.search(str(text or "").lower())
+        if m:
+            start, end = int(m.group(1)), int(m.group(2))
+            if end >= start and start >= 1:
+                return (start, end)
+    return None
+
+
 def _requested_row_range(messages: List[str]) -> Optional[int]:
     """The END row of an ADDRESSED RANGE ("rows 1-5", "rows 3 through 7"),
     or None when the request names no range.
@@ -616,9 +634,7 @@ def _requested_row_range(messages: List[str]) -> Optional[int]:
     ``_requested_product_count``; this is the address form.
     """
     for text in messages:
-        row_range = re.search(
-            r"\brows?\s*(\d+)\s*(?:-|to|through)\s*(\d+)\b",
-            str(text or "").lower())
+        row_range = _ROW_RANGE_RE.search(str(text or "").lower())
         if row_range:
             start, end = int(row_range.group(1)), int(row_range.group(2))
             if end >= start:

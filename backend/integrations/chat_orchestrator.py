@@ -2480,6 +2480,29 @@ def _job_scope_items(
             str(i).strip() for i in _ext(canvas_text) if str(i).strip()]
         if not canvas_items:
             return [], "unresolved"
+        # ROW-RANGE SCOPE (owner work order 2026-10-11, the live T1
+        # finding): a request ADDRESSING a row range resolves its
+        # subjects from the canvas projection BEFORE any search — the
+        # canvas's own row order is the numbering, so "rows 1-5" are
+        # the first five data rows. The rows beyond the range are
+        # PRESERVATION CONTEXT for the edit machinery, never additional
+        # research obligations (the live turn initialized all 8 rows
+        # origin=canvas-whole and researched items the user never
+        # asked about). The existing row-range parser is reused — no
+        # new phrase detector.
+        try:
+            from core.chat_canvas_editor import (
+                _requested_row_span as _scope_row_span,
+            )
+
+            _span = _scope_row_span([message])
+            if _span is not None:
+                _lo, _hi = _span
+                if 1 <= _lo <= _hi <= len(canvas_items):
+                    return canvas_items[_lo - 1:_hi], "canvas-rows"
+        except Exception:  # noqa: BLE001 — range narrowing is an
+            # optimization; the full resolution below still applies
+            pass
         resolved = _rts(message, canvas_items=canvas_items,
                         prior_items=[], last_served_items=[])
         if resolved.get("kind") == "resolved":
@@ -14795,6 +14818,31 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "[job-scope] initialized %d item(s), origin=%s "
                         "(canvas-bound job)", len(_scope_items),
                         _scope_origin)
+                    # PRESERVATION CONTEXT (owner work order 2026-10-11):
+                    # the rows OUTSIDE an addressed range ride the
+                    # blackboard for the edit machinery's preservation
+                    # rules — they are NOT research obligations and must
+                    # never enter the read dispatch.
+                    if _scope_origin == "canvas-rows":
+                        try:
+                            from core.chat_canvas_editor import (
+                                _ROW_RANGE_RE as _scope_rr,
+                            )
+
+                            _m = _scope_rr.search(message or "")
+                            if _m and isinstance(canvas_context, dict):
+                                _all_rows = _canvas_table_items(
+                                    canvas_context.get("content")) or []
+                                _lo = int(_m.group(1))
+                                shared_tool_state[
+                                    "job_scope_preservation_items"] = [
+                                        str(x) for x in
+                                        _all_rows if x not in
+                                        _scope_items][:8]
+                                shared_tool_state["job_scope_range"] = (
+                                    [_lo, int(_m.group(2))])
+                        except Exception:  # noqa: BLE001 — additive
+                            pass
                 if isinstance(shared_tool_state, dict):
                     shared_tool_state["job_scope_items"] = list(
                         _scope_items or _requested_targets or [])
@@ -16492,6 +16540,30 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 # or disablement must not prevent the read the user already
                 # authorized. The planner stays for genuinely unresolved
                 # choices; this is the bounded lookup fallback.
+                # CANVAS-SCOPED RESEARCH FALLBACK (owner work order
+                # 2026-10-11): the planner-independent read must not
+                # require a NAMED file — a row-range ask over the
+                # attached canvas dispatches the same scan machinery
+                # with the lifecycle begun before dispatch.
+                _research_block = None
+                if (not _resume_original or not _plan_mentions) \
+                        and isinstance(shared_tool_state, dict) \
+                        and shared_tool_state.get("job_scope_items") \
+                        and canvas_context and not _tool_block:
+                    try:
+                        _research_block = (
+                            await asyncio.wait_for(
+                                self._canvas_scoped_research_dispatch(
+                                    message, user_id, workspace_id,
+                                    session, session_id, execution_id,
+                                    canvas_context, shared_tool_state),
+                                timeout=60))
+                    except Exception as _rd_err:  # noqa: BLE001
+                        logger.warning(
+                            "[research-dispatch] fallback failed: %r",
+                            _rd_err)
+                    if _research_block:
+                        _tool_block = _research_block
                 if _resume_original and _plan_mentions and not _tool_block:
                     try:
                         import types as _types
@@ -21005,6 +21077,227 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             "mutation_authority_inherited": False,
             **ev,
         }
+
+    async def _canvas_scoped_research_dispatch(
+        self,
+        message: str,
+        user_id: str,
+        workspace_id: Optional[str],
+        session: Any,
+        session_id: Optional[str],
+        execution_id: Optional[str],
+        canvas_context: Any,
+        shared_tool_state: Any,
+        agent_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """The reply leg's planner-independent read for CANVAS-SCOPED
+        research (owner work order 2026-10-11, the live T1 branch): the
+        planner-independent fallback previously dispatched only for
+        NAMED files, so a row-range ask over the attached canvas
+        dispatched nothing — no operation, no receipt, and the reply
+        answered from a supplemental junk block. This branch resolves
+        the scope that interpretation already established (job_scope_items),
+        BEGINS the retrieval operation BEFORE any source dispatch,
+        runs the SAME per-item scan the research continuation uses, and
+        settles from the ACTUAL receipts (one facts derivation:
+        _apply_read_receipt_facts). A recording or dispatch failure is
+        settled as read_failed with its stage and surfaced — never
+        silently dropped, never reconstructed from narration. Returns
+        an evidence block for the reply, or None (the caller keeps its
+        existing behavior).
+        """
+        # Resolve scope HERE if interpretation has not stashed it yet
+        # (the reply leg's stash runs later, inside reply generation):
+        # the dispatch must not depend on ordering. The stash is a
+        # cache; resolution uses the same existing mechanism.
+        scope_items = [
+            str(t).strip() for t in
+            ((shared_tool_state or {}).get("job_scope_items") or [])
+            if str(t).strip()]
+        if not scope_items and canvas_context:
+            try:
+                scope_items, _origin = _job_scope_items(
+                    message, canvas_context, [])
+            except Exception:  # noqa: BLE001 — unresolved scope
+                scope_items = []
+            if scope_items and isinstance(shared_tool_state, dict):
+                shared_tool_state["job_scope_items"] = list(scope_items)
+        if not scope_items or not canvas_context:
+            return None
+        # the requested FIELDS, business-neutral: the value nouns the
+        # request itself names (price/delivery are the quote vocabulary
+        # the field contract already carries)
+        _msg = (message or "").lower()
+        fields = [f for f, pat in (
+            ("price", ("price", "prices", "cost")),
+            ("delivery", ("delivery", "lead time", "lead times"))) if
+            any(p in _msg for p in pat)] or ["price"]
+        tl = _task_lifecycle_for(
+            getattr(self, "tenant_id", None), workspace_id)
+        if tl is None:
+            logger.warning(
+                "[research-dispatch] no lifecycle store — the lookup "
+                "cannot be recorded; NOT reconstructing from narration")
+            return None
+        from core import task_lifecycle as _tlm
+
+        # BEGIN BEFORE DISPATCH: the operation exists before any source
+        # is touched — a crash below leaves a recordable failure, not a
+        # silent gap.
+        run_id, op_id = _tlm.begin_retrieval_turn(
+            tl, session if isinstance(session, dict) else {},
+            session_id or "", str(message or "")[:200], execution_id,
+            items=scope_items, requested_fields=fields,
+            agent_id=agent_id,
+            canvas_id=str((canvas_context or {}).get("canvas_id")
+                          or (canvas_context or {}).get("id") or ""))
+        from core.sheet_dataset_service import (
+            find_all_occurrences_sync as _scan_fn,
+        )
+        findings: List[Dict[str, Any]] = []
+        statuses: Dict[str, str] = {}
+        receipts: List[Dict[str, Any]] = []
+        evidence_lines: List[str] = []
+        _dispatch_error: Optional[str] = None
+        try:
+            for item in scope_items:
+                try:
+                    scan = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            _scan_fn, item, user_id, workspace_id,
+                            max_matches=4),
+                        timeout=30)
+                except Exception as scan_err:  # noqa: BLE001
+                    statuses[item] = ""
+                    evidence_lines.append(
+                        f"{item}: lookup failed "
+                        f"({type(scan_err).__name__})")
+                    continue
+                receipt = (scan or {}).get("source_identity") or {}
+                if receipt.get("content_hash"):
+                    receipts.append({
+                        "source_identity": dict(receipt),
+                        "targets": []})
+                matches = (scan or {}).get("matches") or []
+                if not matches:
+                    statuses[item] = ""
+                    evidence_lines.append(f"{item}: no matching row")
+                    continue
+                # per-requested-field values from the matched row — a
+                # column whose header carries the field noun; several
+                # candidate columns stay DISTINCT (basis preserved)
+                row = matches[0].get("row") or {}
+                headers = matches[0].get("headers") or list(row.keys())
+                sheet = str(matches[0].get("sheet") or "")
+                cell = str(matches[0].get("cell") or "")
+                src_file = str(receipt.get("file_name") or "catalog")
+                for field in fields:
+                    cand_cols = [
+                        str(h) for h in headers
+                        if field in str(h).lower()
+                        or (field == "delivery" and
+                            "lead" in str(h).lower())]
+                    if not cand_cols:
+                        continue
+                    col = cand_cols[0]
+                    raw = str(row.get(col) or "").strip()
+                    if not raw:
+                        continue
+                    parsed: Dict[str, Any] = {"raw": raw}
+                    try:
+                        from decimal import Decimal as _Dec
+
+                        parsed["value"] = float(
+                            _Dec(raw.replace(",", "")
+                                 .replace("$", "")))
+                        parsed["currency"] = (
+                            "CAD" if "cdn" in col.lower()
+                            or "cad" in col.lower() else None)
+                    except Exception:  # noqa: BLE001 — text values
+                        pass
+                    parsed["basis"] = col
+                    findings.append({
+                        "item": item, "field": field,
+                        "column": col, "raw": raw, "parsed": parsed,
+                        "source": f"{src_file}!{sheet}!{cell}"})
+                    statuses[item] = "matched"
+                    evidence_lines.append(
+                        f"{item}: {field} = {raw} ({col}, "
+                        f"{src_file}!{sheet}!{cell})")
+                if item not in statuses or not statuses.get(item):
+                    statuses[item] = "located"
+        except Exception as disp_err:  # noqa: BLE001 — surfaced, not silent
+            _dispatch_error = f"{type(disp_err).__name__}: {disp_err}"[:120]
+        # the READ-CAPTURED version: from the scan receipts, never the
+        # catalog at settlement
+        _read_version = None
+        for r in receipts:
+            if (r.get("source_identity") or {}).get("content_hash"):
+                _read_version = str(
+                    r["source_identity"]["content_hash"])[:80]
+                break
+        execution = {
+            "invoked": True,
+            "outcome": ("read_succeeded" if findings and not
+                        _dispatch_error else "read_failed"
+                        if _dispatch_error or any(
+                            v == "" for v in statuses.values())
+                        else "read_returned_no_receipt"),
+            "served_basis": "live",
+            "failure_stage": _dispatch_error,
+            "items": statuses,
+            "requested_fields": fields,
+        }
+        if findings:
+            execution["findings"] = findings
+        if _read_version:
+            execution["source_version"] = _read_version
+        structured = None
+        if receipts and findings:
+            structured = {
+                "source_identity": dict(receipts[0]["source_identity"]),
+                "requested_fields": fields,
+                "targets": [
+                    {"item": f.get("item"),
+                     "identity": {"status": "single"},
+                     "field": {"status": "single", "values": [
+                         {"col": f.get("column"),
+                          "basis": (f.get("parsed") or {}).get("basis"),
+                          "value": (f.get("parsed") or {}).get("value"),
+                          "display": f.get("raw")}]}}
+                    for f in findings],
+                "coverage": {"read_status": "success" if
+                             not _dispatch_error else "partial"},
+            }
+        try:
+            _apply_read_receipt_facts(execution, structured, {})
+            _ok = bool(findings) and not _dispatch_error
+            _tlm.finish_retrieval_turn(
+                tl, run_id, op_id,
+                structured if isinstance(structured, dict) else {},
+                execution_id, _ok, execution=execution)
+            _tlm.record_read_outcome(
+                tl, run_id, op_id,
+                structured_result=structured,
+                freshness=None, execution=execution)
+        except Exception as settle_err:  # noqa: BLE001 — SURFACED
+            logger.warning(
+                "[research-dispatch] settlement recording FAILED for "
+                "run %s op %s: %r — the lookup ran but its record is "
+                "incomplete; no success may be reconstructed",
+                run_id, op_id, settle_err)
+        if _dispatch_error:
+            logger.warning(
+                "[research-dispatch] dispatch error after begin: %s",
+                _dispatch_error)
+        logger.info(
+            "[research-dispatch] run=%s op=%s items=%d findings=%d "
+            "version=%s", run_id, op_id, len(scope_items),
+            len(findings), _read_version or "-")
+        if not evidence_lines:
+            return None
+        return ("RESEARCH EVIDENCE (canvas-scoped read, operation "
+                f"{op_id[:8]}):\n" + "\n".join(evidence_lines[:12]))
 
     def _canvas_bound_record(
         self, tl: Any, canvas_id: str,
