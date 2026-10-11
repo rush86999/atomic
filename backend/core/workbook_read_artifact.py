@@ -208,7 +208,7 @@ def extract_field_requests(texts: Sequence[str]) -> List[str]:
         for canonical in _FIELD_ALIAS_ORDER:
             aliases = _field_aliases(canonical)
             if any(
-                re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", normalized)
+                _alias_matches_request(alias, normalized)
                 for alias in aliases
                 if alias
             ):
@@ -226,6 +226,29 @@ def extract_field_requests(texts: Sequence[str]) -> List[str]:
             for other in values
         )
     ]
+
+
+# Aliases whose +"s" plural is commonly a VERB ("lists the rows",
+# "amounts to") rather than the requested field — plural matching
+# stays off for these; the singular still matches. Verb forms that
+# stay in-domain ("costs", "expires", "quotes") are intentionally
+# allowed: they still signal the field being asked about.
+_PLURAL_VERB_RISK = frozenset({"list", "amount"})
+
+
+def _alias_matches_request(alias: str, normalized: str) -> bool:
+    """An alias names a requested field when it occurs as a whole word —
+    or as its plain +"s" plural (quote asks say "prices", "costs",
+    "dates"; the singular-only rule left those contracts empty, which
+    the live A-series jobs carried as requested_fields: [] and their
+    row reads then bound nothing)."""
+    if re.search(
+            rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", normalized):
+        return True
+    if alias in _PLURAL_VERB_RISK or alias.endswith("s"):
+        return False
+    return bool(re.search(
+        rf"(?<![a-z0-9]){re.escape(alias)}s(?![a-z0-9])", normalized))
 
 
 def _column_descriptors(
