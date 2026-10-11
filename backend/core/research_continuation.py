@@ -197,6 +197,14 @@ def _read_actions(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                                  or []))),
                     "provenance": dict(
                         inputs.get("provenance") or {}),
+                    # THE CLAIMED VALUE SURVIVES SCHEDULING (owner work
+                    # order 2026-10-11, item 2): direct execution (the
+                    # dispatch's act) and deferred execution (a
+                    # ledger-scheduled row read) must carry the SAME
+                    # availability claim — the scoped-absence record
+                    # needs the claim being checked.
+                    "claimed_delivery": str(
+                        inputs.get("claimed_delivery") or ""),
                     "intent": "row_read",
                     "question_id": a.get("question_id")})
                 continue
@@ -986,8 +994,14 @@ async def _execute_row_read(
                 # question names it, so the ledger's action selection
                 # can route to the taught tool (Zoho) through the
                 # existing planner — never a dispatcher branch.
+                _claimed = str(act.get("claimed_delivery") or "")
+                _claimed = _claimed if _claimed.strip() else "In Stock"
+                _row_source_name = str(
+                    ((supporting[0].get("_row_result") or {}).get("source")
+                     or {}).get("file_name")
+                    or act.get("file") or "")
                 _availability_claim = any(
-                    w in str(act.get("claimed_delivery") or "").lower()
+                    w in _claimed.lower()
                     for w in ("in stock", "stock"))
                 _inv_teaching = ""
                 for _l in agent_lessons or []:
@@ -1005,6 +1019,60 @@ async def _execute_row_read(
                         f"{item}: {field} is an AVAILABILITY claim "
                         f"('In Stock') — the taught inventory source "
                         f"governs verification: {_inv_teaching}")
+                    # DURABLE SUCCESSOR ACTION (owner work order
+                    # 2026-10-11): prose explains nothing — the stock
+                    # verification becomes a SELECTABLE question whose
+                    # next_action names the taught source, so the
+                    # ledger's action selection and the planner (the
+                    # same path that executes ledger-seeded integration
+                    # searches) can execute it. The subject, field,
+                    # claimed value, teaching provenance and workspace
+                    # ride `inputs` — never a dispatcher branch, never
+                    # the workbook reader.
+                    try:
+                        from core.task_lifecycle import (
+                            add_unresolved_questions,
+                        )
+
+                        add_unresolved_questions(
+                            lifecycle, run_id,
+                            [{
+                                "item": item,
+                                "kind": "verification",
+                                "question": (
+                                    f"{item}: verify availability "
+                                    f"('{_claimed.strip() or 'In Stock'}') "
+                                    f"against the taught inventory "
+                                    f"source — the workbook carries no "
+                                    f"{field} column"),
+                                "evidence": (
+                                    f"scoped absence in the designated "
+                                    f"workbook ({_row_source_name}); "
+                                    f"taught: {_inv_teaching}"),
+                                "next_action": (
+                                    f"verify {item} availability in the "
+                                    f"taught inventory source (Zoho "
+                                    f"inventory)"),
+                                "inputs": {
+                                    "intent": "inventory_check",
+                                    "item": item,
+                                    "field": field,
+                                    "claimed_value": (
+                                        _claimed.strip()),
+                                    "taught_source": _inv_teaching,
+                                    "workspace_id": workspace_id,
+                                    "provenance": {
+                                        "source": "lesson"},
+                                },
+                            }], source_operation=None)
+                        # THE READ DID NOT CERTIFY THE STOCK FIELD: the
+                        # status stays identity-level (located) — never
+                        # 'matched' while the availability successor is
+                        # open.
+                        statuses[item] = "located"
+                    except Exception:  # noqa: BLE001 — the question is
+                        # bookkeeping; the evidence line stands
+                        pass
     elif len(supporting) > 1:
         # DUPLICATE-LISTING COMPARISON (round 57): two supporting rows
         # may be duplicate listings (same machine, same description in

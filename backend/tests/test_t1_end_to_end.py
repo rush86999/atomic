@@ -80,7 +80,10 @@ def _two_workbook_scanner():
         ]
         out = []
         for fname, sheet, cell, cells in books:
-            if file_name and fname != file_name:
+            # Faithful to the real find_all file filter: case-insensitive
+            # containment (a lowercase resolved designation still scopes
+            # to its Title Case catalog file); never silent equality.
+            if file_name and str(file_name).lower() not in fname.lower():
                 continue
             for col, v in cells.items():
                 if needle and needle in str(v).lower():
@@ -107,6 +110,29 @@ _DESIGNATED_LESSON = [{
     "lesson": ("Always price quotes from the Consolidated Price List "
                "2019.xlsx — the 2015 list is outdated."),
 }]
+
+
+def _catalog_entries(query, catalog_files):
+    """Scratch catalog metadata for an explicit catalog: (file_name,
+    content_hash, [sheets]) triples, one entry per sheet (the real
+    index shape — identity, version and sheet resolution all read
+    it). Empty query serves every entry (the resolver's
+    workspace-scoped read); otherwise substring over file and sheet
+    names (the sheet-fallback's resolution read)."""
+    out = []
+    q = str(query or "").strip().lower()
+    for entry in catalog_files or []:
+        fname, h, sheets = entry
+        for sheet in (sheets or ["Sheet1"]):
+            if not q or q in str(fname).lower() or q in str(
+                    sheet).lower():
+                out.append({"file_name": fname, "content_hash": h,
+                            "source": "zoho-workdrive",
+                            "source_kind": "file",
+                            "external_id": f"zoho-{fname}",
+                            "entity_name": sheet, "status": "active"})
+                break
+    return out
 
 
 def _row_reader_two_books():
@@ -166,7 +192,8 @@ def _orch_with_store():
 
 def _run_t1(scanner, junk_sweep=None, plan_query=None,
             plan_service="outlook", row_reader=None, lessons=None,
-            scanner_tracks_files=False):
+            scanner_tracks_files=False, catalog_files=None,
+            message=None):
     """The REAL turn with the LIVE failure's plan: a served
     outlook.search plan that the relevance gate declines."""
     orch, tl, factory = _orch_with_store()
@@ -248,11 +275,17 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
                   return_value=lessons or []),
             # the catalog's sheet resolution (the worker's own
             # mechanism): the taught sheet resolves to the materialized
-            # 2015 copy
+            # 2015 copy. catalog_files=None preserves this legacy shape;
+            # an explicit catalog serves workspace-scoped metadata ("" ->
+            # all files; otherwise substring over file/sheet names) so
+            # the designated-source resolver can work end-to-end.
             patch("core.sheet_dataset_service.find_entries_sync",
-                  side_effect=lambda sheet, *a, **k: (
-                      [{"file_name": "Consolidated Price List 2015.xlsx"}]
-                      if "tennsmith" in str(sheet).lower() else [])),
+                  side_effect=lambda query="", *a, **k: (
+                      _catalog_entries(query, catalog_files)
+                      if catalog_files is not None else (
+                          [{"file_name":
+                                "Consolidated Price List 2015.xlsx"}]
+                          if "tennsmith" in str(query).lower() else []))),
             patch("core.sheet_dataset_service."
                   "find_all_occurrences_sync",
                   side_effect=lambda item, *a, **k: (
@@ -282,8 +315,8 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
             st.enter_context(cm)
         result = asyncio.run(orch.process_chat_message(
             "user-1",
-            "What are the approved prices and delivery times for rows 1 "
-            "through 5 of the draft?",
+            message or ("What are the approved prices and delivery "
+                        "times for rows 1 through 5 of the draft?"),
             "sess-e2e", context={"canvas": dict(CANVAS),
                                  "agent_id": "agent-taught"}))
     return result, spy, orch, tl, factory
@@ -595,3 +628,197 @@ class TestTaughtSheetResolution:
             f.get("taught_source_mismatch") for f in sle), (
             "serving the 2015 copy for a 2019-designated obligation is "
             "RECORDED as a mismatch, never silent")
+
+
+class TestStockSuccessorSelection:
+    """ONE existing job: completed workbook evidence + an eligible
+    stock-verification obligation + an active row-read claim + a
+    completed mailbox obligation. Continuation selection must pick the
+    stock work, leave the active claim alone, not repeat the mailbox
+    coverage, and the workbook reader must never treat a missing stock
+    column as verified availability."""
+
+    def _job(self, tl):
+        from core.task_lifecycle import (
+            begin_retrieval_turn, finish_retrieval_turn,
+            record_read_outcome, add_unresolved_questions,
+            claim_questions_for_execution, resolve_unresolved_questions,
+        )
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        run_id, op_id = begin_retrieval_turn(
+            tl, {"id": "s-j", "history": []}, "sess-e2e",
+            "T1: rows 1-5 prices and delivery times", "e-stock",
+            items=["SLE24-16", "Roper Whitney 36", "Linmac",
+                   "Manual Flanger", "No. 622"],
+            requested_fields=["price", "delivery"],
+            canvas_id="cv-t1e2e")
+        # (a) completed workbook evidence
+        execution = {"invoked": True, "outcome": "read_succeeded",
+                     "served_basis": "saved_copy",
+                     "source_version": "hash-2019",
+                     "items": {"SLE24-16": "matched"}}
+        _apply_read_receipt_facts(
+            execution, {"source_identity": {
+                "file_name": "Consolidated Price List 2019.xlsx",
+                "content_hash": "hash-2019"},
+                "requested_fields": ["price"],
+                "targets": [{"item": "SLE24-16",
+                             "identity": {"status": "single"},
+                             "field": {"status": "single", "values": [
+                                 {"col": "PRICE", "basis": "PRICE",
+                                  "value": 8984.0,
+                                  "display": "8,984"}]}}],
+                "coverage": {"read_status": "success"}},
+            {"content_hash": "hash-2019"})
+        finish_retrieval_turn(tl, run_id, op_id, {}, "e-stock", True,
+                              execution=execution)
+        record_read_outcome(tl, run_id, op_id, structured_result=None,
+                            freshness=None, execution=execution)
+        # (b) the eligible STOCK-VERIFICATION question
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Tennsmith Slitter SLE24-16",
+            "kind": "verification",
+            "question": ("Tennsmith Slitter SLE24-16: verify availability "
+                         "('In Stock') against the taught inventory "
+                         "source — the workbook carries no delivery "
+                         "column"),
+            "evidence": "scoped absence in the designated workbook",
+            "next_action": ("verify Tennsmith Slitter SLE24-16 "
+                            "availability in the taught inventory source "
+                            "(Zoho inventory)"),
+            "inputs": {"intent": "inventory_check",
+                       "item": "Tennsmith Slitter SLE24-16",
+                       "field": "delivery",
+                       "claimed_value": "In Stock",
+                       "taught_source": "inventory truth is Zoho",
+                       "workspace_id": "default",
+                       "provenance": {"source": "lesson"}},
+        }], source_operation=op_id)
+        # (c) an ACTIVE row-read claim on another question
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Manual Flanger", "kind": "verification",
+            "question": "Manual Flanger: locate the row (TK provenance "
+                        "unproven)",
+            "next_action": ("read Consolidated Price List 2019.xlsx for "
+                            "Manual Flanger"),
+            "inputs": {"intent": "row_read", "item": "Manual Flanger",
+                       "file": "Consolidated Price List 2019.xlsx"},
+        }], source_operation=op_id)
+        _qs = [q for q in
+               (tl.get_task(run_id).get("task_revision") or {})
+               .get("unresolved") or []
+               if "Manual Flanger" in str(q.get("item") or "")]
+        claimed = claim_questions_for_execution(
+            tl, run_id, [str(q.get("question_id")) for q in _qs],
+            by="worker-other", ttl_seconds=300)
+        assert claimed, "the row-read claim is active"
+        # (d) a COMPLETED mailbox obligation
+        add_unresolved_questions(tl, run_id, [{
+            "item": "SLE24-16", "kind": "verification",
+            "question": ("SLE24-16 delivery: verify against the dated "
+                         "correspondence"),
+            "next_action": "search the mailbox for the SLE24-16 quote "
+                           "thread",
+        }], source_operation=op_id)
+        resolve_unresolved_questions(
+            tl, run_id, question_ids=None, items=["SLE24-16"],
+            kinds=["verification"],
+            resolution={"how": "mailbox search delivered the dated quote "
+                               "thread",
+                        "detail": "the 2026-10-08 quote named 11-12 weeks"})
+        return run_id
+
+    def test_selection_picks_stock_and_leaves_the_claim(self):
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="roper", plan_service="datasets")
+        run_id = self._job(tl)
+        from core.task_lifecycle import (
+            next_unfinished_work, open_unresolved_questions,
+        )
+
+        record = tl.get_task(run_id)
+        snap = next_unfinished_work(record) or {}
+        actions = snap.get("actions") or []
+        stock = [a for a in actions
+                 if (a.get("inputs") or {}).get("intent")
+                 == "inventory_check"
+                 or "Zoho" in str(a.get("next_action") or "")]
+        assert stock, (
+            "the stock question is SELECTED as work: "
+            f"{json.dumps(actions, default=str)[:400]}")
+        # the active claim is NOT re-selected
+        action_qids = {str(a.get("question_id")) for a in actions}
+        for q in open_unresolved_questions(record):
+            claim = q.get("claim") or {}
+            if claim.get("owner"):
+                assert str(q.get("question_id")) not in action_qids, (
+                    "another worker's active claim is left alone")
+
+    def test_the_workbook_reader_never_executes_stock_work(self):
+        from core.research_continuation import _read_actions
+        from core.task_lifecycle import next_unfinished_work
+
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="roper", plan_service="datasets")
+        run_id = self._job(tl)
+        record = tl.get_task(run_id)
+        snap = next_unfinished_work(record) or {}
+        acts = _read_actions(snap.get("actions") or [])
+        for a in acts:
+            assert a.get("intent") != "inventory_check", (
+                "the workbook reader never executes stock work")
+        stock = [a for a in snap.get("actions") or []
+                 if "Zoho" in str(a.get("next_action") or "")]
+        assert stock, "the stock question stays planner-visible"
+
+    def test_availability_read_does_not_certify_the_stock_field(self):
+        from core.task_lifecycle import begin_retrieval_turn
+        from core.research_continuation import _execute_row_read
+
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="roper", plan_service="datasets")
+        av_run, _av_op = begin_retrieval_turn(
+            tl, {"id": "s-av", "history": []}, "sess-e2e",
+            "availability read", "e-av", items=["SLE24-16"],
+            requested_fields=["price", "delivery"], canvas_id="cv-t1e2e")
+        with patch("core.sheet_dataset_service.read_sheet_row_sync",
+                   side_effect=lambda fn, sh, rn, *a, **k: (
+                       {"headers": ["MODEL NO.", "DESCRIPTION",
+                                    "LIST PRICE"],
+                        "row": {"MODEL NO.": "SLE24-16",
+                                "DESCRIPTION": "Single Wheel Slitter",
+                                "LIST PRICE": "8984"},
+                        "source": {"file_name": fn,
+                                   "content_hash": "hash-2019"}}
+                       if rn == 101 else None)):
+            res = asyncio.run(_execute_row_read(
+                tl, av_run, "u1", "default",
+                {"item": "Tennsmith Slitter SLE24-16",
+                 "requested_fields": ["price", "delivery"],
+                 "identity_context": "Tennsmith Slitter SLE24-16",
+                 "file": "Consolidated Price List 2019.xlsx",
+                 "candidates": [{"sheet": "Tennsmith", "row": 101,
+                                 "identity_column": "MODEL NO.",
+                                 "identity_cell": "SLE24-16"}],
+                 "claimed_delivery": "In Stock"},
+                [], agent_lessons=[{"id": "L5", "lesson": (
+                    "inventory truth comes from Zoho, never the "
+                    "workbook")}]))
+        questions = [q for q in
+                     (tl.get_task(av_run).get("task_revision") or {})
+                     .get("unresolved") or []
+                     if "availability" in str(q.get("question") or "")]
+        assert questions, "the inventory successor question persists"
+        assert questions[0].get("inputs", {}).get(
+            "intent") == "inventory_check"
+        assert res["statuses"].get(
+            "Tennsmith Slitter SLE24-16") != "matched", (
+            "a successful identity read must not certify the missing "
+            "stock field")
+

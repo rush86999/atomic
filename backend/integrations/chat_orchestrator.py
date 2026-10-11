@@ -2968,6 +2968,19 @@ _CONTINUATION_RE = re.compile(
     r"resume|finish(?:\s+(?:the|your)\s+job|it)?)\s*[.!?]*$",
     re.IGNORECASE,
 )
+# QUALIFIED CONTINUATION (owner order 2026-10-11 — continuation binding):
+# a message that OPENS with a continuation verb and then names more work
+# ("Please continue the workbook half of this investigation: read the
+# open rows…") is still an explicit resume of the session's job — the
+# live continuation drifted into fresh sweeps because only the bare form
+# was recognized. Start-anchored so mid-sentence uses ("if you continue
+# to see…") never trigger.
+_CONTINUATION_TRIGGER_RE = re.compile(
+    r"^\s*(?:please\s+|can\s+you\s+|could\s+you\s+)?"
+    r"(?:continue|keep\s+going|go\s+on|carry\s+on|resume|"
+    r"finish(?:\s+(?:the|your)\s+job|it)?)\b",
+    re.IGNORECASE,
+)
 # Field selection needs an explicit selection verb: a bare field word in
 # passing prose ("thanks for the quick delivery") is not a selection.
 _FIELD_SELECT_RE = re.compile(
@@ -7013,7 +7026,8 @@ class ChatOrchestrator:
             _cont_seed = None
             try:
                 _cont_text = " ".join(str(message or "").split())
-                if _CONTINUATION_RE.fullmatch(_cont_text or ""):
+                if _CONTINUATION_RE.fullmatch(_cont_text or "") or \
+                        _CONTINUATION_TRIGGER_RE.match(message or ""):
                     _cont_lifecycle = _task_lifecycle_for(
                         getattr(self, "tenant_id", None),
                         (context or {}).get("workspace_id"))
@@ -7024,21 +7038,27 @@ class ChatOrchestrator:
                                 session_id)
                         except Exception:  # noqa: BLE001
                             _cont_record = None
-                        if _cont_record is None:
-                            _cont_canvas = _canvas_id_from_context(context)
-                            if _cont_canvas:
-                                try:
-                                    # APPLICABLE FIRST (owner order
-                                    # 2026-10-11 — continuation binding):
-                                    # a newer empty job must not shadow
-                                    # the evidence-rich job the operator
-                                    # is continuing.
-                                    _cont_record = (
-                                        _cont_lifecycle
-                                        .find_applicable_task_for_canvas(
-                                            _cont_canvas))
-                                except Exception:  # noqa: BLE001
-                                    _cont_record = None
+                        # APPLICABLE FIRST (owner order 2026-10-11 —
+                        # continuation binding): the session's newest
+                        # active job may be an empty twin; the job the
+                        # operator is continuing is the applicable one
+                        # for THIS canvas. The session's own record
+                        # stays authoritative whenever it carries
+                        # findings — only a findings-less session job
+                        # yields to the canvas's applicable record.
+                        # Selection only, canvas/workspace scoped.
+                        _cont_canvas = _canvas_id_from_context(context)
+                        if _cont_canvas and not self._record_has_findings(
+                                _cont_record):
+                            try:
+                                _cont_applicable = (
+                                    _cont_lifecycle
+                                    .find_applicable_task_for_canvas(
+                                        _cont_canvas))
+                            except Exception:  # noqa: BLE001
+                                _cont_applicable = None
+                            if _cont_applicable is not None:
+                                _cont_record = _cont_applicable
                         if _cont_record is not None:
                             from core.task_lifecycle import (
                                 bump_question_attempts,
@@ -7165,6 +7185,17 @@ class ChatOrchestrator:
                                     _cont_seed.get("attempt"))
                                 if isinstance(session, dict):
                                     session["_continuation_seed"] = _cont_seed
+                                if isinstance(session, dict) and \
+                                        _cont_seed.get("run_id"):
+                                    # THE SEED IS THE EXECUTION TARGET
+                                    # (owner order 2026-10-11 — continuation
+                                    # binding): re-stash the run the
+                                    # continuation resolved so every later
+                                    # begin on this turn binds THAT job —
+                                    # turn-entry stashed the session's
+                                    # (possibly empty) newest active job.
+                                    session["_task_run_id"] = str(
+                                        _cont_seed["run_id"])
             except Exception as _cont_err:  # noqa: BLE001 — never blocks
                 logger.debug("job continuation skipped: %r", _cont_err)
             try:
@@ -18281,6 +18312,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         if _ru_tl is not None:
                             _ru_record = _ru_tl.get_task(_ru_run)
                     if isinstance(_ru_record, dict):
+                        from core.pending_file_task import (
+                            is_retrieval_refresh_request,
+                        )
                         from core.task_lifecycle import (
                             open_unresolved_questions as _ru_ouq,
                         )
@@ -18289,8 +18323,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         _ru_subjects = [
                             str(s).strip() for s in
                             (_chain_items or []) if str(s).strip()]
-                        if _ru_subjects and not _refresh_requested(
-                                message):
+                        if _ru_subjects and not (
+                                is_retrieval_refresh_request(message)):
                             _ru_findings = []
                             for _ru_o in (
                                     _ru_record.get("operations") or []):
