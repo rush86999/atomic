@@ -21973,7 +21973,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "candidates": cands,
                     "idempotency_key": _version_scoped_key(
                         group_file, item),
-                    "claimed_delivery": _claimed_delivery.get(item, ""),
+                    "claimed_delivery": (
+                        _claimed_delivery.get(item, "")
+                        or next((v for k, v in _claimed_delivery.items()
+                                 if k in item or item in k), "")),
                 }
                 if designated:
                     act["provenance"] = {"source": "lesson"}
