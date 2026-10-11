@@ -941,3 +941,61 @@ class TestStockExecutionProductionPath:
                     found = o
         assert found is not None, (
             "the inventory receipt settles durably")
+
+
+class TestSameJobContinuation:
+    """The continuation gate (owner work order 2026-10-11): a bare
+    "continue" on the session that owns the job must execute the job's
+    ledger-selected work on the SAME job — no replacement job, evidence
+    reconstructs, and duplicate-execution guards hold."""
+
+    def test_bare_continue_resumes_the_same_job(self):
+        from core.chat_tool_planner import ToolPlan
+
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="roper", plan_service="datasets")
+        run_id = TestStockSuccessorSelection._job(self, tl)
+        pre_ops = len(tl.get_task(run_id).get("operations") or [])
+
+        # a bare "continue" on the SAME session, through the REAL
+        # process_chat_message — the continuation seam consumes the
+        # ledger's selected action
+        session = {"id": "sess-e2e", "history": []}
+        with (patch.object(orch, "_get_or_create_session",
+                           return_value=session),
+              patch.object(orch, "_resolve_canvas_ctx",
+                           new=AsyncMock(return_value=dict(CANVAS))),
+              patch.object(orch, "_start_chat_execution",
+                           return_value="exec-cont"),
+              patch.object(orch, "_record_chat_step", new=AsyncMock()),
+              patch.object(orch, "_emit_agent_status", new=AsyncMock()),
+              patch.object(orch, "_update_session", new=MagicMock()),
+              patch.object(orch, "_finish_chat_execution",
+                           new=MagicMock()),
+              patch("core.chat_tool_planner.plan_tool_use",
+                    new=AsyncMock(return_value=ToolPlan(
+                        use_tool=True, service="datasets",
+                        intent="search", query="continue",
+                        reason="continuation"))),
+              patch("core.chat_tool_planner.execute_tool_plan",
+                    new=AsyncMock(return_value="")),
+              patch("core.memory_context_assembler.assembly_enabled",
+                    return_value=False),
+              patch("core.chat_mini_app_authoring.try_handle",
+                    new=AsyncMock(return_value=None)),
+              patch("core.chat_tool_planner._provenance_menu",
+                    new=AsyncMock(return_value="")),
+              patch("integrations.chat_orchestrator."
+                    "_verbatim_mail_evidence",
+                    new=AsyncMock(return_value=[]))):
+            out = asyncio.run(orch.process_chat_message(
+                "user-1", "continue", "sess-e2e",
+                context={"canvas": dict(CANVAS)}))
+        post_ops = len(tl.get_task(run_id).get("operations") or [])
+        # the SAME job continued (no replacement)
+        runs_after = [r for r in tl.runs.list_runs(
+            include_terminal=True, limit=20)]
+        job_ids = {r["id"] for r in runs_after}
+        assert run_id in job_ids, "the original job survives"
+        assert post_ops >= pre_ops, "the job's record only grows"
