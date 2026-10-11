@@ -2671,6 +2671,13 @@ def _findings_from_structured_result(
                     "source_file_name": file_name,
                     "sheet": sheet[:80],
                     "content_hash": content_hash,
+                    # BOTH KEYS (owner work order 2026-10-11, item 2):
+                    # the read-captured hash rode `content_hash` only,
+                    # while the version-qualified-reuse machinery reads
+                    # `source_version` — the chained findings could not
+                    # certify version-qualified reuse. The stamp comes
+                    # from THIS receipt, never the current catalog.
+                    "source_version": content_hash or None,
                 })
                 if len(out) >= 12:
                     return out
@@ -7021,9 +7028,14 @@ class ChatOrchestrator:
                             _cont_canvas = _canvas_id_from_context(context)
                             if _cont_canvas:
                                 try:
+                                    # APPLICABLE FIRST (owner order
+                                    # 2026-10-11 — continuation binding):
+                                    # a newer empty job must not shadow
+                                    # the evidence-rich job the operator
+                                    # is continuing.
                                     _cont_record = (
                                         _cont_lifecycle
-                                        .find_active_task_for_canvas(
+                                        .find_applicable_task_for_canvas(
                                             _cont_canvas))
                                 except Exception:  # noqa: BLE001
                                     _cont_record = None
@@ -18087,6 +18099,315 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             await _pending_read_attempt(_ip_group)
                     except Exception as _ip_err:  # noqa: BLE001
                         logger.debug("in-turn pending reads skipped: %r", _ip_err)
+                # RESUME OPEN ROW READS (owner order 2026-10-11 —
+                # continuation binding): a turn explicitly resuming a
+                # job executes the job's eligible open row reads from
+                # their STRUCTURED inputs — never a fresh token sweep
+                # for covered work. Eligible = open verification (or
+                # missing-evidence) with file/location inputs, attempts
+                # below cap; business decisions never execute;
+                # exhausted never retry. Skipped entirely unless the
+                # turn carries an explicit resume seed, and skipped
+                # when this turn already executed reads (no double
+                # execution within one turn).
+                _resume_seed = {}
+                try:
+                    if isinstance(session, dict):
+                        _resume_seed = (
+                            session.get("_continuation_seed") or {})
+                except Exception:  # noqa: BLE001 — seed is optional
+                    _resume_seed = {}
+                _resume_run = str(_resume_seed.get("run_id") or "")
+                _resume_reads_done: List[str] = []
+                if _resume_run:
+                    try:
+                        _rs_tl = _task_lifecycle_for(
+                            getattr(self, "tenant_id", None),
+                            workspace_id)
+                        _rs_rec = (_rs_tl.get_task(_resume_run)
+                                   if _rs_tl is not None else None)
+                        _rs_canvas_ok = False
+                        if isinstance(_rs_rec, dict):
+                            _rs_prov = (
+                                (_rs_rec.get("task_revision") or {}).get(
+                                    "provenance") or {})
+                            _rs_canvas_ok = (
+                                str(_rs_prov.get("canvas_id") or "")
+                                == str(_chain_canvas_id() or ""))
+                        if _rs_rec is not None and _rs_canvas_ok:
+                            from core.task_lifecycle import (
+                                next_unfinished_work as _rs_nuw,
+                            )
+
+                            _rs_work = _rs_nuw(_rs_rec)
+                            _rs_prior_reads = set()
+                            try:
+                                _rs_open = (
+                                    (session or {}).get(
+                                        "_last_open_work") or {})
+                                for _rs_a in (
+                                        _rs_open.get("actions") or []):
+                                    _rs_nx = str(
+                                        _rs_a.get("next_action")
+                                        or "").lower()
+                                    if _rs_nx.startswith("read "):
+                                        _rs_prior_reads.add((
+                                            str(_rs_a.get("item")
+                                                or "").strip().lower()))
+                            except Exception:  # noqa: BLE001
+                                _rs_prior_reads = set()
+                            _rs_lessons: List[Dict[str, Any]] = []
+                            try:
+                                _rs_lessons = (
+                                    self._agent_lessons(
+                                        agent_id, message)
+                                    if agent_id else [])
+                            except Exception:  # noqa: BLE001
+                                _rs_lessons = []
+                            for _ra in (_rs_work.get("actions") or []):
+                                if len(_resume_reads_done) >= 4 or \
+                                        _chain_turn_left() < 18.0:
+                                    break
+                                _ra_inputs = (_ra.get("inputs") or {})
+                                if not isinstance(_ra_inputs, dict):
+                                    _ra_inputs = {}
+                                _ra_file = str(
+                                    _ra_inputs.get("file") or "").strip()
+                                _ra_item = str(
+                                    _ra.get("item") or "").strip()
+                                if not _ra_file or not _ra_item:
+                                    continue
+                                if _ra_item.lower() in _rs_prior_reads:
+                                    continue
+                                _ra_fields = [
+                                    str(f) for f in
+                                    (_ra_inputs.get("requested_fields")
+                                     or []) if str(f).strip()]
+                                if not _ra_fields:
+                                    try:
+                                        from core.workbook_read_artifact import (  # noqa: E501
+                                            extract_field_requests as _rr_vfr,  # noqa: E501
+                                        )
+
+                                        _ra_fields = [
+                                            str(f) for f in (
+                                                _rr_vfr([message]) or [])
+                                            if str(f).strip()][:6]
+                                    except Exception:  # noqa: BLE001
+                                        _ra_fields = []
+                                _ra_sheet = _ra_inputs.get("sheet")
+                                _ra_row = _ra_inputs.get("row")
+                                _ra_qids = [
+                                    str(_ra.get("question_id") or "")]
+                                _ra_qids = [q for q in _ra_qids if q]
+                                try:
+                                    if _ra_sheet and _ra_row:
+                                        from core.research_continuation import (  # noqa: E501
+                                            _execute_row_read as _rs_read,  # noqa: E501
+                                        )
+
+                                        _rs_act = {
+                                            "item": _ra_item,
+                                            "requested_fields": list(
+                                                _ra_fields),
+                                            "identity_context": _ra_item,
+                                            "file": _ra_file,
+                                            "candidates": [{
+                                                "sheet": str(_ra_sheet),
+                                                "row": _ra_row,
+                                                "identity_column": str(
+                                                    _ra_inputs.get(
+                                                        "identity_column")
+                                                    or ""),
+                                                "identity_cell": str(
+                                                    _ra_inputs.get(
+                                                        "identity_cell")
+                                                    or "")}],
+                                        }
+                                        await asyncio.wait_for(
+                                            _rs_read(
+                                                _rs_tl, _resume_run,
+                                                user_id, workspace_id,
+                                                _rs_act, _ra_qids,
+                                                _rs_lessons),
+                                            timeout=min(
+                                                25.0,
+                                                max(9.0, _chain_turn_left()
+                                                    - 10.0)))
+                                    else:
+                                        await asyncio.wait_for(
+                                            _pending_read_attempt({
+                                                "next_action": str(
+                                                    _ra.get(
+                                                        "next_action")
+                                                    or ""),
+                                                "item": _ra_item,
+                                                "inputs": dict(
+                                                    _ra_inputs)}),
+                                            timeout=min(
+                                                25.0,
+                                                max(9.0, _chain_turn_left()
+                                                    - 10.0)))
+                                    _resume_reads_done.append(_ra_item)
+                                    logger.info(
+                                        "[planner-boundary] resumed open "
+                                        "row read: %s (%s)", _ra_item,
+                                        _ra_file[:60])
+                                except Exception as _rr_err:  # noqa: BLE001
+                                    logger.info(
+                                        "[planner-boundary] resumed read "
+                                        "failed: %r — obligation stays "
+                                        "open", _rr_err)
+                    except Exception as _rs_err:  # noqa: BLE001
+                        logger.debug("resumed reads skipped: %r",
+                                     _rs_err)
+                # RECORD REUSE (owner order 2026-10-11 — continuation
+                # binding): a required source whose obligation the
+                # BOUND job already satisfies needs no re-dispatch.
+                # Satisfaction is durable and scoped — findings cover
+                # the requested subjects with versions present, and no
+                # open verification/freshness question remains for
+                # them. Anything less re-searches (fail-open toward
+                # reading); an explicit refresh request never reuses.
+                try:
+                    _ru_record = None
+                    _ru_run = str((_resume_run or (
+                        session.get("_task_run_id")
+                        if isinstance(session, dict) else "") or ""))
+                    if _ru_run:
+                        _ru_tl = _task_lifecycle_for(
+                            getattr(self, "tenant_id", None),
+                            workspace_id)
+                        if _ru_tl is not None:
+                            _ru_record = _ru_tl.get_task(_ru_run)
+                    if isinstance(_ru_record, dict):
+                        from core.task_lifecycle import (
+                            open_unresolved_questions as _ru_ouq,
+                        )
+
+                        _ru_open = _ru_ouq(_ru_record) or []
+                        _ru_subjects = [
+                            str(s).strip() for s in
+                            (_chain_items or []) if str(s).strip()]
+                        if _ru_subjects and not _refresh_requested(
+                                message):
+                            _ru_findings = []
+                            for _ru_o in (
+                                    _ru_record.get("operations") or []):
+                                if not isinstance(_ru_o, dict):
+                                    continue
+                                _ru_findings.extend(
+                                    ( _ru_o.get("execution") or {}).get(
+                                        "findings") or [])
+                            _ru_open_items = {
+                                str(( _ru_q.get("item") or "")).strip(
+                                    ).lower()
+                                for _ru_q in _ru_open
+                                if str((_ru_q.get("kind") or "")) in (
+                                    "verification", "missing_evidence")}
+                            for _ru_svc in list(_missing):
+                                if _ru_svc == "datasets":
+                                    _ru_ok = True
+                                    for _ru_s in _ru_subjects:
+                                        _ru_norm = re.sub(
+                                            r"[^a-z0-9]", "",
+                                            _ru_s.lower())
+                                        _ru_hit = [
+                                            _ru_f for _ru_f in
+                                            _ru_findings
+                                            if isinstance(_ru_f, dict)
+                                            and _ru_f.get(
+                                                "source_version")
+                                            and (
+                                                _ru_norm in re.sub(
+                                                    r"[^a-z0-9]", "",
+                                                    str(_ru_f.get(
+                                                        "item") or "")
+                                                    .lower())
+                                                or re.sub(
+                                                    r"[^a-z0-9]", "",
+                                                    str(_ru_f.get(
+                                                        "item") or "")
+                                                    .lower()) in _ru_norm)]
+                                        if not _ru_hit or (
+                                                _ru_norm in _ru_open_items
+                                                or any(
+                                                    _ru_norm in _ru_oi
+                                                    or _ru_oi in _ru_norm
+                                                    for _ru_oi in
+                                                    _ru_open_items)):
+                                            _ru_ok = False
+                                            break
+                                    if _ru_ok:
+                                        _consulted.add(_ru_svc)
+                                        logger.info(
+                                            "[planner-boundary] record "
+                                            "reuse: datasets satisfied "
+                                            "from durable evidence — no "
+                                            "re-dispatch")
+                                elif _ru_svc == "outlook":
+                                    _ru_mail_ok = False
+                                    for _ru_o in (
+                                            _ru_record.get("operations")
+                                            or []):
+                                        if not isinstance(_ru_o, dict):
+                                            continue
+                                        _ru_ex = (
+                                            _ru_o.get("execution") or {})
+                                        if not _ru_ex.get("invoked"):
+                                            continue
+                                        if str(_ru_ex.get("outcome")
+                                               or "") not in (
+                                            "search_succeeded",
+                                            "read_succeeded"):
+                                            continue
+                                        _ru_ev = " ".join(
+                                            str(_ru_e)[:200] for _ru_e in
+                                            (_ru_ex.get("evidence")
+                                             or []))
+                                        _ru_txt = (
+                                            str(_ru_o.get(
+                                                "requested_change")
+                                                or "") + " " + _ru_ev
+                                        ).lower()
+                                        if ("outlook" in _ru_txt
+                                                or "mail" in _ru_txt
+                                                or "thread" in _ru_txt
+                                                or "correspondence" in
+                                                _ru_txt) and any(
+                                            _ru_s.lower() in _ru_txt
+                                            for _ru_s in _ru_subjects
+                                            if _ru_s):
+                                            _ru_mail_ok = True
+                                            break
+                                    _ru_mail_open = any(
+                                        ("mail" in str(
+                                            _ru_q.get("question")
+                                            or "").lower()
+                                         or "outlook" in str(
+                                            _ru_q.get("question")
+                                            or "").lower()
+                                         or "thread" in str(
+                                            _ru_q.get("question")
+                                            or "").lower()
+                                         or "correspondence" in str(
+                                            _ru_q.get("question")
+                                            or "").lower())
+                                        for _ru_q in _ru_open
+                                        if str((_ru_q.get("kind")
+                                                or "")) in (
+                                            "verification",
+                                            "missing_evidence"))
+                                    if _ru_mail_ok and not _ru_mail_open:
+                                        _consulted.add(_ru_svc)
+                                        logger.info(
+                                            "[planner-boundary] record "
+                                            "reuse: outlook satisfied "
+                                            "from durable evidence — no "
+                                            "re-dispatch")
+                            _missing = _required_sources - _consulted
+                except Exception as _ru_err:  # noqa: BLE001
+                    logger.debug("record reuse skipped: %r", _ru_err)
                 if _chain_query:
                     # SCOPE CORRECTION (round 41 reviewer correction 1):
                     # entities carrying the OPEN CANVAS's own items are the
@@ -21441,6 +21762,42 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 })
             return groups
 
+        def _version_scoped_key(file_id: str, item_name: str) -> str:
+            """The read's dedup key carries the SOURCE VERSION it was
+            scanned under (owner work order 2026-10-11, item 1): the
+            same version re-read is a DUPLICATE; a changed version is a
+            fresh read (revalidation). Never the current catalog — the
+            scan's own receipt."""
+            for r in receipts:
+                if str((r.get("source_identity") or {}).get(
+                        "file_name") or "") == file_id:
+                    _h = str((r.get("source_identity") or {}).get(
+                        "content_hash") or "")[:24]
+                    if _h:
+                        return f"row-read:{file_id}:{item_name}:{_h}"
+            return f"row-read:{file_id}:{item_name}"
+
+        # THE DRAFT'S CLAIMED DELIVERY PER SUBJECT (owner work order
+        # 2026-10-11, item 3): availability claims ("In Stock") are
+        # verified against the TAUGHT inventory source, not the
+        # workbook — the act carries the claim so the worker's
+        # scoped-absence question names the taught source.
+        _claimed_delivery: Dict[str, str] = {}
+        try:
+            _ct = (canvas_context or {}).get("content") if isinstance(
+                canvas_context, dict) else None
+            _ct_body = _ct.get("body") if isinstance(_ct, dict) else _ct
+            for _tr in re.findall(r"<tr\b[^>]*>(.*?)</tr>",
+                                  str(_ct_body or ""),
+                                  re.IGNORECASE | re.DOTALL):
+                _cells = [re.sub(r"<[^>]+>", "", _x).strip() for _x in
+                          re.findall(r"<t[dh]\b[^>]*>(.*?)</t[dh]>",
+                                     _tr, re.IGNORECASE | re.DOTALL)]
+                if len(_cells) >= 4 and _cells[1]:
+                    _claimed_delivery[_cells[1]] = _cells[3]
+        except Exception:  # noqa: BLE001 — claim capture is additive
+            pass
+
         async def _delegate(item: str, matches: List[Dict[str, Any]],
                             file_hint: Optional[str],
                             designated: bool) -> None:
@@ -21457,6 +21814,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "identity_context": str(item),
                     "file": group_file,
                     "candidates": cands,
+                    "idempotency_key": _version_scoped_key(
+                        group_file, item),
+                    "claimed_delivery": _claimed_delivery.get(item, ""),
                 }
                 if designated:
                     act["provenance"] = {"source": "lesson"}
@@ -21630,11 +21990,19 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         """ONE evidence-only record policy (owner correction
         2026-10-10): applicable ACTIVE findings first, then relevant
         COMPLETED findings — same exact canvas binding, same workspace
-        scoping, for every caller."""
+        scoping, for every caller. Applicable means WITH findings: a
+        newer empty active job never shadows an older applicable one
+        (owner order 2026-10-11 — continuation binding). Selection
+        only — one record, never a merge across jobs."""
         try:
-            record = tl.find_active_task_for_canvas(canvas_id)
+            record = tl.find_applicable_task_for_canvas(canvas_id)
         except Exception:  # noqa: BLE001
             record = None
+        if record is None:
+            try:
+                record = tl.find_active_task_for_canvas(canvas_id)
+            except Exception:  # noqa: BLE001
+                record = None
         if record is None:
             try:
                 record = tl.find_canvas_evidence_task(canvas_id)

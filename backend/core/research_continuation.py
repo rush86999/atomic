@@ -393,10 +393,12 @@ async def _execute_document_read(
                 },
             }], source_operation=None)
 
+    _doc_key = f"doc-read:{file_name[:100]}"
     op = lifecycle.create_operation(
         run_id, op_type="retrieve",
         requested_change=(
-            f"research continuation read: {file_name[:120]}"))
+            f"research continuation read: {file_name[:120]}"),
+        idempotency_key=_doc_key)
     _exec_facts = {
         "invoked": any_executed,
         "outcome": ("read_succeeded" if any(
@@ -976,9 +978,33 @@ async def _execute_row_read(
                 })
             else:
                 statuses[item] = "matched"
+                # AVAILABILITY-CLASS FIELD (owner work order 2026-10-11,
+                # item 3 — the Zoho trace): a field the DRAFT claims as
+                # an availability term ('In Stock') whose absence in the
+                # workbook is scoped — the verification source is the
+                # TAUGHT inventory source, not a workbook re-read. The
+                # question names it, so the ledger's action selection
+                # can route to the taught tool (Zoho) through the
+                # existing planner — never a dispatcher branch.
+                _availability_claim = any(
+                    w in str(act.get("claimed_delivery") or "").lower()
+                    for w in ("in stock", "stock"))
+                _inv_teaching = ""
+                for _l in agent_lessons or []:
+                    _lt = " ".join(str(_l.get("lesson") or _l.get(
+                        "summary") or "").split()).lower()
+                    if "inventory" in _lt and ("zoho" in _lt
+                                               or "source" in _lt):
+                        _inv_teaching = _lt[:160]
+                        break
                 evidence.append(
                     f"{item}: corroborated row has NO monetary {field} "
                     f"column — scoped absence in this source")
+                if _availability_claim and _inv_teaching:
+                    evidence.append(
+                        f"{item}: {field} is an AVAILABILITY claim "
+                        f"('In Stock') — the taught inventory source "
+                        f"governs verification: {_inv_teaching}")
     elif len(supporting) > 1:
         # DUPLICATE-LISTING COMPARISON (round 57): two supporting rows
         # may be duplicate listings (same machine, same description in
@@ -1185,10 +1211,19 @@ async def _execute_row_read(
                 }], source_operation=None)
         except Exception:  # noqa: BLE001 — question is bookkeeping
             pass
+    # DUPLICATE-READ GUARD (owner work order 2026-10-11, item 1 — the
+    # t1r7 inspection found TWELVE identical running reads of one
+    # subject/file: continuation reads carry no idempotency key, so
+    # nothing dedups them and the receipt-less budget never binds).
+    # The EXISTING reservation mechanism dedups: the key is the read's
+    # own identity — (file, item) — stable across continuation passes.
+    _read_key = str(act.get("idempotency_key") or
+                    f"row-read:{str(act.get('file'))[:100]}:{item}")
     op = lifecycle.create_operation(
         run_id, op_type="retrieve",
         requested_change=(
-            f"row-context read: {act.get('file')} candidates for {item}"))
+            f"row-context read: {act.get('file')} candidates for {item}"),
+        idempotency_key=_read_key)
     _exec_facts = {
         "invoked": bool(act.get("candidates")),
         "outcome": ("read_succeeded" if statuses.get(item) == "matched"
