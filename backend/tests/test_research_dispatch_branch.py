@@ -198,6 +198,17 @@ def _run_turn(message, scanner, narrate="reply text"):
             patch("core.sheet_dataset_service."
                   "find_all_occurrences_sync",
                   side_effect=scanner),
+            # faithful live shape: the full row comes from the row
+            # reader for the bound row number
+            patch("core.sheet_dataset_service.read_sheet_row_sync",
+                  side_effect=lambda fn, sh, rn, *a, **k: (
+                      {"headers": ["DESCRIPTION", "U.S. LIST",
+                                   "DELIVERY"],
+                       "row": {"DESCRIPTION": "Tennsmith Slitter "
+                                              "SLE24-16",
+                               "U.S. LIST": "8,984",
+                               "DELIVERY": "11-12 weeks"}}
+                      if rn == 101 else None)),
         ]:
             st.enter_context(cm)
         result = asyncio.run(orch.process_chat_message(
