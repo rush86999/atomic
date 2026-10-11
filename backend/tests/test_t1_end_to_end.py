@@ -246,6 +246,13 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
                   return_value=tl),
             patch("core.student_learning_service.get_agent_lessons",
                   return_value=lessons or []),
+            # the catalog's sheet resolution (the worker's own
+            # mechanism): the taught sheet resolves to the materialized
+            # 2015 copy
+            patch("core.sheet_dataset_service.find_entries_sync",
+                  side_effect=lambda sheet, *a, **k: (
+                      [{"file_name": "Consolidated Price List 2015.xlsx"}]
+                      if "tennsmith" in str(sheet).lower() else [])),
             patch("core.sheet_dataset_service."
                   "find_all_occurrences_sync",
                   side_effect=lambda item, *a, **k: (
@@ -417,7 +424,8 @@ class TestSourceCorrectAssociations:
         found, versions, statuses = _durable(tl)
         sle_prices = [f for f in found
                       if "SLE24-16" in str(f.get("item") or "")
-                      and f.get("field") == "price"]
+                      and f.get("field") == "price"
+                      and "2019" in str(f.get("source") or "")]
         assert [f.get("column") for f in sle_prices] == ["LIST PRICE"], (
             "the taught basis selects the column")
 
@@ -464,3 +472,126 @@ class TestSourceCorrectAssociations:
                 not str(e.get("raw_value") or "").strip()
                 for e in delivery_rows), (
                 "no delivery value is invented for the empty cell")
+
+
+class TestTaughtSheetResolution:
+    """The CAPTURED live divergence (t1r6 replay, 2026-10-11): the
+    teaching designates the source by WORKBOOK NAME + SHEET with no
+    file extension ('the approved price basis is the Consolidated
+    Price List 2019 workbook in Zoho WorkDrive, Tennsmith sheet'), the
+    extension-keyed extractor found nothing, and the 2019 workbook is
+    NOT in the catalog — only the 2015 copy (which carries the taught
+    Tennsmith sheet). Faithful shape: lessons without extensions, the
+    materialized 2015 copy, an ambiguous same-sheet copy, and a
+    supplementary workbook containing the item."""
+
+    def _lessons(self):
+        return [
+            {"id": "L-designate",
+             "lesson": ("For Tennsmith machinery, the approved price "
+                        "basis is the Consolidated Price List 2019 "
+                        "workbook in Zoho WorkDrive, Tennsmith sheet — "
+                        "read prices from that sheet.")},
+        ]
+
+    def _catalog_scanner(self):
+        """The materialized catalog: the 2019 workbook is ABSENT; the
+        2015 copy carries the taught Tennsmith sheet (whose row holds
+        the subject); a second copy carries the same sheet name
+        (ambiguity); a supplementary workbook contains the item."""
+        def _fn(item, user_id=None, workspace_id=None, file_name=None,
+                max_matches=8):
+            needle = str(item).strip().lower()
+            books = [
+                ("Consolidated Price List 2015.xlsx", "Tennsmith",
+                 "C338", {"MODEL NO.": "SLE24-16",
+                          "DESCRIPTION": "Single Wheel Slitter",
+                          "LIST PRICE": "8984"}),
+                ("Roper Quote 2024.xlsx", "Tennsmith",
+                 "D5", {"MODEL NO.": "SLE24-16",
+                        "DESCRIPTION": "Slitter (quote draft)",
+                        "PRICE": "7000"}),
+            ]
+            out = []
+            for fname, sheet, cell, cells in books:
+                if file_name and fname != file_name:
+                    continue
+                for col, v in cells.items():
+                    if needle and needle in str(v).lower():
+                        out.append({"file": fname, "sheet": sheet,
+                                    "cell": cell, "column": col,
+                                    "value": str(v)})
+            return {"matches": out[:max_matches], "per_file": {},
+                    "total_matches": len(out),
+                    "source_identity": {
+                        "file_name": (out[0]["file"] if out
+                                      else (file_name or "x.xlsx")),
+                        "content_hash": {
+                            "Consolidated Price List 2015.xlsx":
+                                "hash-materialized-2015",
+                            "Roper Quote 2024.xlsx":
+                                "hash-supplementary"}.get(
+                            out[0]["file"] if out else "",
+                            "hash-unknown")}}
+        return _fn
+
+    def _row_reader(self):
+        def _fn(fname, sheet, row_number, *a, **k):
+            if (fname == "Consolidated Price List 2015.xlsx"
+                    and sheet == "Tennsmith" and row_number == 338):
+                return {"headers": ["MODEL NO.", "DESCRIPTION",
+                                    "LIST PRICE"],
+                        "row": {"MODEL NO.": "SLE24-16",
+                                "DESCRIPTION": "Single Wheel Slitter",
+                                "LIST PRICE": "8984"},
+                        "source": {"file_name": fname,
+                                   "content_hash":
+                                       "hash-materialized-2015"}}
+            if (fname == "Roper Quote 2024.xlsx"
+                    and row_number == 5):
+                return {"headers": ["MODEL NO.", "DESCRIPTION",
+                                    "PRICE"],
+                        "row": {"MODEL NO.": "SLE24-16",
+                                "DESCRIPTION": "Slitter (quote draft)",
+                                "PRICE": "7000"},
+                        "source": {"file_name": fname,
+                                   "content_hash": "hash-supplementary"}}
+            return None
+        return _fn
+
+    def _run(self):
+        return _run_t1(
+            self._catalog_scanner(), row_reader=self._row_reader(),
+            lessons=self._lessons(), scanner_tracks_files=True)
+
+    def test_taught_sheet_resolves_through_the_materialized_copy(self):
+        result, spy, orch, tl, factory = self._run()
+        found, versions, statuses = _durable(tl)
+        sle = [f for f in found
+               if "SLE24-16" in str(f.get("item") or "")]
+        # the taught SHEET resolves to the materialized 2015 copy —
+        # the workbook the teaching names (2019) is NOT in the catalog,
+        # and that mismatch must be EXPLICIT on the record
+        assert sle, "the subject binds through the taught sheet"
+        assert all("2015" in str(f.get("source") or "")
+                   for f in sle), (
+            f"the served copy is the materialized one: "
+            f"{[f.get('source') for f in sle]}")
+        assert all(f.get("source_version") == "hash-materialized-2015"
+                   for f in sle), (
+            "each finding carries its own read's version")
+        # the supplementary workbook's cheaper value must NOT satisfy:
+        # its 7000 price never becomes the designated finding
+        assert not any(f.get("raw") == "7000" for f in sle), (
+            "supplementary evidence cannot satisfy the designated "
+            "obligation")
+
+    def test_the_taught_name_mismatch_is_explicit(self):
+        result, spy, orch, tl, factory = self._run()
+        found, versions, statuses = _durable(tl)
+        sle = [f for f in found
+               if "SLE24-16" in str(f.get("item") or "")]
+        assert sle and all(
+            f.get("taught_source_mismatch") for f in sle), (
+            "serving the 2015 copy for a 2019-designated obligation is "
+            "RECORDED as a mismatch, never silent")

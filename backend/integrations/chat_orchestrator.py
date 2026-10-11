@@ -21250,14 +21250,23 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 shared_tool_state["job_scope_items"] = list(scope_items)
         if not scope_items or not canvas_context:
             return None
-        # the requested FIELDS, business-neutral: the value nouns the
-        # request itself names (price/delivery are the quote vocabulary
-        # the field contract already carries)
-        _msg = (message or "").lower()
-        fields = [f for f, pat in (
-            ("price", ("price", "prices", "cost")),
-            ("delivery", ("delivery", "lead time", "lead times"))) if
-            any(p in _msg for p in pat)] or ["price"]
+        # THE REQUESTED-FIELD CONTRACT (owner correction 2026-10-11):
+        # the request's own field asks through the EXISTING contract
+        # derivation — never a local noun scan. An empty contract
+        # means no pricing obligation: the worker corroborates
+        # identity and stays open; nothing defaults to price.
+        fields: List[str] = []
+        try:
+            from core.workbook_read_artifact import (
+                extract_field_requests as _field_requests,
+            )
+
+            fields = [
+                str(f) for f in (
+                    _field_requests([message]) or [])
+                if str(f).strip()][:6]
+        except Exception:  # noqa: BLE001 — no contract, no obligation
+            fields = []
         tl = _task_lifecycle_for(
             getattr(self, "tenant_id", None), workspace_id)
         if tl is None:
@@ -21308,30 +21317,70 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     query=message or "", limit=12)
         except Exception:  # noqa: BLE001 — teaching is additive
             _lessons = []
+        # DESIGNATED-SOURCE RESOLUTION (owner correction 2026-10-11):
+        # the teaching's designated workbook identity comes from the
+        # EXISTING resolver — never a parallel filename heuristic. It
+        # handles extension-less designations ("price list 2019 in
+        # zoho workdrive"), matches exactly ONE catalogued workbook
+        # family against workspace-scoped catalog metadata, and stays
+        # explicit ("") on unresolved or ambiguous designation — the
+        # dispatch then falls through to broad discovery with
+        # candidates preserved.
         _taught_files: List[str] = []
-        for _l in _lessons:
-            _t = " ".join(str(_l.get("lesson") or _l.get("summary")
-                              or "").split())
-            # SUFFIX VARIANTS (live finding: the greedy left capture
-            # took the whole sentence — 'Always price quotes from the
-            # Consolidated Price List 2019.xlsx'). A workbook mention
-            # is the extension-terminated token plus up to three
-            # preceding tokens; each suffix is a candidate file name
-            # and the scan's file filter decides which exists.
-            _toks = _t.split()
-            for _i, _tok in enumerate(_toks):
-                if not re.search(
-                        r"\.(?:xlsx|xlsm|csv|tsv)$", _tok, re.I):
-                    continue
-                for _span in (4, 3, 2, 1):
-                    if _i - _span + 1 < 0:
-                        continue
-                    _cand = " ".join(
-                        _toks[_i - _span + 1:_i + 1]).strip()
-                    if _cand:
-                        _taught_files.append(_cand)
-        _taught_files = list(dict.fromkeys(
-            f.strip() for f in _taught_files if f.strip()))[:6]
+        _taught_names: List[str] = []
+        try:
+            _designated = await self._lesson_designated_file(
+                message, agent_id=agent_id, user_id=user_id,
+                workspace_id=workspace_id)
+        except Exception:  # noqa: BLE001 — designation is additive
+            _designated = ""
+        if _designated:
+            _taught_files = [_designated]
+        else:
+            # TAUGHT-SHEET RESOLUTION (owner work order 2026-10-11, the
+            # t1r6 replay): the teaching designates by WORKBOOK NAME +
+            # SHEET with no extension ('the approved price basis is the
+            # Consolidated Price List 2019 workbook in Zoho WorkDrive,
+            # Tennsmith sheet') — the noun-form family match fails when
+            # the taught version (2019) is not the materialized one
+            # (2015). Resolve through the WORKER's own mechanism
+            # (find_entries_sync BY SHEET — the same call the
+            # taught-lead row read uses); the taught NAME is kept for
+            # mismatch detection, and the mismatch is recorded, never
+            # silent.
+            for _l in _lessons:
+                _t = " ".join(str(_l.get("lesson") or _l.get("summary")
+                                  or "").split())
+                for m in re.finditer(
+                        r"([A-Za-z][A-Za-z0-9 .'-]{0,40}?)\s+sheet\b",
+                        _t, re.I):
+                    _sheet = re.sub(r"^(?:the|on|of|from)\s+", "",
+                                    m.group(1).strip(), flags=re.I)
+                    if _sheet and len(_sheet) >= 3:
+                        _taught_names.append(_sheet)
+                for m in re.finditer(
+                        r"([A-Z][A-Za-z ]{3,60}?(?:19|20)\d{2})\s+workbook",
+                        _t):
+                    _taught_names.append(m.group(1).strip())
+            _taught_names = list(dict.fromkeys(_taught_names))[:3]
+            try:
+                from core.sheet_dataset_service import (
+                    find_entries_sync as _sheet_resolver,
+                )
+
+                for _sheet in _taught_names:
+                    _hits = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            _sheet_resolver, _sheet, user_id,
+                            workspace_id, 6),
+                        timeout=20)
+                    for _h in _hits or []:
+                        _fn = str(_h.get("file_name") or "")
+                        if _fn and _fn not in _taught_files:
+                            _taught_files.append(_fn)
+            except Exception:  # noqa: BLE001 — resolution is best-effort
+                pass
+            _taught_files = _taught_files[:6]
 
         findings: List[Dict[str, Any]] = []
         statuses: Dict[str, str] = {}
@@ -21411,6 +21460,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 }
                 if designated:
                     act["provenance"] = {"source": "lesson"}
+                    # THE TAUGHT NAME rides the act (owner work order
+                    # 2026-10-11): the worker marks the version gap
+                    # between the taught workbook and the served copy.
+                    for _nm in _taught_names:
+                        if any(ch.isdigit() for ch in _nm):
+                            act["taught_source"] = {"name": _nm}
+                            break
                 await _worker_row_read(
                     tl, run_id, user_id, workspace_id, act, [],
                     agent_lessons=_lessons)
@@ -21434,8 +21490,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     if not _ex.get("items") and not _ex.get("findings"):
                         continue
                     _seen.add(_oid)
+                    # Case-insensitive: the resolved designation is
+                    # normalized lowercase while worker records carry
+                    # the catalog's own casing.
                     _is_desig = any(
-                        t in str(_o.get("requested_change") or "")
+                        t.lower() in str(
+                            _o.get("requested_change") or "").lower()
                         for t in designated_files)
                     for it, st in (_ex.get("items") or {}).items():
                         if not str(st):

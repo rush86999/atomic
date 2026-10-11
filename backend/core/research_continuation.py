@@ -849,6 +849,21 @@ async def _execute_row_read(
         _exec_reads.append(_read_rec)
         supporting.append(
             {"cand": cand, "bound": bound, "_row_result": row_result})
+    # TAUGHT-SOURCE MISMATCH (owner work order 2026-10-11): the
+    # teaching designates a workbook VERSION the catalog may not carry
+    # ('the Consolidated Price List 2019 workbook' vs a materialized
+    # 2015 copy). When the caller supplies the taught name and the
+    # served file does not carry it, every finding from this read is
+    # marked — serving the best-available copy is honest ONLY when the
+    # version gap is on the record.
+    _taught_name = str((act.get("taught_source") or {}).get("name")
+                       or "")
+    _served_file = str(act.get("file") or "")
+    _taught_mismatch = bool(_taught_name) and bool(_served_file) and (
+        not all(tok in _served_file.lower()
+                for tok in re.findall(r"\d{4}|[a-z]{4,}",
+                                      _taught_name.lower())
+                if tok not in ("workbook", "list", "price")))
     _typed_findings: List[Dict[str, Any]] = []
     # THE SUPPORTED ROW'S OWN READ VERSION (owner correction
     # 2026-10-11): from the row's four-layer capture — the serving
@@ -916,6 +931,8 @@ async def _execute_row_read(
                     # 2026-10-11): the serving-copy identity the row
                     # reader reported for THIS row
                     "source_version": _row_version,
+                    "taught_source_mismatch": _taught_mismatch,
+                    "taught_source": (_taught_name or None),
                     "parsed": cands[0][2] if len(cands[0]) > 2 else None,
                     # single-line f-string expression: a multi-line one is
                     # a SyntaxError on Python < 3.12, and the 3.11 test
