@@ -635,7 +635,8 @@ class TestTwoItemMultiBasisReconstruction:
         record = self._record()
         with patch.object(co, "_task_lifecycle_for") as tlf:
             tlf.return_value = MagicMock(**{
-                "find_active_task_for_canvas.return_value": None,
+                "find_applicable_task_for_canvas.return_value": record,
+                "find_active_task_for_canvas.return_value": record,
                 "find_canvas_evidence_task.return_value": record})
             contract = orch._canvas_job_evidence_contract(
                 {"canvas_id": "cv-multi", "content": {"body": ""}})

@@ -1005,6 +1005,41 @@ class TaskLifecycle:
                 return record
         return None
 
+    def find_applicable_task_for_canvas(
+        self, canvas_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Newest non-terminal canvas-bound run WITH findings, else the
+        newest non-terminal canvas-bound run (owner order 2026-10-11 —
+        continuation binding): a newer empty job must not shadow an
+        older applicable record. Selection only, never merging: the
+        caller executes against the ONE returned record. Exact canvas
+        binding + workspace-scoped runs store are the guards (same as
+        the finders beside it)."""
+        canvas = str(canvas_id or "").strip()
+        if not canvas:
+            return None
+        runs = self.runs.list_runs(include_terminal=False, limit=200)
+        fallback: Optional[Dict[str, Any]] = None
+        for run in runs:
+            record = self.get_task(run["id"])
+            if record is None:
+                continue
+            provenance = (record.get("task_revision") or {}).get(
+                "provenance") or {}
+            if str(provenance.get("canvas_id") or "") != canvas:
+                continue
+            if fallback is None:
+                fallback = record
+            ops = record.get("operations") or []
+            for op in ops:
+                if not isinstance(op, dict):
+                    continue
+                findings = ((op.get("execution") or {}).get("findings")
+                            or [])
+                if any(isinstance(f, dict) for f in findings):
+                    return record
+        return fallback
+
     # ------------------------------------------------- atomic mutation
     # Every state change below goes through _mutate: read the fresh
     # record, compute the new lifecycle purely, then apply it with a
@@ -1956,6 +1991,24 @@ def _resolve_for_turn(lifecycle: "TaskLifecycle",
     if stashed:
         try:
             record = lifecycle.get_task(stashed)
+        except Exception:
+            record = None
+    if record is None and isinstance(session, dict):
+        # EXPLICIT RESUME BINDING (owner order 2026-10-11 —
+        # continuation binding): the turn's continuation leg resolved
+        # a job and stashed its run id on the session. An explicitly
+        # resumed job remains the execution target — ahead of the
+        # conversation fallback, which would mint a drifting twin.
+        # Validated (exists, not cancelled) or ignored.
+        try:
+            _seed = session.get("_continuation_seed") or {}
+            _seed_run = str(_seed.get("run_id") or "")
+            if _seed_run:
+                _seeded = lifecycle.get_task(_seed_run)
+                if _seeded is not None and (
+                        (_seeded.get("task_revision") or {}).get(
+                            "authorization") != "cancelled"):
+                    record = _seeded
         except Exception:
             record = None
     if record is None:
