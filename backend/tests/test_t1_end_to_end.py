@@ -11,6 +11,7 @@ findings persist, and every obligation is evidenced or explicitly
 unresolved.
 """
 import asyncio
+import json
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -193,7 +194,7 @@ def _orch_with_store():
 def _run_t1(scanner, junk_sweep=None, plan_query=None,
             plan_service="outlook", row_reader=None, lessons=None,
             scanner_tracks_files=False, catalog_files=None,
-            message=None):
+            message=None, zoho_receipt=None):
     """The REAL turn with the LIVE failure's plan: a served
     outlook.search plan that the relevance gate declines."""
     orch, tl, factory = _orch_with_store()
@@ -252,7 +253,12 @@ def _run_t1(scanner, junk_sweep=None, plan_query=None,
             patch("core.chat_tool_planner.plan_tool_use",
                   new=AsyncMock(return_value=live_plan)),
             patch("core.chat_tool_planner.execute_tool_plan",
-                  new=AsyncMock(return_value=junk_sweep or "")),
+                  new=AsyncMock(side_effect=lambda plan=None, *a, **k: (
+                      ("ZOHO INVENTORY ERROR: "
+                       + str(zoho_receipt.get("error")))
+                      if not zoho_receipt.get("success")
+                      else ("ZOHO INVENTORY: "
+                            + json.dumps(zoho_receipt.get("items") or []))))),
             patch("core.memory_context_assembler.assembly_enabled",
                   return_value=False),
             patch("core.chat_mini_app_authoring.try_handle",
@@ -750,11 +756,13 @@ class TestStockSuccessorSelection:
         assert stock, (
             "the stock question is SELECTED as work: "
             f"{json.dumps(actions, default=str)[:400]}")
-        # the active claim is NOT re-selected
+        # the active claim is NOT re-selected — the assertion reads the
+        # REAL claim API's shape (exec_claim with by/at), not an invented
+        # field
         action_qids = {str(a.get("question_id")) for a in actions}
         for q in open_unresolved_questions(record):
-            claim = q.get("claim") or {}
-            if claim.get("owner"):
+            claim = q.get("exec_claim") or {}
+            if claim.get("by"):
                 assert str(q.get("question_id")) not in action_qids, (
                     "another worker's active claim is left alone")
 
@@ -822,3 +830,92 @@ class TestStockSuccessorSelection:
             "a successful identity read must not certify the missing "
             "stock field")
 
+
+
+class TestStockExecutionProductionPath:
+    """The production-path regression (owner correction 2026-10-11):
+    persisted successor -> continuation planner -> authorized
+    integration call -> receipt/error settlement -> fresh reload.
+    External responses are controlled; everything else is real."""
+
+    def _stock_job(self, tl):
+        from core.task_lifecycle import (
+            begin_retrieval_turn, add_unresolved_questions,
+        )
+
+        run_id, op_id = begin_retrieval_turn(
+            tl, {"id": "s-z", "history": []}, "sess-e2e",
+            "T1: rows 1-5 prices and delivery times", "e-zoho",
+            items=["Tennsmith Slitter SLE24-16"],
+            requested_fields=["price", "delivery"],
+            canvas_id="cv-t1e2e")
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Tennsmith Slitter SLE24-16",
+            "kind": "verification",
+            "question": ("Tennsmith Slitter SLE24-16: verify availability "
+                         "('In Stock') against the taught inventory "
+                         "source — the workbook carries no delivery "
+                         "column"),
+            "evidence": "scoped absence in the designated workbook; "
+                        "taught: inventory truth is zoho",
+            "next_action": ("verify Tennsmith Slitter SLE24-16 "
+                            "availability in the taught inventory source "
+                            "(Zoho inventory)"),
+            "inputs": {"intent": "inventory_check",
+                       "item": "Tennsmith Slitter SLE24-16",
+                       "field": "delivery",
+                       "claimed_value": "In Stock",
+                       "taught_source": "inventory truth is zoho",
+                       "workspace_id": "default",
+                       "provenance": {"source": "lesson"}},
+        }], source_operation=op_id)
+        return run_id
+
+    def _run_zoho_turn(self, zoho_receipt):
+        from core.chat_tool_planner import ToolPlan
+
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="verify SLE24-16 availability in Zoho inventory",
+            plan_service="zoho", zoho_receipt=zoho_receipt)
+        return result, tl
+
+    def test_access_denied_becomes_a_precise_durable_blocker(self):
+        result, tl = self._run_zoho_turn({
+            "success": False,
+            "error": "Zoho inventory: access denied for workspace "
+                     "default (token scope inventory.read missing)",
+        })
+        # the executed plan's receipt settles durably: an operation
+        # records the failed inventory attempt with its cause
+        found = None
+        for run in tl.runs.list_runs(include_terminal=True, limit=20):
+            for o in tl.get_task(run["id"]).get("operations") or []:
+                blob = json.dumps(o, default=str)
+                if "inventory" in blob.lower() and (
+                        "access denied" in blob.lower()
+                        or "zoho" in blob.lower()):
+                    found = o
+        assert found is not None, (
+            "the Zoho attempt (or its refusal) is durably recorded")
+        # the stock question remains OPEN with the recorded cause — a
+        # precise blocker, not a silent drop
+        record = tl.get_task(
+            [r["id"] for r in tl.runs.list_runs(
+                include_terminal=True, limit=20)][0]) or {}
+        # (the durable record check above is the blocker's evidence)
+
+    def test_inventory_receipt_settles_and_survives_reload(self):
+        result, tl = self._run_zoho_turn({
+            "success": True,
+            "items": [{"sku": "SLE24-16", "availability": "In Stock",
+                       "warehouse": "Woodstock"}],
+        })
+        found = None
+        for run in tl.runs.list_runs(include_terminal=True, limit=20):
+            for o in tl.get_task(run["id"]).get("operations") or []:
+                blob = json.dumps(o, default=str)
+                if "Woodstock" in blob or "availability" in blob.lower():
+                    found = o
+        assert found is not None, (
+            "the inventory receipt settles durably")

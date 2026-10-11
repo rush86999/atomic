@@ -7024,6 +7024,16 @@ class ChatOrchestrator:
             # Owner decisions are surfaced, never executed; executable
             # questions retry under the attempt budget.
             _cont_seed = None
+            # BARE vs QUALIFIED (owner order 2026-10-11 — continuation
+            # binding): a bare "continue" may be redirected to the job's
+            # own recorded ask (there is no other content); a QUALIFIED
+            # continuation ("Please continue the workbook half: read the
+            # open rows…") keeps the operator's own words — its message
+            # already names the work, and rewriting it to a ledger
+            # question would let the file-ask lane claim the turn before
+            # the resume machinery runs.
+            _cont_text = " ".join(str(message or "").split())
+            _cont_bare = bool(_CONTINUATION_RE.fullmatch(_cont_text or ""))
             try:
                 _cont_text = " ".join(str(message or "").split())
                 if _CONTINUATION_RE.fullmatch(_cont_text or "") or \
@@ -7080,6 +7090,7 @@ class ChatOrchestrator:
                                     "run_id": _cont_record["run_id"],
                                     "attempt": int(
                                         _cont_q.get("attempts") or 0) + 1,
+                                    "rewrite": _cont_bare,
                                 }
                             else:
                                 # NO OPEN-QUESTION ACTIONS (round 38, the
@@ -7161,20 +7172,23 @@ class ChatOrchestrator:
                                         "original": _cont_text,
                                         "run_id": _cont_record["run_id"],
                                         "attempt": 1,
+                                        "rewrite": _cont_bare,
                                     }
                             if _cont_seed:
-                                # The seeded ask is a full research ask;
-                                # the deadline was derived from the bare
-                                # continuation word and must be re-derived
-                                # from what the turn actually is.
-                                message = _cont_seed["ask"]
-                                _deadline = TurnDeadline(
-                                    _request_deadline_seconds(
-                                        derivation=_derivation_ask(
-                                            message, {"history": [],
-                                                      "canvas": context})),
-                                    label="chat-request",
-                                )
+                                if _cont_seed.get("rewrite", True):
+                                    # The seeded ask is a full research
+                                    # ask; the deadline was derived from
+                                    # the bare continuation word and must
+                                    # be re-derived from what the turn
+                                    # actually is.
+                                    message = _cont_seed["ask"]
+                                    _deadline = TurnDeadline(
+                                        _request_deadline_seconds(
+                                            derivation=_derivation_ask(
+                                                message, {"history": [],
+                                                          "canvas": context})),
+                                        label="chat-request",
+                                    )
                                 logger.info(
                                     "[job-continuation] seeded turn from %s "
                                     "(attempt %s)",
@@ -17338,6 +17352,326 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 "consulted; the confirmed-file read "
                                 "chains")
                 _missing = _required_sources - _consulted
+                def _resume_turn_left() -> float:
+                    try:
+                        if deadline is not None:
+                            return deadline.remaining()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    return float("inf")
+
+                # RESUME OPEN ROW READS (owner order 2026-10-11 —
+                # continuation binding): a turn explicitly resuming a
+                # job executes the job's eligible open row reads from
+                # their STRUCTURED inputs — never a fresh token sweep
+                # for covered work. Eligible = open verification (or
+                # missing-evidence) with file/location inputs, attempts
+                # below cap; business decisions never execute;
+                # exhausted never retry. Skipped entirely unless the
+                # turn carries an explicit resume seed, and skipped
+                # when this turn already executed reads (no double
+                # execution within one turn).
+                _resume_seed = {}
+                try:
+                    if isinstance(session, dict):
+                        _resume_seed = (
+                            session.get("_continuation_seed") or {})
+                except Exception:  # noqa: BLE001 — seed is optional
+                    _resume_seed = {}
+                _resume_run = str(_resume_seed.get("run_id") or "")
+                _resume_reads_done: List[str] = []
+                if _resume_run:
+                    try:
+                        _rs_tl = _task_lifecycle_for(
+                            getattr(self, "tenant_id", None),
+                            workspace_id)
+                        _rs_rec = (_rs_tl.get_task(_resume_run)
+                                   if _rs_tl is not None else None)
+                        _rs_canvas_ok = False
+                        if isinstance(_rs_rec, dict):
+                            _rs_prov = (
+                                (_rs_rec.get("task_revision") or {}).get(
+                                    "provenance") or {})
+                            _rs_canvas_ok = (
+                                str(_rs_prov.get("canvas_id") or "")
+                                == str(_chain_canvas_id() or ""))
+                        if _rs_rec is not None and _rs_canvas_ok:
+                            from core.task_lifecycle import (
+                                next_unfinished_work as _rs_nuw,
+                            )
+
+                            _rs_work = _rs_nuw(_rs_rec)
+                            _rs_prior_reads = set()
+                            try:
+                                _rs_open = (
+                                    (session or {}).get(
+                                        "_last_open_work") or {})
+                                for _rs_a in (
+                                        _rs_open.get("actions") or []):
+                                    _rs_nx = str(
+                                        _rs_a.get("next_action")
+                                        or "").lower()
+                                    if _rs_nx.startswith("read "):
+                                        _rs_prior_reads.add((
+                                            str(_rs_a.get("item")
+                                                or "").strip().lower()))
+                            except Exception:  # noqa: BLE001
+                                _rs_prior_reads = set()
+                            _rs_lessons: List[Dict[str, Any]] = []
+                            try:
+                                _rs_lessons = (
+                                    self._agent_lessons(
+                                        agent_id, message)
+                                    if agent_id else [])
+                            except Exception:  # noqa: BLE001
+                                _rs_lessons = []
+                            for _ra in (_rs_work.get("actions") or []):
+                                if len(_resume_reads_done) >= 4 or \
+                                        _resume_turn_left() < 18.0:
+                                    break
+                                _ra_inputs = (_ra.get("inputs") or {})
+                                if not isinstance(_ra_inputs, dict):
+                                    _ra_inputs = {}
+                                _ra_file = str(
+                                    _ra_inputs.get("file") or "").strip()
+                                _ra_item = str(
+                                    _ra.get("item") or "").strip()
+                                if not _ra_file or not _ra_item:
+                                    continue
+                                if _ra_item.lower() in _rs_prior_reads:
+                                    continue
+                                _ra_fields = [
+                                    str(f) for f in
+                                    (_ra_inputs.get("requested_fields")
+                                     or []) if str(f).strip()]
+                                if not _ra_fields:
+                                    try:
+                                        from core.workbook_read_artifact import (  # noqa: E501
+                                            extract_field_requests as _rr_vfr,  # noqa: E501
+                                        )
+
+                                        _ra_fields = [
+                                            str(f) for f in (
+                                                _rr_vfr([message]) or [])
+                                            if str(f).strip()][:6]
+                                    except Exception:  # noqa: BLE001
+                                        _ra_fields = []
+                                _ra_sheet = _ra_inputs.get("sheet")
+                                _ra_row = _ra_inputs.get("row")
+                                _ra_qids = [
+                                    str(_ra.get("question_id") or "")]
+                                _ra_qids = [q for q in _ra_qids if q]
+                                try:
+                                    if _ra_sheet and _ra_row:
+                                        from core.research_continuation import (  # noqa: E501
+                                            _execute_row_read as _rs_read,  # noqa: E501
+                                        )
+
+                                        _rs_act = {
+                                            "item": _ra_item,
+                                            "requested_fields": list(
+                                                _ra_fields),
+                                            "identity_context": _ra_item,
+                                            "file": _ra_file,
+                                            "candidates": [{
+                                                "sheet": str(_ra_sheet),
+                                                "row": _ra_row,
+                                                "identity_column": str(
+                                                    _ra_inputs.get(
+                                                        "identity_column")
+                                                    or ""),
+                                                "identity_cell": str(
+                                                    _ra_inputs.get(
+                                                        "identity_cell")
+                                                    or "")}],
+                                        }
+                                        await asyncio.wait_for(
+                                            _rs_read(
+                                                _rs_tl, _resume_run,
+                                                user_id, workspace_id,
+                                                _rs_act, _ra_qids,
+                                                _rs_lessons),
+                                            timeout=min(
+                                                25.0,
+                                                max(9.0, _resume_turn_left()
+                                                    - 10.0)))
+                                    else:
+                                        await asyncio.wait_for(
+                                            _pending_read_attempt({
+                                                "next_action": str(
+                                                    _ra.get(
+                                                        "next_action")
+                                                    or ""),
+                                                "item": _ra_item,
+                                                "inputs": dict(
+                                                    _ra_inputs)}),
+                                            timeout=min(
+                                                25.0,
+                                                max(9.0, _resume_turn_left()
+                                                    - 10.0)))
+                                    _resume_reads_done.append(_ra_item)
+                                    logger.info(
+                                        "[planner-boundary] resumed open "
+                                        "row read: %s (%s)", _ra_item,
+                                        _ra_file[:60])
+                                except Exception as _rr_err:  # noqa: BLE001
+                                    logger.info(
+                                        "[planner-boundary] resumed read "
+                                        "failed: %r — obligation stays "
+                                        "open", _rr_err)
+                    except Exception as _rs_err:  # noqa: BLE001
+                        logger.debug("resumed reads skipped: %r",
+                                     _rs_err)
+                # RECORD REUSE (owner order 2026-10-11 — continuation
+                # binding): a required source whose obligation the
+                # BOUND job already satisfies needs no re-dispatch.
+                # Satisfaction is durable and scoped — findings cover
+                # the requested subjects with versions present, and no
+                # open verification/freshness question remains for
+                # them. Anything less re-searches (fail-open toward
+                # reading); an explicit refresh request never reuses.
+                try:
+                    _ru_record = None
+                    _ru_run = str((_resume_run or (
+                        session.get("_task_run_id")
+                        if isinstance(session, dict) else "") or ""))
+                    if _ru_run:
+                        _ru_tl = _task_lifecycle_for(
+                            getattr(self, "tenant_id", None),
+                            workspace_id)
+                        if _ru_tl is not None:
+                            _ru_record = _ru_tl.get_task(_ru_run)
+                    if isinstance(_ru_record, dict):
+                        from core.pending_file_task import (
+                            is_retrieval_refresh_request,
+                        )
+                        from core.task_lifecycle import (
+                            open_unresolved_questions as _ru_ouq,
+                        )
+
+                        _ru_open = _ru_ouq(_ru_record) or []
+                        _ru_subjects = [
+                            str(s).strip() for s in
+                            (_chain_items or []) if str(s).strip()]
+                        if _ru_subjects and not (
+                                is_retrieval_refresh_request(message)):
+                            _ru_findings = []
+                            for _ru_o in (
+                                    _ru_record.get("operations") or []):
+                                if not isinstance(_ru_o, dict):
+                                    continue
+                                _ru_findings.extend(
+                                    ( _ru_o.get("execution") or {}).get(
+                                        "findings") or [])
+                            _ru_open_items = {
+                                str(( _ru_q.get("item") or "")).strip(
+                                    ).lower()
+                                for _ru_q in _ru_open
+                                if str((_ru_q.get("kind") or "")) in (
+                                    "verification", "missing_evidence")}
+                            for _ru_svc in list(_missing):
+                                if _ru_svc == "datasets":
+                                    _ru_ok = True
+                                    for _ru_s in _ru_subjects:
+                                        _ru_norm = re.sub(
+                                            r"[^a-z0-9]", "",
+                                            _ru_s.lower())
+                                        _ru_hit = [
+                                            _ru_f for _ru_f in
+                                            _ru_findings
+                                            if isinstance(_ru_f, dict)
+                                            and _ru_f.get(
+                                                "source_version")
+                                            and (
+                                                _ru_norm in re.sub(
+                                                    r"[^a-z0-9]", "",
+                                                    str(_ru_f.get(
+                                                        "item") or "")
+                                                    .lower())
+                                                or re.sub(
+                                                    r"[^a-z0-9]", "",
+                                                    str(_ru_f.get(
+                                                        "item") or "")
+                                                    .lower()) in _ru_norm)]
+                                        if not _ru_hit or (
+                                                _ru_norm in _ru_open_items
+                                                or any(
+                                                    _ru_norm in _ru_oi
+                                                    or _ru_oi in _ru_norm
+                                                    for _ru_oi in
+                                                    _ru_open_items)):
+                                            _ru_ok = False
+                                            break
+                                    if _ru_ok:
+                                        _consulted.add(_ru_svc)
+                                        logger.info(
+                                            "[planner-boundary] record "
+                                            "reuse: datasets satisfied "
+                                            "from durable evidence — no "
+                                            "re-dispatch")
+                                elif _ru_svc == "outlook":
+                                    _ru_mail_ok = False
+                                    for _ru_o in (
+                                            _ru_record.get("operations")
+                                            or []):
+                                        if not isinstance(_ru_o, dict):
+                                            continue
+                                        _ru_ex = (
+                                            _ru_o.get("execution") or {})
+                                        if not _ru_ex.get("invoked"):
+                                            continue
+                                        if str(_ru_ex.get("outcome")
+                                               or "") not in (
+                                            "search_succeeded",
+                                            "read_succeeded"):
+                                            continue
+                                        _ru_ev = " ".join(
+                                            str(_ru_e)[:200] for _ru_e in
+                                            (_ru_ex.get("evidence")
+                                             or []))
+                                        _ru_txt = (
+                                            str(_ru_o.get(
+                                                "requested_change")
+                                                or "") + " " + _ru_ev
+                                        ).lower()
+                                        if ("outlook" in _ru_txt
+                                                or "mail" in _ru_txt
+                                                or "thread" in _ru_txt
+                                                or "correspondence" in
+                                                _ru_txt) and any(
+                                            _ru_s.lower() in _ru_txt
+                                            for _ru_s in _ru_subjects
+                                            if _ru_s):
+                                            _ru_mail_ok = True
+                                            break
+                                    _ru_mail_open = any(
+                                        ("mail" in str(
+                                            _ru_q.get("question")
+                                            or "").lower()
+                                         or "outlook" in str(
+                                            _ru_q.get("question")
+                                            or "").lower()
+                                         or "thread" in str(
+                                            _ru_q.get("question")
+                                            or "").lower()
+                                         or "correspondence" in str(
+                                            _ru_q.get("question")
+                                            or "").lower())
+                                        for _ru_q in _ru_open
+                                        if str((_ru_q.get("kind")
+                                                or "")) in (
+                                            "verification",
+                                            "missing_evidence"))
+                                    if _ru_mail_ok and not _ru_mail_open:
+                                        _consulted.add(_ru_svc)
+                                        logger.info(
+                                            "[planner-boundary] record "
+                                            "reuse: outlook satisfied "
+                                            "from durable evidence — no "
+                                            "re-dispatch")
+                            _missing = _required_sources - _consulted
+                except Exception as _ru_err:  # noqa: BLE001
+                    logger.debug("record reuse skipped: %r", _ru_err)
                 try:
                     if deadline is not None:
                         _turn_left = deadline.remaining()
@@ -17358,11 +17692,46 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # dicts with "item" on some paths and plain strings on
                     # others — ('str' has no .get) killed the whole response.
                     _chain_items = []
-                    for _t in (_requested_targets or []):
-                        if isinstance(_t, dict) and (_t or {}).get("item"):
-                            _chain_items.append(str(_t["item"]))
-                        elif isinstance(_t, str) and _t.strip():
-                            _chain_items.append(_t.strip())
+                    # SEEDED SUBJECTS FIRST (owner order 2026-10-11 —
+                    # continuation binding): an explicitly resumed job's
+                    # requested entities outrank message-mined tokens. A
+                    # continuation message's locator words ("Tennsmith row
+                    # 338") are NOT subjects — they sweep junk when the
+                    # chain queries with them.
+                    _seed_subjects: List[str] = []
+                    try:
+                        _seed_rec = None
+                        _seed_run_id = str(
+                            ((session or {}).get("_continuation_seed")
+                             or {}).get("run_id")
+                            if isinstance(session, dict) else "") or ""
+                        if _seed_run_id:
+                            _seed_tl = _task_lifecycle_for(
+                                getattr(self, "tenant_id", None),
+                                workspace_id)
+                            if _seed_tl is not None:
+                                _seed_rec = _seed_tl.get_task(_seed_run_id)
+                        if isinstance(_seed_rec, dict):
+                            for _e in ((_seed_rec.get("task_revision")
+                                        or {}).get("entities") or []):
+                                if not isinstance(_e, dict):
+                                    continue
+                                if str(_e.get("role") or "requested") \
+                                        != "requested":
+                                    continue
+                                _eid = str(_e.get("id") or "").strip()
+                                if _eid:
+                                    _seed_subjects.append(_eid)
+                    except Exception:  # noqa: BLE001 — floor follows
+                        _seed_subjects = []
+                    if _seed_subjects:
+                        _chain_items = list(_seed_subjects)
+                    if not _chain_items:
+                        for _t in (_requested_targets or []):
+                            if isinstance(_t, dict) and (_t or {}).get("item"):
+                                _chain_items.append(str(_t["item"]))
+                            elif isinstance(_t, str) and _t.strip():
+                                _chain_items.append(_t.strip())
                     if not _chain_items:
                         _chain_items = [
                             str(x) for x in
@@ -18130,318 +18499,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             await _pending_read_attempt(_ip_group)
                     except Exception as _ip_err:  # noqa: BLE001
                         logger.debug("in-turn pending reads skipped: %r", _ip_err)
-                # RESUME OPEN ROW READS (owner order 2026-10-11 —
-                # continuation binding): a turn explicitly resuming a
-                # job executes the job's eligible open row reads from
-                # their STRUCTURED inputs — never a fresh token sweep
-                # for covered work. Eligible = open verification (or
-                # missing-evidence) with file/location inputs, attempts
-                # below cap; business decisions never execute;
-                # exhausted never retry. Skipped entirely unless the
-                # turn carries an explicit resume seed, and skipped
-                # when this turn already executed reads (no double
-                # execution within one turn).
-                _resume_seed = {}
-                try:
-                    if isinstance(session, dict):
-                        _resume_seed = (
-                            session.get("_continuation_seed") or {})
-                except Exception:  # noqa: BLE001 — seed is optional
-                    _resume_seed = {}
-                _resume_run = str(_resume_seed.get("run_id") or "")
-                _resume_reads_done: List[str] = []
-                if _resume_run:
-                    try:
-                        _rs_tl = _task_lifecycle_for(
-                            getattr(self, "tenant_id", None),
-                            workspace_id)
-                        _rs_rec = (_rs_tl.get_task(_resume_run)
-                                   if _rs_tl is not None else None)
-                        _rs_canvas_ok = False
-                        if isinstance(_rs_rec, dict):
-                            _rs_prov = (
-                                (_rs_rec.get("task_revision") or {}).get(
-                                    "provenance") or {})
-                            _rs_canvas_ok = (
-                                str(_rs_prov.get("canvas_id") or "")
-                                == str(_chain_canvas_id() or ""))
-                        if _rs_rec is not None and _rs_canvas_ok:
-                            from core.task_lifecycle import (
-                                next_unfinished_work as _rs_nuw,
-                            )
-
-                            _rs_work = _rs_nuw(_rs_rec)
-                            _rs_prior_reads = set()
-                            try:
-                                _rs_open = (
-                                    (session or {}).get(
-                                        "_last_open_work") or {})
-                                for _rs_a in (
-                                        _rs_open.get("actions") or []):
-                                    _rs_nx = str(
-                                        _rs_a.get("next_action")
-                                        or "").lower()
-                                    if _rs_nx.startswith("read "):
-                                        _rs_prior_reads.add((
-                                            str(_rs_a.get("item")
-                                                or "").strip().lower()))
-                            except Exception:  # noqa: BLE001
-                                _rs_prior_reads = set()
-                            _rs_lessons: List[Dict[str, Any]] = []
-                            try:
-                                _rs_lessons = (
-                                    self._agent_lessons(
-                                        agent_id, message)
-                                    if agent_id else [])
-                            except Exception:  # noqa: BLE001
-                                _rs_lessons = []
-                            for _ra in (_rs_work.get("actions") or []):
-                                if len(_resume_reads_done) >= 4 or \
-                                        _chain_turn_left() < 18.0:
-                                    break
-                                _ra_inputs = (_ra.get("inputs") or {})
-                                if not isinstance(_ra_inputs, dict):
-                                    _ra_inputs = {}
-                                _ra_file = str(
-                                    _ra_inputs.get("file") or "").strip()
-                                _ra_item = str(
-                                    _ra.get("item") or "").strip()
-                                if not _ra_file or not _ra_item:
-                                    continue
-                                if _ra_item.lower() in _rs_prior_reads:
-                                    continue
-                                _ra_fields = [
-                                    str(f) for f in
-                                    (_ra_inputs.get("requested_fields")
-                                     or []) if str(f).strip()]
-                                if not _ra_fields:
-                                    try:
-                                        from core.workbook_read_artifact import (  # noqa: E501
-                                            extract_field_requests as _rr_vfr,  # noqa: E501
-                                        )
-
-                                        _ra_fields = [
-                                            str(f) for f in (
-                                                _rr_vfr([message]) or [])
-                                            if str(f).strip()][:6]
-                                    except Exception:  # noqa: BLE001
-                                        _ra_fields = []
-                                _ra_sheet = _ra_inputs.get("sheet")
-                                _ra_row = _ra_inputs.get("row")
-                                _ra_qids = [
-                                    str(_ra.get("question_id") or "")]
-                                _ra_qids = [q for q in _ra_qids if q]
-                                try:
-                                    if _ra_sheet and _ra_row:
-                                        from core.research_continuation import (  # noqa: E501
-                                            _execute_row_read as _rs_read,  # noqa: E501
-                                        )
-
-                                        _rs_act = {
-                                            "item": _ra_item,
-                                            "requested_fields": list(
-                                                _ra_fields),
-                                            "identity_context": _ra_item,
-                                            "file": _ra_file,
-                                            "candidates": [{
-                                                "sheet": str(_ra_sheet),
-                                                "row": _ra_row,
-                                                "identity_column": str(
-                                                    _ra_inputs.get(
-                                                        "identity_column")
-                                                    or ""),
-                                                "identity_cell": str(
-                                                    _ra_inputs.get(
-                                                        "identity_cell")
-                                                    or "")}],
-                                        }
-                                        await asyncio.wait_for(
-                                            _rs_read(
-                                                _rs_tl, _resume_run,
-                                                user_id, workspace_id,
-                                                _rs_act, _ra_qids,
-                                                _rs_lessons),
-                                            timeout=min(
-                                                25.0,
-                                                max(9.0, _chain_turn_left()
-                                                    - 10.0)))
-                                    else:
-                                        await asyncio.wait_for(
-                                            _pending_read_attempt({
-                                                "next_action": str(
-                                                    _ra.get(
-                                                        "next_action")
-                                                    or ""),
-                                                "item": _ra_item,
-                                                "inputs": dict(
-                                                    _ra_inputs)}),
-                                            timeout=min(
-                                                25.0,
-                                                max(9.0, _chain_turn_left()
-                                                    - 10.0)))
-                                    _resume_reads_done.append(_ra_item)
-                                    logger.info(
-                                        "[planner-boundary] resumed open "
-                                        "row read: %s (%s)", _ra_item,
-                                        _ra_file[:60])
-                                except Exception as _rr_err:  # noqa: BLE001
-                                    logger.info(
-                                        "[planner-boundary] resumed read "
-                                        "failed: %r — obligation stays "
-                                        "open", _rr_err)
-                    except Exception as _rs_err:  # noqa: BLE001
-                        logger.debug("resumed reads skipped: %r",
-                                     _rs_err)
-                # RECORD REUSE (owner order 2026-10-11 — continuation
-                # binding): a required source whose obligation the
-                # BOUND job already satisfies needs no re-dispatch.
-                # Satisfaction is durable and scoped — findings cover
-                # the requested subjects with versions present, and no
-                # open verification/freshness question remains for
-                # them. Anything less re-searches (fail-open toward
-                # reading); an explicit refresh request never reuses.
-                try:
-                    _ru_record = None
-                    _ru_run = str((_resume_run or (
-                        session.get("_task_run_id")
-                        if isinstance(session, dict) else "") or ""))
-                    if _ru_run:
-                        _ru_tl = _task_lifecycle_for(
-                            getattr(self, "tenant_id", None),
-                            workspace_id)
-                        if _ru_tl is not None:
-                            _ru_record = _ru_tl.get_task(_ru_run)
-                    if isinstance(_ru_record, dict):
-                        from core.pending_file_task import (
-                            is_retrieval_refresh_request,
-                        )
-                        from core.task_lifecycle import (
-                            open_unresolved_questions as _ru_ouq,
-                        )
-
-                        _ru_open = _ru_ouq(_ru_record) or []
-                        _ru_subjects = [
-                            str(s).strip() for s in
-                            (_chain_items or []) if str(s).strip()]
-                        if _ru_subjects and not (
-                                is_retrieval_refresh_request(message)):
-                            _ru_findings = []
-                            for _ru_o in (
-                                    _ru_record.get("operations") or []):
-                                if not isinstance(_ru_o, dict):
-                                    continue
-                                _ru_findings.extend(
-                                    ( _ru_o.get("execution") or {}).get(
-                                        "findings") or [])
-                            _ru_open_items = {
-                                str(( _ru_q.get("item") or "")).strip(
-                                    ).lower()
-                                for _ru_q in _ru_open
-                                if str((_ru_q.get("kind") or "")) in (
-                                    "verification", "missing_evidence")}
-                            for _ru_svc in list(_missing):
-                                if _ru_svc == "datasets":
-                                    _ru_ok = True
-                                    for _ru_s in _ru_subjects:
-                                        _ru_norm = re.sub(
-                                            r"[^a-z0-9]", "",
-                                            _ru_s.lower())
-                                        _ru_hit = [
-                                            _ru_f for _ru_f in
-                                            _ru_findings
-                                            if isinstance(_ru_f, dict)
-                                            and _ru_f.get(
-                                                "source_version")
-                                            and (
-                                                _ru_norm in re.sub(
-                                                    r"[^a-z0-9]", "",
-                                                    str(_ru_f.get(
-                                                        "item") or "")
-                                                    .lower())
-                                                or re.sub(
-                                                    r"[^a-z0-9]", "",
-                                                    str(_ru_f.get(
-                                                        "item") or "")
-                                                    .lower()) in _ru_norm)]
-                                        if not _ru_hit or (
-                                                _ru_norm in _ru_open_items
-                                                or any(
-                                                    _ru_norm in _ru_oi
-                                                    or _ru_oi in _ru_norm
-                                                    for _ru_oi in
-                                                    _ru_open_items)):
-                                            _ru_ok = False
-                                            break
-                                    if _ru_ok:
-                                        _consulted.add(_ru_svc)
-                                        logger.info(
-                                            "[planner-boundary] record "
-                                            "reuse: datasets satisfied "
-                                            "from durable evidence — no "
-                                            "re-dispatch")
-                                elif _ru_svc == "outlook":
-                                    _ru_mail_ok = False
-                                    for _ru_o in (
-                                            _ru_record.get("operations")
-                                            or []):
-                                        if not isinstance(_ru_o, dict):
-                                            continue
-                                        _ru_ex = (
-                                            _ru_o.get("execution") or {})
-                                        if not _ru_ex.get("invoked"):
-                                            continue
-                                        if str(_ru_ex.get("outcome")
-                                               or "") not in (
-                                            "search_succeeded",
-                                            "read_succeeded"):
-                                            continue
-                                        _ru_ev = " ".join(
-                                            str(_ru_e)[:200] for _ru_e in
-                                            (_ru_ex.get("evidence")
-                                             or []))
-                                        _ru_txt = (
-                                            str(_ru_o.get(
-                                                "requested_change")
-                                                or "") + " " + _ru_ev
-                                        ).lower()
-                                        if ("outlook" in _ru_txt
-                                                or "mail" in _ru_txt
-                                                or "thread" in _ru_txt
-                                                or "correspondence" in
-                                                _ru_txt) and any(
-                                            _ru_s.lower() in _ru_txt
-                                            for _ru_s in _ru_subjects
-                                            if _ru_s):
-                                            _ru_mail_ok = True
-                                            break
-                                    _ru_mail_open = any(
-                                        ("mail" in str(
-                                            _ru_q.get("question")
-                                            or "").lower()
-                                         or "outlook" in str(
-                                            _ru_q.get("question")
-                                            or "").lower()
-                                         or "thread" in str(
-                                            _ru_q.get("question")
-                                            or "").lower()
-                                         or "correspondence" in str(
-                                            _ru_q.get("question")
-                                            or "").lower())
-                                        for _ru_q in _ru_open
-                                        if str((_ru_q.get("kind")
-                                                or "")) in (
-                                            "verification",
-                                            "missing_evidence"))
-                                    if _ru_mail_ok and not _ru_mail_open:
-                                        _consulted.add(_ru_svc)
-                                        logger.info(
-                                            "[planner-boundary] record "
-                                            "reuse: outlook satisfied "
-                                            "from durable evidence — no "
-                                            "re-dispatch")
-                            _missing = _required_sources - _consulted
-                except Exception as _ru_err:  # noqa: BLE001
-                    logger.debug("record reuse skipped: %r", _ru_err)
                 if _chain_query:
                     # SCOPE CORRECTION (round 41 reviewer correction 1):
                     # entities carrying the OPEN CANVAS's own items are the
@@ -21798,18 +21855,23 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
 
         def _version_scoped_key(file_id: str, item_name: str) -> str:
             """The read's dedup key carries the SOURCE VERSION it was
-            scanned under (owner work order 2026-10-11, item 1): the
-            same version re-read is a DUPLICATE; a changed version is a
-            fresh read (revalidation). Never the current catalog — the
-            scan's own receipt."""
+            scanned under AND the requested fields (owner work order
+            2026-10-11, item 1 + correction: a later delivery read must
+            not be suppressed by an earlier price-only read — the fields
+            are part of the logical identity). The same version+fields
+            re-read is a DUPLICATE; a changed version is a fresh read
+            (revalidation). Never the current catalog — the scan's own
+            receipt."""
             for r in receipts:
                 if str((r.get("source_identity") or {}).get(
                         "file_name") or "") == file_id:
                     _h = str((r.get("source_identity") or {}).get(
                         "content_hash") or "")[:24]
                     if _h:
-                        return f"row-read:{file_id}:{item_name}:{_h}"
-            return f"row-read:{file_id}:{item_name}"
+                        return (f"row-read:{file_id}:{item_name}:{_h}:"
+                                f"{','.join(sorted(fields))}")
+            return (f"row-read:{file_id}:{item_name}:"
+                    f"{','.join(sorted(fields))}")
 
         # THE DRAFT'S CLAIMED DELIVERY PER SUBJECT (owner work order
         # 2026-10-11, item 3): availability claims ("In Stock") are

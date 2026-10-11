@@ -994,8 +994,13 @@ async def _execute_row_read(
                 # question names it, so the ledger's action selection
                 # can route to the taught tool (Zoho) through the
                 # existing planner — never a dispatcher branch.
-                _claimed = str(act.get("claimed_delivery") or "")
-                _claimed = _claimed if _claimed.strip() else "In Stock"
+                # NO INVENTED CLAIM (owner correction 2026-10-11): a
+                # missing claimed_delivery stays missing — only an
+                # ACTUAL stock claim or an explicit availability request
+                # creates the successor obligation. The taught source is
+                # derived from the MATCHED lesson only (the matched
+                # lesson's own source naming, not a default).
+                _claimed = str(act.get("claimed_delivery") or "").strip()
                 _row_source_name = str(
                     ((supporting[0].get("_row_result") or {}).get("source")
                      or {}).get("file_name")
@@ -1004,12 +1009,15 @@ async def _execute_row_read(
                     w in _claimed.lower()
                     for w in ("in stock", "stock"))
                 _inv_teaching = ""
+                _inv_lesson_id = None
                 for _l in agent_lessons or []:
                     _lt = " ".join(str(_l.get("lesson") or _l.get(
                         "summary") or "").split()).lower()
                     if "inventory" in _lt and ("zoho" in _lt
                                                or "source" in _lt):
                         _inv_teaching = _lt[:160]
+                        _inv_lesson_id = str(_l.get("id")
+                                             or _l.get("lesson_id") or "?")
                         break
                 evidence.append(
                     f"{item}: corroborated row has NO monetary {field} "
@@ -1041,14 +1049,14 @@ async def _execute_row_read(
                                 "kind": "verification",
                                 "question": (
                                     f"{item}: verify availability "
-                                    f"('{_claimed.strip() or 'In Stock'}') "
-                                    f"against the taught inventory "
-                                    f"source — the workbook carries no "
-                                    f"{field} column"),
+                                    f"('{_claimed}') against the taught "
+                                    f"inventory source — the workbook "
+                                    f"carries no {field} column"),
                                 "evidence": (
                                     f"scoped absence in the designated "
                                     f"workbook ({_row_source_name}); "
-                                    f"taught: {_inv_teaching}"),
+                                    f"taught (lesson {_inv_lesson_id}): "
+                                    f"{_inv_teaching}"),
                                 "next_action": (
                                     f"verify {item} availability in the "
                                     f"taught inventory source (Zoho "
@@ -1292,6 +1300,22 @@ async def _execute_row_read(
         requested_change=(
             f"row-context read: {act.get('file')} candidates for {item}"),
         idempotency_key=_read_key)
+    # SOURCE-CALL COUNTER (owner correction 2026-10-11, item 3): the
+    # ledger dedup alone prevents duplicate ROWS, not duplicate READS.
+    # When the returned operation is the SAME-VERSION, SAME-FIELDS read
+    # and it already carries a receipt (applied, or running with
+    # findings), SKIP the source scan and return its recorded results —
+    # never a second catalog/source call. A FAILED op is retryable: the
+    # scan proceeds and re-settles the same operation.
+    if op.get("status") in ("applied", "running") and (
+            (op.get("execution") or {}).get("findings")):
+        _prev = op.get("execution") or {}
+        return {"file": act.get("file"),
+                "statuses": dict(_prev.get("items") or {}),
+                "evidence": [f"{item}: already read under this source "
+                             f"version and field contract — recorded "
+                             f"results reused (no additional source "
+                             f"read)"]}
     _exec_facts = {
         "invoked": bool(act.get("candidates")),
         "outcome": ("read_succeeded" if statuses.get(item) == "matched"
