@@ -15785,6 +15785,31 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                                         "verification for "
                                                         "the quote's items"),
                                                 }]))
+                                    # OWNER WORK ORDER 2026-10-11: the
+                                    # decline records the failed ATTEMPT —
+                                    # the request's dataset obligations
+                                    # still stand. The canvas-scoped read
+                                    # dispatch runs for the resolved scope
+                                    # so a wrong-service plan cannot leave
+                                    # the user's request unscanned (the
+                                    # live T1 failure: outlook.search
+                                    # declined, zero dataset scans).
+                                    try:
+                                        _rd_block = (
+                                            await self.
+                                            _canvas_scoped_research_dispatch(
+                                                message, user_id,
+                                                workspace_id, session,
+                                                session_id, execution_id,
+                                                canvas_context,
+                                                shared_tool_state))
+                                        if _rd_block and not _tool_block:
+                                            _tool_block = _rd_block
+                                    except Exception as _rd_err:  # noqa: BLE001
+                                        logger.warning(
+                                            "[research-dispatch] "
+                                            "declined-plan follow-up "
+                                            "failed: %r", _rd_err)
                                 except Exception as _ms_or_err:  # noqa: BLE001
                                     logger.warning(
                                         "[job-work-ledger] off-request "
@@ -21159,6 +21184,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         receipts: List[Dict[str, Any]] = []
         evidence_lines: List[str] = []
         _dispatch_error: Optional[str] = None
+        from core.research_continuation import (
+            _item_code_tokens as _code_tokens,
+            _norm_token as _norm,
+        )
+
+        _IDENTITY_HEADERS = ("model", "description", "item", "part",
+                             "code", "sku", "product")
         try:
             for item in scope_items:
                 try:
@@ -21171,7 +21203,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     statuses[item] = ""
                     evidence_lines.append(
                         f"{item}: lookup failed "
-                        f"({type(scan_err).__name__})")
+                        f"({type(scan_err).__name__}: {scan_err})")
                     continue
                 receipt = (scan or {}).get("source_identity") or {}
                 if receipt.get("content_hash"):
@@ -21179,6 +21211,46 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "source_identity": dict(receipt),
                         "targets": []})
                 matches = (scan or {}).get("matches") or []
+                # CODE-TOKEN FALLBACK (owner work order 2026-10-11, the
+                # live-matching boundary): the canvas resolves PROSE
+                # subjects ("Tennsmith Slitter SLE24-16") while catalog
+                # rows carry the code in an identity column
+                # (MODEL NO.=SLE24-16, DESCRIPTION="Single Wheel
+                # Slitter") — the phrase needle never matches. The
+                # subject's own code tokens (the existing extractor)
+                # re-scan, and a hit counts only when the token
+                # actually appears in an identity-ish cell of the row —
+                # discovery stays honest, an incidental number never
+                # certifies.
+                if not matches:
+                    for token in _code_tokens(item):
+                        try:
+                            scan = await asyncio.wait_for(
+                                asyncio.to_thread(
+                                    _scan_fn, token, user_id,
+                                    workspace_id, max_matches=4),
+                                timeout=20)
+                        except Exception:  # noqa: BLE001
+                            continue
+                        receipt = (scan or {}).get(
+                            "source_identity") or {}
+                        if receipt.get("content_hash"):
+                            receipts.append({
+                                "source_identity": dict(receipt),
+                                "targets": []})
+                        cand = (scan or {}).get("matches") or []
+                        bound = []
+                        for m in cand:
+                            row = m.get("row") or {}
+                            for h, v in row.items():
+                                if (any(k in str(h).lower()
+                                        for k in _IDENTITY_HEADERS)
+                                        and _norm(token) in _norm(v)):
+                                    bound.append(m)
+                                    break
+                        if bound:
+                            matches = bound
+                            break
                 if not matches:
                     statuses[item] = ""
                     evidence_lines.append(f"{item}: no matching row")
@@ -21292,8 +21364,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 _dispatch_error)
         logger.info(
             "[research-dispatch] run=%s op=%s items=%d findings=%d "
-            "version=%s", run_id, op_id, len(scope_items),
-            len(findings), _read_version or "-")
+            "version=%s statuses=%r", run_id, op_id, len(scope_items),
+            len(findings), _read_version or "-", statuses)
+        for _line in evidence_lines[:6]:
+            logger.info("[research-dispatch] %s", _line)
         if not evidence_lines:
             return None
         return ("RESEARCH EVIDENCE (canvas-scoped read, operation "
