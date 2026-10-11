@@ -21258,11 +21258,43 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 # per-requested-field values from the matched row — a
                 # column whose header carries the field noun; several
                 # candidate columns stay DISTINCT (basis preserved)
-                row = matches[0].get("row") or {}
-                headers = matches[0].get("headers") or list(row.keys())
-                sheet = str(matches[0].get("sheet") or "")
-                cell = str(matches[0].get("cell") or "")
-                src_file = str(receipt.get("file_name") or "catalog")
+                # LIVE MATCH SHAPE (the counted-run finding): find_all
+                # returns per-CELL matches {file, sheet, cell, column,
+                # value} — the full row comes from the EXISTING row
+                # reader (read_sheet_row_sync), whose headers+row dict
+                # the field binding consumes. The binding cell's row
+                # number locates the row in the same file+sheet.
+                _m0 = matches[0]
+                sheet = str(_m0.get("sheet") or "")
+                cell = str(_m0.get("cell") or "")
+                src_file = str(_m0.get("file")
+                               or receipt.get("file_name")
+                               or "catalog")
+                row, headers = {}, []
+                try:
+                    from core.sheet_dataset_service import (
+                        read_sheet_row_sync as _row_reader,
+                    )
+
+                    _row_num = int(re.sub(r"\D", "", cell) or 0)
+                    if _row_num > 0:
+                        _full = await asyncio.wait_for(
+                            asyncio.to_thread(
+                                _row_reader, src_file, sheet, _row_num,
+                                user_id, workspace_id),
+                            timeout=20)
+                        if isinstance(_full, dict):
+                            headers = list(_full.get("headers") or [])
+                            row = dict(_full.get("row") or {})
+                except Exception as _row_err:  # noqa: BLE001 — the
+                    # per-cell values remain the fallback below
+                    logger.info(
+                        "[research-dispatch] row read skipped for %s: "
+                        "%r", item, _row_err)
+                if not row:
+                    row = {"column": _m0.get("column"),
+                           "value": _m0.get("value")}
+                    headers = [str(_m0.get("column") or "")]
                 for field in fields:
                     cand_cols = [
                         str(h) for h in headers

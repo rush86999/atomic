@@ -183,6 +183,17 @@ def _run_t1(scanner):
                   side_effect=lambda item, *a, **k: (
                       spy["scans"].append(item),
                       scanner(item))[1]),
+            # the LIVE catalog holds the full row — the row reader
+            # returns headers+values for the bound row (row 101)
+            patch("core.sheet_dataset_service.read_sheet_row_sync",
+                  side_effect=lambda fn, sh, rn, *a, **k: (
+                      {"headers": ["MODEL NO.", "DESCRIPTION",
+                                   "PRICE", "LEAD TIME"],
+                       "row": {"MODEL NO.": "SLE24-16",
+                               "DESCRIPTION": "Single Wheel Slitter",
+                               "PRICE": "8984",
+                               "LEAD TIME": "11-12 weeks"}}
+                      if rn == 101 and "Tennsmith" in str(sh) else None)),
         ]:
             st.enter_context(cm)
         result = asyncio.run(orch.process_chat_message(
