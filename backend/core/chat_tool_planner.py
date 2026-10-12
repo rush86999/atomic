@@ -420,12 +420,16 @@ _COMMISH = {"email", "inbox", "thread", "chat", "message", "text"}
 #: state. Tight phrases only: bare "latest" in a documents ask ("my
 #: latest documents") is a recency preference, not a freshness contract.
 _FRESH_RECORD_ASK_RE = re.compile(
-    r"\b(?:current|live|real[- ]time|up[- ]to[- ]date|right\s+now)\b"
+    r"\b(?:current|live|real[- ]time|up[- ]to[- ]date|right\s+now|"
+    r"latest|newest)\b"
     r"[^.!?]{0,60}?\b(?:inventory|stocks?|availability|lead\s?times?|"
-    r"balances?|on[- ]hand|crm)\b"
+    r"balances?|on[- ]hand|crm|positions?|supplier\s+positions?|"
+    r"prices?)\b"
     r"|\b(?:inventory|stocks?|availability|lead\s?times?|balances?|"
-    r"on[- ]hand|crm)\b[^.!?]{0,60}?"
-    r"\b(?:current|live|real[- ]time|up[- ]to[- ]date|right\s+now)\b",
+    r"on[- ]hand|crm|positions?|supplier\s+positions?|prices?)\b"
+    r"[^.!?]{0,60}?"
+    r"\b(?:current|live|real[- ]time|up[- ]to[- ]date|right\s+now|"
+    r"latest|newest)\b",
     re.IGNORECASE,
 )
 
@@ -478,11 +482,43 @@ def _source_service_candidates(
                 out.append(svc)
         if "memory" in platform and not designated_file:
             out.append("memory")
-    for kind in kind_set - (_DOCUMENTISH | _SHEETISH | _COMMISH):
-        # record/task/ticket/note/... — business-record kinds a
-        # CONNECTED integration may serve; the platform stores cannot.
+    # RECORD-KIND SUITABILITY (owner review of 02ec1c57e): a connection
+    # is not a result contract. A record-ish kind is served only by a
+    # connected service whose FAMILY matches the kind — CRM cannot read
+    # tickets, an inventory obligation needs an inventory system — and
+    # the generic `record` kind is served only by the business-record
+    # item-search family (_ITEM_SEARCH_SERVICES). A kind with no
+    # matching service leaves the obligation unresolved.
+    _RECORD_KIND_SERVICE_MATCH = {
+        "ticket": r"ticket|desk|jira|servicenow|freshdesk|helpdesk|issue",
+        "task": r"task|todo|asana|linear|trello|jira|github|project",
+        "calendar": r"calendar|outlook|schedule",
+        "note": r"note|notion|memo|evernote",
+        "memo": r"note|notion|memo|evernote",
+        "letter": r"mail|letter|outlook|gmail|post",
+        "comment": r"comment|slack|teams|discord|telegram|whatsapp|chat",
+        "post": r"post|social|mailchimp|chat",
+    }
+    for kind in sorted(kind_set - (_DOCUMENTISH | _SHEETISH | _COMMISH)):
+        if kind == "web":
+            if "web_search" in platform:
+                out.append("web_search")
+            continue
+        if kind == "record":
+            # the generic business-record kind: the item-search family
+            # (inventory/books/CRM/PM) holds the record systems.
+            for svc in connected or []:
+                if svc not in out and svc in _ITEM_SEARCH_SERVICES:
+                    out.append(svc)
+            continue
+        if kind not in _RECORD_KIND_SERVICE_MATCH:
+            continue  # unknown kind: no defensible service — unresolved
+        pattern = re.compile(_RECORD_KIND_SERVICE_MATCH[kind],
+                             re.IGNORECASE)
         for svc in connected or []:
-            if svc not in out:
+            if svc in out:
+                continue
+            if pattern.search(svc):
                 out.append(svc)
     if fresh_record:
         # CURRENT STATE ONLY: drop every ingested-copy store — memory
@@ -490,6 +526,14 @@ def _source_service_candidates(
         # freshness obligation qualifies a service only if it reads the
         # system of record. Nothing connected = nothing qualifies.
         out = [s for s in out if s in set(connected or [])]
+        # NAMED-SYSTEM freshness: an inventory/stock/position ask
+        # qualifies only services whose own name names that system —
+        # CRM in the item-search family still cannot read inventory.
+        if re.search(r"inventory|stocks?|position", message or "",
+                     re.IGNORECASE):
+            named = [s for s in out
+                     if re.search(r"inventory|stock", s, re.IGNORECASE)]
+            out = named
     return list(dict.fromkeys(out))
 
 
