@@ -156,6 +156,28 @@ counted (real reply + attributable supported tool execution + restart durability
 only when those assertions pass. The immediate finish line is truthful, executed tool use —
 not a longer timeout and not a green top-level JSON flag.
 
+**Verifier mandate (owner-set; `f5a174c26` frozen until this review completes).** Review the
+harness commit plus the ONE combined successor (committed runtime + sidecar repairs —
+uncommitted `request_scope.py` / subject-admission work cannot support certification).
+Independently check, falsifying from the rerun evidence where possible:
+
+1. Tool receipts belong to the CURRENT request's linked executions, not earlier work in the
+   session (`journey_runtime.turn_tool_receipts` / `execution_tool_receipts`: confirm the
+   receipt's execution id is the tool request's own `chat_request_records` row, and that a
+   session reused across turns cannot widen attribution).
+2. "Verified" receipts establish actual execution AND relevance to the requested task
+   (provenance of `agent_executions.task_outcome.tool_outcomes[].verified` + `evidence_refs`,
+   not a stamped boolean).
+3. Client timeouts remain failed even if the server later delivers (the timeout path in
+   `j2_model_setup._turn`; the `server_delivery` record is separate and never flips an
+   assertion).
+4. Restart assertions prove persisted settings AND a subsequent usable request (world A:
+   post-restart `GET /api/local-models` + a second real reply; world B: key present and
+   decrypts).
+5. Export identity matches the exact combined runtime candidate — not merely the harness's
+   earlier dry-run (`EXPORT_IDENTITY.json` captured before `git archive`; compare commit/tree
+   to the successor HEAD).
+
 ## Previous status (2026-10-12, campaign round 9 — superseded by the round-10 section above)
 
 **Campaign `2026-10-12-j2-repair` measured the frozen candidate `d6fbcd846` pristine**
