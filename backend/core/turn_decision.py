@@ -54,7 +54,15 @@ SCHEMA = "turn-decision-1"
 # wants consulted, never a reason to refuse resolving the workbook.
 _SOURCE_NOUN_RE = re.compile(
     r"\b(e-?mails?|mails?|inbox|threads?|dms?|chats?|messages?|texts?|"
-    r"calendar|tickets?|notes?|memos?|letters?|comments?|posts?)\b",
+    r"calendar|tickets?|notes?|memos?|letters?|comments?|posts?|"
+    # DOCUMENT-STORE VOCABULARY (pristine-J2 false-search finding,
+    # 2026-10-12): "Search my documents ..." is a source ask — the
+    # documents/files the product ingests and serves are a consultable
+    # source the same as mail. Without these nouns the seek-shaped
+    # imperative compiled to a bare `converse` op, zero searches ran,
+    # and the reply narrated searches that never happened.
+    r"documents?|docs?|files?|folders?|drives?|workbooks?|"
+    r"spreadsheets?|sheets|pdfs?|knowledge\s?base)\b",
     re.IGNORECASE,
 )
 

@@ -1031,8 +1031,13 @@ class TestChatPublicRouteScope:
     must dispatch in the REQUEST's scope and reach the user's own
     endpoint."""
 
-    def test_first_chat_message_dispatches_in_the_user_scope(
+    def test_first_chat_message_reaches_the_user_endpoint_isolation(
             self, scoped_world, world_app):
+        """NARROW endpoint-isolation proof only: the counted first
+        message reaches the user's own registered endpoint. This test
+        deliberately does NOT assert the full user outcome envelope
+        (success flags, outcome agreement) — that is
+        test_public_route_reply_agrees_with_durable_outcome below."""
         import asyncio
         import json
         from contextlib import ExitStack
@@ -1138,3 +1143,284 @@ class TestChatPublicRouteScope:
             assert out.get("message") == "pong-A", (
                 "the reply must come from the user's own provider: "
                 f"{json.dumps(out, default=str)[:300]}")
+
+
+    def test_public_route_reply_agrees_with_durable_outcome(
+            self, scoped_world, world_app):
+        """The FULL user-outcome agreement (owner test-quality
+        correction): what the reply says, what the machine outcome
+        records, what durable execution persisted, and what the history
+        carries must all agree — one served-by-your-provider story, not
+        four different ones."""
+        import asyncio
+        import json
+        from contextlib import ExitStack
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import integrations.chat_orchestrator as co
+        from core.chat_tool_planner import ToolPlan
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+            orch.tenant_id = "default"
+            orch._cancelled_sessions = set()
+            orch._budget_exceeded_runs = set()
+            orch.llm_service = LLMService(tenant_id="default")
+            session = {"id": "sess-agree", "history": []}
+
+            async def _plan_ce(*a, **k):
+                class _P:
+                    wants_edit = False
+                return _P()
+
+            no_tool_plan = ToolPlan(use_tool=False, service="datasets",
+                                    intent="search", query="unused",
+                                    reason="no tool for a plain reply")
+
+            with ExitStack() as st:
+                for cm in [
+                    patch.object(orch, "_get_or_create_session",
+                                 return_value=session),
+                    patch.object(orch, "_resolve_canvas_ctx",
+                                 new=AsyncMock(return_value=dict({
+                                     "canvas_id": "cv-agree",
+                                     "canvas_type": "email",
+                                     "title": "Agreement",
+                                     "content": {"body":
+                                                 "<p>quote</p>"}}))),
+                    patch.object(orch, "_start_chat_execution",
+                                 return_value="exec-agree"),
+                    patch.object(orch, "_record_chat_step", new=AsyncMock()),
+                    patch.object(orch, "_emit_agent_status",
+                                 new=AsyncMock()),
+                    patch.object(orch, "_update_session",
+                                 new=MagicMock()),
+                    patch.object(orch, "_finish_chat_execution",
+                                 new=MagicMock()),
+                    patch.object(orch, "_load_conversation_mail_handles",
+                                 return_value=([], [])),
+                    patch.object(orch, "_route_to_features",
+                                 new=AsyncMock(return_value={})),
+                    patch("core.chat_tool_planner.plan_tool_use",
+                          new=AsyncMock(return_value=no_tool_plan)),
+                    patch("core.chat_tool_planner.execute_tool_plan",
+                          new=AsyncMock(return_value="")),
+                    patch("core.memory_context_assembler.assembly_enabled",
+                          return_value=False),
+                    patch("core.chat_mini_app_authoring.try_handle",
+                          new=AsyncMock(return_value=None)),
+                    patch("core.chat_tool_planner._provenance_menu",
+                          new=AsyncMock(return_value="")),
+                    patch("integrations.chat_orchestrator."
+                          "_verbatim_mail_evidence",
+                          new=AsyncMock(return_value=[])),
+                    patch("integrations.chat_orchestrator._begin_task_edit",
+                          return_value={"status": "legacy"}),
+                    patch("core.chat_canvas_editor.plan_canvas_edit",
+                          new=AsyncMock(side_effect=_plan_ce)),
+                    patch("core.student_learning_service.get_agent_lessons",
+                          return_value=[]),
+                    patch("integrations.chat_orchestrator."
+                          "_task_lifecycle_for",
+                          return_value=None),
+                ]:
+                    st.enter_context(cm)
+                out = asyncio.run(orch.process_chat_message(
+                    ws_a["user_id"],
+                    "What are the approved prices and delivery times "
+                    "for rows 1 through 5 of the draft?",
+                    "sess-agree",
+                    context={"workspace_id": ws_a["workspace_id"],
+                             "canvas": dict({
+                                 "canvas_id": "cv-agree",
+                                 "canvas_type": "email",
+                                 "title": "Agreement",
+                                 "content": {"body":
+                                             "<p>quote</p>"}}),
+                             "agent_id": "agent-agree"}))
+
+            reply = out.get("message")
+            assert reply == "pong-A", f"reply: {reply!r}"
+            # THE MACHINE OUTCOME agrees: the routing feedback row was
+            # recorded under the USER'S OWN tenant (the scope the turn
+            # dispatched in — not the singleton default), and the turn
+            # actually reached the user's own endpoint. (The API-level
+            # chat_messages history leg is asserted by the pristine-J2
+            # acceptance against the real server, which owns that write.)
+            db = scoped_world["Session"]()
+            try:
+                from core.models import LLMRoutingFeedback
+
+                fb = (db.query(LLMRoutingFeedback)
+                      .order_by(LLMRoutingFeedback.created_at.desc())
+                      .first())
+            finally:
+                db.close()
+            assert fb is not None, "the turn recorded routing feedback"
+            assert fb.tenant_id == ws_a["tenant_id"], (
+                "feedback scope must be the user's own tenant "
+                f"(got {fb.tenant_id!r})")
+            assert ep_a.hit_count >= 1, (
+                "the durable agreement rests on a dispatch that actually "
+                "reached the user's own endpoint")
+
+
+class TestTruthfulToolRequest:
+    """The pristine-J2 false-search finding (2026-10-12): a
+    search-imperative over DOCUMENTS compiled to a bare `converse` op
+    (the source vocabulary knew mail and tickets but not documents), so
+    zero searches ran — and the reply narrated "I've searched your Zoho
+    CRM integration … 5 records" in a fresh world with no integrations.
+    Two gates: the compile must produce the search work, and the reply
+    prompt must carry the no-tool truthfulness envelope when nothing
+    executed."""
+
+    def test_documents_search_compiles_a_research_action(self):
+        from core.turn_decision import build_turn_decision
+
+        decision = build_turn_decision(
+            message=("Search my documents for anything about quarterly "
+                     "revenue and tell me what you find."),
+            session={"id": "sess-docs", "history": []},
+            context={})
+        actions = decision.get("requested_actions") or []
+        research = [a for a in actions if a.get("kind") == "research"]
+        assert research, (
+            "a search-imperative over documents must compile a research "
+            f"action, got: {[(a.get('kind')) for a in actions]}")
+        target_sources = (research[0].get("target") or {}).get(
+            "sources") or research[0].get("additional_sources") or []
+        assert any("document" in str(s).lower() for s in target_sources), (
+            f"the research target must name the documents source: "
+            f"{target_sources}")
+        assert not any(a.get("kind") == "conversation" for a in actions), (
+            "a search-imperative must not degrade to a bare conversation "
+            "action")
+
+    def test_zero_executed_searches_carry_the_truthfulness_envelope(self):
+        """A seek-shaped turn whose tool block never materialized must
+        brief the model that NOTHING ran — the deterministic input that
+        keeps 'I've searched your Zoho CRM' unfabricatable."""
+        import asyncio
+        import json
+        from contextlib import ExitStack
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import integrations.chat_orchestrator as co
+        from core.chat_tool_planner import ToolPlan
+
+        captured = {}
+
+        async def _capture_completion(**kwargs):
+            captured["messages"] = kwargs.get("messages")
+            return {"content": "nothing was searched this turn",
+                    "model": "x", "provider": "y"}
+
+        class _CapturingService:
+            def __init__(self):
+                from unittest.mock import MagicMock
+
+                self.stream_completion = MagicMock(
+                    return_value=iter(()))
+                self.generate_completion = _capture_completion
+
+            @property
+            def handler(self):
+                class _H:
+                    clients = {"local_x": object()}
+                    workspace_id = "default"
+                return _H()
+
+            def is_available(self):
+                return True
+
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        orch.llm_service = _CapturingService()
+        session = {"id": "sess-truth", "history": []}
+
+        async def _plan_ce(*a, **k):
+            class _P:
+                wants_edit = False
+            return _P()
+
+        no_tool_plan = ToolPlan(use_tool=False, service="datasets",
+                                intent="search", query="unused",
+                                reason="no tool")
+
+        with ExitStack() as st:
+            for cm in [
+                patch.object(orch, "_get_or_create_session",
+                             return_value=session),
+                patch.object(orch, "_resolve_canvas_ctx",
+                             new=AsyncMock(return_value=dict({
+                                 "canvas_id": "cv-truth",
+                                 "canvas_type": "email",
+                                 "title": "Truth",
+                                 "content": {"body": "<p>x</p>"}}))),
+                patch.object(orch, "_start_chat_execution",
+                             return_value="exec-truth"),
+                patch.object(orch, "_record_chat_step", new=AsyncMock()),
+                patch.object(orch, "_emit_agent_status", new=AsyncMock()),
+                patch.object(orch, "_update_session", new=MagicMock()),
+                patch.object(orch, "_finish_chat_execution",
+                             new=MagicMock()),
+                patch.object(orch, "_load_conversation_mail_handles",
+                             return_value=([], [])),
+                patch.object(orch, "_route_to_features",
+                             new=AsyncMock(return_value={})),
+                patch("core.chat_tool_planner.plan_tool_use",
+                      new=AsyncMock(return_value=no_tool_plan)),
+                patch("core.chat_tool_planner.execute_tool_plan",
+                      new=AsyncMock(return_value="")),
+                patch("core.memory_context_assembler.assembly_enabled",
+                      return_value=False),
+                patch("core.chat_mini_app_authoring.try_handle",
+                      new=AsyncMock(return_value=None)),
+                patch("core.chat_tool_planner._provenance_menu",
+                      new=AsyncMock(return_value="")),
+                patch("integrations.chat_orchestrator."
+                      "_verbatim_mail_evidence",
+                      new=AsyncMock(return_value=[])),
+                patch("integrations.chat_orchestrator._begin_task_edit",
+                      return_value={"status": "legacy"}),
+                patch("core.chat_canvas_editor.plan_canvas_edit",
+                      new=AsyncMock(side_effect=_plan_ce)),
+                patch("core.student_learning_service.get_agent_lessons",
+                      return_value=[]),
+                patch("integrations.chat_orchestrator._task_lifecycle_for",
+                      return_value=None),
+            ]:
+                st.enter_context(cm)
+            out = asyncio.run(orch.process_chat_message(
+                "user-truth",
+                "Search my documents for anything about quarterly "
+                "revenue and tell me what you find.",
+                "sess-truth",
+                context={"workspace_id": "default",
+                         "canvas": dict({"canvas_id": "cv-truth",
+                                         "canvas_type": "email",
+                                         "title": "Truth",
+                                         "content": {"body":
+                                                     "<p>x</p>"}}),
+                         "agent_id": "agent-truth"}))
+
+        msgs = captured.get("messages") or []
+        blob = json.dumps(msgs, default=str)
+        # Either truthful briefing satisfies the requirement: the
+        # planner-timeout envelope ("NO TOOL LOOKUP RAN THIS TURN …") or
+        # the no-block truthfulness directive ("NO SEARCH OR TOOL LOOKUP
+        # RAN THIS TURN …"). What must NEVER happen is a seek-shaped turn
+        # briefed without one — that is how "I've searched your Zoho CRM"
+        # was fabricated over zero executed work.
+        assert ("NO SEARCH OR TOOL LOOKUP RAN THIS TURN" in blob
+                or "NO TOOL LOOKUP RAN THIS TURN" in blob), (
+            "a seek-shaped turn with zero executed tool work must brief "
+            f"the model with a truthfulness envelope; messages="
+            f"{blob[:400]}")

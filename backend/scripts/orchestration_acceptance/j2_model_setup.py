@@ -43,6 +43,10 @@ ROUND-10 EVIDENCE INTEGRITY (owner review 2026-10-12):
     record is extra evidence, never a retroactive pass.
   * Every evidence file embeds the archived commit, the effective-config
     digest and the actual scratch-storage paths.
+  * A world that crashes the harness process itself (scratch-world
+    construction, teardown) is still recorded — every mandatory
+    assertion UNTESTED — so the run keeps its partial record, still
+    executes the other world, still writes evidence, and exits nonzero.
 """
 from __future__ import annotations
 
@@ -76,6 +80,21 @@ EXPECTED_B = (
     "J2.byok-add-product-path",
     "J2.byok-survive-restart",
 )
+
+#: Which demonstrated criterion each mandatory assertion stands for —
+#: emitted into the evidence so an UNTESTED entry names exactly what was
+#: NOT demonstrated. "persisted-outcome" folds into J2.tool-planning: the
+#: receipts are read from the PERSISTED agent_executions/task_outcome
+#: records, so one id covers both the tool-execution and the
+#: persisted-outcome criteria.
+CRITERIA = {
+    "J2.local-provider-product-path": "provider-config",
+    "J2.real-reply": "real-reply",
+    "J2.tool-planning": "tool-execution + persisted-outcome",
+    "J2.survive-restart": "restart-durability",
+    "J2.byok-add-product-path": "byok-store-readback",
+    "J2.byok-survive-restart": "byok-restart-durability",
+}
 
 
 def _ollama_up() -> bool:
@@ -288,8 +307,15 @@ def world_a_local(ollama_model: str,
     except Exception as exc:  # noqa: BLE001
         out["error"] = f"{type(exc).__name__}: {exc}"
     finally:
-        out["uvicorn_log_tail"] = server.log_tail()
-        server.stop()
+        # A teardown failure must neither mask the leg's own error nor
+        # discard the partial record: an earlier J2.real-reply pass stays
+        # recordable even if log/stopping the scratch world blows up.
+        try:
+            out["uvicorn_log_tail"] = server.log_tail()
+            server.stop()
+        except Exception as teardown_exc:  # noqa: BLE001
+            out["teardown_error"] = (
+                f"{type(teardown_exc).__name__}: {teardown_exc}")
         out["assertion_states"] = {
             k: ("verified" if v is True else "failed" if v is False
                 else "untested")
@@ -362,13 +388,52 @@ def world_b_byok(plain_key: str,
     except Exception as exc:  # noqa: BLE001
         out["error"] = f"{type(exc).__name__}: {exc}"
     finally:
-        out["uvicorn_log_tail"] = server.log_tail()
-        server.stop()
+        # Same teardown guard as world A: record, never mask or discard.
+        try:
+            out["uvicorn_log_tail"] = server.log_tail()
+            server.stop()
+        except Exception as teardown_exc:  # noqa: BLE001
+            out["teardown_error"] = (
+                f"{type(teardown_exc).__name__}: {teardown_exc}")
         out["assertion_states"] = {
             k: ("verified" if v is True else "failed" if v is False
                 else "untested")
             for k, v in out["assertions"].items()}
     return out
+
+
+def _crashed_world(name: str, expected, error: str) -> dict:
+    """A world whose harness crashed BEFORE/OUTSIDE its own try block
+    (ScratchServer construction, export materialization, teardown that
+    escaped the guarded finally) is recorded with EVERY mandatory
+    assertion UNTESTED: the crash fails the verdict and the record names
+    what was never demonstrated — it never vanishes from the evidence."""
+    return {"world": name, "error": error,
+            "assertions": {k: None for k in expected},
+            "assertion_states": {k: "untested" for k in expected}}
+
+
+def combine_verdict(world_a: dict, world_b: dict) -> dict:
+    """The run's combined verdict over BOTH worlds (pure — no I/O).
+
+    Mandatory = every expected id of both worlds PLUS anything either
+    world actually produced (a produced assertion dropped from the
+    mandatory set could never be allowed to silently de-gate). Delegates
+    the fail-closed aggregate to journey_runtime.aggregate_verdict: only
+    an explicit True on EVERY mandatory id passes; missing/None read as
+    untested, False as failed — silence never reads as success.
+    """
+    assertions: dict = {}
+    for block, expected in ((world_a, EXPECTED_A), (world_b, EXPECTED_B)):
+        block_assertions = block.get("assertions") or {}
+        for key in expected:
+            assertions[key] = block_assertions.get(key)
+        for key, val in block_assertions.items():
+            assertions.setdefault(key, val)
+    mandatory = list(dict.fromkeys(
+        list(EXPECTED_A) + list(EXPECTED_B) + list(assertions)))
+    verdict = JR.aggregate_verdict(mandatory, assertions)
+    return {"assertions": assertions, **verdict}
 
 
 def main() -> int:
@@ -404,32 +469,38 @@ def main() -> int:
                 "provider": PROVIDER, "local_model": args.model,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
-    a = world_a_local(args.model, server_kwargs=server_kwargs)
+    try:
+        a = world_a_local(args.model, server_kwargs=server_kwargs)
+    except Exception as exc:  # noqa: BLE001 — a harness crash is a failed
+        # world, never a dead run: world B still executes and evidence
+        # still lands, with every world-A criterion UNTESTED.
+        a = _crashed_world("A_local_inference", EXPECTED_A,
+                           f"harness crash: {type(exc).__name__}: {exc}")
     ev["world_a"] = a
-    b = world_b_byok(creds[CRED_NAME], server_kwargs=server_kwargs)
+    try:
+        b = world_b_byok(creds[CRED_NAME], server_kwargs=server_kwargs)
+    except Exception as exc:  # noqa: BLE001
+        b = _crashed_world("B_byok_product_path", EXPECTED_B,
+                           f"harness crash: {type(exc).__name__}: {exc}")
     ev["world_b"] = b
     ev["identity"] = a.get("identity") or b.get("identity")
 
-    assertions: dict = {}
-    for block, expected in ((a, EXPECTED_A), (b, EXPECTED_B)):
-        block_assertions = block.get("assertions") or {}
-        for key in expected:
-            assertions[key] = block_assertions.get(key)
-    verdict = JR.aggregate_verdict(list(EXPECTED_A) + list(EXPECTED_B),
-                                   assertions)
-    ev["assertions"] = assertions
-    ev["assertion_states"] = verdict["states"]
-    ev["mandatory_unmet"] = verdict["unmet"]
-    ev["pass"] = verdict["pass"]
+    combined = combine_verdict(a, b)
+    ev["criteria"] = dict(CRITERIA)
+    ev["assertions"] = combined["assertions"]
+    ev["assertion_states"] = combined["states"]
+    ev["mandatory_unmet"] = combined["unmet"]
+    ev["pass"] = combined["pass"]
     ev["uvicorn_log_tail"] = None  # per-world tails already recorded
     if ollama_proc is not None:
         ollama_proc.terminate()
     out = JR.save_result("j2_model_setup", ev)
-    print(json.dumps({"assertions": assertions,
-                      "mandatory_unmet": verdict["unmet"],
-                      "pass": verdict["pass"]}, indent=1))
+    print(json.dumps({"assertions": combined["assertions"],
+                      "assertion_states": combined["states"],
+                      "mandatory_unmet": combined["unmet"],
+                      "pass": combined["pass"]}, indent=1))
     print(f"evidence: {out}")
-    return 0 if verdict["pass"] else 1
+    return 0 if combined["pass"] else 1
 
 
 if __name__ == "__main__":

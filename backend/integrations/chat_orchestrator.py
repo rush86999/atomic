@@ -32,6 +32,8 @@ from core.outbound_identity import (
 
 logger = logging.getLogger(__name__)
 
+from core.request_scope import current_request_scope
+
 
 def resolve_user_workspace(user_id: Optional[str], fallback: str = "default") -> str:
     """Map a user id to their workspace — the store integration syncs write
@@ -7453,6 +7455,14 @@ class ChatOrchestrator:
             # Workspace scope for the pre-plan provenance probe (which ingested
             # stores hold the token the user quoted).
             _ctx_workspace_id = (context or {}).get("workspace_id")
+            # PUBLISH THE REQUEST SCOPE for every internal leg (J2
+            # user-boundary, shared boundary — no per-site hand-written
+            # assignments): fact extraction, reply verification and
+            # interpretation consume core.request_scope from this turn's
+            # context (contextvars travel into fire-and-forget tasks).
+            from core.request_scope import set_request_scope
+
+            set_request_scope(**self._request_llm_scope(user_id))
             # REQUEST REFERENCE — resolved ONCE per turn, before anything is
             # scheduled. "yes go ahead" (live 2026-09-22) used to be validated
             # against its own bare wording; the resolver identifies the
@@ -13148,8 +13158,16 @@ class ChatOrchestrator:
 
             if not TURN_FACT_EXTRACTION_ENABLED:
                 return
+            # The TURN's validated scope (not the singleton default):
+            # extraction dispatched from "default" hit "No eligible LLM
+            # providers" in pristine-J2 run 2 — the leg serves the same
+            # user their reply was just served by.
+            from core.request_scope import current_request_scope
+
+            _fx_scope = current_request_scope()
             extractor = get_turn_fact_extractor(
-                workspace_id="default", tenant_id=self.tenant_id
+                workspace_id=_fx_scope["workspace_id"],
+                tenant_id=_fx_scope["tenant_id"],
             )
             task = asyncio.create_task(
                 extractor.extract_from_turn(
@@ -14443,7 +14461,9 @@ class ChatOrchestrator:
         # own registered provider invisible (pristine-J2 first-request
         # failure: registered in their workspace, dispatched from
         # "default").
-        _llm_scope = self._request_llm_scope(user_id)
+        from core.request_scope import current_request_scope
+
+        _llm_scope = current_request_scope()
 
         try:
             # Build messages from history
@@ -19538,6 +19558,33 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 _evidence_msg = {"role": "system",
                                  "content": _evidence_instruction}
                 messages.append(_evidence_msg)
+            else:
+                # TRUTHFULNESS ENVELOPE (pristine-J2 false-search finding,
+                # 2026-10-12): zero executed tool work must never become a
+                # claim that searches ran — with no evidence block, the
+                # unanchored reply narrated "I've searched your Zoho CRM
+                # integration … 5 records" in a world with no integrations.
+                # On a SEEK-SHAPED request with no tool block this turn, say
+                # so explicitly and forbid the claim.
+                try:
+                    from core.turn_decision import (
+                        _looks_seek_shaped as _seek_shaped_turn_check,
+                    )
+
+                    _seek_shaped_turn = _seek_shaped_turn_check(message or "")
+                except Exception:  # noqa: BLE001 — envelope is additive
+                    _seek_shaped_turn = False
+                if _seek_shaped_turn:
+                    messages.append({"role": "system", "content": (
+                        "NO SEARCH OR TOOL LOOKUP RAN THIS TURN. No "
+                        "connected system was queried — there are no "
+                        "results to report. Do NOT claim you searched, "
+                        "checked, or found anything in any system (mail, "
+                        "documents, CRM, drives), do not cite record "
+                        "counts, and do not name sources you did not "
+                        "read. If the request needs live data, say "
+                        "plainly that nothing was searched this turn and "
+                        "what would be needed to search it.")})
                 # OFFER-TO-READ directive (2026-09-22), placed HERE — after
                 # execution, when this turn's structured meta exists (prompt
                 # assembly above runs BEFORE the tool leg). Structured meta,
@@ -21352,7 +21399,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     _verdict = await _bounded_verify(verify_reply(
                         _content, _tool_block,
                         handler=self.llm_service.handler,
-                        tenant_id=self.tenant_id,
+                        tenant_id=current_request_scope()["tenant_id"],
                         agent_id=agent_id,
                         enforce=(_vpm == "enforce"),
                     ))
@@ -21443,7 +21490,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 _verdict2 = await _bounded_verify(verify_reply(
                                     _content, _tool_block,
                                     handler=self.llm_service.handler,
-                                    tenant_id=self.tenant_id,
+                                    tenant_id=current_request_scope()["tenant_id"],
                                     agent_id=agent_id,
                                     enforce=True,
                                 ))
