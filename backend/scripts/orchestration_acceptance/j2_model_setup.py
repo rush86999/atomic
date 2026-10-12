@@ -35,6 +35,7 @@ import time
 import urllib.request
 import uuid
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -103,12 +104,14 @@ def _masked(plain: str, masked: str) -> bool:
     return masked == f"{plain[:4]}...{plain[-4:]}"
 
 
-def world_a_local(ollama_model: str) -> dict:
+def world_a_local(ollama_model: str,
+                  server_kwargs: Optional[dict] = None) -> dict:
     extra = {"ATOM_LOCAL_ONLY": "true",
              "OLLAMA_BASE_URL": f"{OLLAMA_BASE}/v1",
              "OLLAMA_MODEL": ollama_model}
-    server = JR.ScratchServer("j2_world_a_local", extra_env=extra)
-    out: dict = {"world": "A_local_inference"}
+    server = JR.ScratchServer("j2_world_a_local", **(server_kwargs or {}),
+                              extra_env=extra)
+    out: dict = {"world": "A_local_inference", "model": ollama_model}
     try:
         boot = server.up()
         out["boot"] = boot
@@ -148,7 +151,11 @@ def world_a_local(ollama_model: str) -> dict:
             f"/api/local-models/{provider_id}/capabilities",
             {"model_id": ollama_model, "supports_tools": False,
              "supports_vision": False, "supports_reasoning": False,
-             "quality_score": 0.5, "speed_score": 0.8,
+             # Above the SIMPLE ranking floor (85/100, byok_handler
+             # min_quality): the 2026-10-12 run declared 0.5 and the route
+             # never ranked ("No eligible LLM providers"), a harness input
+             # bug — the UI slider allows the same mistake with no hint.
+             "quality_score": 0.9, "speed_score": 0.8,
              "context_window": 8192})
         out["set_capabilities"] = {"http": caps["http"]}
         test = JR.auth_post(server.base, token,
@@ -219,8 +226,9 @@ def world_a_local(ollama_model: str) -> dict:
     return out
 
 
-def world_b_byok(plain_key: str) -> dict:
-    server = JR.ScratchServer("j2_world_b_byok")
+def world_b_byok(plain_key: str,
+                 server_kwargs: Optional[dict] = None) -> dict:
+    server = JR.ScratchServer("j2_world_b_byok", **(server_kwargs or {}))
     out: dict = {"world": "B_byok_product_path"}
     try:
         boot = server.up()
@@ -286,6 +294,18 @@ def world_b_byok(plain_key: str) -> dict:
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--pristine", action="store_true",
+                    help="run against a git-archive CODE EXPORT with an "
+                         "ALLOWLISTED environment (pristine-install "
+                         "coverage, not checkout smoke)")
+    ap.add_argument("--model", default="llama3.1:8b",
+                    help="exact Ollama model tag (bare names without the "
+                         "installed tag are rejected by the server: "
+                         "'llama3.1' 404s when only llama3.1:8b exists)")
+    args = ap.parse_args()
+
     creds = JR.read_repo_env_names([CRED_NAME])
     if not creds.get(CRED_NAME):
         print(f"BLOCKED: {CRED_NAME} not present in repo backend/.env")
@@ -295,13 +315,20 @@ def main() -> int:
         print("BLOCKED: no Ollama at localhost:11434 and no ollama binary")
         return 2
 
-    ev: dict = {"journey": "J2", "mode": JR.BOOT_MODE,
-                "provider": PROVIDER, "local_model": OLLAMA_MODEL,
+    server_kwargs: dict = {}
+    mode = JR.BOOT_MODE
+    if args.pristine:
+        export = JR.materialize_code_export()
+        server_kwargs = {"allowlisted": True, "code_export": export}
+        mode = "pristine_code_export"
+
+    ev: dict = {"journey": "J2", "mode": mode,
+                "provider": PROVIDER, "local_model": args.model,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
-    a = world_a_local(OLLAMA_MODEL)
+    a = world_a_local(args.model, server_kwargs=server_kwargs)
     ev["world_a"] = a
-    b = world_b_byok(creds[CRED_NAME])
+    b = world_b_byok(creds[CRED_NAME], server_kwargs=server_kwargs)
     ev["world_b"] = b
 
     checks = {}

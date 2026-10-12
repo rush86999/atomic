@@ -40,6 +40,43 @@ FACT = ("The Solvency II filing deadline for the Hartwell account was "
         "moved to March 14, 2027.")
 # Deliberately NOT in any source — the uncertainty probe asks about it.
 ABSENT_TOPIC = "the quarterly revenue of the moon colony"
+OLLAMA_BASE = "http://localhost:11434"
+
+
+def _register_local_provider(base: str, token: str, model: str) -> dict:
+    """The Settings → local-models product calls (same boundary J2 world A
+    proves): register endpoint, discover, declare capabilities, test."""
+    out: dict = {}
+    reg = JR.auth_post(base, token, "/api/local-models",
+                       {"name": "journey-ollama", "provider_type": "ollama",
+                        "base_url": f"{OLLAMA_BASE}/v1"})
+    provider_id = (reg["json"] or {}).get("id")
+    out["register"] = {"http": reg["http"],
+                       "registered": bool(reg["json"].get("registered"))
+                       if isinstance(reg["json"], dict) else False}
+    if not provider_id:
+        out["error"] = f"provider registration failed: {reg}"
+        return out
+    models = JR.auth_get(base, token, f"/api/local-models/{provider_id}/models")
+    out["discover"] = {"http": models["http"],
+                       "count": len((models["json"] or {}).get("models")
+                                    or (models["json"] or {}).get("data") or [])}
+    caps = JR.auth_post(base, token,
+                        f"/api/local-models/{provider_id}/capabilities",
+                        {"model_id": model, "supports_tools": False,
+                         "supports_vision": False, "supports_reasoning": False,
+                         # Above the SIMPLE ranking floor (85/100) — see the
+                         # j2 world A note on the 0.5 harness-input failure.
+                         "quality_score": 0.9, "speed_score": 0.8,
+                         "context_window": 8192})
+    out["capabilities"] = {"http": caps["http"]}
+    test = JR.auth_post(base, token, f"/api/local-models/{provider_id}/test",
+                        {})
+    out["test"] = {"http": test["http"],
+                   "ok": (test["json"] or {}).get("ok")
+                   or (test["json"] or {}).get("success")}
+    out["provider_id"] = provider_id
+    return out
 
 
 def _doc_text() -> str:
@@ -52,11 +89,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--pristine", action="store_true", default=True)
     ap.add_argument("--provider", choices=("env-key", "local-product"),
-                    default="env-key",
+                    default="local-product",
                     help="env-key = OPENROUTER_API_KEY via process env "
                          "(separately-labeled evidence); local-product = "
-                         "product-registered Ollama (requires the chat-leg "
-                         "provider-scope repair)")
+                         "the quickstart no-key path + Settings→local-models "
+                         "product registration (the J2-repaired route)")
+    ap.add_argument("--model", default="llama3.1:8b",
+                    help="exact Ollama model tag (bare names 404 when only "
+                         "a tagged variant is installed)")
     args = ap.parse_args()
 
     extra_env: dict = {}
@@ -66,6 +106,10 @@ def main() -> int:
             print("BLOCKED: no OPENROUTER_API_KEY in repo backend/.env")
             return 2
         extra_env["OPENROUTER_API_KEY"] = creds["OPENROUTER_API_KEY"]
+    else:
+        extra_env = {"ATOM_LOCAL_ONLY": "true",
+                     "OLLAMA_BASE_URL": f"{OLLAMA_BASE}/v1",
+                     "OLLAMA_MODEL": args.model}
 
     export = JR.materialize_code_export()
     server = JR.ScratchServer("j4_research", allowlisted=True,
@@ -76,8 +120,10 @@ def main() -> int:
                     "environment-key configuration — separately-labeled "
                     "evidence; does NOT prove Settings->AI provider scope"
                     if args.provider == "env-key" else
-                    "product-registered local provider (requires the "
-                    "chat-leg repair)"),
+                    "product-registered local provider (ATOM_LOCAL_ONLY + "
+                    "Settings->local-models registration; the J2-repaired "
+                    "dispatch route)"),
+                "local_model": args.model,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
     passed = False
@@ -92,6 +138,12 @@ def main() -> int:
         token, uid = user.get("token"), user.get("id")
         if not token:
             raise RuntimeError("register/login failed")
+
+        if args.provider == "local-product":
+            ev["provider_setup"] = _register_local_provider(
+                server.base, token, args.model)
+            if not ev["provider_setup"].get("provider_id"):
+                raise RuntimeError("local provider registration failed")
 
         # SOURCE through the product (same pipeline as J3).
         import httpx

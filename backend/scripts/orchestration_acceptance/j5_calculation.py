@@ -55,19 +55,40 @@ def _build_xlsx(path: Path) -> None:
 def main() -> int:
     import argparse
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--turn-timeout", type=float, default=90.0,
-                    help="per-turn timeout; the provider-blocked cascade "
-                         "takes minutes to fail — keep probes short")
+    ap.add_argument("--turn-timeout", type=float, default=300.0,
+                    help="per-turn timeout (local-model planning runs "
+                         "several LLM calls before the calculate)")
+    ap.add_argument("--provider", choices=("env-key", "local-product"),
+                    default="local-product",
+                    help="env-key = OPENROUTER_API_KEY via process env "
+                         "(separately-labeled); local-product = the "
+                         "quickstart no-key path + Settings→local-models "
+                         "product registration (the J2-repaired route)")
+    ap.add_argument("--model", default="llama3.1:8b")
     args = ap.parse_args()
 
+    extra_env: dict = {}
     creds = JR.read_repo_env_names(["OPENROUTER_API_KEY"])
-    extra_env = ({"OPENROUTER_API_KEY": creds["OPENROUTER_API_KEY"]}
-                 if creds.get("OPENROUTER_API_KEY") else {})
+    if args.provider == "env-key":
+        if not creds.get("OPENROUTER_API_KEY"):
+            print("BLOCKED: no OPENROUTER_API_KEY in repo backend/.env")
+            return 2
+        extra_env["OPENROUTER_API_KEY"] = creds["OPENROUTER_API_KEY"]
+    else:
+        extra_env = {"ATOM_LOCAL_ONLY": "true",
+                     "OLLAMA_BASE_URL": "http://localhost:11434/v1",
+                     "OLLAMA_MODEL": args.model}
     export = JR.materialize_code_export()
     server = JR.ScratchServer("j5_calculation", allowlisted=True,
                               code_export=export, extra_env=extra_env)
     ev: dict = {"journey": "J5", "mode": "pristine_code_export",
-                "provider_mode": "env-key (separately-labeled evidence)",
+                "provider_mode": args.provider,
+                "provider_scope_label": (
+                    "environment-key configuration — separately-labeled "
+                    "evidence" if args.provider == "env-key" else
+                    "product-registered local provider (ATOM_LOCAL_ONLY + "
+                    "Settings->local-models registration)"),
+                "local_model": args.model,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
     passed = False
@@ -80,6 +101,14 @@ def main() -> int:
         token, uid = user.get("token"), user.get("id")
         if not token:
             raise RuntimeError("register/login failed")
+
+        if args.provider == "local-product":
+            from scripts.orchestration_acceptance.j4_research import (
+                _register_local_provider)
+            ev["provider_setup"] = _register_local_provider(
+                server.base, token, args.model)
+            if not ev["provider_setup"].get("provider_id"):
+                raise RuntimeError("local provider registration failed")
 
         # The workbook SOURCE, uploaded through the product.
         xlsx = server.scratch / "billing.xlsx"

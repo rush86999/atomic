@@ -84,7 +84,87 @@ source** (upload or file ingest), **one business-record connector**, and
 is not proof that its user workflow works. Extend the same contract to
 the advertised connector set only after the first wave holds.
 
-## Current status (2026-10-11, campaign round 4 — setup readiness J1–J3 + J4/J5 opened)
+## Current status (2026-10-12, campaign round 9 — post-repair acceptance campaign; SUPERSEDES the 2026-10-11 section below)
+
+**Campaign `2026-10-12-j2-repair` measured the frozen candidate `d6fbcd846` pristine**
+(git-archive code export + allowlisted env + per-world scratch storage + product-created
+users; install coverage still untested). Scoreboard:
+`backend/scripts/orchestration_acceptance/journey_matrix/SCOREBOARD_2026-10-12.md`.
+
+| Journey | Status | Evidence |
+|---------|--------|----------|
+| J1 | 4/5 verified pristine; clean-state install `untested` | `parity_pristine_20261012_20261012_104240_*.json` |
+| J2 | 3/5 verified; **`J2.real-reply` FAILING at a NEW, owner-confirmed boundary**; tool-planning blocked | `j2_model_setup_20261012_103650_*.json`, `probe_j2_ranking_20261012_103859_*.json` |
+| J3 | 3/3 verified pristine + repetition re-run verified | `j3_source_connection_20261012_104208_*.json`, `…_113053_*.json` |
+| J4 | source-bound FAILING at the J2 boundary; 2 blocked | `j4_research_20261012_104909_*.json` |
+| J5 | binding FAILING (turn hung); 2 blocked | `j5_calculation_20261012_105420_*.json` |
+| J6–J9, J8 | untested with recorded reasons | registry |
+
+**The blocker — owner-confirmed diagnosis (round 9).** The service-level repair
+(`f3d554357`→`d6fbcd846`, 16/16 dispatch controls) holds in its tests, but the PUBLIC chat
+route never delivers authenticated scope to it: `chat_routes.py:37` builds a module-level
+`ChatOrchestrator()` with default scope, and reply paths pass `tenant_id=self.tenant_id`
+(e.g. `chat_orchestrator.py:13124` passes `workspace_id="default"` explicitly;
+`:10622/:13204/:14840` pass `self.tenant_id or "default"`), so dispatch continues under the
+orchestrator's `"default"` identity despite the authenticated turn context. Observed at the
+user boundary: `POST /api/chat/message` ranks under workspace `default` ("Managed AI blocked
+for free tier workspace default", 0 candidates) while the product-registered route is
+DB-verified bound to the user's workspace — **4/4 fresh worlds, never recovered in-session**.
+
+**ATTRIBUTION CORRECTION (owner directive):** the four failures are a REPRODUCIBLE
+PUBLIC-PATH SCOPE FAILURE. They must NOT be characterized as the previously suspected
+cold-start/pricing-cache flake; that separate cache-refresh hypothesis remains unproven and
+is not load-bearing for this repair.
+
+**Work order → runtime owner (bounded; do not start anything else):**
+
+> **Repair authenticated scope propagation through the public chat path.**
+>
+> Reproduce the first-request failure using the exact pristine J2 payload. Keep the real
+> auth route, orchestrator, LLM service and dispatch; control only external endpoints.
+>
+> Capture scope at route entry, interpreted request, planner call, reply call, handler
+> selection and network dispatch. Identify the first place the authenticated scope becomes
+> `"default"`.
+>
+> Pass validated turn scope through the existing interfaces. Do not mutate the singleton
+> orchestrator, replace its shared handler, or let unvalidated request-context workspace
+> values override authorization.
+>
+> Require two registered users, distinct workspaces and endpoints, sequential and
+> concurrent public `/api/chat/message` calls. Each first request must reach only its
+> authorized endpoint. Include planning, streaming and fallback.
+
+**Work order → frontend owner (separate agent; must not touch shared LLM runtime):**
+
+> Capture an ordinary "Start Automating" click with browser console errors and
+> request/response events. Establish whether the completion handler runs, which URL it
+> calls, and what response arrives.
+>
+> The unchanged database proves completion did not persist; it does not prove the POST
+> never arrived or that the backend is correct.
+>
+> Reproduce the observed failure, then fix only that boundary. Verify a normal click
+> completes onboarding, the overlay closes, and reload does not reopen it. Failure must
+> remain visible and retryable. Do not use force-clicks as acceptance evidence.
+
+**Retained product evidence (not a harness bug):** the 2026-10-12 world-A attempt
+`j2_model_setup_20261012_102735_*.json` declared `quality_score=0.5` — the Settings→local-
+models DEFAULT — and the route could never rank (every floor ≥ 85/100), with no floor hint
+in the UI. A normally configured provider is therefore ineligible out of the box. The 0.9
+runs establish dispatch capability only. **Defaults are assessed separately AFTER scope
+propagation works; do not blindly raise quality or relax routing floors.**
+
+**Sequence (owner-set):** 1. runtime owner repairs public-route scope loss → 2. frontend
+owner independently diagnoses onboarding completion → 3. verifier reviews both immutable
+patches → 4. acceptance owner runs pristine J2 **with the first attempt counted** →
+5. J4/J5 only after J2 passes. **No further model probes until then** — the next progress
+is a RED public-route regression going GREEN, then a new user's successful first request.
+
+**Gates**: `--check --release` → rc=1 (J2). `--check --strict --release` → rc=1 (J1
+install untested + J2). Whole-app certification not claimed: J6–J9 unexecuted.
+
+## Previous status (2026-10-11, campaign round 4 — superseded by the round-9 section above)
 
 **Scope naming (owner-corrected): the release gate covers SETUP READINESS —
 fresh install, models, sources — not the advertised core loop.** Research,
@@ -169,15 +249,36 @@ are unexecuted.
    `freshness_status=None` while search filters `== 'fresh'` — invisible
    on any table carrying the column. Upload now stamps 'fresh' (aligned
    with its own PG mirror).
-5. **Workspace-scoped providers invisible to chat** (OPEN — owner repair
-   needed in `chat_orchestrator.py`, which carries uncommitted peer work):
-   `ChatOrchestrator.__init__` builds `LLMService` without `workspace_id`;
-   the handler then looks under literal `"default"` and finds nothing a
-   real user registered. Chat returns `no_llm_provider` for every real
-   tenant/workspace. Bounded fix recorded in the `J2.real-reply` registry
-   record. Also flagged: `ATOM_LOCAL_ONLY=true` does not pin routing while
-   a BYOK key is stored, and `GET /api/ai/providers/{id}/keys/{name}`
-   cannot see tenant-scoped keys (evidence recorded, not asserted).
+5. **Workspace-scoped providers invisible to chat** (OPEN — round 9: the service-level
+   repair is verified, but the public route loses scope before reaching it.
+   `chat_routes.py:37` instantiates the orchestrator default-scoped at import; reply paths
+   pass `tenant_id=self.tenant_id` / literal `"default"` (e.g. `chat_orchestrator.py:13124`,
+   `:10622`, `:13204`, `:14840`), so dispatch ranks under workspace `default` ("Managed AI
+   blocked for free tier workspace default", 0 candidates) while `local_model_providers`
+   binds the route to the user's workspace — 4/4 fresh worlds, deterministic at the user
+   boundary. Round-9 trace: `probe_j2_ranking_20261012_103859_08fb31.json`. NOT the
+   cold-start flake (that hypothesis is unproven and separate). Bounded work order in the
+   round-9 section above. Also flagged: `ATOM_LOCAL_ONLY=true` does not pin routing while a
+   BYOK key is stored, and `GET /api/ai/providers/{id}/keys/{name}` cannot see tenant-scoped
+   keys (evidence recorded, not asserted).
+6. **First-run onboarding cannot be completed** (OPEN — frontend owner assigned, round 9):
+   "Start Automating" clicked twice on the Ready step leaves the wizard open and
+   `/api/onboarding/update` never persists (scratch DB after the run:
+   `onboarding_completed=0`, `onboarding_step='welcome'`); the host re-shows the wizard
+   because it gates on `onboarding_completed`, trapping a fresh user. The backend route
+   exists and is trivially correct; the missing evidence is which client-side step fails
+   (handler run? URL? response?). Trace: `browser_j2_chain_20261012_112631_9258b4.json` +
+   `j2chain_2_provider.png`. The wizard's "Enable Ollama" connect step DOES store the key
+   through the product (round-9 chain, byok_keys.json) — the break is at completion only.
+   One transient observation retained: a failed Ollama probe renders "not detected" with no
+   re-probe (attempt `111951`).
+7. **Settings→local-models default quality makes a normal configuration ineligible**
+   (OPEN — retained product-default evidence; assess AFTER scope propagation): the
+   capabilities UI defaults `quality_score=0.5` while every ranking floor is ≥ 85/100, so a
+   user accepting the default registers a route that can never rank, with no floor hint.
+   Round-9 attempt `j2_model_setup_20261012_102735_*.json` is the out-of-box evidence; the
+   0.9 runs prove dispatch capability only. Do not blindly raise the default or relax
+   floors — assess defaults as their own boundary once scope works.
 
 Harness-isolation defects found by the campaign's own runs (fixed in
 `journey_runtime.py`, each with a live observation recorded in the code):
