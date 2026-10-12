@@ -383,6 +383,289 @@ def _with_grounding(block: Optional[str]) -> Optional[str]:
     if not block:
         return block
     return f"{block}\n\n{_GROUNDING_RULE}"
+
+
+# ---------------------------------------------------------------------------
+# SOURCE-ASK FLOOR + NARRATION VALIDATION (pristine-J2 false-search
+# finding, 2026-10-12). "Search my documents for anything about quarterly
+# revenue" compiled to a bare converse op, zero searches ran, and the
+# reply narrated Zoho CRM / Google Drive searches that never happened.
+# Two deterministic pieces, both reusing the accepted interpretation
+# (core.turn_decision — never a second interpreter here):
+#
+# 1. plan_tool_use's floor: a SEEK-SHAPED request whose interpretation
+#    names consultable SOURCES must end in a tool that can serve one of
+#    them, whether the proposal declined, failed, or routed to a service
+#    that cannot read the named kind. Mirrors the explicit-web-research
+#    floor: one bounded corrective LLM pass with the violated contract
+#    named, then a deterministic rung.
+# 2. unbacked_search_claims: a reply may present as searched only what
+#    an attributable receipt covers. The orchestrator applies it against
+#    this turn's executed block; a violation is replaced with the
+#    receipt's own truthful narration.
+# ---------------------------------------------------------------------------
+
+#: Source KINDS each planner service can actually read, expressed with
+#: the vocabularies that already exist (core.action_program SOURCE_KINDS
+#: via normalize_source_kind; the planner's own service sets). Adding an
+#: integration never edits this map: its service serves kinds through
+#: the connected-service legs below or it does not serve them.
+_DOCUMENTISH = {"document"}
+_SHEETISH = {"spreadsheet"}
+_COMMISH = {"email", "inbox", "thread", "chat", "message", "text"}
+
+#: FRESHNESS the platform stores cannot satisfy (verifier check 1): a
+#: "current inventory / live availability / latest price" ask needs the
+#: system of record — an ingested copy is a snapshot, never current
+#: state. Tight phrases only: bare "latest" in a documents ask ("my
+#: latest documents") is a recency preference, not a freshness contract.
+_FRESH_RECORD_ASK_RE = re.compile(
+    r"\b(?:current|live|real[- ]time|up[- ]to[- ]date|right\s+now)\b"
+    r"[^.!?]{0,60}?\b(?:inventory|stocks?|availability|lead\s?times?|"
+    r"balances?|on[- ]hand|crm)\b"
+    r"|\b(?:inventory|stocks?|availability|lead\s?times?|balances?|"
+    r"on[- ]hand|crm)\b[^.!?]{0,60}?"
+    r"\b(?:current|live|real[- ]time|up[- ]to[- ]date|right\s+now)\b",
+    re.IGNORECASE,
+)
+
+
+def _designated_file_named(message: str) -> bool:
+    """A DESIGNATED artifact the request names (a real file mention) —
+    generic memory search cannot satisfy a named-file obligation."""
+    try:
+        from core.agent_file_context import detect_file_mentions
+
+        return bool(detect_file_mentions(message or ""))
+    except Exception:  # noqa: BLE001 — best-effort authority check
+        return False
+
+
+def _source_service_candidates(
+    kinds: List[str], connected: List[str], message: str = ""
+) -> List[str]:
+    """Registered services whose RESULT CONTRACT can serve the requested
+    source kinds, most-specific first. Empty = nothing registered can
+    serve the ask AT ITS EVIDENCE REQUIREMENTS — the floor stays out of
+    the way and the obligation is left unresolved (the honest state),
+    never satisfied by a similar source kind (verifier check 1):
+    a named workbook excludes generic memory search, and a freshness
+    ask (current/live inventory) excludes every ingested-copy store."""
+    out: List[str] = []
+    platform = _available_platform_services()
+    kind_set = {str(k) for k in kinds or []}
+    designated_file = _designated_file_named(message)
+    fresh_record = bool(_FRESH_RECORD_ASK_RE.search(message or ""))
+    if kind_set & _DOCUMENTISH:
+        # The knowledge VFS is the dedicated ingested-documents lane;
+        # the dataset catalog holds ingested files too — both are valid
+        # strategies, documents first. MEMORY IS NOT: a designated-file
+        # ask needs the artifact itself, not a recollection about it.
+        if "documents" in platform:
+            out.append("documents")
+        if "datasets" in platform and _datasets_service_available():
+            out.append("datasets")
+        if "memory" in platform and not designated_file:
+            out.append("memory")
+    if kind_set & _SHEETISH:
+        if "datasets" in platform and _datasets_service_available():
+            out.append("datasets")
+        if "memory" in platform and not designated_file:
+            out.append("memory")
+    if kind_set & _COMMISH:
+        for svc in connected or []:
+            if svc in _MAILBOX_SERVICES or svc in _COMMUNICATION_SERVICES:
+                out.append(svc)
+        if "memory" in platform and not designated_file:
+            out.append("memory")
+    for kind in kind_set - (_DOCUMENTISH | _SHEETISH | _COMMISH):
+        # record/task/ticket/note/... — business-record kinds a
+        # CONNECTED integration may serve; the platform stores cannot.
+        for svc in connected or []:
+            if svc not in out:
+                out.append(svc)
+    if fresh_record:
+        # CURRENT STATE ONLY: drop every ingested-copy store — memory
+        # and the ingested catalogs are snapshots of the past; a
+        # freshness obligation qualifies a service only if it reads the
+        # system of record. Nothing connected = nothing qualifies.
+        out = [s for s in out if s in set(connected or [])]
+    return list(dict.fromkeys(out))
+
+
+_SOURCE_ASK_COMMAND_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?"
+    r"(?:search|look\s?(?:in|through|up)|check|find|list|get|show|read|"
+    r"pull|fetch|scan|grep)\s+(?:my|the|our|your)?\s*"
+    r"(?:documents?|docs?|files?|folders?|drives?|workbooks?|"
+    r"spreadsheets?|sheets?|pdfs?|knowledge\s?base|e-?mails?|mail|inbox|"
+    r"threads?|messages?|chats?|texts?|records?|notes?|tickets?|"
+    r"calendars?)\s*"
+    r"(?:for|about|containing|that\s+(?:mention|include|reference)|with|"
+    r"regarding)\s+(?:anything\s+)?(?:about\s+)?",
+    re.IGNORECASE,
+)
+_SOURCE_ASK_TAIL_RE = re.compile(
+    r"\s+and\s+(?:tell|show|list|report|summar\w*|let)\b.*$"
+    r"|\s+(?:then\s+)?(?:tell|show|list|report|summar\w*)\b.*$"
+    r"|[\s.]*\bso (?:that|we) .*$",
+    re.IGNORECASE,
+)
+
+
+def _source_ask_query(message: str) -> str:
+    """The subject terms of a source ask, deterministically: the command
+    and the source noun are scaffolding — what remains is the query
+    ("Search my documents for anything about quarterly revenue and tell
+    me what you find." → "quarterly revenue"). Empty string when the
+    scaffolding does not strip cleanly; callers fall back to the message
+    itself (never guessed terms)."""
+    text = str(message or "").strip()
+    stripped = _SOURCE_ASK_COMMAND_RE.sub("", text, count=1)
+    if stripped == text:
+        return ""
+    stripped = _SOURCE_ASK_TAIL_RE.sub("", stripped).strip(" \t.,?!;:")
+    return stripped
+
+
+def _executed_tool_names(tool_block: Optional[str]) -> List[str]:
+    """The tools this turn's evidence block actually executed, parsed
+    from the uniform ``LIVE TOOL RESULTS (<label>`` headers every lane
+    stamps. Attribution comes from the block's existence in the reply
+    path — an empty/absent block means nothing executed."""
+    if not tool_block:
+        return []
+    out = re.findall(r"LIVE TOOL RESULTS \(([A-Za-z0-9_.→-]+)", tool_block)
+    return list(dict.fromkeys(out))
+
+
+_SEARCH_CLAIM_RE = re.compile(
+    r"\b(?:i'?ve|we'?ve|i|we|just)\s+(?:already\s+)?"
+    r"(?:searched|checked|scanned|looked(?:\s+(?:into|through|at))?|"
+    r"queried|pulled|fetched|reviewed|went\s+through|dug\s+through|"
+    r"found|retrieved)\b[^.!?]{0,160}[.!?]?",
+    re.IGNORECASE,
+)
+
+
+def unbacked_search_claims(
+    reply: str, executed_tools: List[str]
+) -> List[str]:
+    """Search/lookup CLAIMS in the reply that no attributable execution
+    covers. Deterministic, one regex pass, no judge (the same contract
+    as ``_unsupported_figures``).
+
+    Two violation shapes:
+    - the reply narrates searching while NOTHING executed this turn
+      (the pristine-J2 shape: tool_outcomes=[], reply claims Zoho CRM /
+      Google Drive searches);
+    - the reply names an integration-shaped source its executed tools
+      cannot have read ("I searched your Google Drive" while only
+      documents.grep ran — the executed store never held that source).
+    Coverage rule: a claim is covered when the executed label names the
+    claimed source's store (documents/datasets/memory/web cover the
+    platform stores; anything else must appear verbatim in an executed
+    label). """
+    if not reply:
+        return []
+    executed = {str(t or "").lower() for t in (executed_tools or [])}
+    store_cover = set(executed)
+    for label in executed:
+        # documents.* / datasets.* cover their whole family; a lane and
+        # its named-file variant are the same store.
+        root = label.split(".", 1)[0]
+        store_cover.add(root)
+    covered_words = set()
+    for label in store_cover:
+        covered_words.update(re.findall(r"[a-z_]+", label))
+    claims: List[str] = []
+    for m in _SEARCH_CLAIM_RE.finditer(reply):
+        claim = m.group(0).strip()
+        if not executed:
+            claims.append(claim)
+            continue
+        # Integration-shaped named sources the execution never touched.
+        named = re.findall(
+            r"\b(zoho\s?\w*|google\s+drive|google\s+docs?|gdrive|"
+            r"\bdrive\b|sharepoint|onedrive|dropbox|notion|salesforce|"
+            r"hubspot|slack|gmail|outlook|calendar|crm\b)\b",
+            claim, re.IGNORECASE)
+        if named and not any(
+                n.lower().replace(" ", "").replace("-", "") in
+                {c.replace(" ", "").replace("-", "") for c in covered_words}
+                for n in named):
+            claims.append(claim)
+    seen = set()
+    out = []
+    for c in claims:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def truthful_search_narration(
+    tool_block: Optional[str], message: str = "",
+    docs_receipt: Optional[dict] = None,
+) -> str:
+    """The deterministic honest narration for a search ask whose reply
+    claimed work the receipts do not support. Rendered FROM the turn's
+    executed evidence only — never from the failed reply. Absence is
+    always SCOPED to what the receipt actually searched; a degraded or
+    truncated read can never be narrated as a complete absence
+    (verifier check 2)."""
+    executed = _executed_tool_names(tool_block)
+    if not executed:
+        return (
+            "I couldn't search anything this turn — no connected system "
+            "was queried, so there are no results to report. Nothing in "
+            "your request was looked up, and nothing should be assumed "
+            "found or missing.")
+    docs = docs_receipt if isinstance(docs_receipt, dict) else None
+    if docs and (docs.get("degraded") or docs.get("truncated")):
+        return (
+            "I searched this turn, but the read came back PARTIAL "
+            "(degraded or truncated) — what it returned is below, and "
+            "nothing absent from it should be treated as absent from "
+            "the source. Re-running the read can extend it.\n"
+            + "\n".join((tool_block or "").strip().splitlines()[:10])[:1200])
+    head = (tool_block or "").strip().splitlines()
+    head_line = next(
+        (ln for ln in head if ln.startswith("LIVE TOOL RESULTS")),
+        "LIVE TOOL RESULTS")
+    return (
+        "Here is what the search this turn actually executed and "
+        "returned — I can only report this, not a narration of it:\n"
+        + "\n".join(head[:14])[:1600])
+
+
+_RESULT_COUNT_RE = re.compile(
+    r"\b(\d[\d,]*)\s+(?:records?|results?|matches|rows|files|documents|"
+    r"emails?|messages|items|entries)\b", re.IGNORECASE)
+
+
+def unbacked_result_counts(
+    reply: str, settled_match_count: Optional[int]
+) -> List[str]:
+    """Result-count claims CONTRADICTED by the structured receipt
+    (verifier check 2: the authority for what a search returned is the
+    execution receipt, never rendered block prose). ``None`` means no
+    structured count exists — the function stays out of the way (the
+    search-claims detector covers the no-execution shapes); a settled
+    zero flags every positive count the reply asserts."""
+    if not reply or settled_match_count is None:
+        return []
+    if int(settled_match_count) > 0:
+        return []
+    out = []
+    for m in _RESULT_COUNT_RE.finditer(reply):
+        try:
+            claimed = int(m.group(1).replace(",", ""))
+        except ValueError:
+            continue
+        if claimed > 0:
+            out.append(m.group(0))
+    return list(dict.fromkeys(out))
 # Available unconditionally — memory searches the workspace's OWN ingested
 # data (no external key, no OAuth). Coupling it to the Tavily key gate made
 # it vanish wherever web search wasn't configured.
@@ -1219,6 +1502,75 @@ async def plan_tool_use(
             llm_service, plan, connected, catalog, history, message)
         if plan is not None:
             plan_meta.update(source="web_escalation", recovered=True)
+    # SOURCE-ASK FLOOR (pristine-J2 false-search finding, 2026-10-12):
+    # a SEEK-SHAPED request whose accepted interpretation names
+    # consultable SOURCES must end in a tool that can actually serve one
+    # of them — whether the proposal declined, failed, or routed to a
+    # service that cannot read the named kind ("Search my documents …"
+    # planned NOTHING, the turn ran zero lookups, and the reply narrated
+    # searches that never happened). The interpretation is the decision
+    # layer's own (core.turn_decision) — composed, not re-interpreted.
+    # One bounded corrective pass with the violated contract named;
+    # then the deterministic rung; multiple valid strategies all count.
+    try:
+        from core.turn_decision import (
+            _looks_seek_shaped as _td_seek,
+            _requested_sources as _td_sources,
+        )
+        from core.action_program import (
+            normalize_source_kind as _norm_kind,
+        )
+
+        _ask_kinds = sorted({
+            _norm_kind(s) for s in _td_sources(message or "")} - {""})
+        if _ask_kinds and _td_seek(message or ""):
+            _candidates = _source_service_candidates(
+                _ask_kinds, connected, message or "")
+            _already_served = bool(
+                plan is not None and plan.use_tool
+                and (plan.service or "") in _candidates)
+            if _candidates and not _already_served:
+                _planned_desc = (
+                    f"plans {plan.service!r}, which cannot serve them"
+                    if plan is not None and plan.use_tool
+                    else "declined tool use entirely")
+                defect = (
+                    "the request asks to consult a SOURCE the turn must "
+                    f"actually read (kinds: {_ask_kinds}), but the plan "
+                    f"{_planned_desc}. Registered services that can serve "
+                    f"this ask: {_candidates}. Re-plan as a search on one "
+                    "of those services, with the request's subject terms "
+                    "as the query.")
+                _repaired = await _repair_plan_via_llm(
+                    llm_service, defect, connected, catalog, history,
+                    message, canvas)
+                if _repaired and _repaired.use_tool and (
+                        _repaired.service or "") in _candidates:
+                    logger.info(
+                        "tool planner: source-ask repair -> "
+                        f"{_repaired.service}.{_repaired.intent}")
+                    plan = _repaired
+                    plan_meta.update(source="source_ask_repair",
+                                     recovered=True)
+                else:
+                    _subject = _source_ask_query(message) or (message or "")[:120]
+                    if plan is None:
+                        plan = ToolPlan()
+                    plan.use_tool = True
+                    plan.service = _candidates[0]
+                    plan.intent = "search"
+                    plan.query = _subject
+                    plan.reason = (
+                        "source-ask floor: the request names sources "
+                        f"{_ask_kinds} and must end in an executed search "
+                        "of one")
+                    logger.info(
+                        "tool planner: source-ask floor -> "
+                        f"{plan.service}.search query={plan.query!r}")
+                    plan_meta.update(source="source_ask_floor",
+                                     recovered=True)
+    except Exception as _floor_err:  # noqa: BLE001 — floor must not gate
+        logger.debug(f"source-ask floor skipped: {_floor_err}")
     if plan is None:
         return None
     if plan.use_tool:
@@ -7495,6 +7847,38 @@ def _split_vfs_grep_query(query: str) -> Tuple[str, str]:
     return text, "knowledge"
 
 
+def _stamp_documents_receipt(
+    plan: Any, *, action: str, query: str, executed: bool,
+    match_count: int = 0, paths: Optional[List[str]] = None,
+    degraded: bool = False, truncated: bool = False,
+    error: str = "", workspace_id: Any = None,
+) -> None:
+    """Stamp the turn's durable documents-execution receipt on the plan
+    (pristine-J2 finding: a documents search that ran left NO receipt,
+    so nothing downstream could tell it ran — and the reply narrated
+    searches that never happened). Presence of this key under
+    ``_result_meta`` is itself the execution record; ``executed=False``
+    records an honest not-executed with its reason."""
+    try:
+        meta = getattr(plan, "_result_meta", None)
+        if not isinstance(meta, dict):
+            meta = {}
+            plan._result_meta = meta
+        meta["documents_read"] = {
+            "action": action,
+            "query": str(query or "")[:200],
+            "executed": bool(executed),
+            "match_count": int(match_count or 0),
+            "paths": [str(p) for p in (paths or [])][:10],
+            "degraded": bool(degraded),
+            "truncated": bool(truncated),
+            "error": str(error or "")[:200],
+            "workspace_id": workspace_id,
+        }
+    except Exception:  # noqa: BLE001 — a receipt must never fail the lane
+        pass
+
+
 async def _documents_vfs_block(
     plan: Any, user_id: Optional[str], context: Optional[Dict[str, Any]]
 ) -> Optional[str]:
@@ -7517,6 +7901,10 @@ async def _documents_vfs_block(
         from core.knowledge_vfs_config import knowledge_vfs_enabled
 
         if not knowledge_vfs_enabled():
+            _stamp_documents_receipt(
+                plan, action=action, query=query, executed=False,
+                error="knowledge VFS disabled",
+                workspace_id=(context or {}).get("workspace_id"))
             return _with_grounding(
                 "LIVE TOOL RESULTS (documents."
                 f"{action}, query='{query}'): the knowledge VFS is disabled "
@@ -7526,6 +7914,10 @@ async def _documents_vfs_block(
         if action == "grep":
             pattern, prefix = _split_vfs_grep_query(query)
             if not pattern:
+                _stamp_documents_receipt(
+                    plan, action=action, query=query, executed=False,
+                    error="no pattern in the query",
+                    workspace_id=(context or {}).get("workspace_id"))
                 return _with_grounding(
                     "LIVE TOOL RESULTS (documents.grep): no pattern in the "
                     "query — plan grep with the exact string to find."
@@ -7534,6 +7926,10 @@ async def _documents_vfs_block(
         elif action in ("cat", "read", "head", "tail"):
             path = _normalize_vfs_path(query)
             if not path:
+                _stamp_documents_receipt(
+                    plan, action=action, query=query, executed=False,
+                    error="not a VFS path",
+                    workspace_id=(context or {}).get("workspace_id"))
                 return _with_grounding(
                     f"LIVE TOOL RESULTS (documents.{action}, query='{query}'): "
                     "not a VFS path — expect "
@@ -7572,6 +7968,9 @@ async def _documents_vfs_block(
         )
         if not (result or {}).get("success"):
             reason = str((result or {}).get("message") or (result or {}).get("error") or "failed")
+            _stamp_documents_receipt(
+                plan, action=action, query=query, executed=False,
+                error=reason, workspace_id=(context or {}).get("workspace_id"))
             return _with_grounding(
                 f"LIVE TOOL RESULTS (documents.{action}, query='{query}'): "
                 f"returned nothing usable ({reason[:140]})."
@@ -7579,6 +7978,13 @@ async def _documents_vfs_block(
         if action == "grep":
             matches = (result.get("matches") or [])[:40]
             all_matches = result.get("matches") or []
+            _uniq_paths = list(dict.fromkeys(
+                str(m.get("path") or "") for m in all_matches))
+            _stamp_documents_receipt(
+                plan, action=action, query=result.get("pattern") or query,
+                executed=True, match_count=len(all_matches),
+                paths=_uniq_paths, truncated=len(all_matches) > len(matches),
+                workspace_id=(context or {}).get("workspace_id"))
             head = (
                 f"LIVE TOOL RESULTS (documents.grep, pattern="
                 f"'{result.get('pattern') or query}', under "
@@ -7636,6 +8042,19 @@ async def _documents_vfs_block(
             except Exception as hydrate_err:  # noqa: BLE001 — hydration is additive
                 logger.debug(f"grep top-hit hydration skipped: {hydrate_err}")
             return _with_grounding(head + hydrate)
+        # read / cat / ls / tree / scan / head / tail: one executed-with-
+        # receipt stamp for the whole family (details per action below —
+        # degraded reads and paged windows carry those flags on the
+        # receipt so follow-up work can be chosen from the gap).
+        _stamp_documents_receipt(
+            plan, action=action, query=str(args.get("path") or query),
+            executed=True,
+            match_count=int(result.get("returned_lines")
+                            or result.get("line_count") or 0) or 0,
+            paths=[str(args.get("path"))] if args.get("path") else [],
+            degraded=bool(result.get("degraded")),
+            truncated=bool(result.get("next_start")),
+            workspace_id=(context or {}).get("workspace_id"))
         if action == "read":
             content = str(result.get("content") or "")
             if result.get("degraded"):
