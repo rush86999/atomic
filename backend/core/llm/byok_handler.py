@@ -1623,6 +1623,19 @@ class BYOKHandler:
             return True
         return self._provider_serves_model(attempt_provider_id, model)
 
+    def _local_served_models(self, provider_id: str) -> Optional[List[str]]:
+        """The served set for a REGISTERED-LOCAL provider (J2): the
+        models this workspace registered under that provider key. The
+        registration is the product record of what the endpoint
+        accepts — the same set the ranking, reconcile and dispatch
+        gates must agree on. ``None`` for non-local providers (their
+        catalogue is discovered, not declared)."""
+        if not provider_id or not provider_id.startswith("local_"):
+            return None
+        return sorted(
+            m for m, r in (self._local_routes or {}).items()
+            if r["provider_key"] == provider_id) or None
+
     def _provider_serves_model(self, provider_id: str, model: str) -> bool:
         """Does this provider actually serve this model identifier?
 
@@ -1653,6 +1666,12 @@ class BYOKHandler:
                     state = None
                 if state and state[0] == "up":
                     local_models = state[1]
+                else:
+                    # A REGISTERED route serves what it registered (J2):
+                    # the workspace's own capability rows are the product
+                    # record of what this endpoint accepts — the served
+                    # set for the route-eligibility gate.
+                    local_models = self._local_served_models(provider_id)
             decision = evaluate_route(
                 provider_id, model,
                 configured_providers=sorted(self.clients.keys()),
@@ -3121,6 +3140,13 @@ class BYOKHandler:
         # Load user-registered local model providers (Ollama, LM Studio, vLLM,
         # etc.) from the DB and create OpenAI-compatible clients for each.
         # Their models become eligible for BPC ranking alongside cloud models.
+        # REGISTERED-LOCAL ROUTE IDENTITY (J2 work order): every
+        # registration keeps its full association on this handler —
+        #   authorized workspace → registered provider key (the client
+        #   that holds the endpoint) → endpoint model → capabilities —
+        # so routing can attribute a model to the client that actually
+        # serves it, with THIS workspace's declared capabilities.
+        self._local_routes: Dict[str, Dict[str, Any]] = {}
         self._load_local_providers()
 
         # Discover which identifiers each configured provider actually serves.
@@ -3294,6 +3320,28 @@ class BYOKHandler:
 
                     if caps:
                         for cap in caps:
+                            # SCOPED ROUTE RECORD (J2): the handler's own
+                            # association for this model — the client that
+                            # holds the endpoint and the capabilities the
+                            # owning workspace declared. Ranking and
+                            # capability gates read THIS, never the shared
+                            # cache entry, so two workspaces registering
+                            # the same model name keep their own
+                            # endpoint and capability association.
+                            self._local_routes[cap.model_id] = {
+                                "provider_key": provider_key,
+                                "workspace_id": ws_id,
+                                "provider_id": provider.id,
+                                "supports_tools": bool(cap.supports_tools),
+                                "supports_vision": bool(cap.supports_vision),
+                                "supports_reasoning": bool(cap.supports_reasoning),
+                                "quality_score": cap.quality_score,
+                                "context_window": cap.context_window or 8192,
+                            }
+                            # Public pricing metadata stays shared, but the
+                            # entry carries its association so a foreign
+                            # workspace's handler can tell the entry is not
+                            # its own (and never routes on it).
                             fetcher.pricing_cache[cap.model_id] = {
                                 "model_id": cap.model_id,
                                 "litellm_provider": provider.provider_type,
@@ -3304,6 +3352,8 @@ class BYOKHandler:
                                 "supports_vision": cap.supports_vision,
                                 "supports_reasoning": cap.supports_reasoning,
                                 "quality_score": cap.quality_score,
+                                "provider_key": provider_key,
+                                "workspace_id": ws_id,
                             }
                     else:
                         # No capabilities configured — register a generic entry
@@ -3318,6 +3368,8 @@ class BYOKHandler:
                             "supports_vision": False,
                             "supports_reasoning": False,
                             "quality_score": 0.5,
+                            "provider_key": provider_key,
+                            "workspace_id": ws_id,
                         }
         except Exception as e:
             logger.debug(f"Could not load local providers (non-fatal): {e}")
@@ -3751,6 +3803,18 @@ class BYOKHandler:
                 (COST_EFFICIENT_MODELS.get(_fb_provider) or {}).get(
                     QueryComplexity.SIMPLE))
             if not _tier_default:
+                # REGISTERED-LOCAL FALLBACK (J2 work order): a provider
+                # with no static default — a dynamically registered
+                # local route, keyed by its own id — falls back to the
+                # models IT registered. The registration is the product
+                # record of what that endpoint serves; nothing is
+                # invented, and every check below still applies.
+                _tier_default = next(
+                    (m for m in sorted(self._local_routes or {})
+                     if (self._local_routes or {})[m]["provider_key"]
+                     == _fb_provider),
+                    None)
+            if not _tier_default:
                 continue
             if self._model_cooldown_active(_fb_provider, _tier_default):
                 continue
@@ -3857,7 +3921,13 @@ class BYOKHandler:
             excluded: List[str] = []
             for provider_id, model_id in options:
                 decision = evaluate_route(
-                    provider_id, model_id, configured_providers=configured)
+                    provider_id, model_id, configured_providers=configured,
+                    # REGISTERED-LOCAL routes (J2) carry their served set
+                    # on the handler — the same source the dispatch gate
+                    # uses — or reconcile would drop every local pair the
+                    # moment ANY catalogue is verified.
+                    local_runtime_models=self._local_served_models(
+                        provider_id))
                 if decision.eligible:
                     eligible.append((provider_id, model_id))
                 else:
@@ -4135,24 +4205,44 @@ class BYOKHandler:
             for model_id, pricing in fetcher.pricing_cache.items():
                 litellm_provider = pricing.get("litellm_provider", "").lower()
 
-                # Check if we have a client for this provider. Exact catalog
-                # match wins: OpenRouter-hosted IDs often CONTAIN another
-                # client's name ("deepseek/deepseek-v4-flash-0731" contains
-                # "deepseek"), and the old substring-first match handed those
-                # to the wrong client — api.deepseek.com 400s prefixed IDs
-                # ("supported names are deepseek-v4-pro, deepseek-v4-flash,
-                # …", verified Sept 6), so every such request paid a failed
-                # call before escalating. Substring stays as the fallback for
-                # models the catalog can't attribute (local providers).
-                active_provider = next(
-                    (p for p in available_providers if p == litellm_provider), None
-                )
-                if not active_provider:
-                    active_provider = next(
-                        (p for p in available_providers if p in model_id.lower()), None
-                    )
-                if not active_provider:
+                # REGISTERED-LOCAL ROUTE IDENTITY (J2 work order): an
+                # entry whose model this handler registered carries the
+                # full association locally — attribute it to the CLIENT
+                # that holds the endpoint, with THIS workspace's
+                # capabilities. A same-name registration in ANOTHER
+                # workspace (which overwrites the shared cache entry)
+                # must not route here: the shared entry's workspace
+                # stamp marks it foreign, and the handler's own rows
+                # keep the local association authoritative either way.
+                _own_route = (self._local_routes or {}).get(model_id)
+                if _own_route is not None:
+                    active_provider = _own_route["provider_key"]
+                    if active_provider not in self.clients:
+                        continue
+                elif pricing.get("workspace_id") and \
+                        pricing.get("workspace_id") != self.workspace_id:
+                    # Another workspace's registration echoed through the
+                    # shared cache — this handler has no route for it.
                     continue
+                else:
+                    # Check if we have a client for this provider. Exact catalog
+                    # match wins: OpenRouter-hosted IDs often CONTAIN another
+                    # client's name ("deepseek/deepseek-v4-flash-0731" contains
+                    # "deepseek"), and the old substring-first match handed those
+                    # to the wrong client — api.deepseek.com 400s prefixed IDs
+                    # ("supported names are deepseek-v4-pro, deepseek-v4-flash,
+                    # …", verified Sept 6), so every such request paid a failed
+                    # call before escalating. Substring stays as the fallback for
+                    # models the catalog can't attribute (local providers).
+                    active_provider = next(
+                        (p for p in available_providers if p == litellm_provider), None
+                    )
+                    if not active_provider:
+                        active_provider = next(
+                            (p for p in available_providers if p in model_id.lower()), None
+                        )
+                    if not active_provider:
+                        continue
 
                 # Ollama routes ONLY when the local runtime is available —
                 # free local models rank well on value, so an unreachable
@@ -4184,8 +4274,17 @@ class BYOKHandler:
                 # Check context window (clamped by the provider's custom
                 # max_context limit, if configured — e.g. opencode-go caps the
                 # context the gateway will serve regardless of the model's own
-                # advertised window)
-                context_window = pricing.get("max_input_tokens") or pricing.get("max_tokens") or 0
+                # advertised window). A registered-local route reads the
+                # window the OWNING workspace declared, not the shared
+                # entry (another workspace's registration may have
+                # overwritten it).
+                if _own_route is not None:
+                    context_window = (
+                        _own_route["context_window"]
+                        or pricing.get("max_input_tokens")
+                        or pricing.get("max_tokens") or 0)
+                else:
+                    context_window = pricing.get("max_input_tokens") or pricing.get("max_tokens") or 0
                 provider_max_context = self.rate_tracker.get_max_context(active_provider)
                 if provider_max_context is not None:
                     context_window = min(context_window, provider_max_context)
@@ -4240,8 +4339,19 @@ class BYOKHandler:
                         continue
                     endpoint_penalty = gate
 
-                # Check quality score (use capability-specific score if required)
-                if required_capability:
+                # Check quality score (use capability-specific score if required).
+                # A REGISTERED-LOCAL route is scored by the quality the
+                # owning workspace declared at registration (0-1 → 0-100)
+                # — the name-based tables/heuristics know nothing about a
+                # dynamically registered model and would floor it below
+                # every tier.
+                if _own_route is not None:
+                    if required_capability == "vision" and \
+                            not _own_route["supports_vision"]:
+                        continue
+                    quality_score = max(0, min(100, int(round(
+                        (_own_route["quality_score"] or 0.0) * 100.0))))
+                elif required_capability:
                     quality_score = get_capability_score(model_id, required_capability)
                 else:
                     quality_score = get_quality_score(model_id)
@@ -4519,7 +4629,7 @@ class BYOKHandler:
                     # for every path; it must not count as a survivor in
                     # EITHER pass.
                     if self._ranked_model_is_known_unserved(
-                            provider_id, model):
+                            provider_id, model_id):
                         ranking_skips.append({
                             "route": f"{provider_id}/{model_id}",
                             "reason": "catalog_not_in_provider",
@@ -4662,9 +4772,15 @@ class BYOKHandler:
             # (platform-billed) keys only: an env-provided key IS the
             # operator's own credential (see env_key_providers note in
             # __init__), so plan allowlists must not zero out its candidates.
+            # A registered-LOCAL provider is the workspace's own hardware —
+            # it bills nobody, so a free-plan allowlist of platform models
+            # must not hide it either (J2: the fresh-install blocker).
             def _plan_applies(provider_id: str) -> bool:
                 own_keys = getattr(self, "env_key_providers", set())
-                return is_managed_service and provider_id not in own_keys
+                if provider_id in own_keys or \
+                        provider_id.startswith("local_"):
+                    return False
+                return is_managed_service
 
             def is_model_approved(model_id: str, allowed_list: any) -> bool:
                 # The local runtime is the authority for its own models: the
@@ -4674,13 +4790,21 @@ class BYOKHandler:
                 # Availability + pulled-model gating happens at candidate
                 # time; a local model that genuinely lacks tools surfaces a
                 # normal call error like any other provider mismatch.
-                is_local = model_id.lower().startswith("ollama/")
-                if (
-                    (requires_tools or requires_structured)
-                    and not is_local
-                    and not self._model_supports_tools(model_id)
-                ):
-                    return False
+                # A REGISTERED route's own record is equally authoritative —
+                # with the registration's declared tools support (J2).
+                own_route = (self._local_routes or {}).get(model_id)
+                if own_route is not None:
+                    if (requires_tools or requires_structured) and \
+                            not own_route["supports_tools"]:
+                        return False
+                else:
+                    is_local = model_id.lower().startswith("ollama/")
+                    if (
+                        (requires_tools or requires_structured)
+                        and not is_local
+                        and not self._model_supports_tools(model_id)
+                    ):
+                        return False
 
                 if allowed_list == "*" or "*" in allowed_list:
                     return True

@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import asyncio
-from typing import Optional, Dict, Any, List, Union, Type, AsyncGenerator
+from typing import Optional, Dict, Any, List, Tuple, Union, Type, AsyncGenerator
 from enum import Enum
 
 from pydantic import BaseModel
@@ -102,13 +102,30 @@ class LLMService:
             tenant_id: Identifier for the tenant (SaaS convention).
         """
         self._db = db
-        self._workspace_id = workspace_id or "default"
         self._tenant_id = tenant_id or "default"
+        self._tenant_workspace_cache: Dict[str, Optional[str]] = {}
+        # WORKSPACE FROM THE AUTHORIZED CONTEXT (J2 provider-scope work
+        # order): an explicit workspace wins. A service constructed with
+        # only a tenant (the chat orchestrator's shape) resolves the
+        # workspace THAT tenant owns through the product's own
+        # tenant→workspace link — a tenant id is never itself a
+        # workspace id. Unresolvable context falls back to "default",
+        # which is the deliberate single-tenant scope.
+        resolved_ws = workspace_id or "default"
+        if workspace_id is None and self._tenant_id != "default":
+            resolved_ws = (self._workspace_for_tenant(self._tenant_id)
+                           or "default")
+        self._workspace_id = resolved_ws
         self._handler: Optional[BYOKHandler] = None
-        
+
         # In single-tenant open source, we mostly care about workspace_id.
         # But we preserve tenant_id for compatibility.
         self._handler = BYOKHandler(workspace_id=self._workspace_id, tenant_id=self._tenant_id, db_session=db)
+        # Handlers for OTHER (workspace, tenant) scopes, created on
+        # demand and keyed by the FULL identity pair. The shared
+        # handler is never mutated between requests; handler reuse
+        # requires both identifiers to match.
+        self._scoped_handlers: Dict[Tuple[str, str], BYOKHandler] = {}
         self.continuous_learning = ContinuousLearningService(db) if db else None
         self._token_counter = TokenCounter()
         self._context_validator = ContextValidator()
@@ -134,14 +151,74 @@ class LLMService:
         """Return the tenant identifier."""
         return self._tenant_id
 
+    def _workspace_for_tenant(self, tenant_id: str) -> Optional[str]:
+        """The workspace a tenant owns, through the product's own
+        tenant→workspace link (registration creates them 1:1). Cached
+        per tenant; None when the tenant has no workspace — the caller
+        then keeps the deliberate "default" scope. Best-effort: a DB
+        problem degrades to "default", never raises into dispatch."""
+        if not tenant_id or tenant_id == "default":
+            return None
+        if tenant_id in self._tenant_workspace_cache:
+            return self._tenant_workspace_cache[tenant_id]
+        resolved: Optional[str] = None
+        try:
+            from core.models import Workspace
+
+            if self._db is not None:
+                row = (self._db.query(Workspace)
+                       .filter(Workspace.tenant_id == tenant_id)
+                       .first())
+                resolved = row.id if row else None
+            else:
+                from core.database import get_db_session
+
+                with get_db_session() as db:
+                    row = (db.query(Workspace)
+                           .filter(Workspace.tenant_id == tenant_id)
+                           .first())
+                    resolved = row.id if row else None
+        except Exception as exc:  # noqa: BLE001 — scope resolution, not routing
+            logger.debug("workspace resolution for tenant %s failed: %s",
+                         tenant_id, exc)
+            resolved = None
+        self._tenant_workspace_cache[tenant_id] = resolved
+        return resolved
+
     def _get_handler(self, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None) -> BYOKHandler:
-        """Helper to get or create a BYOKHandler for a specific workspace."""
-        target_ws = workspace_id or tenant_id or self._workspace_id
-        
-        if self._handler and target_ws == self._workspace_id:
+        """Handler for one (workspace, tenant) scope.
+
+        Tenant and workspace remain SEPARATE identifiers: an explicit
+        tenant never becomes a workspace. A tenant-only caller (the
+        chat path) is resolved to the workspace that tenant owns, so
+        the handler reads THAT workspace's providers and keys. Reuse of
+        the shared handler requires BOTH identifiers to match the
+        service's own scope; every other pair gets its own handler,
+        cached — a shared handler is never mutated between requests.
+        """
+        target_ws = workspace_id or self._workspace_id
+        target_tenant = tenant_id or self._tenant_id
+        if workspace_id is None and tenant_id is not None and \
+                tenant_id != self._tenant_id:
+            # A DIFFERENT tenant's authorized context: resolve its own
+            # workspace rather than serving it under this service's
+            # workspace (and never under an invented scope).
+            target_ws = (self._workspace_for_tenant(tenant_id)
+                         or self._workspace_id)
+
+        if self._handler is not None and \
+                target_ws == self._workspace_id and \
+                target_tenant == self._tenant_id:
             return self._handler
-            
-        return BYOKHandler(workspace_id=target_ws, tenant_id=tenant_id or self._tenant_id, db_session=self._db)
+
+        key = (target_ws, target_tenant)
+        handler = self._scoped_handlers.get(key)
+        if handler is None:
+            handler = BYOKHandler(
+                workspace_id=target_ws, tenant_id=target_tenant,
+                db_session=self._db)
+            self._scoped_handlers[key] = handler
+        return handler
 
     def get_provider(self, model: str) -> LLMProvider:
         """Get the provider for a given model."""
@@ -234,13 +311,21 @@ class LLMService:
         # Personalization
         agent_id = kwargs.get("agent_id")
         user_id = kwargs.get("user_id")
-        target_ws = workspace_id or tenant_id or self._workspace_id
-        
+        # Tenant and workspace stay separate: the handler is selected by
+        # BOTH identifiers (a tenant-only caller resolves the tenant's
+        # own workspace inside _get_handler — the tenant id never
+        # becomes a workspace id).
+        handler = self._get_handler(workspace_id=workspace_id,
+                                    tenant_id=tenant_id)
+        # Governance reads workspace metadata — use the workspace the
+        # handler actually resolved to, not the raw argument. getattr:
+        # an injected handler stand-in may not carry the attribute.
+        target_ws = (getattr(handler, "workspace_id", None)
+                     or workspace_id or self._workspace_id)
+
         # Apply Governance De-escalation
         model = self._resolve_governance_model(target_ws, model, **kwargs)
 
-        handler = self._get_handler(workspace_id=target_ws)
-        
         if agent_id and self.continuous_learning:
             params = self.continuous_learning.get_personalized_parameters(
                 tenant_id=target_ws,
@@ -288,12 +373,15 @@ class LLMService:
         is forwarded to the provider request; None keeps the handler default
         (ATOM_COMPLETION_MAX_TOKENS).
         """
-        target_ws = workspace_id or tenant_id or self._workspace_id
+        # Tenant and workspace stay separate: the handler is selected by
+        # BOTH identifiers (see generate).
+        handler = self._get_handler(workspace_id=workspace_id,
+                                    tenant_id=tenant_id)
+        target_ws = (getattr(handler, "workspace_id", None)
+                     or workspace_id or self._workspace_id)
 
         # Apply Governance De-escalation
         model = self._resolve_governance_model(target_ws, model, **kwargs)
-
-        handler = self._get_handler(workspace_id=target_ws)
 
         # Multimodal normalization: callers may embed image content-parts
         # inside message content lists. The routing layer keys vision
@@ -793,6 +881,8 @@ class LLMService:
         fallback_models: Optional[List[str]] = None,
         fallback_routes: Optional[List[tuple]] = None,
         estimated_tokens: Optional[int] = None,
+        workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ):
         """
         Stream LLM responses token-by-token with automatic provider fallback.
@@ -827,6 +917,11 @@ class LLMService:
             - Integrates with governance tracking when agent_id and db are provided
         """
         # Analyze complexity for auto provider selection
+        # Explicit request scope reaches handler selection here too: the
+        # streamed turn routes with the SAME handler scope the
+        # non-streaming paths use (both identifiers, never a collapse).
+        handler = self._get_handler(workspace_id=workspace_id,
+                                    tenant_id=tenant_id)
         if provider_id == "auto":
             # Extract prompt from messages for complexity analysis
             prompt = ""
@@ -835,8 +930,8 @@ class LLMService:
                     prompt += msg.get("content", "") + "\n"
 
             # Get optimal provider based on complexity
-            complexity = self.handler.analyze_query_complexity(prompt)
-            optimal_provider, optimal_model = await self.handler.get_optimal_provider(complexity)
+            complexity = handler.analyze_query_complexity(prompt)
+            optimal_provider, optimal_model = await handler.get_optimal_provider(complexity)
             provider_id = optimal_provider  # Already a string, not an enum
 
             # Map model from "auto" to optimal model for complexity
@@ -844,7 +939,7 @@ class LLMService:
                 model = optimal_model
 
         # Delegate to BYOKHandler's stream_completion
-        async for token in self.handler.stream_completion(
+        async for token in handler.stream_completion(
             messages=messages,
             model=model,
             provider_id=provider_id,
@@ -877,6 +972,8 @@ class LLMService:
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         stage_decision_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ) -> Optional[BaseModel]:
         """
         Generate structured output using Pydantic model validation.
@@ -918,8 +1015,11 @@ class LLMService:
         Returns:
             Instance of response_model with validated data, or None if generation fails
         """
-        # Check if handler has clients available
-        if not self.is_available():
+        # Check if handler has clients available — for the scope the
+        # request actually names (both identifiers, never a collapse).
+        _structured_handler = self._get_handler(workspace_id=workspace_id,
+                                                tenant_id=tenant_id)
+        if not _structured_handler.clients:
             logger.warning("No LLM clients available for structured generation")
             return None
 
@@ -949,12 +1049,14 @@ class LLMService:
                 cascade=cascade_on,
                 session_id=session_id,
                 user_id=user_id,
+                workspace_id=workspace_id,
+                tenant_id=tenant_id,
             )
             return winner
 
         # Delegate to BYOKHandler's generate_structured_response
         try:
-            result = await self.handler.generate_structured_response(
+            result = await _structured_handler.generate_structured_response(
                 prompt=prompt,
                 system_instruction=system_instruction,
                 response_model=response_model,
@@ -1062,6 +1164,8 @@ class LLMService:
         cascade: bool,
         session_id: Optional[str],
         user_id: Optional[str],
+        workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ):
         """Dispatch to SelfConsistencyVoter.vote_with_consensus + persist audit.
 
@@ -1076,7 +1180,8 @@ class LLMService:
 
         try:
             voter = SelfConsistencyVoter(
-                handler=self.handler,
+                handler=self._get_handler(workspace_id=workspace_id,
+                                          tenant_id=tenant_id),
                 db=self._db,
                 tenant_id=self._tenant_id,
             )

@@ -773,7 +773,12 @@ def evaluate_route(
                              REASON_PROVIDER_NOT_CONFIGURED, "unknown",
                              "no client is configured for this provider")
 
-    if provider_id in NON_CATALOG_PROVIDERS:
+    if provider_id in NON_CATALOG_PROVIDERS or \
+            provider_id.startswith("local_"):
+        # REGISTERED-LOCAL providers (J2): a dynamically registered
+        # ``local_<id>`` route is the same class of provider — its
+        # served set is supplied at decision time (the workspace's own
+        # capability rows), never discovered from a catalog endpoint.
         served_local = set(local_runtime_models or [])
         if served_local and _identifier_aliases(provider_id, model_id) & served_local:
             return RouteDecision(provider_id, model_id, True,
