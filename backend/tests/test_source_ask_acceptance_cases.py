@@ -837,3 +837,92 @@ class TestOwnerReviewRepairs:
         assert "supplier position" in (
             rev.get("requested_fields") or [])
         assert "current price" in (rev.get("requested_fields") or [])
+
+
+class TestVerifiedNoneSafety:
+    """OWNER MANDATE — verified=None must survive normalization,
+    criteria, success derivation and the fail-closed aggregation
+    without any truthiness shortcut promoting it to success."""
+
+    def _none_row(self):
+        return {"tool": "outlook", "verified": None,
+                "outcome": "executed_no_verifiable_evidence",
+                "required": True,
+                "evidence_refs": [{"kind": "search_scope",
+                                   "service": "outlook"}]}
+
+    def test_normalization_preserves_none(self):
+        from core.task_outcome_contract import _tri_state
+
+        assert _tri_state(None) is None
+        assert _tri_state("true") is None  # a string is not a verdict
+        assert _tri_state(1) is None
+        assert _tri_state(True) is True
+        assert _tri_state(False) is False
+
+    def test_none_verified_never_derives_tool_success(self):
+        from core.task_outcome_contract import derive_success_kinds
+
+        outcome = {"tool_outcomes": [self._none_row()],
+                   "delivery": {"delivered": True}}
+        kinds = derive_success_kinds(outcome)
+        assert kinds["tool_success"] is None, (
+            "an unverified execution must stay 'executed, not verified'")
+
+    def test_none_verified_is_not_verified_evidence(self):
+        """The retrieval criterion requires verified IS True — None
+        cannot back 'verified_evidence', so the criterion stays
+        unknown/failed, never met."""
+        from core.task_outcome_contract import (
+            build_task_outcome, derive_success_kinds)
+
+        outcome = build_task_outcome(
+            objective="search documents for quarterly revenue",
+            objective_met=None,
+            completion_criteria=[{"kind": "source_scoped_retrieval"}],
+            criterion_results=[],
+            requested={"mentions": [], "task_mention": None,
+                       "target_entities": ["quarterly revenue"],
+                       "requested_attributes": []},
+            source_constraints={},
+            authorized_actions=["retrieve"],
+            tool_outcomes=[self._none_row()],
+            evidence_refs=[],
+            objective_state={"goal": "search documents",
+                             "target_entities": ["quarterly revenue"],
+                             "requested_attributes": [],
+                             "source_constraints": {},
+                             "authorized_actions": ["retrieve"],
+                             "deterministic": False},
+            limitations=[],
+            latency_s=1.0,
+            failure_layer=None,
+            failure_owner=None,
+            scope={"user_id": "u", "workspace_id": "w"},
+            execution_id="exec-none",
+            turn_id="sess-none",
+            policy_version="learning-loop-v1",
+        )
+        kinds = derive_success_kinds(outcome)
+        assert kinds["task_success"] is not True, (
+            "a None-verified receipt must never complete the task")
+        tools = outcome["tool_outcomes"]
+        assert all(t.get("verified") is None for t in tools
+                   if t.get("tool") == "outlook"), (
+            "normalization must not coerce None to True/False on the "
+            "persisted record")
+
+    def test_mixed_none_and_true_stays_unverified(self):
+        """all-True is the only promotion path; a None in the mix keeps
+        tool_success None (mirrors the harness aggregation)."""
+        from core.task_outcome_contract import derive_success_kinds
+
+        row = self._none_row()
+        good = dict(row, tool="documents.grep", verified=True)
+        kinds = derive_success_kinds({"tool_outcomes": [good, row],
+                                      "delivery": {"delivered": True}})
+        assert kinds["tool_success"] is None
+        kinds2 = derive_success_kinds(
+            {"tool_outcomes": [dict(row, verified=False)],
+             "delivery": {"delivered": True}})
+        assert kinds2["tool_success"] is False
