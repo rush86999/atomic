@@ -1487,15 +1487,36 @@ def _value_obligation_dispositions(
         dict(item) for item in
         ((evidence_contract or {}).get("evidence") or [])
         if isinstance(item, dict)]
-    fields = sorted({
-        str(item.get("field") or "") for item in evidence
-        if str(item.get("field") or "")})
+    # THE REQUEST DEFINES THE OBLIGATIONS (owner order 2026-10-11, F2):
+    # the requested FIELDS come from the request's own words through
+    # the existing contract path — evidence satisfies obligations, it
+    # never defines them. Price evidence against a price-and-delivery
+    # request leaves the delivery half UNRESOLVED. A request whose
+    # fields cannot be derived carries no field scope and certifies
+    # nothing.
+    try:
+        from core.workbook_read_artifact import extract_field_requests
+
+        requested_fields = [
+            str(f) for f in (extract_field_requests([message]) or [])
+            if str(f).strip()]
+    except Exception:  # noqa: BLE001 — no contract, no obligation
+        requested_fields = []
+    if not requested_fields:
+        return []
+    fields = list(requested_fields)
     # ADDRESSED ROWS (row-range repair, 2026-10-10): a request naming a
     # row range obliges the entities LIVING in those rows — alternatives
     # beyond the range are not requested, even when the contract
     # carries them. Entities the canvas does not locate stay required
     # (unresolvable is never silently excused).
     range_end = _requested_row_range([message])
+    # REQUEST-NAMED SUBJECTS (owner order 2026-10-11, F2): items the
+    # request itself names are required even when no evidence mentions
+    # them — a missing subject is an unresolved obligation, never a
+    # silent omission. Matched to contract/canvas entities by code
+    # containment (the request may name the bare code '381' where the
+    # evidence carries the canvas's fuller identity).
     required_entities: List[str] = []
     seen_e = set()
     for item in evidence:
@@ -1507,6 +1528,39 @@ def _value_obligation_dispositions(
             continue
         seen_e.add(entity.casefold())
         required_entities.append(entity)
+    try:
+        from core.workbook_read_artifact import (
+            extract_targets, identity_shaped_item,
+        )
+
+        def _norm(s: Any) -> str:
+            return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+        for named in extract_targets([message]):
+            named = str(named or "").strip()
+            if not named or named.casefold() in seen_e:
+                continue
+            # IDENTITY-SHAPED ONLY (the shared predicate), and short:
+            # a subject is a NAME (a few words), never a sentence the
+            # miner lifted whole — prose fragments never become
+            # obligations.
+            if not identity_shaped_item(named) or len(
+                    named.split()) > 6:
+                continue
+            _n = _norm(named)
+            if not _n:
+                continue
+            matched = False
+            for entity in list(required_entities):
+                _e = _norm(entity)
+                if _n and _e and (_n in _e or _e in _n):
+                    matched = True
+                    break
+            if not matched:
+                seen_e.add(named.casefold())
+                required_entities.append(named)
+    except Exception:  # noqa: BLE001 — request mining is additive
+        pass
     if range_end is not None:
         located: Dict[str, Optional[int]] = {}
         for entity in required_entities:
@@ -1531,26 +1585,29 @@ def _value_obligation_dispositions(
             if located[e] is None
             or rank_of.get(located[e], range_end + 1) <= range_end]
     dispositions: List[Dict[str, Any]] = []
+    # THE OBLIGATION GRID IS THE REQUEST'S (owner order 2026-10-11,
+    # F2): every requested subject × every requested field is an
+    # obligation. Evidence may SATISFY a cell; a cell with no
+    # (non-artifact, non-historical) evidence is UNRESOLVED — the
+    # requested field is not certified by another field's value, and a
+    # missing subject is not excused.
+    _req_norm = {
+        re.sub(r"[^a-z0-9]", "", e.lower()): e
+        for e in required_entities}
+
+    def _match_entity(name: str) -> Optional[str]:
+        _n = re.sub(r"[^a-z0-9]", "", str(name or "").lower())
+        if not _n:
+            return None
+        for _k, _v in _req_norm.items():
+            if _k == _n or _n in _k or _k in _n:
+                return _v
+        return None
+
     entity_fields: List[tuple] = []
-    seen = set()
-    for item in evidence:
-        source = item.get("source") or {}
-        if str(source.get("source_type") or "") == "artifact":
-            continue
-        if str(source.get("temporal_role") or "") == "historical":
-            continue
-        entity = str(item.get("entity_id") or "").strip()
-        field = str(item.get("field") or "").strip()
-        if not entity or not field:
-            continue
-        if entity.casefold() not in {e.casefold()
-                                     for e in required_entities}:
-            continue
-        key = (entity.casefold(), field)
-        if key in seen:
-            continue
-        entity_fields.append((entity, field))
-        seen.add(key)
+    for entity in required_entities:
+        for field in fields:
+            entity_fields.append((entity, field))
     for entity, field in entity_fields:
         candidates = [
             item for item in evidence
@@ -1561,6 +1618,20 @@ def _value_obligation_dispositions(
                     or "") != "artifact"
             and str((item.get("source") or {}).get("temporal_role")
                     or "") != "historical"]
+        if not candidates:
+            # NO EVIDENCE FOR A REQUESTED CELL (owner order 2026-10-11,
+            # F2): the obligation exists and stays UNRESOLVED — price
+            # evidence never certifies a requested delivery, and an
+            # owner-approved price never manufactures delivery
+            # authority.
+            dispositions.append({
+                "entity_id": entity,
+                "field": field,
+                "disposition": "unresolved",
+                "detail": (f"no authorized evidence carries {field} for "
+                           f"{entity}")[:200],
+            })
+            continue
         authority = sorted(
             candidates,
             key=lambda c: 0 if str(

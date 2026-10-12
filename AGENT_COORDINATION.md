@@ -4516,3 +4516,311 @@ Workbook-drift RCA closed: legacy conversations without pending-task metadata no
 
 ## 2026-09-24 ~18:40 EDT — ZCode: continuity round 2 — same-file≠same-task, re-delivery vs re-retrieval; coordinated commit
 Review follow-ups, both with negative tests: (1) a same-file turn carrying ≥2 new content words beyond continuation/retry vocabulary ("check the revision history of the price list 2019 file", "compare its quantities") SUPERSEDES the stored task instead of inheriting lineage — the loose action+file retry regex previously classified such turns lineage; pronoun-led refinements ("find its prices and let me know") stay lineage. (2) Re-delivery vs re-retrieval split: bare approvals re-render the persisted result; `is_retrieval_refresh_request` ("search again", "refresh", "check the latest version") bypasses the cached copy, re-opens even a terminal task (`merge_pending_task` revival keeps the original ask, source constraints, stamps refreshed), and re-runs the reader — freshness rides the provenance block (ingested/hash/mod dates). Execution-state response generation remains the primary guarantee; the promise regex is only a backstop. 156 focused tests green. Commit ownership reviewed: the learning-loop stream committed the shared chat_orchestrator.py twice mid-session (1f6b777e7, 601f94b07) — those commits swept this workstream's recovery/approval-rule/promise-gate orchestrator base; recorded here for the trail. This commit carries pending_file_task.py + the resume/regression tests + the orchestrator refresh gate ONLY; the other validated workbook workstream files (agent_file_context, chat_tool_planner, sheet_dataset_service, universal_integration_service, replay script + their tests) remain deliberately uncommitted per their rounds' ledger entries; learning-loop and frontend streams excluded (no cross-dependency verified).
+
+## 2026-10-11 ~12:40 EDT — verifier/implementation: designated-source resolution via existing resolver (UNCOMMITTED, shared tree hot)
+
+Owner's precise instruction on 3f8672c53: replay the failed designated-source
+resolution; reuse `_lesson_designated_file` instead of repairing the dispatch's
+parallel filename heuristic. Replay result: dispatch suffix extraction yields
+[] on the verbatim fixture lessons ([37]/[47], extension-less); the existing
+resolver returns 'consolidated price list 2019.xlsx' on the same inputs.
+
+UNCOMMITTED production hunks (mine, in backend/integrations/chat_orchestrator.py
+only — compile OK under 3.11, no other production files touched):
+1. Dispatch consumes `self._lesson_designated_file(message, agent_id, user_id,
+   workspace_id)`; the parallel suffix-variant filename heuristic is REMOVED
+   (~21311-21334). Unresolved/ambiguous ("") falls through to broad discovery
+   with candidates preserved (existing behavior).
+2. `_rollup` designated-membership is case-insensitive (resolver returns
+   lowercase; worker records carry catalog casing).
+3. Field contract via `extract_field_requests([message])` through the existing
+   path; local price/delivery noun scan + ["price"] default REMOVED. Empty
+   contract binds nothing (worker corroboration-only, stays open).
+CONCURRENT ACTIVITY: backend/tests/test_t1_end_to_end.py is being extended by
+another session RIGHT NOW (mid-save syntax error observed 12:37-12:38 — do not
+run it until it parses; do not edit it — writer owns tests). My earlier
+untracked backend/tests/test_t1_investigate_end_to_end.py is SUPERSEDED by the
+writer's acceptance class; left in place, recommend writer folds/removes it.
+No stash used (prohibited); no commits; no live runs yet (T1 live run gated on
+green acceptance; T2 stays gated).
+
+## 2026-10-11 ~13:10 EDT — designated-source repair LANDED (verifier-executed, owner-directed)
+
+Precise instruction executed on 3f8672c53 (closure matrix in the verifier
+report of ~12:30; stale f5b9539d9-era findings NOT reopened):
+1. Resolver consumption: dispatch calls `self._lesson_designated_file`
+   (message/agent/user/workspace); parallel suffix-variant filename
+   heuristic REMOVED. Replay: suffix extraction [] vs resolver
+   'consolidated price list 2019.xlsx' on verbatim [37]/[47] lessons.
+   Rollup designated-membership is case-insensitive (resolver
+   lowercases; worker records carry catalog casing).
+2. Field contract: dispatch uses `extract_field_requests([message])`;
+   local price/delivery noun scan + ["price"] default REMOVED. Plural
+   gap repaired in the extractor itself ("prices"/"costs"/"dates" now
+   contract; verb-prone "lists"/"amounts" excluded) — the live A-series
+   empty-contract root cause; unit-pinned with realistic inputs.
+   Empty contract binds nothing (worker corroboration-only, stays open).
+3. Three focused checks (new backend/tests/test_designated_source_checks.py,
+   same-harness companion to avoid hot-file collision): real teaching
+   (extension-less → 2019-exclusive, 2015 never read), version race
+   (row-read B beats scan-receipt A), no designation (both files stay
+   candidates with own versions; 003810 never certifies), resolver
+   single-family/ambiguity/no-agent unit pins, exact-T1 contract shape.
+Committed by the owner flow as ecf33f8e1 (taught-sheet resolution via the
+worker's mechanism + mismatch flag); my plural/contract/test-harness
+pieces remain uncommitted. Writer's in-flight test work (mismatch
+scenario, catalog variants) coordinated via shared-harness optional
+params (catalog_files, message) — backward compatible, default behavior
+unchanged. Verification: 202 passed across the 8 affected suites on the
+current tree; compile clean under 3.11; ruff findings all pre-existing
+baseline (none in changed lines). No stash used. Live T1 run pending;
+T2 stays gated.
+
+## 2026-10-11 ~13:20 EDT — ONE unchanged T1 live run (post-verification, T2 gated)
+
+Restarted once via scripts/restart_backend.sh (pid 85614, serves
+ecf33f8e1-dirty = current candidate). Ran case-1 trial 1 --live exactly
+once (exact T1 text, fork 2233f463, agent 9837ec71): HTTP 200, success,
+95.2s, session 21268a02, execution a22ff3ad (agent_executions: success).
+Runner checks: 5/5 compared, evidence-bound, no continue needed, ZERO
+draft changes. Result preserved at /tmp/case1_t1_20261011.json.
+Durable record (read-only): job run 66d7132b entities
+[381, U-22, 622, SLE24-16, Roper Whitney] (+1 title-fragment noise
+entity); value-trace coverage located the workbooks per item; row reads
+remain OPEN questions (taught row 338, Tinknocker/A42, CDN/LINMAC/
+BurrKing locations); junk carrier (Cash Receipts 2024 for 381) correctly
+left unbound. Reply honestly limited workbook figures to unconfirmed +
+named the 15-day quote-validity expiry. Runner verdict PRELIMINARY
+(comparison delivered; authorization not run). NO drafting call made —
+T2 stays gated on evidence coverage. Remaining live limitation: workbook
+row reads did not complete in-turn (mailbox-heavy 95s turn); recorded
+open, not silent. Earlier today the same shape FAILED repeatedly
+(agent_executions) — first success on this candidate.
+
+## 2026-10-11 ~13:45 EDT — continuation verification (owner-directed, no repair)
+
+QUALIFICATION (owner instruction): the "5/5 compared and evidence-bound"
+trial-1 readout proves COMPARISON COVERAGE + evidence linkage (each item
+got a sourced comparison; zero draft changes) — NOT complete verification
+of all requested fields. Workbook row reads remained open; workbook
+figures were correctly reported unconfirmed.
+EXACT SERVING TREE for that run (pid 85614, ecf33f8e1-dirty
+b30b3b747f68): committed ecf33f8e1 PLUS uncommitted production hunks
+(backend/integrations/chat_orchestrator.py: field-contract derivation,
+resolver consumption, rollup case-insensitivity;
+backend/core/workbook_read_artifact.py: plural rule) — all since
+committed (62dee5715/c7f70e2a9); test-only deltas otherwise. Attribute
+the live result to THAT tree, not to ecf33f8e1 alone. Current server pid
+87622 serves c7f70e2a9 with test/docs-only dirty paths (production ==
+committed); frozen, no restart performed for this assignment.
+
+CONTINUATION (same session 21268a02, execution 29bc3026, read-only
+directive, no fresh T1): 2 new ops, 0 new findings, open set unchanged
+(9), revision 65->69. Mailbox work WAS repeated (second outlook search
+op, new identity, despite explicit do-not-research instruction +
+existing evidence) — non-repetition check FAILS. No row reads ran:
+Flanger/622 location reads EXHAUSTED at attempt cap 3/3 (correctly
+skipped); freshness re-verifications need live-source access (never
+dispatched); basis decisions need the owner.
+FIRST-FAILED-ACTION (literal inputs): planned lookup
+datasets.search:"Roper Whitney No. 381 Linmac U-22 bead roller Tennsmith
+row 338" — swept catalog VALUES for the row locator "338" (junk
+part-number hits: BurrKing springs, parts-dump 338-xxx), settled
+search_succeeded with findings 0. Secondary: redundant outlook
+re-search (new op identity).
+CAUSE (recorded, not "mailbox-heavy"): T1's workbook reads were
+DISPATCHED-partially (value_trace coverage; 2 confirmed-file reads:
+381->Cash Receipts junk-ordered first, U-22->Linmac correct; [:2] cap +
+>25s gate stopped the rest), then reply-leg narration consumed 60.9s
+(provider quota-exhausted retries; guard regen + verify panel skipped
+at budget edge). Never-selected is FALSE (ops exist); pure budget is
+FALSE (reads were never selected for freshness/exhausted reasons).
+RECONSTRUCTION: fresh-lifecycle adapter returns NO contract — newest
+non-terminal job 38e8f477 (17:26 probe, 6 ops, 0 findings) SHADOWS the
+evidence-rich 66d7132b (25 ops, findings); the adapter checks findings
+only on the newest active + parent, never scans older same-canvas
+actives (09328949: 1 finding, 96d5876c: 4 findings also stranded).
+T2 GATE: FAIL — basis ambiguities open (381 3-way, U-22 2-way, SLE24-16
+3-way), freshness unverified, and no drafting contract reconstructs.
+No drafting call made. No production repair performed (hot tree, writer
+active; repair scoped to owner pick: locator-sweep hollowness vs
+shadowing vs mailbox repetition).
+
+## 2026-10-11 ~14:20 EDT — continuation binding repair START (sole implementer, owner-ordered)
+
+Scope (bounded order, no new search-sweep work): (1) artifact restored to
+backend/data/acceptance_worlds/case1_t1_20261011_reconstructed.json;
+(2) scratch repro of drift+shadowing in ONE new test file
+(backend/tests/test_continuation_binding.py — no edits to writer-owned
+test files); (3) job selection before source selection (bind explicitly
+resumed run; dispatch structured action inputs, locators to row reads);
+(4) evidence lookup prefers applicable same-canvas records (no merging);
+(5) cross-turn reuse from durable scope/version-qualified evidence.
+Production surface if needed: task_lifecycle resolution/lookup +
+orchestrator continuation/consulted seams only. Verifier pass + single
+same-job continuation live only after green. T2 stays gated.
+
+## 2026-10-11 ~17:40 EDT — continuation binding repair COMPLETE (implementer freeze; awaiting verifier)
+
+Owner-ordered bounded repair on c7f70e2a9 (no new sweep work). Deliverable
+1 artifacts restored: backend/data/acceptance_worlds/
+case1_t1_20261011_reconstructed.json — labeled reconstructed, rebuilt ONLY
+from surviving records (chat_messages thread 21268a02, agent_executions
+a22ff3ad, goal_runs 66d7132b, runner stdout); execution/session/job/op ids
++ serving-tree attribution (pid 85614, ecf33f8e1-dirty) preserved; no
+invented timings/payloads; unenumerated dirty-list marked UNRECOVERED.
+
+Deliverable 2 (scratch repro, RED-first): backend/tests/
+test_continuation_binding.py — evidence-rich job (findings + eligible
+exhausted + owner questions + mailbox evidence) + newer EMPTY job on the
+same canvas; qualified-continuation message through the REAL
+process_chat_message with a served locator-sweep plan (the live t1r7
+shape). Went RED on all four counts, now GREEN.
+
+Production changes (uncommitted, mine):
+- core/task_lifecycle.py: find_applicable_task_for_canvas (newest
+  non-terminal canvas-bound run WITH findings, else newest — selection
+  only, canvas+workspace scoped, never merges); _resolve_for_turn honors
+  an explicit continuation seed's run_id ahead of the conversation
+  fallback; begin_retrieval_turn field/entity backfills NEVER replace an
+  existing entity set (the live drift: 'Tennsmith row 338' mined to
+  entity '338' and overwrote the job's subjects).
+- integrations/chat_orchestrator.py: qualified-continuation trigger
+  (start-anchored; bare form keeps its existing redirect semantics —
+  message rewrite only when bare); continuation lane prefers the
+  applicable canvas record when the session's own job has no findings;
+  seed re-stashes the run so every later begin binds THAT job;
+  RESUME OPEN ROW READS before the chain gate — eligible open
+  verification questions execute from their STRUCTURED inputs via the
+  worker's own _execute_row_read with the worker's durable claim
+  (by=_WORKER_ID — without it the fenced settle left ops pending);
+  RECORD REUSE — required sources satisfied by durable scope/version-
+  qualified evidence on the bound job are not re-dispatched (explicit
+  refresh requests never reuse); seeded subjects outrank message-mined
+  tokens for chain queries.
+
+Reporting corrections applied: search_succeeded-with-zero-findings is
+execution success, not task completion (unchanged semantics, now pinned
+by the repro's distinction between op execution and obligation
+satisfaction); exhausted attempts are NOT reset by this work (the
+migration's one-time reset is pre-existing; the repro seeds the live
+job's shape — migrated job, then exhausted — and asserts the decoy is
+never re-read); owner/business_decision questions are never executed by
+resume (next_unfinished_work already routes them to owner_decisions).
+
+Verification: 196 passed across the 8 focused suites (incl. the 4 new
+binding gates); compile clean 3.11. test_t1_end_to_end.py's 2 failures
+(junk_sweep, stock-successor-claim) and test_pending_file_task_resume.py's
+11 failures are PRE-EXISTING at HEAD production (proven by controlled
+temporary revert of my two hunks — identical sets). Writer's in-flight
+files untouched; shared tree quiet at freeze; NO live run performed —
+awaiting verifier, then ONE continuation of the same job.
+
+## 2026-10-11 ~19:05 EDT — AGENT 3 VERIFIICER VERDICT: REJECT (bounded scope) — live run BLOCKED
+
+Independent review in immutable worktrees (/tmp/agent3-candA=f95854412,
+candB=94ebccd90, baseline=c7f70e2a9, all detached, venv+venv314 linked,
+scratch test_integration.db only; main tree read-only; no restart; no
+live campaign). Attribution: production committed at f95854412/94ebccd90;
+the three regression test files (test_continuation_binding.py,
+test_designated_source_checks.py, test_verifier_continuation_checks.py)
+remain UNTRACKED — regression coverage for this work is not attributed to
+any commit (verifier finding, low severity).
+
+GREEN within scope (both interpreters, both candidates):
+- 3.11 + 3.14 compile of all shipped modules clean (only pre-existing
+  archived core/archive/database_v1.py fails, untouched by candidates).
+- Zero suite regressions vs the c7f70e2a9 baseline on BOTH candidates and
+  BOTH interpreters: baseline 9 failures (all test_pending_file_task_resume
+  refresh-vocabulary, pre-existing); candidates identical (375/376 passed).
+- 22/22 continuation-binding + designated-source + verifier checks green
+  on both candidates, both interpreters.
+- Owner checks 1 (explicit binding beats newer findings), 2 (exact live
+  wording enters the repaired branch; fresh request does not; bare form
+  unchanged), 3 (locator does not overwrite entities; explicit add/replace
+  still works), 4a (mailbox evidence for SLE24-16 does not suppress rows
+  1-4), 7 (version race: read-captured B beats scan A), 8 (completion is
+  not inferred from search execution), 9 (no seeded findings replacing the
+  execution under test — the resumed read really calls the source and the
+  op is created by production) all verified with counted evidence.
+- Acceptance surface (candB): journey contract honest (J1 4/5 verified,
+  quickstart-install stays untested; J2-J9 untested — no overclaim);
+  parity probe pins DATABASE_URL/ATOM_DATA_DIR to scratch and
+  ADMIN_PASSWORD per-probe (never reads repo password files); evidence
+  artifacts carry generator+sha256+pid+git_commit (J1 booted on f95854412);
+  API coverage is not labeled browser; the J1 quickstart finding (three
+  ==1-gated flags armed by harnesses only) is documented and gated.
+
+REJECT triggers (all three are explicit owner checks that FAIL):
+F1 (challenge "operation deduplication passing while source calls repeat"):
+research_continuation._execute_row_read performs the source read in its
+candidate loop (line ~777/800) BEFORE create_operation (~1298) and the
+SOURCE-CALL COUNTER (~1303). Empirically proven in candA: two identical
+acts -> READ CALLS: 2 (the reader ran twice) while the second settle
+claims "no additional source read". No test pins the counter. FIRST
+MISSING TRANSITION: move the version+field-scoped idempotency check ahead
+of the candidate read loop (skip the scan when the same-version,
+same-fields read already settled with a receipt; failed op stays
+retryable). Owner: implementation agent.
+F2 (check 4 field-level): chat_canvas_editor._value_obligation_dispositions
+derives obligation FIELDS from the contract's evidence, not from the
+request — a price-only contract against a price-and-delivery request
+reports the price obligation satisfied and never derives the delivery
+obligation. Pinned in test_verifier_continuation_checks (current
+behavior). Owner: acceptance/checker surface.
+F3 (check 5 recovery): claim expiry is not persisted on the claim —
+freshness is measured against the caller's ttl (task_lifecycle
+claim_questions_for_execution) and the worker dedupe hard-codes 120.0s
+(_other_active_claim), so a 0-ttl (expired) claim still blocks takeover
+for the caller's full ttl. Pinned as current behavior. Owner: task_lifecycle
+claims.
+
+Live run: BLOCKED (do not run the 66d7132b continuation on the current
+server — it also still serves c7f70e2a9-dirty, the pre-repair parent).
+First missing transition returned to the implementation owner: F1. No new
+repair stream started by the verifier.
+
+## 2026-10-11 ~23:40 EDT — F1/F2/F3 REPAIRS LANDED (implementation owner) — awaiting Agent 3
+
+Owner-accepted REJECT repaired; the three verified defects closed with
+their regressions, committed together (no untracked regression tests):
+
+F1 (duplicate source reads): the eligibility/idempotency decision now
+runs BEFORE the candidate-read loop in research_continuation.
+_execute_row_read — a settled read with a usable receipt under the same
+version+fields+scope key reuses its evidence with ZERO source calls;
+failed reads stay retryable; a fresh foreign claim blocks execution with
+zero calls (claim check at the execution boundary too). Source calls are
+COUNTED (`source_calls` on the return + the durable execution facts) and
+the "reused" evidence line is emitted only when the counter proves 0.
+New TaskLifecycle.find_operation_by_key (read-only) supports the
+pre-execution decision.
+F2 (obligations from the request): chat_canvas_editor.
+_value_obligation_dispositions derives the obligation grid from the
+REQUEST — requested fields via the existing extract_field_requests
+contract path, requested subjects via request-mined identity-shaped
+items (+ the existing addressed-rows mechanism). Evidence satisfies
+cells; a cell with no evidence is UNRESOLVED (price-only cannot certify
+a requested delivery; an owner price approval never manufactures
+delivery authority; partial subject coverage stays unresolved; no
+derivable field scope certifies nothing).
+F3 (lease semantics): the claim's expiry is PERSISTED at acquisition
+(exec_claim.ttl) and every reader — claim acquisition, the fenced
+settlement, verify_question_claims, the worker's other-claim dedupe —
+judges freshness by the claim's OWN lease (_claim_is_fresh); a caller's
+new ttl never reinterprets another worker's lease. Legacy claims
+without ttl fall back to DEFAULT_CLAIM_TTL_S.
+
+Tests committed WITH the repairs (tests/test_continuation_binding.py:
+TestLeaseSemantics 5 + TestSourceCallIdempotency 4;
+tests/test_verifier_continuation_checks.py: F2/F3 repaired-contract
+pins; two fixtures updated to the repaired contract —
+test_noop_completion_authority (delivery evidence added),
+test_edit_lane_authorization_routing (delivery findings added) — the
+old assertions encoded the defective behavior the owner ordered
+repaired). Full-3.11 run: 11 failed / 442 passed — all 11 pre-existing
+(9 refresh-vocabulary + 2 order-dependent in the 12-suite mix, both
+failing at HEAD in the same mix); the 7 new pins are RED at HEAD and
+GREEN with the repairs; zero new failures. 3.14: 261 passed on the
+focused set; shipped-module compile clean on both interpreters; ruff
+findings unchanged baseline.

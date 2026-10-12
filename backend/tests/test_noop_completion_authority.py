@@ -378,6 +378,8 @@ class TestCompletedJobReachesFreshSessionCheck:
         ]
         roper = [
             {"field": "price", "raw": "$2,902.00",
+             "source": "roper-quote.xlsx!Quote!row2"},
+            {"field": "delivery", "raw": "10-11 weeks",
              "source": "roper-quote.xlsx!Quote!row2"}]
         return {
             "run_id": "job-1", "status": "achieved",

@@ -1289,6 +1289,21 @@ class TaskLifecycle:
         with self._lock:
             return self._mutate(run_id, compute)
 
+    def find_operation_by_key(
+        self, run_id: str, idempotency_key: str,
+    ) -> Optional[Dict[str, Any]]:
+        """READ-ONLY lookup of an operation by its idempotency key —
+        eligibility/idempotency decisions that must run BEFORE any
+        external effect (owner order 2026-10-11, F1). Creates nothing,
+        claims nothing."""
+        if not idempotency_key:
+            return None
+        record = self.get_task(run_id) or {}
+        for existing in record.get("operations") or []:
+            if existing.get("idempotency_key") == idempotency_key:
+                return copy.deepcopy(existing)
+        return None
+
     def create_operation(
         self,
         run_id: str,

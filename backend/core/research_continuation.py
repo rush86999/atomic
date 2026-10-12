@@ -693,6 +693,70 @@ async def _execute_row_read(
     item = str(act.get("item") or "")
     fields = list(act.get("requested_fields") or [])
     context = str(act.get("identity_context") or item)
+    # ELIGIBILITY BEFORE EXECUTION (owner order 2026-10-11, F1): the
+    # idempotency decision runs BEFORE ANY source call — the candidate
+    # loop below is the only place the source is touched. When this
+    # read's key (file + item + fields + scope, and the scan's own
+    # version when the dispatcher stamped one) already settled WITH a
+    # usable receipt, the recorded results are reused and ZERO source
+    # calls are made. A FAILED or receipt-less op stays retryable.
+    _read_key = str(act.get("idempotency_key") or
+                    f"row-read:{str(act.get('file'))[:100]}:{item}:"
+                    f"{','.join(sorted(str(f) for f in fields))}")
+    _source_calls = 0
+    # A FRESH FOREIGN CLAIM BLOCKS EXECUTION (owner order 2026-10-11,
+    # F1): the eligibility decision includes the lease — a question
+    # another worker holds with an unexpired lease is not executed
+    # here, and NO source call is made for it. The worker cycle dedupes
+    # at selection; this is the same rule at the execution boundary.
+    if qids:
+        try:
+            import time as _time
+
+            from core.task_lifecycle import _claim_is_fresh
+
+            _rec_now = lifecycle.get_task(run_id) or {}
+            _open_by_id = {
+                str(q.get("question_id")): q
+                for q in ((_rec_now.get("task_revision") or {})
+                          .get("unresolved") or [])}
+            for _qid in [str(q) for q in qids]:
+                _q = _open_by_id.get(_qid)
+                if not _q:
+                    continue
+                _cl = _q.get("exec_claim") or {}
+                _holder = str(_cl.get("by") or "").strip()
+                if _holder and _holder != _WORKER_ID and \
+                        _claim_is_fresh(_cl, _time.time()):
+                    return {
+                        "statuses": {},
+                        "source_calls": 0,
+                        "blocked_by_claim": _holder,
+                        "evidence": [
+                            f"{item}: question held by another worker "
+                            f"({_holder}) under a fresh lease — not "
+                            f"executed here (0 source calls)"]}
+        except Exception:  # noqa: BLE001 — eligibility is best-effort
+            pass
+    try:
+        _prior = lifecycle.find_operation_by_key(run_id, _read_key)
+    except Exception:  # noqa: BLE001 — eligibility is best-effort
+        _prior = None
+    if _prior is not None:
+        _prev = _prior.get("execution") or {}
+        _prev_findings = _prev.get("findings") or []
+        _settled = _prior.get("status") == "applied" or (
+            _prior.get("status") == "running" and _prev_findings)
+        if _settled and _prev_findings and (
+                str(_prev.get("outcome") or "") == "read_succeeded"):
+            return {"file": act.get("file"),
+                    "statuses": dict(_prev.get("items") or {}),
+                    "source_calls": 0,
+                    "evidence": [
+                        f"{item}: already read under this source version "
+                        f"and field contract — recorded results reused "
+                        f"(0 source calls, op "
+                        f"{str(_prior.get('operation_id'))[:8]})"]}
     # FOUR-LAYER CAPTURE — layer 1, STORED (2026-10-09 owner assignment).
     # The question's ``inputs`` dict AS PERSISTED, before the dispatch
     # projection rewrites it. Without this on the record the other three
@@ -773,6 +837,7 @@ async def _execute_row_read(
                 _file = str(_h.get("file_name") or "")
                 if not _file:
                     continue
+                _source_calls += 1
                 row_result = await asyncio.to_thread(
                     read_sheet_row_sync, _file,
                     cand.get("sheet") or "",
@@ -796,6 +861,7 @@ async def _execute_row_read(
                 _exec_reads.append(_read_rec)
                 continue
         else:
+            _source_calls += 1
             row_result = await asyncio.to_thread(
                 read_sheet_row_sync, _file, cand.get("sheet") or "",
                 cand.get("row") or 0, user_id, workspace_id)
@@ -1292,30 +1358,15 @@ async def _execute_row_read(
     # subject/file: continuation reads carry no idempotency key, so
     # nothing dedups them and the receipt-less budget never binds).
     # The EXISTING reservation mechanism dedups: the key is the read's
-    # own identity — (file, item) — stable across continuation passes.
-    _read_key = str(act.get("idempotency_key") or
-                    f"row-read:{str(act.get('file'))[:100]}:{item}")
+    # own identity — (file, item, fields) — stable across continuation
+    # passes. The ELIGIBILITY decision for this key already ran before
+    # the candidate loop (see above); this is the same operation this
+    # turn will settle.
     op = lifecycle.create_operation(
         run_id, op_type="retrieve",
         requested_change=(
             f"row-context read: {act.get('file')} candidates for {item}"),
         idempotency_key=_read_key)
-    # SOURCE-CALL COUNTER (owner correction 2026-10-11, item 3): the
-    # ledger dedup alone prevents duplicate ROWS, not duplicate READS.
-    # When the returned operation is the SAME-VERSION, SAME-FIELDS read
-    # and it already carries a receipt (applied, or running with
-    # findings), SKIP the source scan and return its recorded results —
-    # never a second catalog/source call. A FAILED op is retryable: the
-    # scan proceeds and re-settles the same operation.
-    if op.get("status") in ("applied", "running") and (
-            (op.get("execution") or {}).get("findings")):
-        _prev = op.get("execution") or {}
-        return {"file": act.get("file"),
-                "statuses": dict(_prev.get("items") or {}),
-                "evidence": [f"{item}: already read under this source "
-                             f"version and field contract — recorded "
-                             f"results reused (no additional source "
-                             f"read)"]}
     _exec_facts = {
         "invoked": bool(act.get("candidates")),
         "outcome": ("read_succeeded" if statuses.get(item) == "matched"
@@ -1383,7 +1434,8 @@ async def _execute_row_read(
         except Exception as _fenced:  # noqa: BLE001 — takeover: skip
             return {"statuses": {}, "evidence": [
                 f"ownership lost during settlement: {_fenced!r}"],
-                "lost_ownership": True}
+                "lost_ownership": True,
+                "source_calls": int(_source_calls)}
     # RECEIPT-LESS BUDGET (owner directive 2026-10-07): a row read that
     # returned NO receipt CONSUMES the question's attempt. Before this,
     # only the locate pass bumped attempts — a receipt-less row read
@@ -1409,13 +1461,15 @@ async def _execute_row_read(
     # findings, values, serving copy identity — attach to the operation
     # here. The previous execution=None dropped them from the durable
     # record: the served value survived only in the reply text.
+    _exec_facts["source_calls"] = int(_source_calls)
     record_read_outcome(
         lifecycle, run_id, op["operation_id"], structured_result=None,
         freshness=None, execution=_exec_facts)
     if decision_questions:
         add_unresolved_questions(
             lifecycle, run_id, decision_questions, source_operation=None)
-    return {"statuses": statuses, "evidence": evidence}
+    return {"statuses": statuses, "evidence": evidence,
+            "source_calls": int(_source_calls)}
 
 
 _TAUGHT_LOCATION_RE = re.compile(
@@ -1713,14 +1767,16 @@ async def research_continuation_cycle(max_reads: int = _CYCLE_MAX_READS
             import time as _time
 
             def _other_active_claim(q):
+                # LEASE SEMANTICS (owner order 2026-10-11, F3): the
+                # OTHER worker's lease is judged by ITS OWN persisted
+                # expiry — never this module's constant.
                 claim = q.get("exec_claim") or {}
                 holder = str(claim.get("by") or "").strip()
                 if not holder or holder == _WORKER_ID:
                     return False
-                try:
-                    return time.time() - float(claim.get("at") or 0) < 120.0
-                except (TypeError, ValueError):
-                    return False
+                from core.task_lifecycle import _claim_is_fresh
+
+                return _claim_is_fresh(claim, time.time())
 
             _claimed_elsewhere = {
                 str(q.get("question_id")) for q in

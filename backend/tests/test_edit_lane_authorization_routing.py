@@ -406,6 +406,27 @@ class TestT1ReachesRetrievalThroughTheRealTurn:
         _apply_read_receipt_facts(
             execution, RECEIPT["storage_read"]["structured_result"],
             {"content_hash": "hash-read-A"})
+        # the request asks prices AND delivery times; the durable
+        # findings must carry both fields for the request's
+        # obligations to be satisfiable (owner order 2026-10-11, F2:
+        # obligations come from the request — price-only evidence
+        # leaves delivery unresolved)
+        execution["findings"] = list(execution.get("findings") or []) + [
+            {"item": "SLE24-16", "field": "lead_time",
+             "raw": "11-12 weeks", "value": "11-12 weeks",
+             "parsed": {"value": "11-12 weeks", "raw": "11-12 weeks"},
+             "source": "Consolidated Price List 2019.xlsx!Tennsmith!row101",
+             "source_file_name": "Consolidated Price List 2019.xlsx",
+             "sheet": "Tennsmith", "content_hash": "hash-read-A",
+             "source_version": "hash-read-A"},
+            {"item": "Roper Whitney Roll Bender", "field": "lead_time",
+             "raw": "10-11 weeks", "value": "10-11 weeks",
+             "parsed": {"value": "10-11 weeks", "raw": "10-11 weeks"},
+             "source": "Consolidated Price List 2019.xlsx!Tennsmith!row338",
+             "source_file_name": "Consolidated Price List 2019.xlsx",
+             "sheet": "Tennsmith", "content_hash": "hash-read-A",
+             "source_version": "hash-read-A"},
+        ]
         finish_retrieval_turn(
             tl, run_id, op_id,
             RECEIPT["storage_read"]["structured_result"], "e-job", True,
