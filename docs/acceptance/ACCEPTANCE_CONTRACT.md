@@ -101,17 +101,31 @@ installation.
 | J4 | **3/3 FAILING — blocked at the provider boundary** | `j4_research_20261011_202223_*.json`; script complete, re-runs to green post-repair |
 | J5 | **3/3 FAILING — same boundary** (workbook fixture uploads 200; the calculate turn never returns) | `j5_calculation_20261011_202453_*.json` |
 
-**The blocker, now two layers (both recorded for the runtime owner):**
-(1) workspace/tenant scope never reaches the chat leg — providers a real
-user registers/stores are invisible (`chat_orchestrator.py:5983` →
-`llm_service.py:103` → `byok_handler.py:3266`); (2) even with scope
-aligned, the fallback walker iterates a fixed provider list and skips
-configured `local_<id>` clients entirely (`byok_handler.py:3735` — its
-own comment documents the intended fix). Genuinely-missing configuration
-must keep returning the truthful `NoProvidersConfiguredError`. Environmental
-note: the only currently-credentialed provider (env-key openrouter)
-dispatches and fails on credits — recorded as separately-labeled
-capability evidence.
+**The blocker — owner-audited diagnosis (round 5; the round-4 "fixed
+fallback list" explanation was WRONG and is retracted).** Two boundaries:
+(1) **scope** — workspace/tenant never reaches the chat leg, so providers
+a real user registers/stores are invisible (`chat_orchestrator.py:5983` →
+`llm_service.py:103` → `byok_handler.py:3266`); (2) **provider/model
+identity** — `_get_provider_fallback_order` already starts from configured
+client keys (`byok_handler.py:1745`), but the absolute fallback at
+`byok_handler.py:3735` requires a `COST_EFFICIENT_MODELS` entry that
+`local_<id>` providers have none of (→ skipped), and local registration
+writes model metadata keyed by `provider_type` while the client is keyed
+`local_<id>` — an identity split under inspection. The runtime owner's
+revised work order (coordination HANDOFF): reproduce through actual
+dispatch capturing scope/client-key/model-ids/ranked-routes/exclusion-
+reason; scope first (explicit authenticated context or request-local
+service — never shared-handler mutation); then the identity gap with
+concrete provider identity and actual models (no hardcoded defaults, no
+invented `ollama_default`); catalog/capability/cooldown/authorization
+checks preserved; no-provider-configured distinguished from
+no-eligible-route. Genuinely-missing configuration keeps the truthful
+`NoProvidersConfiguredError`. Environmental note: the only currently-
+credentialed provider (env-key openrouter) dispatches and fails on
+credits — recorded as separately-labeled capability evidence. Agent 1
+has stopped credit-exhausted probes; J4/J5 remain blocked at the shared
+provider dependency, and pristine J2 reruns FIRST after the repair,
+then J4/J5.
 
 **Gates**: `--check --strict --release` → rc=1 (J2 only). `--check` (all
 journeys) → rc=1 (J2, J4, J5).

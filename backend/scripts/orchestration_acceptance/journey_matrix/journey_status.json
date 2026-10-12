@@ -93,9 +93,9 @@
   "J2.real-reply": {
     "status": "failing",
     "evidence": "journey_matrix/j2_model_setup_20261011_191429_89e81a.json",
-    "notes": "ROOT-CAUSED, owner-corrected round 4: ChatOrchestrator builds LLMService(tenant_id=..) with NO workspace_id (chat_orchestrator.py:5983); LLMService defaults workspace 'default' (llm_service.py:103-104); byok_handler.py:3266-3270 ws-scoped lookup misses -> chat returns no_llm_provider with a real provider configured. REPAIR = model-scope propagation from authenticated request context through interpretation/planning/streaming/completion/fallback \u2014 explicit authenticated workspace/tenant at dispatch or a request-local service (generate_completion already accepts workspace_id/tenant_id, llm_service.py:270-281). HANDLER MUTATION AT TURN START WITHDRAWN (cross-request contamination risk). Controls: A served by A; B cannot use A; concurrent A/B scope-safe; truthful error on missing config; no cross-ws fallback; restart durability; pristine-world real reply + tool ask. Repro: j2_model_setup.py world A",
+    "notes": "ROOT-CAUSED (owner-corrected round 5): (1) SCOPE \u2014 ChatOrchestrator builds LLMService(tenant_id=..) with NO workspace_id (chat_orchestrator.py:5983); LLMService defaults workspace 'default' (llm_service.py:103-104); byok_handler.py:3266-3270 ws-scoped lookup misses, so registered/stored providers are invisible to chat. (2) PROVIDER/MODEL IDENTITY (diagnosis corrected \u2014 round-4 'fixed fallback list' explanation RETRACTED: _get_provider_fallback_order byok_handler.py:1745 starts from configured client keys): the absolute fallback at byok_handler.py:3735-3756 requires a COST_EFFICIENT_MODELS entry \u2014 local_<id> has none and is skipped; registration also writes pricing/model metadata keyed by provider_type (e.g. ollama_default) while the client is keyed local_<id> \u2014 identity split to inspect. REPAIR = revised work order in coordination HANDOFF: reproduce through actual dispatch capturing scope/client-key/model-ids/ranked-routes/exclusion-reason; fix scope first (explicit authenticated context or request-local service, NEVER shared-handler mutation); then the identity gap retaining concrete provider identity + actual models (no hardcoded defaults, no invented ollama_default); preserve catalog/capability/cooldown/authorization checks; distinguish no-provider-configured from no-eligible-route. Controls: same-model-two-workspaces isolation incl. concurrent; completion AND streaming; tool/structured-capable model reaches the operation; truthful unavailable-route; restart preserves registration+identity. Repro: j2_model_setup.py world A",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:08:40+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   },
   "J2.tool-planning": {
     "status": "untested",
@@ -143,43 +143,43 @@
   "J4.source-bound": {
     "status": "failing",
     "evidence": "journey_matrix/j4_research_20261011_202223_bc169c.json",
-    "notes": "BLOCKED at the provider boundary (J2.real-reply defect, second layer: fallback order skips local clients, byok_handler.py:3735): env-key openrouter dispatches but all attempts fail on credits ('All LLM providers failed', capability probe DB) and turns never return within 300s; journey script complete (upload via product -> research ask -> fact-binding assertion) and re-runs to green when the repair lands",
+    "notes": "BLOCKED at the shared provider dependency (J2.real-reply, owner-corrected diagnosis: scope miss + COST_EFFICIENT_MODELS gap for local_<id> at byok_handler.py:3735 + provider_type/local_<id> identity split); env-key openrouter dispatches but fails on credits. Script complete; re-runs to green post-repair",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:25:32+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   },
   "J4.uncertainty": {
     "status": "failing",
     "evidence": "journey_matrix/j4_research_20261011_202223_bc169c.json",
-    "notes": "same provider-boundary blocker; absent-topic probe implemented (deliberately-uncovered subject; hedging asserted, fabrication rejected)",
+    "notes": "same shared-provider blocker; absent-topic probe implemented (hedging asserted, fabrication rejected); downstream assertions unexercised per owner",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:25:32+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   },
   "J4.survives-reload": {
     "status": "failing",
     "evidence": "journey_matrix/j4_research_20261011_202223_bc169c.json",
-    "notes": "same provider-boundary blocker; history-API equality assertion implemented",
+    "notes": "same shared-provider blocker; history-API equality assertion implemented",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:25:32+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   },
   "J5.binding": {
     "status": "failing",
     "evidence": "journey_matrix/j5_calculation_20261011_202453_d5e472.json",
-    "notes": "workbook FIXTURE uploaded through the product (200, no seeded rows) but the calculate turn never returns (provider boundary, same blocker); binding assertion requires the completed turn",
+    "notes": "workbook FIXTURE uploaded through the product (200, no seeded rows); calculate turn blocked at the shared provider dependency",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:25:32+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   },
   "J5.persist": {
     "status": "failing",
     "evidence": "journey_matrix/j5_calculation_20261011_202453_d5e472.json",
-    "notes": "calculate-operation persistence check implemented (goal_runs task_lifecycle operations via read-only sqlite) \u2014 unreachable until a provider dispatches",
+    "notes": "calculate-operation persistence check implemented (goal_runs task_lifecycle operations, read-only sqlite) \u2014 unexercised until a provider dispatches",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:25:32+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   },
   "J5.readback-agreement": {
     "status": "failing",
     "evidence": "journey_matrix/j5_calculation_20261011_202453_d5e472.json",
-    "notes": "reply-vs-record agreement (3*1250=3750) implemented \u2014 unreachable until a provider dispatches",
+    "notes": "reply-vs-record agreement (3*1250=3750) implemented \u2014 unexercised until a provider dispatches",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-12T00:25:32+00:00"
+    "recorded_at": "2026-10-12T01:30:18+00:00"
   }
 }
