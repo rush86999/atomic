@@ -8731,19 +8731,19 @@ class ChatOrchestrator:
                     _ask_task["admitted_aliases"] = dict(
                         _admitted.get("aliases") or {})
                     _ask_task["admitted_origin"] = _admitted.get("origin")
-                    if isinstance(_shared_tool, dict):
-                        _shared_tool["admitted_subjects"] = list(
-                            _admitted["subjects"])
-                        _shared_tool["admitted_aliases"] = dict(
-                            _admitted.get("aliases") or {})
                 elif isinstance(_admitted, dict) and _admitted.get(
                         "clarification"):
                     # NO defensible subject: the request gets ONE scope
                     # clarification, never a read obligation per mined
                     # fragment.
                     _ask_task["scope_clarification"] = True
-                    if isinstance(_shared_tool, dict):
-                        _shared_tool["scope_clarification"] = True
+                # (the blackboard does not exist yet at this point —
+                # these facts ride `_ask_task` and are carried onto
+                # `_shared_tool` when the turn's blackboard is created;
+                # the former direct `_shared_tool` writes here crashed
+                # every turn whose interpretation admitted a subject
+                # with UnboundLocalError — live: the designated-file
+                # source ask in test_source_ask_tool_execution)
                 if not _ask_task.get("requested_targets"):
                     if _ask_active:
                         # Active-objective inheritance for vague follow-up
@@ -11215,6 +11215,19 @@ class ChatOrchestrator:
                 "block": None,
                 "request_scope": _edit_request_scope,
             }
+            # SUBJECT ADMISSION carry-over: the admission facts recorded
+            # on `_ask_task` (before this blackboard existed) ride the
+            # turn's shared tool state so the reply-leg consumers read
+            # them from one place.
+            try:
+                if isinstance(locals().get("_ask_task"), dict):
+                    for _adm_key in ("admitted_subjects", "admitted_aliases",
+                                     "admitted_origin",
+                                     "scope_clarification"):
+                        if _ask_task.get(_adm_key) is not None:
+                            _shared_tool[_adm_key] = _ask_task[_adm_key]
+            except Exception:  # noqa: BLE001 — carry-over is additive
+                pass
             _edit_leg_timed_out = False
             try:
                 if _canvas_ctx and not _canvas_action_bypassed and (
@@ -12102,54 +12115,85 @@ class ChatOrchestrator:
                             _op_agent)
                 except Exception:  # noqa: BLE001 — consult is optional
                     _consult_agent_id = None
-                ai_response = await self._get_qwen_response(
-                    message, history, routing_overrides,
-                    deadline=_deadline,
-                    sticky_hint=sticky_hint, user_id=user_id,
-                    agent_id=_consult_agent_id or (
-                        context or {}).get('agent_id'),
-                    planner_history=session.get("history", []),
-                    session_id=session_id,
-                    execution_id=_execution_id,
-                    workspace_id=(context or {}).get("workspace_id"),
-                    canvas_context=_canvas_ctx,
-                    tool_plan_task=_tool_plan_task,
-                    # MISS-HANDOFF EVIDENCE (2026-10-01): the file-ask
-                    # handoff lane never publishes to the turn's tool
-                    # blackboard — its read block died here, leaving the
-                    # narrator evidence-less. The handoff block stands in
-                    # when the blackboard is empty (the read already ran;
-                    # re-planning it would double latency for identical
-                    # results).
-                    prefetched_tool_block=(
-                        _shared_tool.get("block")
-                        or (locals().get("_ask_handoff_block")
-                            if locals().get("_ask_miss_handoff")
-                            else None)),
-                    miss_handoff=bool(locals().get("_ask_miss_handoff")),
-                    miss_handoff_block=(
-                        locals().get("_ask_handoff_block")
-                        if locals().get("_ask_miss_handoff") else None),
-                    shared_tool_state=_shared_tool,
-                    # RELEVANCE GATE (RCA findings 2 and 4; 2026-09-22
-                    # revision). A block produced by a plan built for an
-                    # OLDER request must not stand as this turn's evidence —
-                    # but a follow-up consuming the exchange it approves
-                    # ("yes go ahead") DOES address its task via the resolved
-                    # lineage. The tri-state verdict feeds the typed status:
-                    # unproven/mismatch withhold with an honest note and
-                    # never claim a lookup failed.
-                    canvas_evidence_status=_canvas_evidence_status,
-                    request_reference=_request_reference,
-                    pending_file_task=_pending_file_task,
-                    disambiguation=(context or {}).get("disambiguation"),
-                    async_continuation_forked=bool(
-                        _shared_tool.get("async_continuation_forked")),
-                    session=session,
-                    mission_critical=bool((context or {}).get("mission_critical")),
-                    canvas_provenance=(context or {}).get("canvas_provenance"),
-                    images=images,
-                )
+                # DEADLINE ENFORCED, not merely cooperative (stall trace,
+                # run 3): a single parked await inside the reply leg used to
+                # sail past the 95s orchestration deadline and the client's
+                # 300s window with no server-side abort — the deadline was
+                # only CHECKED between stages. The turn's own clock now
+                # bounds the whole reply leg (kwargs verbatim from the
+                # original call); on expiry the existing honest budget
+                # envelope is what the client receives.
+                _reply_leg_budget = None
+                try:
+                    _reply_leg_budget = (
+                        max(5.0, float(_deadline.remaining()))
+                        if _deadline is not None else None)
+                except Exception:  # noqa: BLE001 — clock is optional
+                    _reply_leg_budget = None
+
+                async def _reply_leg():
+                    ai_response = await self._get_qwen_response(
+                        message, history, routing_overrides,
+                        deadline=_deadline,
+                        sticky_hint=sticky_hint, user_id=user_id,
+                        agent_id=_consult_agent_id or (
+                            context or {}).get('agent_id'),
+                        planner_history=session.get("history", []),
+                        session_id=session_id,
+                        execution_id=_execution_id,
+                        workspace_id=(context or {}).get("workspace_id"),
+                        canvas_context=_canvas_ctx,
+                        tool_plan_task=_tool_plan_task,
+                        # MISS-HANDOFF EVIDENCE (2026-10-01): the file-ask
+                        # handoff lane never publishes to the turn's tool
+                        # blackboard — its read block died here, leaving the
+                        # narrator evidence-less. The handoff block stands in
+                        # when the blackboard is empty (the read already ran;
+                        # re-planning it would double latency for identical
+                        # results).
+                        prefetched_tool_block=(
+                            _shared_tool.get("block")
+                            or (locals().get("_ask_handoff_block")
+                                if locals().get("_ask_miss_handoff")
+                                else None)),
+                        miss_handoff=bool(locals().get("_ask_miss_handoff")),
+                        miss_handoff_block=(
+                            locals().get("_ask_handoff_block")
+                            if locals().get("_ask_miss_handoff") else None),
+                        shared_tool_state=_shared_tool,
+                        # RELEVANCE GATE (RCA findings 2 and 4; 2026-09-22
+                        # revision). A block produced by a plan built for an
+                        # OLDER request must not stand as this turn's evidence —
+                        # but a follow-up consuming the exchange it approves
+                        # ("yes go ahead") DOES address its task via the resolved
+                        # lineage. The tri-state verdict feeds the typed status:
+                        # unproven/mismatch withhold with an honest note and
+                        # never claim a lookup failed.
+                        canvas_evidence_status=_canvas_evidence_status,
+                        request_reference=_request_reference,
+                        pending_file_task=_pending_file_task,
+                        disambiguation=(context or {}).get("disambiguation"),
+                        async_continuation_forked=bool(
+                            _shared_tool.get("async_continuation_forked")),
+                        session=session,
+                        mission_critical=bool((context or {}).get("mission_critical")),
+                        canvas_provenance=(context or {}).get("canvas_provenance"),
+                        images=images,
+                    )
+                    return ai_response
+                if _reply_leg_budget is not None:
+                    try:
+                        ai_response = await asyncio.wait_for(
+                            _reply_leg(), timeout=_reply_leg_budget)
+                    except asyncio.TimeoutError:
+                        logger.error(
+                            "[deadline] reply leg exceeded the turn clock "
+                            "(%.0fs) — enforced, honest timeout returned",
+                            _reply_leg_budget or -1)
+                        ai_response = await self._turn_budget_envelope(
+                            session_id=session_id)
+                else:
+                    ai_response = await _reply_leg()
                 # NOT-FOUND GUARANTEE (2026-10-01 three-domain live
                 # finding): on a not-found-shaped ask the absent items'
                 # NAMES are a deterministic fact from the structured
