@@ -141,6 +141,14 @@ class LLMService:
         # scope's local-provider configuration).
         self._workspace_id = workspace_id or "default"
         self._scope_unresolved_reason: Optional[str] = None
+        # HOW the service obtained its workspace: only a scope obtained
+        # through TENANT RESOLUTION is subject to per-dispatch
+        # revalidation. An explicit workspace argument is authenticated
+        # constructor context — never treated as a stale cacheable
+        # resolution (verifier probe P3 follow-up: validating explicit
+        # scopes broke injected handlers and re-asked the tenant question
+        # the caller already answered).
+        self._workspace_from_tenant_resolution = False
         if workspace_id is None and self._tenant_id != "default":
             resolved = self._workspace_for_tenant(self._tenant_id)
             if resolved is None or resolved is LLMService._UNRESOLVED:
@@ -150,6 +158,7 @@ class LLMService:
                 self._workspace_id = None
             else:
                 self._workspace_id = resolved
+                self._workspace_from_tenant_resolution = True
         self._handler: Optional[BYOKHandler] = None
 
         # In single-tenant open source, we mostly care about workspace_id.
@@ -254,15 +263,17 @@ class LLMService:
         exactly one), or the lookup fails. ``None`` means no
         tenant-scoped resolution applies (default/deliberate scope).
 
-        Only POSITIVE resolutions are cached: a workspace binding
-        created (or repaired) after a failed lookup must resolve on the
-        next call — a long-lived service never stays stuck on an
-        earlier failure or ambiguity.
+        Positive resolutions are CACHED but never trusted blind (verifier
+        finding P3 on 316317f3b): every cache hit is validated against
+        the tenant's CURRENT binding set — a binding that was revoked,
+        or changed to a different workspace, re-resolves by the normal
+        rules instead of dispatching to a stale scope. The cost is one
+        indexed query per tenant-only dispatch; scope correctness is
+        worth it. A lookup failure during validation refuses (zero
+        calls) rather than dispatching on an unvalidated scope.
         """
         if not tenant_id or tenant_id == "default":
             return None
-        if tenant_id in self._tenant_workspace_cache:
-            return self._tenant_workspace_cache[tenant_id]
         try:
             from core.models import Workspace
 
@@ -281,34 +292,32 @@ class LLMService:
         except Exception as exc:  # noqa: BLE001 — scope resolution, not routing
             logger.debug("workspace resolution for tenant %s failed: %s",
                          tenant_id, exc)
+            self._tenant_workspace_cache.pop(tenant_id, None)
             return LLMService._UNRESOLVED
         if len(ids) == 1:
             self._tenant_workspace_cache[tenant_id] = ids[0]
             return ids[0]
-        # zero (unknown tenant) or many (ambiguous) — unresolved, and
-        # deliberately NOT cached so a later binding repair resolves.
+        # zero (binding revoked / unknown tenant) or many (ambiguous) —
+        # unresolved. The stale positive entry is dropped so a repaired
+        # binding resolves on the next call.
+        self._tenant_workspace_cache.pop(tenant_id, None)
         return LLMService._UNRESOLVED
 
-    def _retry_scope_resolution(self) -> None:
-        """A previously unresolved tenant-only scope re-resolves on the
-        next dispatch (owner correction item 3): a workspace binding
-        created — or repaired — after a failed lookup must be adopted.
-        Failed/ambiguous resolutions are never cached, so this retry is
-        real work, not a stuck memo; once it succeeds the resolution is
-        cached and the handler built for the recovered scope."""
-        if not self._scope_unresolved_reason or \
-                self._tenant_id == "default":
-            return
-        resolved = self._workspace_for_tenant(self._tenant_id)
-        if resolved is not None and resolved is not LLMService._UNRESOLVED:
-            self._workspace_id = resolved
-            self._scope_unresolved_reason = None
-            self._handler = BYOKHandler(
-                workspace_id=self._workspace_id,
-                tenant_id=self._tenant_id, db_session=self._db)
-            logger.info(
-                "workspace binding for tenant %s recovered -> %s; the "
-                "service resumes its own scope", self._tenant_id, resolved)
+    def _adopt_workspace(self, workspace_id: str) -> None:
+        """Adopt a (possibly new) workspace for the service's own
+        tenant: the shared handler is REBUILT for the adopted scope —
+        never reused across a binding change. The adopted scope IS a
+        tenant resolution, so it stays subject to revalidation."""
+        self._workspace_id = workspace_id
+        self._scope_unresolved_reason = None
+        self._workspace_from_tenant_resolution = True
+        self._handler = BYOKHandler(
+            workspace_id=self._workspace_id,
+            tenant_id=self._tenant_id, db_session=self._db)
+        logger.info(
+            "workspace binding for tenant %s adopted -> %s; the handler "
+            "was rebuilt for the adopted scope", self._tenant_id,
+            workspace_id)
 
     def _get_handler(self, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Optional[BYOKHandler]:
         """Handler for one (workspace, tenant) scope — or ``None`` when
@@ -317,22 +326,49 @@ class LLMService:
         Tenant and workspace remain SEPARATE identifiers: an explicit
         tenant never becomes a workspace. A tenant-only caller (the
         chat path) is resolved to the workspace that tenant owns —
-        uniquely, or not at all: an unresolved scope is never
-        substituted with this service's workspace or the default (that
-        would select another scope's providers and keys). Reuse of
-        the shared handler requires BOTH identifiers to match the
-        service's own scope; every other pair gets its own handler,
-        cached — a shared handler is never mutated between requests.
+        uniquely, validated against the CURRENT binding set, or not at
+        all: an unresolved scope is never substituted with this
+        service's workspace or the default, and a binding that was
+        revoked or changed after construction never serves through a
+        stale handler. Reuse of the shared handler requires BOTH
+        identifiers to match the service's own scope; every other pair
+        gets its own handler, cached — a shared handler is never
+        mutated between requests.
         """
-        self._retry_scope_resolution()
         if workspace_id is None and tenant_id is not None and \
                 tenant_id != self._tenant_id:
             # A DIFFERENT tenant's authorized context: resolve its own
-            # workspace — uniquely, or refuse.
+            # workspace — uniquely and validated, or refuse.
             resolved = self._workspace_for_tenant(tenant_id)
             if resolved is None or resolved is LLMService._UNRESOLVED:
                 return None
             target_ws = resolved
+        elif workspace_id is None and (
+                self._workspace_from_tenant_resolution or
+                self._scope_unresolved_reason):
+            # The service's OWN tenant, tenant-only call (or no scope
+            # kwargs at all), on a scope that came from TENANT
+            # RESOLUTION — or that is STILL unresolved from a failed
+            # construction (whose retry must never be permanently
+            # stuck): the VALIDATED resolution decides. A binding
+            # revoked since construction refuses; a binding CHANGED
+            # since construction adopts the new workspace and REBUILDS
+            # the shared handler. Explicit-workspace services skip this
+            # (their scope is constructor context, not a cached
+            # resolution).
+            resolved = self._workspace_for_tenant(self._tenant_id)
+            if resolved is None or resolved is LLMService._UNRESOLVED:
+                if self._handler is not None or \
+                        not self._scope_unresolved_reason:
+                    self._scope_unresolved_reason = (
+                        f"tenant {self._tenant_id!r} currently has no "
+                        "unique workspace binding (revoked, ambiguous, "
+                        "or the lookup failed)")
+                    self._handler = None
+                return None
+            if resolved != self._workspace_id or self._handler is None:
+                self._adopt_workspace(resolved)
+            target_ws = self._workspace_id
         else:
             target_ws = workspace_id or self._workspace_id
             if target_ws is None:

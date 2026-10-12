@@ -807,3 +807,96 @@ class TestScopeResolutionFailures:
                 f"{out2.get('content')!r}")
             assert not svc.scope_is_unresolved()
             assert ep_a.hit_count == 1
+
+    def test_revoked_binding_never_serves_from_the_stale_resolution(
+            self, scoped_world, world_app):
+        """Verifier finding P3 on 316317f3b: a POSITIVE resolution must
+        not outlive its binding. After the tenant's workspace is
+        revoked, the SAME long-lived service refuses — zero calls to
+        the revoked workspace's endpoint."""
+        from core.llm_service import LLMService
+        from core.models import Workspace
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            svc = LLMService(tenant_id=ws_a["tenant_id"])
+            out = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_a["tenant_id"]))
+            assert out.get("content") == "pong-A", (
+                "the resolved route serves before the revocation")
+            assert ep_a.hit_count == 1
+
+            # REVOKE: the tenant's binding is removed.
+            db = scoped_world["Session"]()
+            try:
+                bound = (db.query(Workspace)
+                         .filter(Workspace.id == ws_a["workspace_id"])
+                         .first())
+                db.delete(bound)
+                db.commit()
+            finally:
+                db.close()
+
+            out2 = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_a["tenant_id"]))
+            assert out2.get("success") is False, (
+                "a revoked binding must not serve from the stale "
+                f"resolution: {out2.get('content')!r}")
+            assert out2.get("unresolved_scope"), (
+                "the refusal names the unresolved scope")
+            assert ep_a.hit_count == 1, (
+                "ZERO calls to the revoked workspace's endpoint after "
+                "the binding was removed")
+
+    def test_changed_binding_routes_to_the_new_workspace(
+            self, scoped_world, world_app):
+        """Verifier finding P3 on 316317f3b: a binding CHANGED to a
+        different workspace must not serve the old endpoint — the same
+        long-lived service adopts the new scope and its handler is
+        rebuilt for it."""
+        from core.llm_service import LLMService
+        from core.models import Workspace
+
+        with _CountingEndpoint("A") as ep_a, _CountingEndpoint("B") as ep_b:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            ws_b = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            _register_local_route(world_app, ws_b, ep_b.base_url,
+                                  tools=False, quality=0.85)
+            svc = LLMService(tenant_id=ws_a["tenant_id"])
+            out = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_a["tenant_id"]))
+            assert out.get("content") == "pong-A"
+
+            # CHANGED: ws_a's binding is replaced by ws_b under the
+            # SAME tenant (ws_a's row deleted, ws_b re-bound).
+            db = scoped_world["Session"]()
+            try:
+                db.query(Workspace).filter(
+                    Workspace.id == ws_a["workspace_id"]).delete()
+                bound_b = (db.query(Workspace)
+                           .filter(Workspace.id == ws_b["workspace_id"])
+                           .first())
+                bound_b.tenant_id = ws_a["tenant_id"]
+                db.commit()
+            finally:
+                db.close()
+
+            out2 = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_a["tenant_id"]))
+            assert out2.get("content") == "pong-B", (
+                f"the changed binding must route to the NEW workspace's "
+                f"endpoint, got {out2.get('content')!r}")
+            assert ep_a.hit_count == 1, (
+                "ZERO calls to the old workspace's endpoint after the "
+                "binding changed")
+            assert ep_b.hit_count >= 1
+            assert svc.handler.workspace_id == ws_b["workspace_id"], (
+                "the shared handler was rebuilt for the adopted scope")
