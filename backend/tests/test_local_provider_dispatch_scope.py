@@ -1317,8 +1317,22 @@ class TestTruthfulToolRequest:
 
         async def _capture_completion(**kwargs):
             captured["messages"] = kwargs.get("messages")
-            return {"content": "nothing was searched this turn",
-                    "model": "x", "provider": "y"}
+            # THE FABRICATED CLAIM (run-3's finding class): the model
+            # narrates searches over zero executed work. The delivered
+            # outcome must be enforced truthful, not carry this text.
+            return {"success": True, "content": (
+                "I've searched your Zoho CRM integration (connected "
+                "previously) for any mentions of quarterly revenue. The "
+                "search yielded no precise matches in the CRM database "
+                "itself, which only contains 5 records mentioning "
+                "revenue."), "text": (
+                "I've searched your Zoho CRM integration (connected "
+                "previously) for any mentions of quarterly revenue. The "
+                "search yielded no precise matches in the CRM database "
+                "itself, which only contains 5 records mentioning "
+                "revenue."), "model": "x", "provider": "y",
+                "usage": {"prompt_tokens": 5, "completion_tokens": 20,
+                          "total_tokens": 25}}
 
         class _CapturingService:
             def __init__(self):
@@ -1424,3 +1438,13 @@ class TestTruthfulToolRequest:
             "a seek-shaped turn with zero executed tool work must brief "
             f"the model with a truthfulness envelope; messages="
             f"{blob[:400]}")
+        # ENFORCEMENT (owner directive: beyond a prompt) — the model
+        # IGNORED the briefing and claimed the search anyway. The
+        # delivered outcome must remain truthful: the claiming text is
+        # withheld and the honest refusal is what the user gets.
+        assert "Zoho CRM integration" not in str(out.get("message")), (
+            f"a search-claiming reply must not be delivered: "
+            f"{str(out.get('message'))[:200]!r}")
+        assert "Nothing was searched this turn" in str(out.get("message")), (
+            f"the delivered message must be the truthful refusal: "
+            f"{str(out.get('message'))[:200]!r}")

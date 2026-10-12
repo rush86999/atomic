@@ -19,12 +19,25 @@ _CURRENT: contextvars.ContextVar = contextvars.ContextVar(
     "atom_request_llm_scope", default=None)
 
 
-def set_request_scope(workspace_id, tenant_id) -> None:
-    """Publish the validated request scope for this turn's context."""
-    _CURRENT.set({
+def set_request_scope(workspace_id, tenant_id):
+    """Publish the validated request scope for this turn's context.
+
+    Returns the ContextVar token — the caller MUST reset it when the
+    turn ends (``reset_request_scope(token)``), so a long-lived task
+    that served one user's turn cannot leak that scope into unrelated
+    work it later executes. Fire-and-forget tasks spawned DURING the
+    turn copy the context at creation and keep it for their own
+    lifetime (intended: they serve the same turn)."""
+    return _CURRENT.set({
         "workspace_id": workspace_id or "default",
         "tenant_id": tenant_id or "default",
     })
+
+
+def reset_request_scope(token) -> None:
+    """Restore the previous scope (turn exit). Safe on a stale token."""
+    if token is not None:
+        _CURRENT.reset(token)
 
 
 def current_request_scope() -> dict:

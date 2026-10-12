@@ -30,6 +30,28 @@ from core.outbound_identity import (
     signature_signer_status,
 )
 
+_UNEXECUTED_SEARCH_CLAIM_RE = re.compile(
+    r"(?:I(?:'ve| have|'m| am| just)?|we)\b[^.\n]{0,60}\b"
+    r"(?:searched|scanned|queried|looked\s?(?:through|in|into)|checked)\b"
+    r"|\b(?:found|searched)\b[^.\n]{0,80}\b\d+\s+"
+    r"(?:records?|results?|matches|entries|mentions)\b",
+    re.IGNORECASE,
+)
+
+
+def _reply_claims_executed_search(reply: str) -> bool:
+    """Does this reply claim a search/lookup was EXECUTED? Bounded
+    first-person execution claims and record-count claims — prose that
+    merely OFFERS to search ("I can search") does not match."""
+    if not reply:
+        return False
+    if re.search(r"\b(?:can|could|will|would|let me)\b[^.\n]{0,30}\b"
+                 r"(?:search|scan|query|check|look)\b", reply,
+                 re.IGNORECASE):
+        return False  # an offer, not a claim
+    return bool(_UNEXECUTED_SEARCH_CLAIM_RE.search(reply))
+
+
 logger = logging.getLogger(__name__)
 
 from core.request_scope import current_request_scope
@@ -2790,6 +2812,15 @@ def _search_execution_receipt(
         v = meta.get(k)
         if isinstance(v, dict) and v:
             structured[k] = v
+    # DOCUMENTS EXECUTION RECEIPT (pristine-J2 false-search finding,
+    # 2026-10-12): an executed documents.* action records HOW MANY hits
+    # it returned and WHERE. Hits are row evidence; a zero-match executed
+    # search is a bounded absence (the record below), never row evidence.
+    _docs = meta.get("documents_read") or {}
+    if not isinstance(_docs, dict):
+        _docs = {}
+    if _docs.get("executed") and int(_docs.get("match_count") or 0) > 0:
+        structured["documents_read"] = _docs
     if isinstance(inventory, dict) and inventory:
         # the inventory receipt IS the structured record for the stock
         # obligation
@@ -2830,9 +2861,15 @@ def _search_execution_receipt(
     executed_search = ("searched_threads" in meta) or bool(observations) \
         or bool(reads) or bool(_evidence_structured) or (
             isinstance(ds, dict) and bool(ds.get("files_searched"))) \
-        or ("value_trace" in meta)
+        or ("value_trace" in meta) \
+        or bool(_docs.get("executed"))
+    # ABSENCE SCOPE (verifier check 2): a zero-result receipt supports
+    # absence only within its recorded scope — a DEGRADED or TRUNCATED
+    # documents read is inconclusive, never a bounded absence.
+    _docs_incomplete = bool(_docs) and bool(
+        _docs.get("degraded") or _docs.get("truncated"))
     bounded_absence = bool(executed_search and not retrieved
-                           and not vt_covered)
+                           and not vt_covered and not _docs_incomplete)
     _sr_targets = []
     _sr = structured.get("structured_result")
     if isinstance(_sr, dict):
@@ -2862,6 +2899,11 @@ def _search_execution_receipt(
             # names — the caller compares against the RESOLVED set;
             # retrieval alone does not mean the requested items were seen.
             "coverage_items": sorted(set(_sr_targets)),
+            # DOCUMENTS EXECUTION RECEIPT (pristine-J2 finding): the
+            # executed documents action's own record — how many hits and
+            # where — rides the settled receipt, so the durable outcome
+            # holds the search's facts, not a query-word echo.
+            "documents_read": _docs if _docs else {},
             # INVENTORY RECEIPT PAYLOAD (owner work order 2026-10-11):
             # the stock obligation's settlement carries the ACTUAL
             # inventory data — or the precise access error — so the
@@ -2871,6 +2913,83 @@ def _search_execution_receipt(
             "zoho_inventory_error": (inventory_error or None),
         },
     }
+
+
+def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
+    """Attributable tool_outcome rows for the planner lane's execution
+    (pristine-J2 false-search finding, 2026-10-12): a search the tool
+    planner dispatched must settle the turn's durable outcome with the
+    SAME attributable rows the file lane writes — a turn with zero
+    executed lookups can never read as served. Facts come from the plan's
+    stamped execution meta, never from returned prose."""
+    meta = getattr(plan, "_result_meta", None) or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    rows: List[Dict[str, Any]] = []
+    docs = meta.get("documents_read") or {}
+    if isinstance(docs, dict) and docs:
+        executed = bool(docs.get("executed"))
+        count = int(docs.get("match_count") or 0)
+        if executed and not docs.get("error"):
+            outcome = ("status=%s match_count=%d"
+                       % ("empty_in_scope" if not count else "ok", count))
+            if docs.get("degraded"):
+                outcome = f"status=degraded match_count={count}"
+        else:
+            outcome = "not_executed (%s)" % (docs.get("error") or "unknown")
+        rows.append({
+            "tool": "documents.%s" % (docs.get("action") or "search"),
+            "verified": executed and not docs.get("error")
+            and not docs.get("degraded"),
+            "outcome": outcome,
+            "required": True,
+            "evidence_refs": (
+                [{"kind": "documents",
+                  "paths": list(docs.get("paths") or [])}] if count else []),
+        })
+    service = str(getattr(plan, "service", "") or "")
+    if service and service != "documents":
+        invoked = any(k in meta for k in (
+            "searched_threads", "read_outcomes", "source_observations",
+            "datasets_search", "storage_read", "value_trace",
+            "zoho_inventory", "documents_read"))
+        rows.append({
+            "tool": service,
+            "verified": invoked,
+            "outcome": "dispatched" if invoked else "not_dispatched",
+            "required": True,
+            "evidence_refs": [],
+        })
+    return rows
+
+
+def _planner_receipt_facts(plan: Any) -> Dict[str, Any]:
+    """The STRUCTURED execution facts of a planner-lane dispatch
+    (verifier check 2): what ran and what it returned, read from the
+    plan's stamped execution meta — the authority for narration
+    agreement. Rendered block text is presentation, never evidence."""
+    meta = getattr(plan, "_result_meta", None) or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    docs = meta.get("documents_read") or {}
+    rows = _planner_receipt_rows(plan)
+    return {
+        "executed_tools": [
+            str(r.get("tool")) for r in rows if r.get("verified")],
+        "documents": docs if isinstance(docs, dict) else None,
+    }
+
+
+def _turn_receipt_facts(
+        session: Any, execution_id: Optional[str]) -> Dict[str, Any]:
+    """The CURRENT request's structured receipt facts, keyed to THIS
+    execution (verifier check 3): an earlier turn's receipt can never
+    license a later claim, and a session without this execution's stamp
+    means NOTHING is known to have executed."""
+    if not execution_id or not isinstance(session, dict):
+        return {}
+    facts = session.get(f"_planner_receipt_facts_{execution_id}")
+    return facts if isinstance(facts, dict) else {}
 
 
 def _value_trace_pending_reads(
@@ -6592,6 +6711,21 @@ class ChatOrchestrator:
                     "required": True,
                     "evidence_refs": evidence_refs,
                 }]
+            # PLANNER-LANE EXECUTION RECEIPTS (pristine-J2 false-search
+            # finding, 2026-10-12): the tool planner's dispatched searches
+            # settle the durable outcome with attributable rows — the
+            # demonstrated failure shipped tool_outcomes=[] while the
+            # reply narrated searches. The stamp is keyed to THIS
+            # execution, so stale sessions cannot donate receipts.
+            try:
+                _planner_rows = (
+                    session.get(f"_planner_tool_receipts_{execution_id}")
+                    if execution_id and isinstance(session, dict) else None)
+                if isinstance(_planner_rows, list) and _planner_rows:
+                    tool_outcomes = list(tool_outcomes) + [
+                        dict(r) for r in _planner_rows if isinstance(r, dict)]
+            except Exception:  # noqa: BLE001 — receipts never gate
+                pass
             objective_met = None
             if status in {"failed", "cancelled"} or response.get("success") is False:
                 objective_met = False
@@ -7460,9 +7594,12 @@ class ChatOrchestrator:
             # assignments): fact extraction, reply verification and
             # interpretation consume core.request_scope from this turn's
             # context (contextvars travel into fire-and-forget tasks).
-            from core.request_scope import set_request_scope
+            from core.request_scope import (
+                reset_request_scope, set_request_scope,
+            )
 
-            set_request_scope(**self._request_llm_scope(user_id))
+            _scope_token = set_request_scope(
+                **self._request_llm_scope(user_id))
             # REQUEST REFERENCE — resolved ONCE per turn, before anything is
             # scheduled. "yes go ahead" (live 2026-09-22) used to be validated
             # against its own bare wording; the resolver identifies the
@@ -12325,6 +12462,54 @@ class ChatOrchestrator:
                 )
 
                 main_message = ai_response["content"]
+
+                # TRUTHFULNESS ENFORCEMENT (owner directive 2026-10-12,
+                # beyond the prompt envelope): a seek-shaped turn with NO
+                # executed tool work must never DELIVER a reply that
+                # claims searches ran — however confident the model's
+                # prose. The prompt envelope asks; this gate enforces:
+                # the claiming content is withheld and the delivered
+                # outcome is the truth, marked failed.
+                try:
+                    from core.turn_decision import (
+                        _looks_seek_shaped as _seek_gate_check,
+                    )
+
+                    _turn_block = ((_shared_tool or {}).get(
+                        "executed_tool_block")
+                        or (_shared_tool or {}).get("block") or "")
+                    # Zero executed tool work = no block at all, OR the
+                    # machinery's own honest no-lookup markers (planner
+                    # timeout / declined lookup) — those blocks DECLARE
+                    # non-execution, they are not receipts of work.
+                    _no_tool_ran = (not _turn_block) or (
+                        "NO TOOL LOOKUP RAN THIS TURN" in _turn_block
+                        or "NO LIVE LOOKUP EXECUTED" in _turn_block)
+                    if (
+                        _no_tool_ran
+                        and _seek_gate_check(message or "")
+                        and _reply_claims_executed_search(
+                            str(main_message or ""))
+                    ):
+                        main_message = (
+                            "Nothing was searched this turn — no "
+                            "connected source was queried, so there are "
+                            "no results to report. (A draft of this "
+                            "reply claimed a search that did not run; "
+                            "it was withheld.) "
+                            "Connect a source or rephrase, and the "
+                            "search will actually execute.")
+                        ai_response["content"] = main_message
+                        ai_response["success"] = False
+                        ai_response["withheld_unexecuted_search_claim"] = True
+                        logger.warning(
+                            "[truthfulness] withheld a reply that claimed "
+                            "executed searches on a zero-tool turn "
+                            "(session=%s)", session_id)
+                except Exception:  # noqa: BLE001 — enforcement is additive
+                    logger.debug(
+                        "[truthfulness] claim gate skipped: %r",
+                        sys.exc_info()[1])
                 # PROVIDER-FAILURE TERMINAL (first assignment): the LLM
                 # layer surfaces credit/quota exhaustion AS CONTENT
                 # (byok_handler credit envelope, success=True). A turn
@@ -13138,6 +13323,15 @@ class ChatOrchestrator:
                     pass
             return error_response
         finally:
+            # TURN-SCOPE LIFETIME (owner check 5): the published request
+            # scope dies with the turn — a long-lived task that served one
+            # user must not carry that scope into unrelated later work.
+            try:
+                from core.request_scope import reset_request_scope
+
+                reset_request_scope(_scope_token)
+            except Exception:  # noqa: BLE001 — hygiene, never masks the turn
+                pass
             if _interactive_token is not None:
                 try:
                     from core.llm.interactive_context import (
@@ -16396,6 +16590,26 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _turn_structured_record = _storage_read_meta.get(
                                 "workbook_read"
                             ) or None
+                        # TURN EXECUTION RECEIPTS (pristine-J2 finding):
+                        # the planner lane's executed tools stamp the
+                        # session under THIS execution's id so the final
+                        # task_outcome carries attributable receipts,
+                        # and the STRUCTURED facts (what ran, what it
+                        # returned) drive narration agreement — the
+                        # rendered block never becomes the authority.
+                        # Deliberately OUTSIDE the job-work-ledger gate:
+                        # the receipt follows the execution, not the
+                        # lifecycle flag.
+                        try:
+                            if isinstance(session, dict) and execution_id:
+                                session[
+                                    f"_planner_tool_receipts_{execution_id}"
+                                ] = _planner_receipt_rows(_plan)
+                                session[
+                                    f"_planner_receipt_facts_{execution_id}"
+                                ] = _planner_receipt_facts(_plan)
+                        except Exception:  # noqa: BLE001 — receipts best-effort
+                            pass
                         # JOB-WORK LEDGER (multi-source seam): settle the
                         # operation begun before dispatch. The outcome comes
                         # from the executed block, the storage meta and the
@@ -19585,6 +19799,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "read. If the request needs live data, say "
                         "plainly that nothing was searched this turn and "
                         "what would be needed to search it.")})
+            # PUBLISH the turn's tool block to the shared state (the same
+            # dict process_chat_message holds): the delivery gate reads
+            # whether ANY tool work executed this turn.
+            if isinstance(shared_tool_state, dict):
+                shared_tool_state["executed_tool_block"] = (
+                    _tool_block or None)
                 # OFFER-TO-READ directive (2026-09-22), placed HERE — after
                 # execution, when this turn's structured meta exists (prompt
                 # assembly above runs BEFORE the tool leg). Structured meta,
@@ -21145,6 +21365,100 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "to report yet. Please try again in a moment and "
                         "I'll run the taught-rate calculation with your "
                         "inputs.")
+                # RECEIPTLESS-SEARCH NARRATION GUARD (pristine-J2
+                # false-search finding, 2026-10-12): with NO evidence
+                # block the figure guard below never runs — and the
+                # unanchored reply narrated "I've searched your Zoho CRM
+                # integration … 5 records" in a world with no
+                # integrations, on a turn whose tool_outcomes sat at [].
+                # A reply may present as searched only what THIS turn's
+                # STRUCTURED receipts cover (verifier check 2/3: block
+                # headers are wording detectors, never the authority for
+                # what ran); a violation is replaced with the receipt's
+                # own truthful narration.
+                # Deterministic, NO regen (the calc guard's rationale
+                # applies verbatim: provider distress cannot afford one,
+                # and a regen that repeats the claim must not ship it).
+                if _content and message:
+                    try:
+                        from core.chat_tool_planner import (
+                            _executed_tool_names,
+                            truthful_search_narration,
+                            unbacked_result_counts,
+                            unbacked_search_claims,
+                        )
+
+                        _receipt_facts = _turn_receipt_facts(
+                            session, execution_id)
+                        # AUTHORITY: this execution's structured facts.
+                        # Without them NOTHING is known to have executed
+                        # — an earlier turn's receipt can never license
+                        # a later claim (execution-keyed stamps).
+                        if _receipt_facts:
+                            _executed_now = list(
+                                _receipt_facts.get("executed_tools") or [])
+                        else:
+                            _executed_now = _executed_tool_names(_tool_block)
+                        _search_unbacked = unbacked_search_claims(
+                            _content, _executed_now)
+                        # COUNT CONTRADICTION (acceptance case 12): a
+                        # positive result count against a settled
+                        # zero-match receipt is the same fabrication in
+                        # a shape the money-figure guard never sees.
+                        if not _search_unbacked:
+                            _docs_receipt = (
+                                _receipt_facts.get("documents") or {}
+                                if _receipt_facts else None)
+                            _settled = None
+                            if isinstance(_docs_receipt, dict) and \
+                                    _docs_receipt.get("executed"):
+                                _settled = int(
+                                    _docs_receipt.get("match_count") or 0)
+                            _search_unbacked = unbacked_result_counts(
+                                _content, _settled)
+                    except Exception:  # noqa: BLE001 — guard must not gate
+                        _search_unbacked = []
+                    if _search_unbacked:
+                        logger.warning(
+                            "[search-narration] reply claims %d search(s) "
+                            "no executed receipt covers (%r) — replaced "
+                            "with the executed evidence's own narration",
+                            len(_search_unbacked), _search_unbacked[0][:90])
+                        try:
+                            from core.llm.fabrication_accounting import (
+                                FIGURE_HEURISTIC_RULE as _nar_rule,
+                            )
+                            from core.llm.learning_router_registry import (
+                                record_fabrication_signal,
+                            )
+
+                            await record_fabrication_signal(
+                                model_id=str((response_data or {}).get(
+                                    "model") or forced_model or "unknown"),
+                                task_type="question_answering",
+                                tenant_id=self.tenant_id or "default",
+                                ungrounded_claims=_search_unbacked[:4],
+                                routing_result_id=(response_data or {}).get(
+                                    "routing_result_id"),
+                                provider_id=str((response_data or {}).get(
+                                    "provider") or ""),
+                                rule=_nar_rule,
+                            )
+                        except Exception:  # noqa: BLE001 — accounting best-effort
+                            pass
+                        try:
+                            _docs_for_narration = (
+                                _receipt_facts.get("documents")
+                                if _receipt_facts else None)
+                        except Exception:  # noqa: BLE001
+                            _docs_for_narration = None
+                        _truthful = truthful_search_narration(
+                            _tool_block, message,
+                            docs_receipt=_docs_for_narration)
+                        if _truthful:
+                            _content = _truthful
+                            response_data = dict(response_data or {})
+                            response_data["content"] = _truthful
                 if _tool_block and _content and not (
                     _derivation_reply and not _derivation_contradicted
                 ) and not _calc_evidence:
