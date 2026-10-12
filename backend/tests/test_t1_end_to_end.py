@@ -675,11 +675,19 @@ class TestTaughtSheetResolution:
             "RECORDED as a mismatch, never silent")
 
 
-def _continue_turn_on(orch, session_id):
+def _continue_turn_on(orch, session_id, lifecycle=None):
     """A bare 'continue' on the owning session through the REAL
     process_chat_message, with the planner authorized for the zoho
-    inventory action and the controlled external receipt."""
+    inventory action and the controlled external receipt. The ledger
+    store is REAL: `lifecycle` (the same store the job was seeded in)
+    is what `_task_lifecycle_for` returns, so the continuation seam's
+    ledger selection actually RUNS — a selection-only proof is
+    explicitly insufficient."""
     from core.chat_tool_planner import ToolPlan
+
+    import os as _os
+
+    _os.environ["ATOM_TASK_LIFECYCLE_ENABLED"] = "1"
 
     session = {"id": session_id, "history": []}
     zoho_receipt = {"success": True,
@@ -729,7 +737,9 @@ def _continue_turn_on(orch, session_id):
           patch("core.chat_tool_planner._provenance_menu",
                 new=AsyncMock(return_value="")),
           patch("integrations.chat_orchestrator._begin_task_edit",
-                return_value={"status": "legacy"})):
+                return_value={"status": "legacy"}),
+          patch("integrations.chat_orchestrator._task_lifecycle_for",
+                return_value=lifecycle)):
         return asyncio.run(orch.process_chat_message(
             "user-1", "continue", session_id,
             context={"canvas": dict(CANVAS)}))
@@ -1018,13 +1028,16 @@ class TestStockSuccessorSelection:
         # process_chat_message; planner authorized for zoho)
         out = _continue_turn_on(orch, "sess-e2e")
 
-        # the SAME job: the stock question's settlement is on ITS record
+        # the SAME job: the stock question's settlement is on ITS
+        # record — the RECEIPT PAYLOAD (Woodstock/items) must be in the
+        # durable operations, not query-word echoes
         post = tl.get_task(run_id)
         durable = json.dumps(post, default=str)
-        assert ("Woodstock" in durable or "zoho" in durable.lower()), (
-            "the inventory settlement is on the job's durable record")
+        assert "Woodstock" in durable, (
+            "the inventory receipt payload is durably recorded")
+        assert "inventory_receipt" in durable, (
+            "the settle's inventory_receipt fact is on the record")
         post_ops = len(post.get("operations") or [])
-        pre_ops = None
 
 
     def test_availability_read_does_not_certify_the_stock_field(self):
