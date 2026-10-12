@@ -1448,3 +1448,32 @@ class TestTruthfulToolRequest:
         assert "Nothing was searched this turn" in str(out.get("message")), (
             f"the delivered message must be the truthful refusal: "
             f"{str(out.get('message'))[:200]!r}")
+
+
+class TestProgramKinds:
+    """The mapping pin (coordinated peer integration, 41c4c54da→): the
+    decision's documents source ask survives the REAL compiler with its
+    kind intact — on 3259870cb this failed with source_kinds=[] (the
+    second transition where required tool work disappeared)."""
+
+    def test_document_nouns_survive_program_compilation(self):
+        from core.action_program import (
+            normalize_source_kind, program_from_decision,
+        )
+        from core.turn_decision import build_turn_decision
+
+        source_ask = ("Search my documents for anything about quarterly "
+                      "revenue and tell me what you find.")
+        decision = build_turn_decision(source_ask, session={}, history=[],
+                                       context={})
+        kinds = [a.get("target", {}).get("sources")
+                 for a in decision["requested_actions"]
+                 if a.get("kind") == "research"]
+        assert kinds and kinds[0] == ["documents"]
+        program = program_from_decision(decision)
+        ops = [a for a in program.actions if getattr(a, "op", "") ==
+               "source_read"]
+        assert ops and ops[0].source_kinds == ["document"]
+        assert normalize_source_kind("documents") == "document"
+        assert normalize_source_kind("workbooks") == "spreadsheet"
+        assert normalize_source_kind("flurb") == ""

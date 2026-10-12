@@ -2937,28 +2937,91 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
                 outcome = f"status=degraded match_count={count}"
         else:
             outcome = "not_executed (%s)" % (docs.get("error") or "unknown")
+        # SCOPE EVIDENCE ALWAYS (owner review of 02ec1c57e): a bounded
+        # absence still carries a receipt describing WHAT was searched,
+        # its coverage, and any truncation — never an unexplained
+        # verified=true with empty references.
         rows.append({
             "tool": "documents.%s" % (docs.get("action") or "search"),
             "verified": executed and not docs.get("error")
             and not docs.get("degraded"),
             "outcome": outcome,
             "required": True,
-            "evidence_refs": (
-                [{"kind": "documents",
-                  "paths": list(docs.get("paths") or [])}] if count else []),
+            "evidence_refs": [{
+                "kind": "documents",
+                "action": docs.get("action") or "search",
+                "query": docs.get("query") or "",
+                "paths": list(docs.get("paths") or []),
+                "match_count": count,
+                "coverage": (
+                    "partial" if (docs.get("degraded")
+                                  or docs.get("truncated"))
+                    else "complete"),
+            }],
         })
     service = str(getattr(plan, "service", "") or "")
     if service and service != "documents":
-        invoked = any(k in meta for k in (
-            "searched_threads", "read_outcomes", "source_observations",
-            "datasets_search", "storage_read", "value_trace",
-            "zoho_inventory", "documents_read"))
+        # The SAME execution contract the settle arm uses — dispatched /
+        # retrieved / bounded_absence computed from the lane's
+        # structured meta, never from key presence alone (owner review
+        # of 02ec1c57e: a failed or empty-shaped response must not look
+        # executed and verified; executed / evidence / satisfaction are
+        # distinct facts).
+        receipt = _search_execution_receipt(plan, None)
+        invoked = bool(receipt["dispatched"])
+        rc = receipt.get("receipt") or {}
+        evidence_items = (
+            int(rc.get("searched_threads") or 0)
+            + int(rc.get("source_observations") or 0)
+            + int(rc.get("read_outcomes") or 0)
+            + int((rc.get("datasets_search") or {}).get("hits") or 0)
+            + len(rc.get("coverage_items") or []))
+        _exec_error = (receipt.get("zoho_inventory_error")
+                       or meta.get("zoho_error") or "")
+        if not invoked:
+            verified: Any = False
+            outcome = "not_executed"
+        elif _exec_error:
+            # A FAILED response is a failed execution — never merely
+            # "unverified": the error names the blocker on the row.
+            verified = False
+            outcome = f"failed ({str(_exec_error)[:120]})"
+        elif receipt["retrieved"]:
+            verified = True
+            outcome = f"executed evidence_items={evidence_items}"
+        elif receipt["bounded_absence"]:
+            verified = True
+            outcome = ("executed_empty (bounded absence, scoped to the "
+                       "searched keys)")
+        else:
+            # dispatched but neither evidence nor a scoped absence: the
+            # execution cannot be verified from the meta — honest None
+            # (the harness reads None as "executed, not verified").
+            verified = None
+            outcome = "executed_no_verifiable_evidence"
         rows.append({
             "tool": service,
-            "verified": invoked,
-            "outcome": "dispatched" if invoked else "not_dispatched",
+            "verified": verified,
+            "outcome": outcome,
             "required": True,
-            "evidence_refs": [],
+            # Attributable scope references: which structured keys the
+            # execution produced and how much each carries.
+            "evidence_refs": [{
+                "kind": "search_scope",
+                "service": service,
+                "searched_threads": int(rc.get("searched_threads") or 0),
+                "source_observations": int(
+                    rc.get("source_observations") or 0),
+                "read_outcomes": int(rc.get("read_outcomes") or 0),
+                "datasets_hits": int(
+                    (rc.get("datasets_search") or {}).get("hits") or 0),
+                "coverage_items": len(rc.get("coverage_items") or []),
+                # THIS row's verdict: a bounded absence requires an
+                # actual dispatch — an empty-shaped (undispatched) meta
+                # never claims one.
+                "bounded_absence": bool(
+                    invoked and receipt["bounded_absence"]),
+            }],
         })
     return rows
 
@@ -2974,8 +3037,14 @@ def _planner_receipt_facts(plan: Any) -> Dict[str, Any]:
     docs = meta.get("documents_read") or {}
     rows = _planner_receipt_rows(plan)
     return {
+        # ACTION-claim coverage: a tool that EXECUTED covers "I searched
+        # X" narration even when its result is unverified (verified=None
+        # = executed, not verified); only not_executed (False) is
+        # excluded. Result claims (counts/figures) stay governed by the
+        # structured counts, never by this list.
         "executed_tools": [
-            str(r.get("tool")) for r in rows if r.get("verified")],
+            str(r.get("tool")) for r in rows
+            if r.get("verified") is not False],
         "documents": docs if isinstance(docs, dict) else None,
     }
 
@@ -12131,6 +12200,20 @@ class ChatOrchestrator:
                 except Exception:  # noqa: BLE001 — clock is optional
                     _reply_leg_budget = None
 
+                # HOISTED before the nested coroutine (round-5 F2):
+                # locals() inside _reply_leg is the nested frame — the
+                # miss-handoff names live in THIS frame only, and reading
+                # them from the nested body silently disabled the lane.
+                _hoisted_prefetched_block = (
+                    _shared_tool.get("block")
+                    or (locals().get("_ask_handoff_block")
+                        if locals().get("_ask_miss_handoff") else None))
+                _hoisted_miss_handoff = bool(
+                    locals().get("_ask_miss_handoff"))
+                _hoisted_miss_handoff_block = (
+                    locals().get("_ask_handoff_block")
+                    if locals().get("_ask_miss_handoff") else None)
+
                 async def _reply_leg():
                     ai_response = await self._get_qwen_response(
                         message, history, routing_overrides,
@@ -12152,14 +12235,9 @@ class ChatOrchestrator:
                         # re-planning it would double latency for identical
                         # results).
                         prefetched_tool_block=(
-                            _shared_tool.get("block")
-                            or (locals().get("_ask_handoff_block")
-                                if locals().get("_ask_miss_handoff")
-                                else None)),
-                        miss_handoff=bool(locals().get("_ask_miss_handoff")),
-                        miss_handoff_block=(
-                            locals().get("_ask_handoff_block")
-                            if locals().get("_ask_miss_handoff") else None),
+                            _hoisted_prefetched_block),
+                        miss_handoff=_hoisted_miss_handoff,
+                        miss_handoff_block=_hoisted_miss_handoff_block,
                         shared_tool_state=_shared_tool,
                         # RELEVANCE GATE (RCA findings 2 and 4; 2026-09-22
                         # revision). A block produced by a plan built for an
