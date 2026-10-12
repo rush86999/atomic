@@ -675,14 +675,15 @@ class TestTaughtSheetResolution:
             "RECORDED as a mismatch, never silent")
 
 
-def _continue_turn_on(orch, session_id, lifecycle=None):
+def _continue_turn_on(orch, session_id, lifecycle=None, zoho_receipt=None):
     """A bare 'continue' on the owning session through the REAL
     process_chat_message, with the planner authorized for the zoho
     inventory action and the controlled external receipt. The ledger
     store is REAL: `lifecycle` (the same store the job was seeded in)
     is what `_task_lifecycle_for` returns, so the continuation seam's
     ledger selection actually RUNS — a selection-only proof is
-    explicitly insufficient."""
+    explicitly insufficient. ``zoho_receipt`` overrides the controlled
+    response (an access error, an over-cap receipt, ...)."""
     from core.chat_tool_planner import ToolPlan
 
     import os as _os
@@ -690,10 +691,11 @@ def _continue_turn_on(orch, session_id, lifecycle=None):
     _os.environ["ATOM_TASK_LIFECYCLE_ENABLED"] = "1"
 
     session = {"id": session_id, "history": []}
-    zoho_receipt = {"success": True,
-                    "items": [{"sku": "SLE24-16",
-                               "availability": "In Stock",
-                               "warehouse": "Woodstock"}]}
+    if zoho_receipt is None:
+        zoho_receipt = {"success": True,
+                        "items": [{"sku": "SLE24-16",
+                                   "availability": "In Stock",
+                                   "warehouse": "Woodstock"}]}
     plan = ToolPlan(use_tool=True, service="zoho", intent="search",
                     query="verify stock for SLE24-16",
                     reason="the ledger's stock obligation")
@@ -701,12 +703,18 @@ def _continue_turn_on(orch, session_id, lifecycle=None):
     def _tool_exec(plan=None, *a, **k):
         if getattr(plan, "service", "") == "zoho":
             try:
+                plan._result_meta["zoho_error"] = (
+                    None if zoho_receipt.get("success")
+                    else str(zoho_receipt.get("error")))
                 plan._result_meta["zoho_inventory"] = (
                     zoho_receipt.get("items") or [])
             except Exception:  # noqa: BLE001
                 pass
-            return "ZOHO INVENTORY: " + json.dumps(
-                zoho_receipt.get("items") or [])
+            if zoho_receipt.get("success"):
+                return "ZOHO INVENTORY: " + json.dumps(
+                    zoho_receipt.get("items") or [])
+            return ("ZOHO INVENTORY ERROR: "
+                    + str(zoho_receipt.get("error")))
         return ""
 
     with (patch.object(orch, "_get_or_create_session",
@@ -1247,6 +1255,141 @@ class TestStockExecutionProductionPath:
         # findings never claim coverage the bounded receipt does not
         # carry — the requested subject's question (had one been open)
         # stays open by the recorded omission, not by a claim.
+
+    def _seed_stock_job(self, tl):
+        """ONE job whose ledger carries the stock obligation — the
+        continuation shape the settle arms bind to."""
+        from core.task_lifecycle import (
+            begin_retrieval_turn, add_unresolved_questions,
+        )
+
+        run_id, op_id = begin_retrieval_turn(
+            tl, {"id": "s-z", "history": []}, "sess-e2e",
+            "T1: verify SLE24-16 availability", "e-zoho",
+            items=["Tennsmith Slitter SLE24-16"],
+            requested_fields=["delivery"], canvas_id="cv-t1e2e")
+        add_unresolved_questions(tl, run_id, [{
+            "item": "Tennsmith Slitter SLE24-16",
+            "kind": "verification",
+            "question": ("Tennsmith Slitter SLE24-16: verify availability "
+                         "('In Stock') against the taught inventory "
+                         "source — the workbook carries no delivery "
+                         "column"),
+            "evidence": "scoped absence in the designated workbook",
+            "next_action": ("verify Tennsmith Slitter SLE24-16 "
+                            "availability in the taught inventory source "
+                            "(Zoho inventory)"),
+            "inputs": {"intent": "inventory_check",
+                       "item": "Tennsmith Slitter SLE24-16",
+                       "field": "delivery",
+                       "claimed_value": "In Stock",
+                       "taught_source": "inventory truth is zoho",
+                       "workspace_id": "default",
+                       "provenance": {"source": "lesson"}},
+        }], source_operation=op_id)
+        return run_id
+
+    @staticmethod
+    def _open_stock_questions(tl, run_id):
+        return [
+            q for q in ((tl.get_task(run_id).get("task_revision") or {})
+                        .get("unresolved") or [])
+            if ((q.get("inputs") or {}).get("intent")
+                == "inventory_check" and q.get("status") == "open")]
+
+    def test_error_preserves_the_open_obligation_without_duplicates(self):
+        """An inventory ACCESS ERROR on a job whose stock obligation is
+        already open persists the failure stage and keeps the ORIGINAL
+        question open — it must not create a second successor for the
+        same subject (owner confirmation 2026-10-12)."""
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="verify SLE24-16 availability in Zoho inventory",
+            plan_service="zoho")
+        run_id = self._seed_stock_job(tl)
+        original = self._open_stock_questions(tl, run_id)
+        assert len(original) == 1, "the seeded stock obligation is open"
+
+        out = _continue_turn_on(
+            orch, "sess-e2e", lifecycle=tl,
+            zoho_receipt={
+                "success": False,
+                "error": "Zoho inventory: access denied for workspace "
+                         "default (token scope inventory.read missing)",
+            })
+
+        after = self._open_stock_questions(tl, run_id)
+        assert len(after) == 1, (
+            "exactly ONE stock obligation stays open — the original, "
+            f"not a duplicate successor ({len(after)} found)")
+        assert after[0].get("question_id") == original[0].get(
+            "question_id"), (
+            "the ORIGINAL obligation survives; no duplicate was minted")
+        # the failure stage is on the durable op record
+        blocker = [
+            (o.get("execution") or {}).get("failure_stage")
+            for o in tl.get_task(run_id).get("operations") or []
+            if (o.get("execution") or {}).get("failure_stage")]
+        assert blocker and any(
+            "zoho_inventory" in str(b) for b in blocker), (
+                "the blocked attempt is durably recorded with its stage")
+
+    def test_matching_item_beyond_the_cap_remains_unresolved(self):
+        """A receipt larger than the cap whose MATCHING item sits beyond
+        the cap: the bounded record exposes the omission and the stock
+        obligation REMAINS UNRESOLVED — the truncated receipt never
+        settles evidence it does not carry (owner confirmation
+        2026-10-12)."""
+        result, spy, orch, tl, factory = _run_t1(
+            _two_workbook_scanner(), junk_sweep=None,
+            plan_query="verify SLE24-16 availability in Zoho inventory",
+            plan_service="zoho")
+        run_id = self._seed_stock_job(tl)
+        original = self._open_stock_questions(tl, run_id)
+        assert len(original) == 1
+
+        # TEN items; the requested subject's SKU is LAST (beyond cap).
+        out = _continue_turn_on(
+            orch, "sess-e2e", lifecycle=tl,
+            zoho_receipt={
+                "success": True,
+                "items": ([{"sku": f"FILLER-{i:02d}",
+                            "availability": "In Stock",
+                            "warehouse": "Woodstock"}
+                           for i in range(9)]
+                          + [{"sku": "SLE24-16",
+                              "availability": "In Stock",
+                              "warehouse": "Woodstock"}]),
+            })
+
+        stored = []
+        for o in tl.get_task(run_id).get("operations") or []:
+            rec = (o.get("execution") or {}).get("inventory_receipt") or {}
+            if rec.get("items"):
+                stored.append(rec)
+        assert stored, "the receipt settled durably"
+        assert stored[0].get("truncated") is True
+        assert stored[0].get("received_count") == 10
+        assert len(stored[0].get("items")) == 8
+        assert "SLE24-16" not in json.dumps(
+            stored[0].get("items")), (
+            "the beyond-cap item is not in the bounded record")
+        # THE OBLIGATION REMAINS UNRESOLVED — the original question,
+        # still open, evidence unchanged by a receipt that never
+        # carried the subject.
+        after = self._open_stock_questions(tl, run_id)
+        assert len(after) == 1 and after[0].get("question_id") == \
+            original[0].get("question_id"), (
+            "the matching item beyond the cap stays unresolved — no "
+            "coverage claim from a truncated receipt")
+        # and no typed availability finding claims it either
+        findings_blob = json.dumps(
+            [ (o.get("execution") or {}).get("findings") or []
+              for o in tl.get_task(run_id).get("operations") or []],
+            default=str)
+        assert "availability" not in findings_blob or \
+            "SLE24-16" not in findings_blob, (
+            "no typed finding settles the beyond-cap subject")
 
 
 class TestSameJobContinuation:

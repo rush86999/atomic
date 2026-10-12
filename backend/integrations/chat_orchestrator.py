@@ -16513,6 +16513,26 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     _err_text = str(
                                         _ms_receipt[
                                             "zoho_inventory_error"])[:200]
+                                    # PRESERVE THE ORIGINAL OBLIGATION
+                                    # (owner confirmation 2026-10-12): a
+                                    # subject that ALREADY carries an open
+                                    # inventory_check question keeps THAT
+                                    # question — the failure stage rides
+                                    # the op record. A second successor
+                                    # for the same subject would be a
+                                    # duplicate obligation.
+                                    _open_stock_items = {
+                                        str(((q.get("inputs") or {})
+                                             .get("item")) or q.get(
+                                                "item") or "")
+                                        for q in (((_ms_tl.get_task(
+                                            _ms_tl_begin[0]) or {}).get(
+                                                "task_revision") or {})
+                                            .get("unresolved") or [])
+                                        if ((q.get("inputs") or {})
+                                            .get("intent")
+                                            == "inventory_check"
+                                            and q.get("status") == "open")}
                                     _stock_subjects = [
                                         str(e) for e in
                                         (((_ms_tl.get_task(
@@ -16520,35 +16540,53 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                                 "task_revision") or {}).get(
                                                     "entities") or [])
                                     ][:8]
-                                    _zoho_error_questions = [
-                                        {
-                                            "item": _subj,
-                                            "kind": "verification",
-                                            "question": (
-                                                f"{_subj}: verify "
-                                                f"availability against the "
-                                                f"taught inventory source "
-                                                f"— the lookup failed "
-                                                f"({_err_text})"),
-                                            "evidence": (
-                                                f"planned {_planned}; "
-                                                f"{_err_text}"),
-                                            "next_action": (
-                                                f"re-run {_subj} "
-                                                f"availability verification "
-                                                f"in the taught inventory "
-                                                f"source (Zoho inventory)"),
-                                            "inputs": {
-                                                "intent": "inventory_check",
+                                    # PRESERVE THE ORIGINAL OBLIGATION
+                                    # (owner confirmation 2026-10-12):
+                                    # successors only fill the ABSENCE of
+                                    # an open stock obligation. A job
+                                    # that already carries an open
+                                    # inventory_check question keeps THAT
+                                    # question (the failure stage rides
+                                    # the op record) — no second, and
+                                    # no fabricated obligations for
+                                    # subjects the stock lookup never
+                                    # served.
+                                    _zoho_error_questions = []
+                                    if not _open_stock_items:
+                                        _zoho_error_questions = [
+                                            {
                                                 "item": _subj,
-                                                "field": "delivery",
-                                                "failure_stage": _err_text,
-                                                "provenance": {
-                                                    "source": "execution"},
-                                            },
-                                        }
-                                        for _subj in _stock_subjects
-                                        if _subj.strip()]
+                                                "kind": "verification",
+                                                "question": (
+                                                    f"{_subj}: verify "
+                                                    f"availability against "
+                                                    f"the taught inventory "
+                                                    f"source — the lookup "
+                                                    f"failed ({_err_text})"),
+                                                "evidence": (
+                                                    f"planned {_planned}; "
+                                                    f"{_err_text}"),
+                                                "next_action": (
+                                                    f"re-run {_subj} "
+                                                    f"availability "
+                                                    f"verification in the "
+                                                    f"taught inventory "
+                                                    f"source (Zoho "
+                                                    f"inventory)"),
+                                                "inputs": {
+                                                    "intent":
+                                                        "inventory_check",
+                                                    "item": _subj,
+                                                    "field": "delivery",
+                                                    "failure_stage":
+                                                        _err_text,
+                                                    "provenance": {
+                                                        "source":
+                                                            "execution"},
+                                                },
+                                            }
+                                            for _subj in _stock_subjects
+                                            if _subj.strip()]
                                 else:
                                     _zoho_error_questions = []
                                 # TYPED AVAILABILITY FINDINGS (owner

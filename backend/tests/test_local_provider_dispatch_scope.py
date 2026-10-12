@@ -650,3 +650,160 @@ class TestDispatchControls:
             assert str(second.get("provider")).startswith(
                 f"local_{prov_a[:8]}")
             assert ep_a.hit_count >= 2
+
+
+class TestScopeResolutionFailures:
+    """Owner correction 2026-10-12: an unresolved scope is NEVER
+    substituted with another workspace. An explicitly named tenant with
+    missing, ambiguous or failed resolution produces an explicit
+    unresolved-scope result and ZERO provider calls — every negative
+    here asserts the existing workspace's endpoint saw nothing."""
+
+    def test_unknown_tenant_is_refused_without_calls(
+            self, scoped_world, world_app):
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            svc = LLMService(workspace_id=ws_a["workspace_id"],
+                             tenant_id=ws_a["tenant_id"])
+            out = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=f"tenant-{uuid.uuid4().hex}"))
+            assert out.get("success") is False, (
+                "an unknown tenant must not fake success")
+            assert out.get("provider") is None and \
+                not (out.get("usage") or {}).get("total_tokens"), (
+                "no provider was consulted")
+            assert "unresolved" in str(out.get("content")).lower()
+            assert ep_a.hit_count == 0, (
+                "the existing workspace's endpoint must see ZERO calls "
+                "from an unresolved tenant's dispatch")
+
+    def test_lookup_failure_is_refused_and_not_cached(
+            self, scoped_world, world_app, monkeypatch):
+        from core import database as db_module
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            svc = LLMService(workspace_id=ws_a["workspace_id"],
+                             tenant_id=ws_a["tenant_id"])
+
+            def _broken_session():
+                raise RuntimeError("database unavailable (simulated)")
+
+            monkeypatch.setattr(db_module, "get_db_session",
+                                _broken_session)
+            out = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=f"tenant-{uuid.uuid4().hex}"))
+            assert out.get("success") is False
+            assert ep_a.hit_count == 0, (
+                "a failed scope lookup must not dispatch to the existing "
+                "workspace's endpoint")
+
+    def test_multiple_workspaces_under_one_tenant_stay_unresolved(
+            self, scoped_world, world_app):
+        """A tenant binding MULTIPLE workspaces is ambiguous: tenant-only
+        resolution refuses (registration creating one workspace does not
+        establish that a tenant always has exactly one)."""
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a, _CountingEndpoint("B") as ep_b:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            # A SECOND workspace under the SAME tenant (data-layer
+            # setup: the ambiguity itself is what's under test).
+            from core.models import Workspace
+
+            db = scoped_world["Session"]()
+            try:
+                db.add(Workspace(id=str(uuid.uuid4()), name="Second",
+                                 tenant_id=ws_a["tenant_id"]))
+                db.commit()
+            finally:
+                db.close()
+
+            # TENANT-ONLY: ambiguous -> refused, zero calls.
+            svc = LLMService(tenant_id=ws_a["tenant_id"])
+            assert svc.scope_is_unresolved(), (
+                "a multi-workspace tenant is ambiguous for tenant-only "
+                "resolution")
+            out = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_a["tenant_id"]))
+            assert out.get("success") is False
+            assert ep_a.hit_count == 0 and ep_b.hit_count == 0, (
+                "an ambiguous tenant must not reach EITHER endpoint")
+
+            # EXPLICIT AUTHENTICATED WORKSPACE selection under the same
+            # ambiguous tenant still routes to ITS OWN endpoint.
+            explicit = LLMService(workspace_id=ws_a["workspace_id"],
+                                  tenant_id=ws_a["tenant_id"])
+            out_a = asyncio.run(explicit.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                workspace_id=ws_a["workspace_id"],
+                tenant_id=ws_a["tenant_id"]))
+            assert out_a.get("content") == "pong-A", (
+                "explicit workspace selection routes to its own endpoint "
+                f"(got {out_a.get('content')!r})")
+            assert ep_b.hit_count == 0
+
+    def test_service_recovers_after_binding_repair(
+            self, scoped_world, world_app):
+        """Item 3: a failed/missing resolution must not leave the
+        long-lived service stuck. After the workspace binding is
+        repaired, the SAME service instance resolves its own scope and
+        dispatches to the recovered workspace's endpoint."""
+        from core.llm_service import LLMService
+        from core.models import Workspace
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_c = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_c, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            # BREAK the binding (the workspace row disappears).
+            db = scoped_world["Session"]()
+            try:
+                bound = (db.query(Workspace)
+                         .filter(Workspace.id == ws_c["workspace_id"])
+                         .first())
+                assert bound is not None
+                db.delete(bound)
+                db.commit()
+            finally:
+                db.close()
+
+            svc = LLMService(tenant_id=ws_c["tenant_id"])
+            assert svc.scope_is_unresolved(), (
+                "a missing binding leaves the service unresolved")
+            out = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_c["tenant_id"]))
+            assert out.get("success") is False and ep_a.hit_count == 0
+
+            # REPAIR the binding — the SAME workspace row returns.
+            db = scoped_world["Session"]()
+            try:
+                db.add(Workspace(id=ws_c["workspace_id"], name="Default",
+                                 tenant_id=ws_c["tenant_id"]))
+                db.commit()
+            finally:
+                db.close()
+
+            # The SAME (long-lived) service instance: the next dispatch
+            # adopts the repaired binding — never stuck on the failure.
+            out2 = asyncio.run(svc.generate_completion(
+                messages=[{"role": "user", "content": "Reply PONG"}],
+                tenant_id=ws_c["tenant_id"]))
+            assert out2.get("content") == "pong-A", (
+                f"the service must recover after the binding repair, got "
+                f"{out2.get('content')!r}")
+            assert not svc.scope_is_unresolved()
+            assert ep_a.hit_count == 1

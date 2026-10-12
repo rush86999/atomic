@@ -80,6 +80,22 @@ class LLMSentiment(BaseModel):
     confidence: float
 
 
+class LLMScopeUnresolvedError(RuntimeError):
+    """An explicitly named tenant could not be resolved to its OWN
+    unique workspace. Dispatch refuses — it never substitutes another
+    scope's providers, keys or endpoints (owner correction 2026-10-12).
+    ``reason`` distinguishes unknown tenant, ambiguous multi-workspace
+    binding and lookup failure."""
+
+    def __init__(self, tenant_id: str, reason: str):
+        self.tenant_id = tenant_id
+        self.reason = reason
+        super().__init__(
+            f"workspace resolution for tenant {tenant_id!r} is "
+            f"unresolved ({reason}); dispatch refused rather than "
+            f"substituting another scope")
+
+
 class LLMTopics(BaseModel):
     """Structured topic extraction output"""
     topics: List[str]
@@ -90,9 +106,18 @@ class LLMService:
     """
     LLM Service for managing LLM interactions across the platform.
     Provides unified interface for different LLM providers, wrapping BYOKHandler.
-    
+
     Harmonized with SaaS version for feature parity.
     """
+
+    # SCOPE RESOLUTION TRI-STATE (owner correction 2026-10-12): a
+    # tenant-only scope resolves to ITS OWN workspace — uniquely, or not
+    # at all. The sentinel means "explicitly named, not resolvable"
+    # (unknown tenant, ambiguous multi-workspace tenant, or lookup
+    # failure). An unresolved scope is NEVER substituted with another
+    # workspace (least of all the default's): dispatch refuses with an
+    # explicit unresolved-scope result and zero provider calls.
+    _UNRESOLVED = object()
 
     def __init__(self, db=None, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None):
         """
@@ -103,24 +128,36 @@ class LLMService:
         """
         self._db = db
         self._tenant_id = tenant_id or "default"
-        self._tenant_workspace_cache: Dict[str, Optional[str]] = {}
+        self._tenant_workspace_cache: Dict[str, str] = {}
         # WORKSPACE FROM THE AUTHORIZED CONTEXT (J2 provider-scope work
         # order): an explicit workspace wins. A service constructed with
         # only a tenant (the chat orchestrator's shape) resolves the
         # workspace THAT tenant owns through the product's own
         # tenant→workspace link — a tenant id is never itself a
-        # workspace id. Unresolvable context falls back to "default",
-        # which is the deliberate single-tenant scope.
-        resolved_ws = workspace_id or "default"
+        # workspace id. Resolution must be UNIQUE; an unknown, ambiguous
+        # or failed resolution leaves the service UNRESOLVED — never
+        # substituted with "default" or any other scope (owner
+        # correction 2026-10-12: substituting would select another
+        # scope's local-provider configuration).
+        self._workspace_id = workspace_id or "default"
+        self._scope_unresolved_reason: Optional[str] = None
         if workspace_id is None and self._tenant_id != "default":
-            resolved_ws = (self._workspace_for_tenant(self._tenant_id)
-                           or "default")
-        self._workspace_id = resolved_ws
+            resolved = self._workspace_for_tenant(self._tenant_id)
+            if resolved is None or resolved is LLMService._UNRESOLVED:
+                self._scope_unresolved_reason = (
+                    f"tenant {self._tenant_id!r} has no unique workspace "
+                    "binding (missing, ambiguous, or the lookup failed)")
+                self._workspace_id = None
+            else:
+                self._workspace_id = resolved
         self._handler: Optional[BYOKHandler] = None
 
         # In single-tenant open source, we mostly care about workspace_id.
-        # But we preserve tenant_id for compatibility.
-        self._handler = BYOKHandler(workspace_id=self._workspace_id, tenant_id=self._tenant_id, db_session=db)
+        # But we preserve tenant_id for compatibility. An unresolved
+        # scope builds NO handler: zero provider construction, zero
+        # endpoint reachability.
+        if self._scope_unresolved_reason is None:
+            self._handler = BYOKHandler(workspace_id=self._workspace_id, tenant_id=self._tenant_id, db_session=db)
         # Handlers for OTHER (workspace, tenant) scopes, created on
         # demand and keyed by the FULL identity pair. The shared
         # handler is never mutated between requests; handler reuse
@@ -133,7 +170,12 @@ class LLMService:
 
     @property
     def handler(self) -> BYOKHandler:
-        """Alias for _handler (parity with some callers)."""
+        """Alias for _handler (parity with some callers). Raises the
+        explicit unresolved-scope error rather than letting a None
+        handler AttributeError deep inside a dispatch."""
+        if self._handler is None and self._scope_unresolved_reason:
+            raise LLMScopeUnresolvedError(
+                self._tenant_id, self._scope_unresolved_reason)
         return self._handler
 
     @handler.setter
@@ -151,60 +193,154 @@ class LLMService:
         """Return the tenant identifier."""
         return self._tenant_id
 
-    def _workspace_for_tenant(self, tenant_id: str) -> Optional[str]:
+    def scope_is_unresolved(self) -> bool:
+        """True when an explicitly named tenant could not be resolved to
+        its own unique workspace — dispatch must refuse."""
+        return self._scope_unresolved_reason is not None
+
+    def _unresolved_scope_reason_for(self, tenant_id: Optional[str]) -> str:
+        if tenant_id and tenant_id != "default" and \
+                tenant_id != self._tenant_id:
+            return (f"tenant {tenant_id!r} has no unique workspace "
+                    "binding (missing, ambiguous, or the lookup failed)")
+        return (self._scope_unresolved_reason
+                or f"tenant {self._tenant_id!r} has no unique workspace "
+                "binding")
+
+    def _unresolved_scope_message(self, tenant_id: Optional[str]) -> str:
+        """The explicit unresolved-scope text result for the plain
+        generate() contract — honest about what did NOT run."""
+        reason = self._unresolved_scope_reason_for(tenant_id)
+        logger.warning("LLM dispatch refused: %s", reason)
+        return (f"No LLM provider was consulted: workspace resolution "
+                f"for this tenant is unresolved ({reason}). No provider "
+                f"was called.")
+
+    def _unresolved_scope_result(self, tenant_id: Optional[str],
+                                 model: str) -> Dict[str, Any]:
+        """The explicit unresolved-scope result for the
+        generate_completion contract: success=False, no provider/model
+        claim, and the resolution reason on the record."""
+        reason = self._unresolved_scope_reason_for(tenant_id)
+        logger.warning("LLM completion refused: %s", reason)
+        return {
+            "success": False,
+            "content": (
+                f"No LLM provider was consulted: workspace resolution "
+                f"for this tenant is unresolved ({reason}). No provider "
+                f"was called."),
+            "text": (
+                f"No LLM provider was consulted: workspace resolution "
+                f"for this tenant is unresolved ({reason}). No provider "
+                f"was called."),
+            "model": model,
+            "provider": None,
+            "unresolved_scope": {
+                "tenant_id": tenant_id or self._tenant_id,
+                "reason": reason,
+            },
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0,
+                      "total_tokens": 0},
+        }
+
+    def _workspace_for_tenant(self, tenant_id: str):
         """The workspace a tenant owns, through the product's own
-        tenant→workspace link (registration creates them 1:1). Cached
-        per tenant; None when the tenant has no workspace — the caller
-        then keeps the deliberate "default" scope. Best-effort: a DB
-        problem degrades to "default", never raises into dispatch."""
+        tenant→workspace link.
+
+        Returns the workspace id ONLY on a unique resolution. The
+        ``_UNRESOLVED`` sentinel covers every other case: the tenant is
+        unknown, binds MULTIPLE workspaces (ambiguous — registration
+        creating one workspace does not mean a tenant always has
+        exactly one), or the lookup fails. ``None`` means no
+        tenant-scoped resolution applies (default/deliberate scope).
+
+        Only POSITIVE resolutions are cached: a workspace binding
+        created (or repaired) after a failed lookup must resolve on the
+        next call — a long-lived service never stays stuck on an
+        earlier failure or ambiguity.
+        """
         if not tenant_id or tenant_id == "default":
             return None
         if tenant_id in self._tenant_workspace_cache:
             return self._tenant_workspace_cache[tenant_id]
-        resolved: Optional[str] = None
         try:
             from core.models import Workspace
 
             if self._db is not None:
-                row = (self._db.query(Workspace)
-                       .filter(Workspace.tenant_id == tenant_id)
-                       .first())
-                resolved = row.id if row else None
+                rows = (self._db.query(Workspace)
+                        .filter(Workspace.tenant_id == tenant_id)
+                        .all())
             else:
                 from core.database import get_db_session
 
                 with get_db_session() as db:
-                    row = (db.query(Workspace)
-                           .filter(Workspace.tenant_id == tenant_id)
-                           .first())
-                    resolved = row.id if row else None
+                    rows = (db.query(Workspace)
+                            .filter(Workspace.tenant_id == tenant_id)
+                            .all())
+            ids = [row.id for row in rows]
         except Exception as exc:  # noqa: BLE001 — scope resolution, not routing
             logger.debug("workspace resolution for tenant %s failed: %s",
                          tenant_id, exc)
-            resolved = None
-        self._tenant_workspace_cache[tenant_id] = resolved
-        return resolved
+            return LLMService._UNRESOLVED
+        if len(ids) == 1:
+            self._tenant_workspace_cache[tenant_id] = ids[0]
+            return ids[0]
+        # zero (unknown tenant) or many (ambiguous) — unresolved, and
+        # deliberately NOT cached so a later binding repair resolves.
+        return LLMService._UNRESOLVED
 
-    def _get_handler(self, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None) -> BYOKHandler:
-        """Handler for one (workspace, tenant) scope.
+    def _retry_scope_resolution(self) -> None:
+        """A previously unresolved tenant-only scope re-resolves on the
+        next dispatch (owner correction item 3): a workspace binding
+        created — or repaired — after a failed lookup must be adopted.
+        Failed/ambiguous resolutions are never cached, so this retry is
+        real work, not a stuck memo; once it succeeds the resolution is
+        cached and the handler built for the recovered scope."""
+        if not self._scope_unresolved_reason or \
+                self._tenant_id == "default":
+            return
+        resolved = self._workspace_for_tenant(self._tenant_id)
+        if resolved is not None and resolved is not LLMService._UNRESOLVED:
+            self._workspace_id = resolved
+            self._scope_unresolved_reason = None
+            self._handler = BYOKHandler(
+                workspace_id=self._workspace_id,
+                tenant_id=self._tenant_id, db_session=self._db)
+            logger.info(
+                "workspace binding for tenant %s recovered -> %s; the "
+                "service resumes its own scope", self._tenant_id, resolved)
+
+    def _get_handler(self, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Optional[BYOKHandler]:
+        """Handler for one (workspace, tenant) scope — or ``None`` when
+        the scope is explicitly named but UNRESOLVED.
 
         Tenant and workspace remain SEPARATE identifiers: an explicit
         tenant never becomes a workspace. A tenant-only caller (the
-        chat path) is resolved to the workspace that tenant owns, so
-        the handler reads THAT workspace's providers and keys. Reuse of
+        chat path) is resolved to the workspace that tenant owns —
+        uniquely, or not at all: an unresolved scope is never
+        substituted with this service's workspace or the default (that
+        would select another scope's providers and keys). Reuse of
         the shared handler requires BOTH identifiers to match the
         service's own scope; every other pair gets its own handler,
         cached — a shared handler is never mutated between requests.
         """
-        target_ws = workspace_id or self._workspace_id
-        target_tenant = tenant_id or self._tenant_id
+        self._retry_scope_resolution()
         if workspace_id is None and tenant_id is not None and \
                 tenant_id != self._tenant_id:
             # A DIFFERENT tenant's authorized context: resolve its own
-            # workspace rather than serving it under this service's
-            # workspace (and never under an invented scope).
-            target_ws = (self._workspace_for_tenant(tenant_id)
-                         or self._workspace_id)
+            # workspace — uniquely, or refuse.
+            resolved = self._workspace_for_tenant(tenant_id)
+            if resolved is None or resolved is LLMService._UNRESOLVED:
+                return None
+            target_ws = resolved
+        else:
+            target_ws = workspace_id or self._workspace_id
+            if target_ws is None:
+                # The service itself is scope-unresolved (constructor
+                # tenant failed) and the caller named no explicit
+                # workspace: refuse — zero provider calls.
+                return None
+        target_tenant = tenant_id or self._tenant_id
 
         if self._handler is not None and \
                 target_ws == self._workspace_id and \
@@ -314,9 +450,12 @@ class LLMService:
         # Tenant and workspace stay separate: the handler is selected by
         # BOTH identifiers (a tenant-only caller resolves the tenant's
         # own workspace inside _get_handler — the tenant id never
-        # becomes a workspace id).
+        # becomes a workspace id). None = unresolved scope: refuse with
+        # an explicit result, zero provider calls.
         handler = self._get_handler(workspace_id=workspace_id,
                                     tenant_id=tenant_id)
+        if handler is None:
+            return self._unresolved_scope_message(tenant_id)
         # Governance reads workspace metadata — use the workspace the
         # handler actually resolved to, not the raw argument. getattr:
         # an injected handler stand-in may not carry the attribute.
@@ -374,9 +513,12 @@ class LLMService:
         (ATOM_COMPLETION_MAX_TOKENS).
         """
         # Tenant and workspace stay separate: the handler is selected by
-        # BOTH identifiers (see generate).
+        # BOTH identifiers (see generate). None = unresolved scope: an
+        # explicit result, and NO handler is built — zero provider calls.
         handler = self._get_handler(workspace_id=workspace_id,
                                     tenant_id=tenant_id)
+        if handler is None:
+            return self._unresolved_scope_result(tenant_id, model)
         target_ws = (getattr(handler, "workspace_id", None)
                      or workspace_id or self._workspace_id)
 
@@ -513,6 +655,10 @@ class LLMService:
     ) -> Any:
         """Generate structured response using Pydantic model."""
         handler = self._get_handler(workspace_id=workspace_id, tenant_id=tenant_id)
+        if handler is None:
+            raise LLMScopeUnresolvedError(
+                tenant_id or self._tenant_id,
+                self._unresolved_scope_reason_for(tenant_id))
 
         # Personalization
         agent_id = kwargs.get("agent_id")
@@ -562,6 +708,10 @@ class LLMService:
     ) -> bytes:
         """Generate speech via BYOKHandler (OpenAI TTS)."""
         handler = self._get_handler(workspace_id=workspace_id, tenant_id=tenant_id)
+        if handler is None:
+            raise LLMScopeUnresolvedError(
+                tenant_id or self._tenant_id,
+                self._unresolved_scope_reason_for(tenant_id))
         provider_id = self.get_provider(model).value
         client = handler.async_clients.get(provider_id) or handler.clients.get(provider_id)
 
@@ -692,7 +842,11 @@ class LLMService:
             }
 
     def is_available(self) -> bool:
-        """Check if LLM service is available."""
+        """Check if LLM service is available. An unresolved scope is
+        explicitly NOT available (it would dispatch another scope's
+        providers)."""
+        if self._scope_unresolved_reason:
+            return False
         return len(self.handler.clients) > 0 if hasattr(self, 'handler') and self.handler else False
 
     def get_optimal_provider(
@@ -922,6 +1076,12 @@ class LLMService:
         # non-streaming paths use (both identifiers, never a collapse).
         handler = self._get_handler(workspace_id=workspace_id,
                                     tenant_id=tenant_id)
+        if handler is None:
+            # Unresolved scope: refuse BEFORE any dispatch — the caller's
+            # non-streaming fallback renders the explicit refusal.
+            raise LLMScopeUnresolvedError(
+                tenant_id or self._tenant_id,
+                self._unresolved_scope_reason_for(tenant_id))
         if provider_id == "auto":
             # Extract prompt from messages for complexity analysis
             prompt = ""
@@ -1019,6 +1179,11 @@ class LLMService:
         # request actually names (both identifiers, never a collapse).
         _structured_handler = self._get_handler(workspace_id=workspace_id,
                                                 tenant_id=tenant_id)
+        if _structured_handler is None:
+            logger.warning(
+                "Structured generation refused: %s",
+                self._unresolved_scope_reason_for(tenant_id))
+            return None
         if not _structured_handler.clients:
             logger.warning("No LLM clients available for structured generation")
             return None
@@ -1185,6 +1350,11 @@ class LLMService:
                 db=self._db,
                 tenant_id=self._tenant_id,
             )
+            if voter.handler is None:
+                logger.warning(
+                    "Self-consistency vote refused: %s",
+                    self._unresolved_scope_reason_for(tenant_id))
+                return None, None
             vote = await voter.vote_with_consensus(
                 prompt=prompt,
                 response_model=response_model,
@@ -1292,6 +1462,10 @@ class LLMService:
         Supports OpenAI and Cohere via BYOKHandler.
         """
         handler = self._get_handler(workspace_id=workspace_id, tenant_id=tenant_id)
+        if handler is None:
+            raise LLMScopeUnresolvedError(
+                tenant_id or self._tenant_id,
+                self._unresolved_scope_reason_for(tenant_id))
         
         # Identify provider from model name
         provider = "openai"
@@ -1361,6 +1535,10 @@ class LLMService:
             Dict containing 'text' and metadata.
         """
         handler = self._get_handler(workspace_id=workspace_id, tenant_id=tenant_id)
+        if handler is None:
+            raise LLMScopeUnresolvedError(
+                tenant_id or self._tenant_id,
+                self._unresolved_scope_reason_for(tenant_id))
         return await handler.generate_transcription(
             file=file,
             model=model,
@@ -1380,6 +1558,10 @@ class LLMService:
         Generate embedding vectors for multiple texts in a single batch operation using unified BYOK.
         """
         handler = self._get_handler(workspace_id=workspace_id, tenant_id=tenant_id)
+        if handler is None:
+            raise LLMScopeUnresolvedError(
+                tenant_id or self._tenant_id,
+                self._unresolved_scope_reason_for(tenant_id))
         
         provider = "openai"
         if "embed-english" in model.lower() or "embed-multilingual" in model.lower():
