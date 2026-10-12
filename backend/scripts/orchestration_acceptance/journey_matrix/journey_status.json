@@ -93,9 +93,9 @@
   "J2.real-reply": {
     "status": "failing",
     "evidence": "journey_matrix/j2_model_setup_20261011_191429_89e81a.json",
-    "notes": "ROOT-CAUSED (needs owner repair in chat_orchestrator.py \u2014 file carries uncommitted peer work, not edited here): ChatOrchestrator.__init__ (chat_orchestrator.py:5983) builds LLMService(tenant_id=..) WITHOUT workspace_id; LLMService defaults workspace 'default'; BYOKHandler local-provider load filters workspace_id=='default' (byok_handler.py:3266-3270) so providers registered under a real user's workspace uuid are invisible -> chat returns no_llm_provider ('You need an AI provider...'). Same class likely hits tenant-scoped BYOK keys (orchestrator tenant is literal 'default' while product store writes the real tenant id). Bounded fix: pass the turn's workspace_id/tenant_id at the reply-leg generate_completion call sites (LLMService.generate_completion already accepts them and rewires via _get_handler) or rebind the handler at turn start",
+    "notes": "ROOT-CAUSED, owner-corrected round 4: ChatOrchestrator builds LLMService(tenant_id=..) with NO workspace_id (chat_orchestrator.py:5983); LLMService defaults workspace 'default' (llm_service.py:103-104); byok_handler.py:3266-3270 ws-scoped lookup misses -> chat returns no_llm_provider with a real provider configured. REPAIR = model-scope propagation from authenticated request context through interpretation/planning/streaming/completion/fallback \u2014 explicit authenticated workspace/tenant at dispatch or a request-local service (generate_completion already accepts workspace_id/tenant_id, llm_service.py:270-281). HANDLER MUTATION AT TURN START WITHDRAWN (cross-request contamination risk). Controls: A served by A; B cannot use A; concurrent A/B scope-safe; truthful error on missing config; no cross-ws fallback; restart durability; pristine-world real reply + tool ask. Repro: j2_model_setup.py world A",
     "campaign": "2026-10-11-open",
-    "recorded_at": "2026-10-11T23:39:38+00:00"
+    "recorded_at": "2026-10-12T00:08:40+00:00"
   },
   "J2.tool-planning": {
     "status": "untested",
@@ -139,5 +139,47 @@
       "commit": "3ebab39003ddd7ce9ebfa4e7393e87078b4e5011",
       "dirty_tracked": "M AGENT_COORDINATION.md\n M backend/scripts/orchestration_acceptance/fresh_install_parity.py\n M backend/scripts/orchestration_acceptance/j3_source_connection.py\n M backend/scripts/orchestration_acceptance/journey_matrix/journey_status.json\n M backend/scripts/orchestration_acceptance/journey_runtime.py\n M backend/tests/test_fallback_chain_workflow.py\n M backend/tests/test_t1_end_to_end.py\n M backend/tests/test_workbook_read_artifact.py\n D frontend-nextjs/.preview-instance/299-08-execution-summary.md\n D frontend-nextjs/.preview-instance/299-11-PROGRESS.md\n D frontend-nextjs/.preview-instance/ACCESSIBILITY.md\n D frontend-nextjs/.preview-instance/DEPLOYMENT.md\n D frontend-nextjs/.preview-instance/Dockerfile\n D frontend-nextjs/.preview-instance/Dockerfile.production\n D frontend-nextjs/.preview-instance/FAILURE_CATEGORIES-299-06.md\n D frontend-nextjs/.preview-instance/LIGHTHOUSE.md\n D frontend-nextjs/.preview-instance/PERCY.md\n D frontend-nextjs/.preview-instance/README.md\n D frontend-nextjs/.preview-instance/README_TEAM_CHAT.md\n D frontend-nextjs/.preview-instance/a11y-test-results.json\n D frontend-nextjs/.preview-instance/advanced-management.js\n D frontend-nextjs/.preview-instance/analyze_coverage.js\n D frontend-nextjs/.preview-instance/components\n D frontend-nextjs/.preview-instance/components.json\n D frontend-nextjs/.preview-instance/config\n D frontend-nextjs/.preview-instance/contexts\n D frontend-nextjs/.preview-instance/coverage\n D frontend-nextjs/.preview-instance/coverage-reports\n D frontend-nextjs/.preview-instance/data\n D frontend-nextjs/.preview-instance/docs\n D frontend-nextjs/.preview-instance/e2e\n D frontend-nextjs/.preview-instance/element-not-found-patterns.md\n D frontend-nextjs/.preview-instance/enterprise-dashboard.js\n D frontend-nextjs/.preview-instance/eslint.config.mjs\n D frontend-nextjs/.preview-instance/final-implementation.js\n D frontend-nextjs/.preview-instance/find-uncovered-files.js\n D frontend-nextjs/.preview-instance/fix-eslint-errors.js\n D frontend-nextjs/.preview-instance/fix-parsing-errors.js\n D frontend-nextjs/.preview-instance/hooks\n D frontend-nextjs/.preview-instance/jest.config.js\n D frontend-nextjs/.preview-instance/jest.setup.js\n D frontend-nextjs/.preview-instance/k8s\n D frontend-nextjs/.preview-instance/layouts\n D frontend-nextjs/.preview-instance/lib\n D frontend-nextjs/.preview-instance/lighthouserc.json\n D frontend-nextjs/.preview-instance/middleware.ts\n D frontend-nextjs/.preview-instance/next-env.d.ts\n D frontend-nextjs/.preview-instance/next-steps-implementation.js\n D frontend-nextjs/.preview-instance/next.config.js\n D frontend-nextjs/.preview-instance/node_modules\n D frontend-nextjs/.preview-instance/package-lock.json\n D frontend-nextjs/.preview-instance/package.json\n D frontend-nextjs/.preview-instance/pages\n D frontend-nextjs/.preview-instance/phase1-core-infrastructure.ts\n D frontend-nextjs/.preview-instance/playwright.config.ts\n D frontend-nextjs/.preview-instance/postcss.config.js\n D frontend-nextjs/.preview-instance/postgresql_\n D frontend-nextjs/.preview-instance/production-launcher.ts\n D frontend-nextjs/.preview-instance/project\n D frontend-nextjs/.preview-instance/public\n D frontend-nextjs/.preview-instance/scripts\n D frontend-nextjs/.preview-instance/shared\n D frontend-nextjs/.preview-instance/src\n D frontend-nextjs/.preview-instance/src-tauri\n D frontend-nextjs/.preview-instance/stores\n D frontend-nextjs/.preview-instance/stryker.conf.js\n D frontend-nextjs/.preview-instance/styles\n D frontend-nextjs/.preview-instance/tailwind.config.js\n D frontend-nextjs/.preview-instance/tests\n D frontend-nextjs/.preview-instance/tsconfig.json\n D frontend-nextjs/.preview-instance/tsconfig.tests.json\n D frontend-nextjs/.preview-instance/type-reference-patterns.md\n D frontend-nextjs/.preview-instance/types\n D frontend-nextjs/.preview-instance/typescript-workflow-system.ts\n D frontend-nextjs/.preview-instance/utils\n D frontend-nextjs/.preview-instance/wdio\n D frontend-nextjs/coverage/HIGH_IMPACT_FRONTEND_COMPONENTS_v11.0.md\n D frontend-nextjs/coverage/phase_292_frontend_summary.json\n D frontend-nextjs/coverage/phase_293_combined_progress.json\n D frontend-nextjs/coverage/phase_294_combined_progress.json\n D frontend-nextjs/coverage/phase_294_component_inventory.json\n D frontend-nextjs/coverage/phase_294_coverage_baseline.json\n D frontend-nextjs/coverage/phase_294_final_progress.json\n D frontend-nextjs/coverage/phase_294_lib_inventory.json\n D frontend-nextjs/coverage/phase_294_prioritized_testing_list.json\n D frontend-nextjs/coverage/phase_294_prioritized_testing_list_corrected.json\n D frontend-nextjs/coverage/prioritized_frontend_components_v11.0.json\n D frontend-nextjs/coverage/survey_frontend.py\n M frontend-nextjs/next-env.d.ts"
     }
+  },
+  "J4.source-bound": {
+    "status": "failing",
+    "evidence": "journey_matrix/j4_research_20261011_202223_bc169c.json",
+    "notes": "BLOCKED at the provider boundary (J2.real-reply defect, second layer: fallback order skips local clients, byok_handler.py:3735): env-key openrouter dispatches but all attempts fail on credits ('All LLM providers failed', capability probe DB) and turns never return within 300s; journey script complete (upload via product -> research ask -> fact-binding assertion) and re-runs to green when the repair lands",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-12T00:25:32+00:00"
+  },
+  "J4.uncertainty": {
+    "status": "failing",
+    "evidence": "journey_matrix/j4_research_20261011_202223_bc169c.json",
+    "notes": "same provider-boundary blocker; absent-topic probe implemented (deliberately-uncovered subject; hedging asserted, fabrication rejected)",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-12T00:25:32+00:00"
+  },
+  "J4.survives-reload": {
+    "status": "failing",
+    "evidence": "journey_matrix/j4_research_20261011_202223_bc169c.json",
+    "notes": "same provider-boundary blocker; history-API equality assertion implemented",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-12T00:25:32+00:00"
+  },
+  "J5.binding": {
+    "status": "failing",
+    "evidence": "journey_matrix/j5_calculation_20261011_202453_d5e472.json",
+    "notes": "workbook FIXTURE uploaded through the product (200, no seeded rows) but the calculate turn never returns (provider boundary, same blocker); binding assertion requires the completed turn",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-12T00:25:32+00:00"
+  },
+  "J5.persist": {
+    "status": "failing",
+    "evidence": "journey_matrix/j5_calculation_20261011_202453_d5e472.json",
+    "notes": "calculate-operation persistence check implemented (goal_runs task_lifecycle operations via read-only sqlite) \u2014 unreachable until a provider dispatches",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-12T00:25:32+00:00"
+  },
+  "J5.readback-agreement": {
+    "status": "failing",
+    "evidence": "journey_matrix/j5_calculation_20261011_202453_d5e472.json",
+    "notes": "reply-vs-record agreement (3*1250=3750) implemented \u2014 unreachable until a provider dispatches",
+    "campaign": "2026-10-11-open",
+    "recorded_at": "2026-10-12T00:25:32+00:00"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "journey": "J4",
+  "mode": "pristine_code_export",
+  "provider_mode": "env-key",
+  "provider_scope_label": "environment-key configuration \u2014 separately-labeled evidence; does NOT prove Settings->AI provider scope",
+  "started_at": "2026-10-12T00:17:13+00:00",
+  "boot": {
+    "booted": true,
+    "seconds": 6.2,
+    "status": "healthy",
+    "pid": 41401,
+    "git_commit": "unknown"
+  },
+  "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_research_b9rt769o/run/atom.db",
+  "upload": {
+    "http": 200
+  },
+  "pass": false,
+  "error": "ReadTimeout: timed out",
+  "uvicorn_log_tail": "tine_export_k5iypy11/backend/data/backups/atom-cycle-20261011-202222.db.gz', 'fingerprint': True, 'protected': True}, 'lance_cleanup': {'tables': 0, 'cleaned': 0, 'errors': 0, 'reason': 'no_atom_memory_dir'}}\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/openai/gpt-6-sol/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/openai/gpt-6-luna/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/openai/gpt-6-sol-pro/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/anthropic/claude-opus-5.5/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/xiaomi/mimo-v2.6-flash/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/xiaomi/mimo-v2.6-pro/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/nvidia/switchyard/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/xiaomi/mimo-v2.6-pro-ultraspeed/endpoints \"HTTP/1.1 200 OK\"\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

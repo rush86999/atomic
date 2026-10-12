@@ -84,13 +84,37 @@ source** (upload or file ingest), **one business-record connector**, and
 is not proof that its user workflow works. Extend the same contract to
 the advertised connector set only after the first wave holds.
 
-## Current status (2026-10-11, campaign round 3 — first wave J1–J3)
+## Current status (2026-10-11, campaign round 4 — setup readiness J1–J3 + J4/J5 opened)
+
+**Scope naming (owner-corrected): the release gate covers SETUP READINESS —
+fresh install, models, sources — not the advertised core loop.** Research,
+drafting, background work and automation remain outside the gate until
+their journeys pass. J1's clean-state dependency installation stays
+`untested`: a code export reusing an existing interpreter does not prove
+installation.
 
 | Journey | Status | Evidence |
 |---------|--------|----------|
-| J1 | **4/5 verified, now on PRISTINE coverage** — gates effective + lifecycle operation + boot + sign-in + workspace all pass on a git-archive CODE EXPORT (no developer `.env`, data/, logs/ excluded by construction and asserted) with an ALLOWLISTED process environment; clean-state venv creation `untested` | `journey_matrix/parity_pristine_20261011_195843_037677.json` |
-| J2 | **3/5 verified, 1 FAILING (root-caused, handed to Agent 2), 1 blocked** — BYOK product path + restart persistence + local-provider registration pass (checkout smoke); **real-reply FAILING**: the chat leg never sees workspace/tenant-scoped providers | `journey_matrix/j2_model_setup_*.json`; root cause + bounded patch sketch in `journey_status.json` record `J2.real-reply` and the coordination log HANDOFF |
-| J3 | **3/3 verified, PRISTINE** — upload, authorized read, cross-workspace denial all pass on the code export | `journey_matrix/j3_source_connection_20261011_195910_2d0501.json` (pristine), `..._192442_*.json` (checkout smoke) |
+| J1 | **4/5 verified (pristine)**; clean-state install `untested` | `parity_pristine_20261011_195843_*.json` |
+| J2 | **3/5 verified, 1 FAILING (the demonstrated, bounded blocker), 1 blocked** | `j2_model_setup_20261011_191429_*.json`; HANDOFF in the coordination log (owner-corrected: no handler mutation; explicit dispatch scope or request-local service; no cross-workspace fallback) |
+| J3 | **3/3 verified (pristine)** | `j3_source_connection_20261011_195910_*.json` |
+| J4 | **3/3 FAILING — blocked at the provider boundary** | `j4_research_20261011_202223_*.json`; script complete, re-runs to green post-repair |
+| J5 | **3/3 FAILING — same boundary** (workbook fixture uploads 200; the calculate turn never returns) | `j5_calculation_20261011_202453_*.json` |
+
+**The blocker, now two layers (both recorded for the runtime owner):**
+(1) workspace/tenant scope never reaches the chat leg — providers a real
+user registers/stores are invisible (`chat_orchestrator.py:5983` →
+`llm_service.py:103` → `byok_handler.py:3266`); (2) even with scope
+aligned, the fallback walker iterates a fixed provider list and skips
+configured `local_<id>` clients entirely (`byok_handler.py:3735` — its
+own comment documents the intended fix). Genuinely-missing configuration
+must keep returning the truthful `NoProvidersConfiguredError`. Environmental
+note: the only currently-credentialed provider (env-key openrouter)
+dispatches and fails on credits — recorded as separately-labeled
+capability evidence.
+
+**Gates**: `--check --strict --release` → rc=1 (J2 only). `--check` (all
+journeys) → rc=1 (J2, J4, J5).
 
 **Modes.** `configuration_parity_plus_public_api_smoke` = dirty-checkout
 boot (honest label: developer `.env` loads unconditionally). 
@@ -101,8 +125,10 @@ pristine-install claims; smoke runs remain recorded as supporting
 evidence. J2's pristine rerun is ready (Ollama needs no credentials) and
 runs the moment the chat-leg repair lands.
 
-**Release gate** (`journey_contract.py --check --strict --release`): currently
-**FAILING — J2** is the bounded repair blocking the first-wave release.
+**Release gate** (`journey_contract.py --check --strict --release`):
+currently **FAILING — J2** is the bounded repair blocking setup-readiness
+certification. Whole-app certification is not claimed at any gate: J6–J9
+are unexecuted.
 
 ### Product defects this contract has found (all boundary-proven)
 

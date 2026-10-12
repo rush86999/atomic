@@ -104,29 +104,31 @@ JOURNEYS: List[Dict[str, Any]] = [
     {"id": "J4", "name": "Research",
      "assertions": [
          {"id": "J4.source-bound",
-          "check": "a fresh request yields source-bound findings (basis/"
-                   "citation present, not free invention)",
-          "harness": f"{HARNESS}/case1_quote_trials.py, "
-                     f"{HARNESS}/f09_targeted_cases.py (privileged)"},
+          "check": "upload a document through the product, then a research "
+                   "ask yields findings BOUND to it (the planted fact "
+                   "returns)",
+          "harness": f"{HARNESS}/j4_research.py"},
          {"id": "J4.uncertainty",
-          "check": "uncertainty is preserved when sources do not answer "
-                   "(no fabricated closure)"},
+          "check": "an ask the sources cannot answer preserves uncertainty "
+                   "(honest miss, no fabricated closure)",
+          "harness": f"{HARNESS}/j4_research.py"},
          {"id": "J4.survives-reload",
-          "check": "history API after reload returns what the turns "
-                   "delivered",
-          "harness": f"{HARNESS}/acceptance_trial_lib.py::history_texts"},
+          "check": "history API after the turns returns what was delivered",
+          "harness": f"{HARNESS}/j4_research.py"},
      ]},
     {"id": "J5", "name": "Calculation",
      "assertions": [
          {"id": "J5.binding",
-          "check": "inputs bind to the record (resolved bindings captured)",
-          "harness": f"{HARNESS}/case3_identity_probe.py (privileged)"},
+          "check": "the workbook fixture is uploaded through the product "
+                   "and the calculate ask names its rows (no seeded rows)",
+          "harness": f"{HARNESS}/j5_calculation.py"},
          {"id": "J5.persist",
-          "check": "the engine operation persists (durable record of what ran)",
-          "harness": f"{HARNESS}/case3_record_trace.py (privileged)"},
+          "check": "the engine operation persists as a calculate operation "
+                   "on the task lifecycle record (read-only sqlite)",
+          "harness": f"{HARNESS}/j5_calculation.py"},
          {"id": "J5.readback-agreement",
           "check": "the reply agrees with the durable record",
-          "harness": f"{HARNESS}/case3_calc_trials.py (privileged)"},
+          "harness": f"{HARNESS}/j5_calculation.py"},
      ]},
     {"id": "J6", "name": "Drafting",
      "assertions": [
@@ -177,10 +179,13 @@ JOURNEYS: List[Dict[str, Any]] = [
 
 VALID_STATUSES = ("verified", "failing", "untested")
 
-# Declared release scope (first wave): the journeys that must be STRICT
-# before the product can claim the advertised core loop. `--check --strict
-# --release` gates on exactly these. Small on purpose: one document source,
-# one business-record connector path, one controlled outbound destination.
+# Declared release scope: SETUP READINESS (fresh install, models, sources)
+# — NOT the advertised core loop. Research, drafting, background work and
+# automation (J4-J9) are outside this gate until their journeys are
+# executed; passing this scope must never be reported as whole-app
+# certification. J1's clean-state dependency installation deliberately
+# stays untested here: a code export reusing an existing interpreter does
+# not prove installation.
 RELEASE_SCOPE = ("J1", "J2", "J3")
 
 
