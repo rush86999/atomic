@@ -9,8 +9,9 @@ routing finding, not worked around inside one world).
 
   WORLD A — LOCAL INFERENCE (quickstart's advertised no-key path):
     ATOM_LOCAL_ONLY=true + Ollama (the documented fresh-user setup step),
-    then a REAL reply, a tool-shaped turn, a REAL restart (same run dir/
-    DB, new process), and a second real reply.
+    then the COUNTED FIRST authenticated chat request, a tool-shaped turn,
+    a REAL restart (same run dir/DB, new process), and a second real
+    reply. The restart leg is exercised even when an earlier turn failed.
 
   WORLD B — BYOK THROUGH THE PRODUCT (Settings -> AI):
     the provider key is stored via POST /api/ai/providers/{id}/keys (the
@@ -25,6 +26,23 @@ defect: quickstart's BYOK_ENCRYPTION_KEY (secrets.token_urlsafe(32)) is
 43 chars; cryptography's Fernet rejects it, so every Settings->AI store
 call 404'd on fresh installs. Fixed in quickstart; the parity probe now
 rejects malformed Fernet keys permanently.
+
+ROUND-10 EVIDENCE INTEGRITY (owner review 2026-10-12):
+
+  * Aggregate PASS requires an explicit True on EVERY mandatory assertion
+    of BOTH worlds. A world that raises leaves its assertion map at None
+    (untested) instead of silently vanishing — the round-9 evidence
+    reported `pass: true` on world B alone while world A had refused.
+  * Tool evidence is ATTRIBUTABLE execution records: the turn's
+    execution id -> agent_executions -> task_outcome.tool_outcomes
+    (receipts with `verified`), read from the scratch DB. Substring
+    matching over response/prompt echoes is gone.
+  * Client-window failure and later server delivery are preserved
+    SEPARATELY: a timeout is a failed user request (the client gets the
+    request_id back for the server-side lookup), and the server-side
+    record is extra evidence, never a retroactive pass.
+  * Every evidence file embeds the archived commit, the effective-config
+    digest and the actual scratch-storage paths.
 """
 from __future__ import annotations
 
@@ -40,15 +58,24 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.orchestration_acceptance import journey_runtime as JR  # noqa: E402
-from scripts.orchestration_acceptance.acceptance_trial_lib import (  # noqa: E402
-    chat_rows,
-)
 
 PROVIDER = "openrouter"
 CRED_NAME = "OPENROUTER_API_KEY"
 OLLAMA_BASE = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.1"
 MOCK_MARKERS = ("[mock", "mock response", "canned", "lorem ipsum")
+
+#: Mandatory per world — the aggregate can only pass on explicit Trues.
+EXPECTED_A = (
+    "J2.local-provider-product-path",
+    "J2.real-reply",
+    "J2.tool-planning",
+    "J2.survive-restart",
+)
+EXPECTED_B = (
+    "J2.byok-add-product-path",
+    "J2.byok-survive-restart",
+)
 
 
 def _ollama_up() -> bool:
@@ -77,15 +104,43 @@ def _ensure_ollama():
     return False, None
 
 
-def _turn(base, token, user_id, text, timeout_s=300.0):
-    return JR.auth_post(base, token, "/api/chat/message",
-                        {"message": text, "user_id": user_id,
-                         "request_id": str(uuid.uuid4())},
-                        timeout_s=timeout_s)
+def _turn(server, token, uid, text, timeout_s=300.0, settle_poll_s=120.0):
+    """One public chat turn with a CLIENT-MINTED request id. The client
+    window and any later server delivery are recorded separately — a
+    timeout is a failed user request, never repaired by the server
+    finishing afterwards."""
+    request_id = str(uuid.uuid4())
+    t0 = time.monotonic()
+    try:
+        r = JR.auth_post(server.base, token, "/api/chat/message",
+                         {"message": text, "user_id": uid,
+                          "request_id": request_id},
+                         timeout_s=timeout_s)
+        return {
+            "client": {"request_id": request_id, "window_s": timeout_s,
+                       "outcome": "response", "http": r["http"],
+                       "elapsed_s": round(time.monotonic() - t0, 3)},
+            "response": r,
+        }
+    except Exception as exc:  # noqa: BLE001 — includes httpx.ReadTimeout
+        client = {"request_id": request_id, "window_s": timeout_s,
+                  "outcome": f"client_timeout:{type(exc).__name__}",
+                  "http": None,
+                  "elapsed_s": round(time.monotonic() - t0, 3)}
+        return {
+            "client": client,
+            "server": JR.server_delivery(server.db_path, request_id,
+                                         poll_s=settle_poll_s),
+        }
 
 
-def _reply_verdict(r: dict) -> dict:
-    rj = r["json"]
+def _reply_verdict(checked: dict) -> dict:
+    r = checked.get("response")
+    if not r:
+        return {"http": None, "success": None, "provider": None,
+                "model": None, "content_len": 0, "error_code": None,
+                "outcome": None, "looks_mock": False, "content_head": ""}
+    rj = r["json"] or {}
     content = str(rj.get("message") or "")
     return {"http": r["http"], "success": rj.get("success"),
             "provider": rj.get("provider"), "model": rj.get("model"),
@@ -111,10 +166,12 @@ def world_a_local(ollama_model: str,
              "OLLAMA_MODEL": ollama_model}
     server = JR.ScratchServer("j2_world_a_local", **(server_kwargs or {}),
                               extra_env=extra)
-    out: dict = {"world": "A_local_inference", "model": ollama_model}
+    out: dict = {"world": "A_local_inference", "model": ollama_model,
+                 "assertions": {k: None for k in EXPECTED_A}}
     try:
         boot = server.up()
         out["boot"] = boot
+        out["identity"] = server.evidence_identity()
         if not boot.get("booted"):
             out["error"] = "boot failed"
             return out
@@ -163,36 +220,53 @@ def world_a_local(ollama_model: str,
         out["test_connection"] = {"http": test["http"],
                                   "ok": (test["json"] or {}).get("ok")
                                   or (test["json"] or {}).get("success")}
+        out["assertions"]["J2.local-provider-product-path"] = bool(
+            out["register_provider"]["registered"]
+            and models["http"] == 200 and caps["http"] == 200)
 
-        r1 = _reply_verdict(_turn(server.base, token, uid,
-                                  "Reply with exactly: PONG"))
-        out["real_reply"] = r1
+        # --- the COUNTED FIRST authenticated chat request ----------------
+        first = _turn(server, token, uid, "Reply with exactly: PONG")
+        r1 = _reply_verdict(first)
+        out["first_reply"] = {"client": first["client"], **r1}
+        if "server" in first:
+            out["first_reply"]["server"] = first["server"]
+        out["real_reply"] = out["first_reply"]  # back-compat pointer
+        first_ok = first["client"]["outcome"] == "response" and _real(r1)
+        out["assertions"]["J2.real-reply"] = first_ok
 
-        t = _turn(server.base, token, uid,
-                  "Search my documents for anything about quarterly "
-                  "revenue and tell me what you find.")
-        tj = t["json"]
-        tmeta = tj.get("metadata") or {}
+        # --- tool-shaped ask: attributable receipts, not substrings ------
+        tool = _turn(server, token, uid,
+                     "Search my documents for anything about quarterly "
+                     "revenue and tell me what you find.")
+        tj = (tool.get("response") or {}).get("json") or {}
+        tool_sid = tj.get("session_id")
+        server_exec = (tool.get("server") or {}).get("execution_id")
+        receipts: dict = {}
+        if tool_sid and server.db_path.exists():
+            receipts = JR.turn_tool_receipts(server.db_path, tool_sid)
+        elif server_exec and server.db_path.exists():
+            receipts = JR.execution_tool_receipts(server.db_path, server_exec)
         out["tool_shaped"] = {
-            "http": t["http"], "success": tj.get("success"),
-            "provider": tj.get("provider"), "model": tj.get("model"),
+            "client": tool["client"],
+            "server": tool.get("server"),
+            "http": (tool.get("response") or {}).get("http"),
+            "success": tj.get("success"),
+            "provider": tj.get("provider"),
+            "model": tj.get("model"),
             "content_head": str(tj.get("message") or "")[:200],
-            "metadata_keys": sorted(tmeta.keys())[:20]}
-        tool_ev = any(k in json.dumps(tmeta).lower()
-                      for k in ("tool_plan", "tool", "search", "documents"))
-        sid = tj.get("session_id")
-        if sid and server.db_path.exists():
-            rows = chat_rows(server.db_path, sid)
-            blob = json.dumps([r["meta"] for r in rows
-                               if r["role"] == "assistant"]).lower()
-            out["tool_shaped"]["persisted_meta_keys"] = sorted(
-                {k for r in rows if r["role"] == "assistant"
-                 for k in (r["meta"] or {}).keys()})[:24]
-            tool_ev = tool_ev or any(
-                k in blob for k in ("tool_plan", "tool_name", "tool_calls",
-                                    "documents.search", 'source": "tool'))
-        out["tool_shaped"]["tool_evidence"] = bool(tool_ev)
+            "receipts": receipts.get("receipts", []),
+            "receipt_count": receipts.get("receipt_count", 0),
+            "evidence_ref_count": receipts.get("evidence_ref_count", 0),
+            "tool_success": receipts.get("tool_success"),
+            "receipt_source": "agent_executions.task_outcome "
+                              "(read-only sqlite)",
+        }
+        out["assertions"]["J2.tool-planning"] = bool(
+            tool["client"]["outcome"] == "response"
+            and (tool.get("response") or {}).get("http") == 200
+            and receipts.get("tool_success") is True)
 
+        # --- restart durability (exercised even after a failed turn) -----
         restart = server.restart()
         out["restart"] = {k: restart[k] for k in
                           ("booted", "seconds", "restart_number")
@@ -202,40 +276,40 @@ def world_a_local(ollama_model: str,
             "http": lst["http"],
             "count": len(lst["json"] if isinstance(lst["json"], list)
                          else (lst["json"] or {}).get("data") or [])}
-        r2 = _reply_verdict(_turn(server.base, token, uid,
-                                  "Reply with exactly: PONG2"))
-        out["second_reply"] = r2
-
-        out["assertions"] = {
-            "J2.local-provider-product-path": bool(
-                out["register_provider"]["registered"]
-                and out["discover_models"]["http"] == 200
-                and out["set_capabilities"]["http"] == 200),
-            "J2.real-reply": _real(r1),
-            "J2.tool-planning": bool(tool_ev and t["http"] == 200),
-            "J2.survive-restart": bool(
-                restart.get("booted")
-                and out["providers_after_restart"]["count"] >= 1
-                and _real(r2)),
-        }
+        second = _turn(server, token, uid, "Reply with exactly: PONG2")
+        r2 = _reply_verdict(second)
+        out["second_reply"] = {"client": second["client"], **r2}
+        if "server" in second:
+            out["second_reply"]["server"] = second["server"]
+        out["assertions"]["J2.survive-restart"] = bool(
+            restart.get("booted")
+            and out["providers_after_restart"]["count"] >= 1
+            and second["client"]["outcome"] == "response" and _real(r2))
     except Exception as exc:  # noqa: BLE001
         out["error"] = f"{type(exc).__name__}: {exc}"
     finally:
         out["uvicorn_log_tail"] = server.log_tail()
         server.stop()
+        out["assertion_states"] = {
+            k: ("verified" if v is True else "failed" if v is False
+                else "untested")
+            for k, v in out["assertions"].items()}
     return out
 
 
 def world_b_byok(plain_key: str,
                  server_kwargs: Optional[dict] = None) -> dict:
     server = JR.ScratchServer("j2_world_b_byok", **(server_kwargs or {}))
-    out: dict = {"world": "B_byok_product_path"}
+    out: dict = {"world": "B_byok_product_path",
+                 "assertions": {k: None for k in EXPECTED_B}}
     try:
         boot = server.up()
         out["boot"] = boot
+        out["identity"] = server.evidence_identity()
         if not boot.get("booted"):
             out["error"] = "boot failed"
             return out
+        out["resolved_db_path"] = server.resolved_db_path
         user = JR.new_user(server.base)
         token = user.get("token")
         if not token:
@@ -247,18 +321,22 @@ def world_b_byok(plain_key: str,
             {"api_key": plain_key, "key_name": "default",
              "environment": "production"})
         out["store_key"] = {"http": stored["http"],
-                            "success": stored["json"].get("success"),
+                            "success": (stored["json"] or {}).get("success"),
                             "key_id_present": bool(
-                                (stored["json"].get("data") or {})
+                                ((stored["json"] or {}).get("data") or {})
                                 .get("key_id"))}
         keys1 = JR.auth_get(server.base, token, "/api/ai/keys")
-        k1 = [k for k in ((keys1["json"].get("data") or {}).get("keys")
-                          or []) if k.get("provider") == PROVIDER]
+        k1 = [k for k in (((keys1["json"] or {}).get("data") or {})
+                          .get("keys") or [])
+              if k.get("provider") == PROVIDER]
         decrypts_before = any(_masked(plain_key, k.get("masked_key") or "")
                               for k in k1)
         out["before_restart"] = {"keys_http": keys1["http"],
                                  "openrouter_keys": len(k1),
                                  "decrypts": decrypts_before}
+        out["assertions"]["J2.byok-add-product-path"] = bool(
+            out["store_key"]["http"] == 200
+            and out["store_key"]["success"] and decrypts_before)
         # Known inconsistency (evidence, not a gate): the per-key status
         # endpoint looks up the GLOBAL key id and cannot see tenant-scoped
         # keys the product store call just wrote.
@@ -271,25 +349,25 @@ def world_b_byok(plain_key: str,
                           ("booted", "seconds", "restart_number")
                           if k in restart}
         keys2 = JR.auth_get(server.base, token, "/api/ai/keys")
-        k2 = [k for k in ((keys2["json"].get("data") or {}).get("keys")
-                          or []) if k.get("provider") == PROVIDER]
+        k2 = [k for k in (((keys2["json"] or {}).get("data") or {})
+                          .get("keys") or [])
+              if k.get("provider") == PROVIDER]
         decrypts_after = any(_masked(plain_key, k.get("masked_key") or "")
                              for k in k2)
         out["after_restart"] = {"keys_http": keys2["http"],
                                 "openrouter_keys": len(k2),
                                 "decrypts": decrypts_after}
-        out["assertions"] = {
-            "J2.byok-add-product-path": bool(
-                out["store_key"]["http"] == 200
-                and out["store_key"]["success"] and decrypts_before),
-            "J2.byok-survive-restart": bool(
-                restart.get("booted") and k2 and decrypts_after),
-        }
+        out["assertions"]["J2.byok-survive-restart"] = bool(
+            restart.get("booted") and k2 and decrypts_after)
     except Exception as exc:  # noqa: BLE001
         out["error"] = f"{type(exc).__name__}: {exc}"
     finally:
         out["uvicorn_log_tail"] = server.log_tail()
         server.stop()
+        out["assertion_states"] = {
+            k: ("verified" if v is True else "failed" if v is False
+                else "untested")
+            for k, v in out["assertions"].items()}
     return out
 
 
@@ -330,21 +408,28 @@ def main() -> int:
     ev["world_a"] = a
     b = world_b_byok(creds[CRED_NAME], server_kwargs=server_kwargs)
     ev["world_b"] = b
+    ev["identity"] = a.get("identity") or b.get("identity")
 
-    checks = {}
-    for k, v in (a.get("assertions") or {}).items():
-        checks[k] = v
-    for k, v in (b.get("assertions") or {}).items():
-        checks[k] = v
-    ev["assertions"] = checks
-    ev["pass"] = bool(checks) and all(checks.values())
+    assertions: dict = {}
+    for block, expected in ((a, EXPECTED_A), (b, EXPECTED_B)):
+        block_assertions = block.get("assertions") or {}
+        for key in expected:
+            assertions[key] = block_assertions.get(key)
+    verdict = JR.aggregate_verdict(list(EXPECTED_A) + list(EXPECTED_B),
+                                   assertions)
+    ev["assertions"] = assertions
+    ev["assertion_states"] = verdict["states"]
+    ev["mandatory_unmet"] = verdict["unmet"]
+    ev["pass"] = verdict["pass"]
     ev["uvicorn_log_tail"] = None  # per-world tails already recorded
     if ollama_proc is not None:
         ollama_proc.terminate()
     out = JR.save_result("j2_model_setup", ev)
-    print(json.dumps(checks, indent=1))
+    print(json.dumps({"assertions": assertions,
+                      "mandatory_unmet": verdict["unmet"],
+                      "pass": verdict["pass"]}, indent=1))
     print(f"evidence: {out}")
-    return 0 if ev["pass"] else 1
+    return 0 if verdict["pass"] else 1
 
 
 if __name__ == "__main__":

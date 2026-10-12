@@ -95,6 +95,7 @@ def main() -> int:
     try:
         boot = server.up()
         ev["boot"] = boot
+        ev["identity"] = server.evidence_identity()
         if not boot.get("booted"):
             raise RuntimeError("pristine server failed to boot")
         user = JR.new_user(server.base)

@@ -34,6 +34,7 @@ work (new env hooks), not harness work.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import secrets
@@ -91,6 +92,63 @@ def free_port() -> int:
     return port
 
 
+def source_identity(ref: str = "HEAD",
+                    repo: Optional[Path] = None) -> Dict[str, str]:
+    """The SOURCE revision being exported/booted, captured from the real
+    repo. A code export carries no `.git`, so the identity must be
+    captured AT EXPORT TIME and embedded in the evidence (round-10
+    review: the r1/r2 evidence recorded `git_commit: unknown` and lost
+    the candidate binding)."""
+    cwd = str(repo or REPO)
+
+    def _run(*argv: str) -> str:
+        try:
+            out = subprocess.run(list(argv), cwd=cwd, capture_output=True,
+                                 text=True, timeout=15).stdout.strip()
+            return out or "unknown"
+        except Exception:  # noqa: BLE001
+            return "unknown"
+
+    return {
+        "ref": ref,
+        "commit": _run("git", "rev-parse", ref),
+        "tree": _run("git", "rev-parse", f"{ref}^{{tree}}"),
+        "source_repo": cwd,
+        "dirty_tracked": _run("git", "status", "--short",
+                              "--untracked-files=no"),
+    }
+
+
+def load_export_identity(code_export: Optional[Path]) -> Dict[str, Any]:
+    """Read the identity manifest written beside a code export."""
+    if not code_export:
+        return {}
+    manifest = Path(code_export).parent / "EXPORT_IDENTITY.json"
+    if not manifest.exists():
+        return {"manifest": str(manifest), "error": "missing"}
+    try:
+        return json.loads(manifest.read_text())
+    except Exception as exc:  # noqa: BLE001
+        return {"manifest": str(manifest), "error": str(exc)}
+
+
+_SECRET_MARKERS = ("KEY", "SECRET", "PASSWORD", "TOKEN")
+
+
+def config_digest(allowlisted: bool, generated_env: Dict[str, str],
+                  extra_env: Optional[Dict[str, str]] = None) -> str:
+    """Stable digest of the EFFECTIVE configuration (the names/values that
+    decide behavior), excluding generated secrets and per-run scratch
+    paths. Gate values and extra-env names are the meaningful inputs."""
+    stable = {k: v for k, v in (generated_env or {}).items()
+              if not any(m in k.upper() for m in _SECRET_MARKERS)}
+    payload = {"allowlisted": bool(allowlisted),
+               "generated": stable,
+               "extra_env_names": sorted((extra_env or {}).keys())}
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
 def read_repo_env_names(names: List[str]) -> Dict[str, str]:
     """Read the repo's backend/.env BY NAME. Values go to the caller only —
     never logged, never written into results or the scratch world."""
@@ -119,6 +177,7 @@ def materialize_code_export(ref: str = "HEAD",
     if dest is None:
         dest = Path(tempfile.mkdtemp(prefix="atom_pristine_export_"))
     dest.mkdir(parents=True, exist_ok=True)
+    identity = source_identity(ref)
     tar = subprocess.Popen(["tar", "-x", "-C", str(dest)], stdin=subprocess.PIPE)
     subprocess.run(["git", "archive", ref, "backend"], cwd=str(REPO),
                    check=True, stdout=tar.stdin)
@@ -136,6 +195,11 @@ def materialize_code_export(ref: str = "HEAD",
                 f"export must carry code only (review round 3, item 2)")
     if not (export / "main_api_app.py").exists():
         raise RuntimeError("pristine export missing main_api_app.py")
+    # The archived commit must survive the export (a git-archive tree has
+    # no .git): write the identity manifest BESIDE the backend tree so
+    # every evidence file can embed it (round-10 review).
+    (dest / "EXPORT_IDENTITY.json").write_text(
+        json.dumps(identity, indent=2) + "\n")
     return export
 
 
@@ -236,6 +300,23 @@ class ScratchServer:
         self.base_env["ADMIN_PASSWORD"] = self.admin_password
         self.base_env["PYTHONDONTWRITEBYTECODE"] = "1"
 
+        # Round-10 evidence identity: the archived commit (captured before
+        # the export lost .git), the effective-config digest and the real
+        # scratch storage paths — embedded in every evidence file.
+        self.is_pristine = bool(code_export and allowlisted)
+        self.export_identity = load_export_identity(code_export)
+        self.config_digest = config_digest(allowlisted, self.generated_env,
+                                           extra_env)
+        self._storage = {
+            "scratch_root": str(self.scratch),
+            "run_dir": str(self.run_dir),
+            "database": str(self.db_path),
+            "lancedb": self.base_env.get("LANCEDB_URI", ""),
+            "byok_config": self.base_env.get("BYOK_CONFIG_FILE", ""),
+            "byok_keys": self.base_env.get("BYOK_KEYS_FILE", ""),
+            "byok_enc_key": self.base_env.get("BYOK_ENC_KEY_FILE", ""),
+        }
+
         self._assert_storage_isolated()
         self.port = free_port()
         self.proc: Optional[subprocess.Popen] = None
@@ -253,6 +334,25 @@ class ScratchServer:
                 f"scratch isolation violated: DATABASE_URL resolves to "
                 f"{resolved}, outside {scratch_str}")
         self.resolved_db_path = str(resolved)
+
+    def storage_paths(self) -> Dict[str, str]:
+        """The ACTUAL scratch storage this world reads/writes (round-10)."""
+        return dict(self._storage)
+
+    def evidence_identity(self) -> Dict[str, Any]:
+        """The identity block every evidence file embeds: source revision,
+        effective-config digest, scratch storage. An export lacking .git
+        never loses its source identity."""
+        return {
+            "mode": ("pristine_code_export" if self.is_pristine
+                     else BOOT_MODE),
+            "source": self.export_identity or {
+                "note": "no code export — configuration-parity checkout boot",
+                "commit": source_identity().get("commit"),
+            },
+            "config_digest": self.config_digest,
+            "storage": self.storage_paths(),
+        }
 
     # ------------------------------------------------------------------
     def _launch(self) -> None:
@@ -414,3 +514,162 @@ def save_result(label: str, payload: Dict[str, Any]) -> Path:
                      f"_{uuid.uuid4().hex[:6]}.json")
     out.write_text(json.dumps(payload, indent=2, default=str))
     return out
+
+
+# ----------------------------------------------------------------------
+# Round-10 evidence readers: attributable records and receipts, never
+# substrings; a failed client window is never repaired by a late server
+# delivery.
+# ----------------------------------------------------------------------
+def _sqlite_rows(db: Path, sql: str, params: tuple = ()) -> List[tuple]:
+    import sqlite3
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        return con.execute(sql, params).fetchall()
+    finally:
+        con.close()
+
+
+def aggregate_verdict(mandatory: List[str],
+                      assertions: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Strict aggregate: only an explicit True on EVERY mandatory
+    assertion passes. Missing/None read as untested and never as success
+    (the round-9 vacuous-pass defect: a world that raised left no
+    assertion block, and the aggregate passed on the surviving world's
+    booleans alone). False reads as failed."""
+    assertions = assertions or {}
+    unmet: List[str] = []
+    failed: List[str] = []
+    untested: List[str] = []
+    states: Dict[str, str] = {}
+    for key in mandatory:
+        value = assertions.get(key)
+        if value is True:
+            states[key] = "verified"
+            continue
+        unmet.append(key)
+        if value is None:
+            untested.append(key)
+            states[key] = "untested"
+        else:
+            failed.append(key)
+            states[key] = "failed"
+    return {"pass": not unmet, "unmet": unmet, "failed": failed,
+            "untested": untested, "states": states}
+
+
+def server_delivery(db: Path, request_id: str, poll_s: float = 0.0,
+                    cadence_s: float = 3.0) -> Dict[str, Any]:
+    """Server-side record of a client-minted request_id, observed AFTER a
+    client-window failure. Preserved SEPARATELY — it documents what the
+    server did later and never converts the failed client call into a
+    pass."""
+    deadline = time.monotonic() + max(0.0, poll_s)
+    last: Dict[str, Any] = {"found": False, "state": None}
+    while True:
+        rows = _sqlite_rows(
+            db, "SELECT state, updated_at, execution_id, finalized_response, "
+                "error FROM chat_request_records WHERE request_id=? "
+                "ORDER BY updated_at DESC LIMIT 1", (request_id,))
+        if rows:
+            state, updated_at, execution_id, finalized, error = rows[0]
+            try:
+                head = str((json.loads(finalized or "{}") or {})
+                           .get("message") or "")[:160]
+            except Exception:  # noqa: BLE001
+                head = str(finalized or "")[:160]
+            last = {"found": True, "state": state, "updated_at": updated_at,
+                    "execution_id": execution_id, "response_head": head,
+                    "error": error}
+            if state in ("completed", "failed", "error", "cancelled") \
+                    or time.monotonic() >= deadline:
+                last["delivered_after_client_window"] = state == "completed"
+                return last
+        elif time.monotonic() >= deadline:
+            return last
+        time.sleep(cadence_s)
+
+
+def execution_tool_receipts(db: Path, execution_id: str) -> Dict[str, Any]:
+    """Attributable receipts for ONE execution id (e.g. recovered from a
+    request record after the client window failed)."""
+    return _collect_receipts(db, [str(execution_id)])
+
+
+def turn_tool_receipts(db: Path, session_id: str) -> Dict[str, Any]:
+    """Attributable tool-execution records for one chat session: the
+    assistant turns' execution ids -> agent_executions -> task_outcome
+    (tool_outcomes / evidence_refs / actions / delivery). Replaces
+    substring matching over prompt echoes (round-10 review)."""
+    exec_ids: List[str] = []
+    for (meta,) in _sqlite_rows(
+            db, "SELECT metadata_json FROM chat_messages WHERE "
+                "conversation_id=? AND role='assistant' "
+                "ORDER BY created_at, rowid", (session_id,)):
+        try:
+            eid = (json.loads(meta or "{}") or {}).get("execution_id")
+        except Exception:  # noqa: BLE001
+            eid = None
+        if eid:
+            exec_ids.append(str(eid))
+    return _collect_receipts(db, exec_ids, session_id=session_id)
+
+
+def _collect_receipts(db: Path, exec_ids: List[str],
+                      session_id: Optional[str] = None) -> Dict[str, Any]:
+    receipts: List[Dict[str, Any]] = []
+    executions: List[Dict[str, Any]] = []
+    evidence_ref_count = 0
+    for eid in exec_ids:
+        rows = _sqlite_rows(db, "SELECT metadata_json FROM agent_executions "
+                                "WHERE id=?", (eid,))
+        if not rows:
+            continue
+        try:
+            meta = json.loads(rows[0][0] or "{}")
+        except Exception:  # noqa: BLE001
+            meta = {}
+        outcome = meta.get("task_outcome") or {}
+        tools = [t for t in (outcome.get("tool_outcomes") or [])
+                 if isinstance(t, dict)]
+        refs = [r for r in (outcome.get("evidence_refs") or [])
+                if isinstance(r, dict)]
+        evidence_ref_count += len(refs)
+        executions.append({
+            "execution_id": eid,
+            "objective_met": outcome.get("objective_met"),
+            "delivery": (outcome.get("delivery") or {}).get("delivered"),
+            "latency_s": outcome.get("latency_s"),
+            "tool_outcomes": tools,
+            "evidence_refs": len(refs),
+            "actions": [a for a in (outcome.get("actions") or [])
+                        if isinstance(a, dict)],
+        })
+        for tool in tools:
+            receipts.append({
+                "execution_id": eid,
+                "tool": tool.get("tool"),
+                "verified": tool.get("verified"),
+                "outcome": tool.get("outcome"),
+                "required": tool.get("required"),
+                "evidence_refs": len(tool.get("evidence_refs") or []),
+            })
+    verified = [r["verified"] for r in receipts]
+    if not receipts:
+        tool_success: Optional[bool] = False  # nothing executed, nothing claimed
+    elif any(v is False for v in verified):
+        tool_success = False
+    elif all(v is True for v in verified):
+        tool_success = True
+    else:
+        tool_success = None  # executed but not verified
+    return {
+        "session_id": session_id,
+        "execution_ids": exec_ids,
+        "executions": executions,
+        "receipts": receipts,
+        "receipt_count": len(receipts),
+        "evidence_ref_count": evidence_ref_count,
+        "tool_success": tool_success,
+        "attributable": bool(exec_ids),
+    }

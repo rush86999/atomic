@@ -130,6 +130,7 @@ def main() -> int:
     try:
         boot = server.up()
         ev["boot"] = boot
+        ev["identity"] = server.evidence_identity()
         if not boot.get("booted"):
             raise RuntimeError("pristine server failed to boot")
         ev["resolved_db_path"] = server.resolved_db_path

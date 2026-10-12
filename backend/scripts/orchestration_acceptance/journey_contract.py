@@ -84,7 +84,9 @@ JOURNEYS: List[Dict[str, Any]] = [
                    "mock, no coding-agent intervention)",
           "harness": f"{HARNESS}/j2_model_setup.py world A"},
          {"id": "J2.tool-planning",
-          "check": "tool planning selects a tool for a tool-shaped ask"},
+          "check": "tool planning selects a tool for a tool-shaped ask AND "
+                   "the turn carries an attributable execution receipt "
+                   "(agent_executions.task_outcome.tool_outcomes)"},
      ]},
     {"id": "J3", "name": "Source connection",
      "assertions": [

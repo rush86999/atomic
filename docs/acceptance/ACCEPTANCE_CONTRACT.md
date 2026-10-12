@@ -84,7 +84,79 @@ source** (upload or file ingest), **one business-record connector**, and
 is not proof that its user workflow works. Extend the same contract to
 the advertised connector set only after the first wave holds.
 
-## Current status (2026-10-12, campaign round 9 — post-repair acceptance campaign; SUPERSEDES the 2026-10-11 section below)
+## Current status (2026-10-12, round 10 — J2 verdict split: the first-reply scope blocker is closed; the unsupported tool claim is the blocker)
+
+**Two pristine runs, bound to their candidates** (git-archive code export + allowlisted env +
+per-world scratch SQLite/LanceDB/BYOK + product-created users; the JSONs are imported with
+candidate-bound names so `527ad61bb` and `3f79345be` can never be conflated):
+
+| Run | Candidate | Counted FIRST authenticated `/api/chat/message` | Preserved evidence |
+|-----|-----------|--------------------------------------------------|--------------------|
+| r1 | `527ad61bb` (exact) | **REFUSED** `no_llm_provider` (HTTP 200, `success=false`, "You need an AI provider…") — public-route scope failure, explicitly NOT cache-replacement (world B key store/decrypt/restart passed) | `journey_matrix/j2_model_setup_20261012_124316_1d68e5_cand527ad61bb.json` (sha256 e9fcaa09…3cba) |
+| r2 | `3f79345be` (= `527ad61bb` + public-route scope repair) | **SERVED** by the user's own registered route: `provider=local_664cd774`, `model=llama3.1:8b`, reply `PONG`; provider row workspace-bound (`434f814f…`), execution under the same workspace, routing feedback `route_provider=local_664cd774`, request record `completed` | `journey_matrix/j2_model_setup_20261012_145647_16695b_cand3f79345be.json` (sha256 3a219451…e5c5) |
+
+**The first-reply scope blocker is CLOSED on `3f79345be`** (the authenticated route carries
+the correct scope end to end at the counted first request). J2 as a whole is NOT closed:
+
+- `J2.tool-planning` is **not verified**. The tool-shaped ask exceeded the 300 s client
+  window by ~11 s (client gave up at 18:56:16; the server completed at 18:56:27,
+  `latency_s=310.93`). The persisted turn carries **no executed lookup**: `tool_outcomes: []`,
+  a converse-only action program, no tool markers — while the reply asserts Zoho CRM /
+  Google Drive searches with figures the platform's own heuristic flagged
+  `unsupported_figures`. A reply claiming executed searches that never ran is a PRODUCT
+  CORRECTNESS failure, not merely an acceptance gap.
+- `J2.survive-restart` (world A) and the second reply were not exercised (the run aborted on
+  the timeout); world B's BYOK restart passed.
+- No singleflight refusal occurred in this run (the inflight arm released normally); the one
+  failed user request is the over-window tool turn — counted, not excluded.
+- Residual scope leak, kept DISTINCT from the fixed reply legs and from the proven
+  cache-replacement defect: the turn-fact sidecar is constructed with hardcoded
+  `workspace_id="default"` / `tenant_id=self.tenant_id` (`chat_orchestrator.py:13147-13153`)
+  and still logged the `no_llm_provider` refusal as a parse failure (r1 and r2 tails).
+
+**Harness-integrity defects this round found and repaired (acceptance owner, this commit):**
+a vacuous top-level `pass:true` (a world exception omits its assertion block, so the aggregate
+passed on world B alone — same shape in r1 and r2); substring tool-evidence checks that fire
+on the prompt's own echo; and evidence that lost the archived commit (`git_commit: unknown`),
+the config digest and the scratch-storage paths. The repaired harness: strict aggregate (every
+mandatory assertion must be an explicit True; exception/timeout/missing = failed/untested),
+attributable tool receipts read from `agent_executions.task_outcome.tool_outcomes`, embedded
+source commit (captured before `git archive`), configuration digest and actual scratch paths,
+and separate records for a failed client window vs. a later server delivery.
+`backend/tests/test_acceptance_harness_integrity.py` pins each guard.
+
+### Round-10 assignments (bounded)
+
+**1. Acceptance owner — harness repair (done in this commit).** Aggregate PASS requires every
+mandatory world and assertion to finish successfully; exceptions, timeouts and missing
+results fail or remain untested; attributable tool-execution records and receipts replace
+substrings; the archived commit, config digest and actual scratch-storage paths are embedded
+in every evidence file; client-window failure and later server delivery are preserved
+separately. **J2 is NOT recorded verified; restart and second-reply assertions remain
+unexercised in the record.**
+
+**2. Runtime owner — the unsupported search claim (product correctness; priority).**
+Reproduce the exact tool-shaped request with controlled external responses and trace:
+(1) accepted intent and required actions, (2) proposed tool plan, (3) authorization and
+executable route selection, (4) actual tool dispatch, (5) receipt, settlement and final
+narration. Repair the FIRST missing execution transition. Independently require that a turn
+with no executed lookup cannot claim it searched; if execution is unavailable, return a
+truthful unresolved or failed outcome. **Do not merely widen the 300-second window**: first
+establish where the 310.93 s went and why no tool ran; preserve the existing latency verdict
+(any revised performance target must be explicit and separately measured).
+
+**3. Separate scope correction — turn-fact sidecar.** Remove the hardcoded default scope
+through the existing authenticated-context mechanism (`_request_llm_scope`, `3f79345be`).
+Require correct-workspace access and zero cross-workspace calls. Do not assume this sidecar
+caused the missing tool execution without a trace establishing that connection.
+
+**Sequence (owner-set):** harness repair → runtime trace/repair → sidecar correction →
+verifier reviews the combined successor → acceptance runs pristine J2 with the FIRST request
+counted (real reply + attributable supported tool execution + restart durability) → J4/J5
+only when those assertions pass. The immediate finish line is truthful, executed tool use —
+not a longer timeout and not a green top-level JSON flag.
+
+## Previous status (2026-10-12, campaign round 9 — superseded by the round-10 section above)
 
 **Campaign `2026-10-12-j2-repair` measured the frozen candidate `d6fbcd846` pristine**
 (git-archive code export + allowlisted env + per-world scratch storage + product-created
@@ -164,7 +236,7 @@ is a RED public-route regression going GREEN, then a new user's successful first
 **Gates**: `--check --release` → rc=1 (J2). `--check --strict --release` → rc=1 (J1
 install untested + J2). Whole-app certification not claimed: J6–J9 unexecuted.
 
-## Previous status (2026-10-11, campaign round 4 — superseded by the round-9 section above)
+## Earlier status (2026-10-11, campaign round 4 — superseded)
 
 **Scope naming (owner-corrected): the release gate covers SETUP READINESS —
 fresh install, models, sources — not the advertised core loop.** Research,
