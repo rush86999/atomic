@@ -15839,6 +15839,30 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 try:
                                     from core import task_lifecycle as _tlm
 
+                                    # THE EXECUTOR'S RECEIPT/ERROR (owner
+                                    # correction 2026-10-11): the executor
+                                    # stamps its receipt on _result_meta
+                                    # before failing — the declined op's
+                                    # settle facts carry it, so the
+                                    # blocker is durable and precise.
+                                    _declined_meta = dict(
+                                        (getattr(_plan, "_result_meta",
+                                                 None) or {}))
+                                    _declined_execution = {
+                                        "invoked": False,
+                                        "outcome": "not_dispatched",
+                                        "served_basis": "none",
+                                        "failure_stage": (
+                                            "plan_relevance_declined"),
+                                        "planning": dict(
+                                            _declined_meta.get("planning")
+                                            or {}),
+                                        "zoho_error": (
+                                            _declined_meta.get("zoho_error")),
+                                        "zoho_inventory": (
+                                            _declined_meta.get(
+                                                "zoho_inventory")),
+                                    }
                                     _ms_tl_begin = _tlm.begin_retrieval_turn(
                                         _ms_tl,
                                         session if isinstance(
