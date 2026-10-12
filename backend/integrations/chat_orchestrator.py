@@ -16458,6 +16458,62 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         "zoho_inventory: "
                                         + _ms_receipt[
                                             "zoho_inventory_error"])[:120]
+                                # TYPED AVAILABILITY FINDINGS (owner
+                                # correction 2026-10-11): an EXPLICIT
+                                # matching availability result settles the
+                                # stock obligation for THAT subject;
+                                # unrelated items stay search results.
+                                # Provenance is inventory-appropriate:
+                                # provider record identity + observation
+                                # time — no workbook-style source_version
+                                # is manufactured, and the raw receipt
+                                # hash identifies the captured payload
+                                # without claiming the inventory is
+                                # unchanged.
+                                _inv_items = (
+                                    (_ms_receipt.get("zoho_inventory")
+                                     or {}).get("items") or [])
+                                _observed_at = time.strftime(
+                                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                                for _it in _inv_items[:8]:
+                                    _sku = str((_it or {}).get("sku")
+                                               or "").strip()
+                                    _avail = str((_it or {}).get(
+                                        "availability") or "").strip()
+                                    if not _sku or not _avail:
+                                        continue
+                                    _matched_subject = any(
+                                        _sku.lower() in str(_t).lower()
+                                        for _t in (
+                                            _ms_execution.get("items")
+                                            or {}))
+                                    if not _matched_subject:
+                                        continue  # unrelated SKU: a
+                                        # search result, not evidence
+                                    _ms_findings.append({
+                                        "item": _sku,
+                                        "field": "availability",
+                                        "column": "availability",
+                                        "raw": _avail,
+                                        "parsed": {"availability": _avail,
+                                                   "warehouse": str(
+                                                       (_it or {}).get(
+                                                           "warehouse")
+                                                       or "")},
+                                        "source": (
+                                            "zoho_inventory!"
+                                            + str((_it or {}).get(
+                                                "warehouse") or "default")),
+                                        "source_version": None,
+                                        "observation_time": _observed_at,
+                                        "provenance": "zoho_inventory",
+                                    })
+                                if _ms_receipt.get(
+                                        "zoho_inventory_error"):
+                                    _ms_execution["failure_stage"] = (
+                                        "zoho_inventory: "
+                                        + _ms_receipt[
+                                            "zoho_inventory_error"])[:120]
                                 _ms_complete = bool(
                                     _ms_invoked and (
                                         _ms_structured

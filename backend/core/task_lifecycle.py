@@ -458,6 +458,13 @@ def apply_transition(
                     merged["exec_claim"] = {
                         "by": _bounded_text(cl.get("by"), 60),
                         "at": str(cl.get("at") or ""),
+                        # LEASE EXPIRY PERSISTED (owner order
+                        # 2026-10-11, F3): the claim's own ttl rides
+                        # the record so acquisition, renewal,
+                        # execution and settlement all read the same
+                        # lease.
+                        "ttl": (float(cl["ttl"])
+                                if cl.get("ttl") is not None else None),
                     }
                     existing[index] = merged
         if transition.get("budget_migration"):
@@ -793,6 +800,23 @@ def normalize_execution_facts(raw: Any) -> Dict[str, Any]:
         # ingested copy today does not make its contents current.
         "source_version": (str(raw.get("source_version"))[:80]
                            if raw.get("source_version") else None),
+        # INVENTORY RECEIPT (owner correction 2026-10-11): an authorized
+        # inventory lookup's raw receipt — the stock obligation's
+        # settlement evidence. Bounded: items capped, string fields
+        # capped. A receipt hash identifies the captured payload; it
+        # does NOT prove the inventory remained unchanged (no
+        # workbook-style source_version is manufactured).
+        "inventory_receipt": (
+            {"items": [
+                {k: (str(v)[:80] if v is not None else None)
+                 for k, v in (_it or {}).items() if k in
+                 ("sku", "item", "availability", "warehouse",
+                  "quantity", "record_id", "updated_at")}
+                for _it in (raw.get("inventory_receipt") or {}).get(
+                    "items") or []][:8]}
+            if isinstance(raw.get("inventory_receipt"), dict) else None),
+        "inventory_error": (str(raw.get("inventory_error"))[:200]
+                            if raw.get("inventory_error") else None),
         "items": items,
         "planning": planning,
         "raw_outcome": raw_outcome,
@@ -2588,18 +2612,45 @@ def next_unfinished_work(
     }
 
 
+#: Lease default for claims written before expiry was persisted, and
+#: the fallback for callers that pass none. A caller's NEW ttl never
+#: reinterprets another worker's existing lease (owner order
+#: 2026-10-11, F3).
+DEFAULT_CLAIM_TTL_S = 120.0
+
+
+def _claim_is_fresh(claim: Dict[str, Any], now: float) -> bool:
+    """A claim is fresh until ITS OWN recorded expiry — the ttl
+    persisted when the lease was acquired. Claims written before
+    expiry was persisted carry no ttl and fall back to
+    DEFAULT_CLAIM_TTL_S; they are never re-interpreted by a caller's
+    ttl."""
+    if not isinstance(claim, dict) or not claim:
+        return False
+    try:
+        at = float(claim.get("at"))
+    except (TypeError, ValueError):
+        return False
+    try:
+        ttl = float(claim.get("ttl"))
+    except (TypeError, ValueError):
+        ttl = DEFAULT_CLAIM_TTL_S
+    return (now - at) < ttl
+
+
 def claim_questions_for_execution(
         lifecycle: "TaskLifecycle",
         run_id: str,
         question_ids: List[str],
         *,
         by: str,
-        ttl_seconds: float = 120.0,
+        ttl_seconds: float = DEFAULT_CLAIM_TTL_S,
 ) -> List[str]:
     """DURABLE EXECUTION CLAIMS (round 53): attempt counters are retry
     bounds, not locks. A claim is written onto the question itself
-    (durable, restart-surviving) with a TTL; a fresh claim by another
-    worker refuses. Returns the ids actually claimed."""
+    (durable, restart-surviving) with its OWN expiry; a fresh claim by
+    another worker refuses. Renewal (same holder) refreshes at+ttl.
+    Returns the ids actually claimed."""
     import time as _time
 
     record = lifecycle.get_task(run_id)
@@ -2612,16 +2663,12 @@ def claim_questions_for_execution(
         if qid not in set(map(str, question_ids or [])):
             continue
         prev = q.get("exec_claim") or {}
-        prev_at = prev.get("at")
-        try:
-            fresh = (now - float(prev_at)) < ttl_seconds
-        except (TypeError, ValueError):
-            fresh = False
-        if prev and fresh and str(prev.get("by")) != by:
+        if prev and _claim_is_fresh(prev, now) \
+                and str(prev.get("by")) != by:
             continue
         claimable.append({
             "question_id": qid, "by": by,
-            "at": now,
+            "at": now, "ttl": float(ttl_seconds),
         })
     if not claimable:
         return []
@@ -2663,10 +2710,19 @@ def resolve_unresolved_questions_fenced(
             if str(q.get("question_id")) in ids \
                     and q.get("status") == "open":
                 claim = q.get("exec_claim") or {}
-                try:
-                    fresh = (now - float(claim.get("at"))) < ttl_seconds
-                except (TypeError, ValueError):
-                    fresh = False
+                # LEASE SEMANTICS (owner order 2026-10-11, F3): the
+                # fence validates THIS claim's own expiry — a caller's
+                # ttl never extends another worker's lease. Claims
+                # without a persisted ttl fall back to the caller's
+                # value (legacy records only).
+                if claim.get("ttl") is not None:
+                    fresh = _claim_is_fresh(claim, now)
+                else:
+                    try:
+                        fresh = (now - float(
+                            claim.get("at"))) < ttl_seconds
+                    except (TypeError, ValueError):
+                        fresh = False
                 if not (claim and str(claim.get("by")) == by and fresh):
                     raise TaskLifecycleConcurrencyError(
                         "settlement fence: question ownership changed "
@@ -2731,11 +2787,10 @@ def verify_question_claims(
         if qid not in set(map(str, question_ids or [])):
             continue
         claim = q.get("exec_claim") or {}
-        try:
-            fresh = (now - float(claim.get("at"))) < ttl_seconds
-        except (TypeError, ValueError):
-            fresh = False
-        if claim and str(claim.get("by")) == by and fresh:
+        # LEASE SEMANTICS (owner order 2026-10-11, F3): ownership is
+        # judged by the claim's own persisted expiry.
+        if claim and str(claim.get("by")) == by and _claim_is_fresh(
+                claim, now):
             owned.append(qid)
     return owned
 

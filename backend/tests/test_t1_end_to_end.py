@@ -1144,9 +1144,6 @@ class TestStockExecutionProductionPath:
             requested_fields=["delivery"], canvas_id="cv-t1e2e")
         return result, tl
 
-    @pytest.mark.xfail(reason="zoho.search execution path does not "
-                       "settle its operation — demonstrated first "
-                       "failure, repair pending", strict=True)
     def test_access_denied_becomes_a_precise_durable_blocker(self):
         result, tl = self._run_zoho_turn({
             "success": False,
@@ -1177,9 +1174,6 @@ class TestStockExecutionProductionPath:
         assert open_stock, (
             "the stock question stays open as the precise blocker")
 
-    @pytest.mark.xfail(reason="zoho.search execution path does not "
-                       "settle its operation — demonstrated first "
-                       "failure, repair pending", strict=True)
     def test_inventory_receipt_settles_and_survives_reload(self):
         result, tl = self._run_zoho_turn({
             "success": True,
