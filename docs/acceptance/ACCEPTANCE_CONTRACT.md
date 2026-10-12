@@ -111,21 +111,27 @@ client keys (`byok_handler.py:1745`), but the absolute fallback at
 `byok_handler.py:3735` requires a `COST_EFFICIENT_MODELS` entry that
 `local_<id>` providers have none of (→ skipped), and local registration
 writes model metadata keyed by `provider_type` while the client is keyed
-`local_<id>` — an identity split under inspection. The runtime owner's
-revised work order (coordination HANDOFF): reproduce through actual
-dispatch capturing scope/client-key/model-ids/ranked-routes/exclusion-
-reason; scope first (explicit authenticated context or request-local
-service — never shared-handler mutation); then the identity gap with
-concrete provider identity and actual models (no hardcoded defaults, no
-invented `ollama_default`); catalog/capability/cooldown/authorization
-checks preserved; no-provider-configured distinguished from
-no-eligible-route. Genuinely-missing configuration keeps the truthful
-`NoProvidersConfiguredError`. Environmental note: the only currently-
-credentialed provider (env-key openrouter) dispatches and fails on
-credits — recorded as separately-labeled capability evidence. Agent 1
-has stopped credit-exhausted probes; J4/J5 remain blocked at the shared
-provider dependency, and pristine J2 reruns FIRST after the repair,
-then J4/J5.
+`local_<id>` — an identity split under inspection. The global
+model_id-keyed pricing cache demonstrates **metadata collision risk**;
+cross-workspace **endpoint leakage is unproven** until an actual dispatch
+test establishes it. The runtime owner's work order (coordination
+HANDOFF, rounds 5–8): reproduce through actual dispatch capturing
+scope/client-key/model-ids/ranked-routes/exclusion-reason; scope first
+(explicit authenticated context or request-local service — never
+shared-handler mutation, no cache-clearing between requests); then the
+identity gap with concrete provider identity and actual models (no
+hardcoded defaults, no invented `ollama_default`); catalog/capability/
+cooldown/authorization checks preserved; no-provider-configured
+distinguished from no-eligible-route; the five two-workspace dispatch
+tests (sequential + concurrent authorized-endpoint-only, workspace
+capabilities in ranking and fallback, B-update does not move A,
+completion/streaming/tool-planning keep scope). Genuinely-missing
+configuration keeps the truthful `NoProvidersConfiguredError`.
+Environmental note: the only currently-credentialed provider (env-key
+openrouter) dispatches and fails on credits — recorded as separately-
+labeled capability evidence. Agent 1 is paused on live probes; the
+verifier approves one immutable combined candidate; pristine J2 reruns
+FIRST, then J4/J5.
 
 **Gates**: `--check --strict --release` → rc=1 (J2 only). `--check` (all
 journeys) → rc=1 (J2, J4, J5).
