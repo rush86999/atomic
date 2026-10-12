@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import asyncio
+import threading
 from typing import Optional, Dict, Any, List, Tuple, Union, Type, AsyncGenerator
 from enum import Enum
 
@@ -172,6 +173,15 @@ class LLMService:
         # handler is never mutated between requests; handler reuse
         # requires both identifiers to match.
         self._scoped_handlers: Dict[Tuple[str, str], BYOKHandler] = {}
+        # SCOPE LOCK (Agent 3 finding 1 on d6fbcd846): adoption swaps the
+        # service's workspace AND shared handler; a concurrent reader
+        # must never pair the new workspace id with the old handler (it
+        # handed the OLD endpoint's client to post-change dispatches).
+        # Selection and adoption are serialized; dispatch itself runs
+        # outside the lock, so an in-flight request keeps the handler it
+        # selected (retention). Reentrant: adoption runs inside a
+        # selection that already holds the lock.
+        self._scope_lock = threading.RLock()
         self.continuous_learning = ContinuousLearningService(db) if db else None
         self._token_counter = TokenCounter()
         self._context_validator = ContextValidator()
@@ -308,12 +318,13 @@ class LLMService:
         tenant: the shared handler is REBUILT for the adopted scope —
         never reused across a binding change. The adopted scope IS a
         tenant resolution, so it stays subject to revalidation."""
-        self._workspace_id = workspace_id
-        self._scope_unresolved_reason = None
-        self._workspace_from_tenant_resolution = True
-        self._handler = BYOKHandler(
-            workspace_id=self._workspace_id,
-            tenant_id=self._tenant_id, db_session=self._db)
+        with self._scope_lock:
+            self._workspace_id = workspace_id
+            self._scope_unresolved_reason = None
+            self._workspace_from_tenant_resolution = True
+            self._handler = BYOKHandler(
+                workspace_id=self._workspace_id,
+                tenant_id=self._tenant_id, db_session=self._db)
         logger.info(
             "workspace binding for tenant %s adopted -> %s; the handler "
             "was rebuilt for the adopted scope", self._tenant_id,
@@ -321,7 +332,19 @@ class LLMService:
 
     def _get_handler(self, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Optional[BYOKHandler]:
         """Handler for one (workspace, tenant) scope — or ``None`` when
-        the scope is explicitly named but UNRESOLVED.
+        the scope is explicitly named but UNRESOLVED. Selection and
+        scope adoption are serialized under the scope lock (Agent 3
+        finding 1): a concurrent reader can never pair the adopted
+        workspace with the previous handler. Dispatch itself runs
+        outside this lock on the returned handler, so an in-flight
+        request retains the handler it selected.
+        """
+        with self._scope_lock:
+            return self._get_handler_locked(
+                workspace_id=workspace_id, tenant_id=tenant_id)
+
+    def _get_handler_locked(self, workspace_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Optional[BYOKHandler]:
+        """Locking contract: called with ``_scope_lock`` held.
 
         Tenant and workspace remain SEPARATE identifiers: an explicit
         tenant never becomes a workspace. A tenant-only caller (the

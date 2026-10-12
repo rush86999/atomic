@@ -24,6 +24,7 @@ The demonstrated defects this file pins (each control names the class):
 import asyncio
 import json
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -900,3 +901,121 @@ class TestScopeResolutionFailures:
             assert ep_b.hit_count >= 1
             assert svc.handler.workspace_id == ws_b["workspace_id"], (
                 "the shared handler was rebuilt for the adopted scope")
+
+    def test_scope_adoption_never_hands_out_the_stale_handler(
+            self, scoped_world, world_app, monkeypatch):
+        """Agent 3 finding 1 on d6fbcd846: adoption swapped the service
+        workspace BEFORE the (slow) handler rebuild, so a concurrent
+        reader paired the NEW scope with the OLD handler and dispatched
+        to the old endpoint. Selection is serialized: a reader entering
+        during an adoption blocks, then sees the adopted handler —
+        never the stale one."""
+        from core import llm_service as lsm
+        from core.llm_service import LLMService
+        from core.models import Workspace
+
+        with _CountingEndpoint("A") as ep_a, _CountingEndpoint("B") as ep_b:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            ws_b = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            _register_local_route(world_app, ws_b, ep_b.base_url,
+                                  tools=False, quality=0.85)
+            # A lightweight stand-in replaces BYOKHandler for this
+            # whole test BEFORE any construction — the defect is the
+            # SERVICE-level pairing of (workspace, handler), and a real
+            # handler's held DB session deadlocks the single-connection
+            # in-memory fixture under threads. The constructor's first
+            # scope resolution (W1) and every later adoption therefore
+            # build stand-ins, and construction is SLOW to widen the
+            # mid-swap window a concurrent reader would (unlocked) trip.
+            class _SlowStandIn:
+                def __init__(self, workspace_id=None, tenant_id=None,
+                             db_session=None):
+                    time.sleep(0.2)
+                    self.workspace_id = workspace_id
+                    self.tenant_id = tenant_id
+                    self.clients = {}
+
+            monkeypatch.setattr(lsm, "BYOKHandler", _SlowStandIn)
+            svc = LLMService(tenant_id=ws_a["tenant_id"])
+            first = svc._get_handler(tenant_id=ws_a["tenant_id"])
+            assert first.workspace_id == ws_a["workspace_id"]
+
+            # CHANGED binding: ws_a revoked, ws_b re-bound to the tenant.
+            db = scoped_world["Session"]()
+            try:
+                db.query(Workspace).filter(
+                    Workspace.id == ws_a["workspace_id"]).delete()
+                bound_b = (db.query(Workspace)
+                           .filter(Workspace.id == ws_b["workspace_id"])
+                           .first())
+                bound_b.tenant_id = ws_a["tenant_id"]
+                db.commit()
+            finally:
+                db.close()
+
+            adopted_box = {}
+
+            def _adopting_reader():
+                adopted_box["handler"] = svc._get_handler(
+                    tenant_id=ws_a["tenant_id"])
+
+            adopter = threading.Thread(target=_adopting_reader)
+            adopter.start()
+            time.sleep(0.05)          # the adopter is inside construction
+            concurrent = svc._get_handler(tenant_id=ws_a["tenant_id"])
+            adopter.join(timeout=10)
+
+            new_ws = ws_b["workspace_id"]
+            assert concurrent.workspace_id == new_ws, (
+                "a reader entering mid-adoption must receive the ADOPTED "
+                f"handler, got the handler for "
+                f"{concurrent.workspace_id}")
+            assert adopted_box["handler"].workspace_id == new_ws
+            # and the shared state is coherent afterwards
+            after = svc._get_handler(tenant_id=ws_a["tenant_id"])
+            assert after.workspace_id == new_ws and after is concurrent
+
+    def test_cold_pricing_refresh_never_hides_the_registered_route(
+            self, scoped_world, world_app, monkeypatch):
+        """Agent 3 finding 2 on d6fbcd846: on a cold pricing cache the
+        auto-refresh REPLACES the public cache dict before the first
+        ranking, dropping the just-stamped registration route — the
+        fresh user got a false 'No eligible LLM providers' (8/8 cold).
+        The route's availability is independent of public cache
+        replacement: the very first dispatch reaches its endpoint."""
+        from core.dynamic_pricing_fetcher import get_pricing_fetcher
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            svc = LLMService(workspace_id=ws_a["workspace_id"],
+                             tenant_id=ws_a["tenant_id"])
+            assert svc.handler._local_routes, "the registration loaded"
+
+            # FORCE the public-cache replacement a cold start performs:
+            # cache invalid -> the ranking initializer refreshes and
+            # REBINDS pricing_cache from its sources (offline stubs; the
+            # rebind itself is the mechanism under test).
+            fetcher = get_pricing_fetcher()
+
+            async def _empty():
+                return {}
+
+            monkeypatch.setattr(fetcher, "fetch_litellm_pricing", _empty)
+            monkeypatch.setattr(fetcher, "fetch_openrouter_pricing",
+                                _empty)
+            monkeypatch.setattr(fetcher, "fetch_opencode_pricing", _empty)
+            fetcher.last_fetch = None
+            fetcher.pricing_cache = {}
+
+            # THE FRESH-USER SHAPE: first dispatch in the process.
+            out = _completion(svc, ws_a)
+            assert out.get("content") == "pong-A", (
+                "the first dispatch must reach the registered route even "
+                f"when the pricing refresh replaced the public cache; "
+                f"got {str(out.get('content'))[:160]!r}")
+            assert ep_a.hit_count == 1

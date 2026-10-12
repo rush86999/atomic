@@ -3276,6 +3276,34 @@ class BYOKHandler:
                     provider_id, str(error)[:160])
         return outcome
 
+    def _stamp_local_routes_into_pricing_cache(self, fetcher) -> None:
+        """REGISTRATION-SCOPED ROUTE AVAILABILITY (Agent 3 finding 2 on
+        d6fbcd846): the public pricing cache is REPLACED wholesale by the
+        pricing refresh (``refresh_pricing`` rebinds ``pricing_cache``
+        from its sources), which dropped a just-stamped registration
+        entry before the FIRST ranking — 8/8 cold processes dispatched
+        "No eligible LLM providers" while the route sat in
+        ``_local_routes``. The owning handler re-stamps its OWN routes
+        here, so their availability is independent of public cache
+        replacement. Idempotent, bounded by the workspace's own
+        registrations; routing still attributes and gates through
+        ``_local_routes``, never through a foreign cache entry.
+        """
+        for model_id, route in (self._local_routes or {}).items():
+            fetcher.pricing_cache[model_id] = {
+                "model_id": model_id,
+                "litellm_provider": route.get("provider_type") or "",
+                "input_cost": 0.0,
+                "output_cost": 0.0,
+                "max_input_tokens": route.get("context_window") or 8192,
+                "supports_tools": bool(route.get("supports_tools")),
+                "supports_vision": bool(route.get("supports_vision")),
+                "supports_reasoning": bool(route.get("supports_reasoning")),
+                "quality_score": route.get("quality_score"),
+                "provider_key": route["provider_key"],
+                "workspace_id": route["workspace_id"],
+            }
+
     def _load_local_providers(self) -> None:
         """Load registered local model providers from the DB into self.clients.
 
@@ -3332,6 +3360,7 @@ class BYOKHandler:
                                 "provider_key": provider_key,
                                 "workspace_id": ws_id,
                                 "provider_id": provider.id,
+                                "provider_type": provider.provider_type,
                                 "supports_tools": bool(cap.supports_tools),
                                 "supports_vision": bool(cap.supports_vision),
                                 "supports_reasoning": bool(cap.supports_reasoning),
@@ -4022,6 +4051,11 @@ class BYOKHandler:
         try:
             # Lazy async initialization: auto-populate pricing cache on first use
             fetcher = get_pricing_fetcher_initialized_sync(auto_refresh=True)
+            # OWN ROUTES FIRST (Agent 3 finding 2): the initializer may
+            # have just REPLACED the public cache dict — re-stamp this
+            # workspace's registration routes so the candidate source
+            # carries them for THIS ranking, whatever the refresh did.
+            self._stamp_local_routes_into_pricing_cache(fetcher)
             
             # Context window requirements
             MIN_CONTEXT_BY_COMPLEXITY = {
