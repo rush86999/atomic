@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -105,6 +106,39 @@ def read_repo_env_names(names: List[str]) -> Dict[str, str]:
     return out
 
 
+def materialize_code_export(ref: str = "HEAD",
+                            dest: Optional[Path] = None) -> Path:
+    """Export the COMMITTED backend code to a bare tree with no developer
+    configuration. `git archive` of the pinned revision: backend/.env,
+    backend/data/, backend/logs/ and venvs are gitignored, so they are
+    excluded BY CONSTRUCTION (asserted below). The app's dotenv loads
+    (main_api_app.py backend/.env + project .env/.env.local) therefore find
+    NOTHING — this is what makes a run from this tree a pristine-install
+    candidate rather than configuration parity in a dirty checkout.
+    """
+    if dest is None:
+        dest = Path(tempfile.mkdtemp(prefix="atom_pristine_export_"))
+    dest.mkdir(parents=True, exist_ok=True)
+    tar = subprocess.Popen(["tar", "-x", "-C", str(dest)], stdin=subprocess.PIPE)
+    subprocess.run(["git", "archive", ref, "backend"], cwd=str(REPO),
+                   check=True, stdout=tar.stdin)
+    tar.stdin.close()
+    if tar.wait() != 0:
+        raise RuntimeError(f"tar extraction failed rc={tar.returncode}")
+    export = dest / "backend"
+    # Tracked-but-not-code stragglers (e.g. backend/data/acceptance_results/
+    # *.json from earlier campaigns) are removed: the export carries CODE.
+    shutil.rmtree(export / "data", ignore_errors=True)
+    for forbidden in (".env", ".env.local", "logs", "venv", "venv314"):
+        if (export / forbidden).exists():
+            raise RuntimeError(
+                f"pristine export leak: {export / forbidden} exists — the "
+                f"export must carry code only (review round 3, item 2)")
+    if not (export / "main_api_app.py").exists():
+        raise RuntimeError("pristine export missing main_api_app.py")
+    return export
+
+
 class ScratchServer:
     """The real uvicorn app on a free port against a scratch DB.
 
@@ -114,10 +148,18 @@ class ScratchServer:
 
     def __init__(self, label: str, extra_env: Optional[Dict[str, str]] = None,
                  health_timeout_s: float = 150.0,
-                 preferred_port: Optional[int] = None):
+                 preferred_port: Optional[int] = None,
+                 allowlisted: bool = False,
+                 code_export: Optional[Path] = None):
         self.label = label
         self.health_timeout_s = health_timeout_s
         self.preferred_port = preferred_port
+        self.allowlisted = allowlisted
+        self.code_export = code_export
+        # cwd of the server process: a pristine run launches from the
+        # exported tree (no developer .env exists there); everything else
+        # launches from the repo backend.
+        self.cwd = code_export or BACKEND
         self.scratch = Path(tempfile.mkdtemp(prefix=f"atom_journey_{label}_"))
         (self.scratch / "data").mkdir()
         self.run_dir = self.scratch / "run"
@@ -129,22 +171,35 @@ class ScratchServer:
         self.generated_env = _dotenv_parse_text(parsed["block"])
         env = dict(self.generated_env)
 
-        self.base_env: Dict[str, str] = dict(os.environ)
-        # Provider credentials MUST be pinned to "" rather than merely
-        # removed: main_api_app.py loads the repo's backend/.env with
-        # override=False, so a REMOVED var is re-filled from the dev's
-        # .env (dotenv only respects vars that are already SET). An empty
-        # value survives dotenv and is refused by every consumer
-        # (_is_usable_api_key: falsy / <12 chars). Observed live
-        # 2026-10-11: a scrubbed-but-reminded OPENROUTER_API_KEY kept
-        # ranking a phantom cloud candidate in a local-only world.
-        for name in CREDENTIAL_ENV_NAMES:
-            self.base_env[name] = ""
-        # The repo's local-model wiring is likewise pinned only when the
-        # journey doesn't set it (extra_env applies after).
-        for name in ("ATOM_LOCAL_ONLY", "OLLAMA_HOST", "OLLAMA_BASE_URL",
-                     "OLLAMA_MODEL"):
-            self.base_env.pop(name, None)
+        if allowlisted:
+            # ALLOWLISTED PROCESS ENVIRONMENT (review round 3, item 2):
+            # nothing is inherited from the developer shell. Only process
+            # plumbing (PATH/HOME/locale/tmp) plus the generated quickstart
+            # configuration and the scratch overrides below. With no
+            # developer .env in an exported tree, dotenv finds nothing —
+            # no empty-string pinning is needed because there is nothing
+            # to pin against.
+            self.base_env: Dict[str, str] = {
+                k: os.environ[k] for k in
+                ("PATH", "HOME", "LANG", "LC_CTYPE", "TMPDIR")
+                if os.environ.get(k)}
+        else:
+            self.base_env: Dict[str, str] = dict(os.environ)
+            # Provider credentials MUST be pinned to "" rather than merely
+            # removed: main_api_app.py loads the repo's backend/.env with
+            # override=False, so a REMOVED var is re-filled from the dev's
+            # .env (dotenv only respects vars that are already SET). An
+            # empty value survives dotenv and is refused by every consumer
+            # (_is_usable_api_key: falsy / <12 chars). Observed live
+            # 2026-10-11: a scrubbed-but-reminded OPENROUTER_API_KEY kept
+            # ranking a phantom cloud candidate in a local-only world.
+            for name in CREDENTIAL_ENV_NAMES:
+                self.base_env[name] = ""
+            # The repo's local-model wiring is likewise pinned only when
+            # the journey doesn't set it (extra_env applies after).
+            for name in ("ATOM_LOCAL_ONLY", "OLLAMA_HOST", "OLLAMA_BASE_URL",
+                         "OLLAMA_MODEL"):
+                self.base_env.pop(name, None)
 
         self.base_env.update(env)  # generated env, as a fresh install gets it
         if extra_env:
@@ -209,7 +264,7 @@ class ScratchServer:
             [str(venv_py()), "-m", "uvicorn", "main_api_app:app",
              "--host", "127.0.0.1", "--port", str(self.port),
              "--log-level", "warning"],
-            cwd=str(BACKEND), env=self.base_env,
+            cwd=str(self.cwd), env=self.base_env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     def _wait_health(self) -> Dict[str, Any]:

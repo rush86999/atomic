@@ -333,15 +333,26 @@ print("@@@" + json.dumps({
 '''
 
 
-def dynamic_probe(env: Dict[str, str], env_file: Path) -> Dict[str, Any]:
+def dynamic_probe(env: Dict[str, str], env_file: Path,
+                  backend_root: Optional[Path] = None,
+                  allowlisted: bool = False) -> Dict[str, Any]:
     py = _venv_py()
+    backend_root = backend_root or BACKEND
     scratch = tempfile.mkdtemp(prefix="atom_parity_probe_")
     child = Path(scratch) / "_probe_child.py"
     child.write_text(PROBE_CHILD)
-    cenv = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-            "HOME": os.environ.get("HOME", str(Path.home())),
-            "PYTHONDONTWRITEBYTECODE": "1"}
-    cenv.update(env)  # the generated env, as a fresh install's process env
+    if allowlisted:
+        # Nothing inherited from the developer shell (pristine mode).
+        cenv = {k: os.environ[k] for k in
+                ("PATH", "HOME", "LANG", "LC_CTYPE", "TMPDIR")
+                if os.environ.get(k)}
+        cenv["PYTHONDONTWRITEBYTECODE"] = "1"
+        cenv.update(env)  # the generated env, as the only configuration
+    else:
+        cenv = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                "HOME": os.environ.get("HOME", str(Path.home())),
+                "PYTHONDONTWRITEBYTECODE": "1"}
+        cenv.update(env)  # the generated env, as a fresh install's process env
     # Scratch storage wins LAST (review #1): the generated DATABASE_URL is
     # relative (sqlite:///./atom_dev.db) and must never resolve outside
     # the scratch directory.
@@ -351,7 +362,7 @@ def dynamic_probe(env: Dict[str, str], env_file: Path) -> Dict[str, Any]:
         cenv["DATABASE_URL"].split("sqlite:///", 1)[-1])
     if not resolved.startswith(str(scratch)):
         raise RuntimeError(f"probe storage isolation violated: {resolved}")
-    res = subprocess.run([str(py), str(child), str(BACKEND), str(env_file)],
+    res = subprocess.run([str(py), str(child), str(backend_root), str(env_file)],
                          capture_output=True, text=True, timeout=300,
                          env=cenv, cwd=str(scratch))
     for line in res.stdout.splitlines():
@@ -511,13 +522,12 @@ def _journey_j1_assertions(base: str, admin_password: str) -> Dict[str, Any]:
 
 # ---------------------------------------------------------------------------
 def run(env_block: str, label: str, do_boot: bool,
-        journey_j1: bool = False) -> Dict[str, Any]:
+        journey_j1: bool = False, pristine: bool = False) -> Dict[str, Any]:
     static = static_audit(_dotenv_parse_text(env_block))
     sources = verify_gate_sources()
     scratch = tempfile.mkdtemp(prefix="atom_parity_env_")
     env_file = Path(scratch) / "generated.env"
     env_file.write_text(env_block)
-    dyn = dynamic_probe(_dotenv_parse_text(env_block), env_file)
     result: Dict[str, Any] = {
         "label": label,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()),
@@ -526,11 +536,41 @@ def run(env_block: str, label: str, do_boot: bool,
             QUICKSTART.read_bytes()).hexdigest(),
         "static_audit": static,
         "gate_source_check": sources,
-        "dynamic_probe": dyn,
     }
-    if do_boot:
-        result["boot"] = boot_check(_dotenv_parse_text(env_block),
-                                    journey_j1=journey_j1)
+    server = None
+    if pristine:
+        # PRISTINE CODE EXPORT (review round 3, item 2): the app runs from a
+        # git-archive export of the pinned revision — backend/.env, data/,
+        # logs/ excluded by construction (materialize asserts) — with an
+        # ALLOWLISTED process environment (nothing inherited from the
+        # developer shell). This is pristine-install coverage; the dirty-
+        # checkout smoke label does not apply.
+        import sys as _sys
+        if str(BACKEND) not in _sys.path:
+            _sys.path.insert(0, str(BACKEND))
+        import scripts.orchestration_acceptance.journey_runtime as JR  # lazy: JR imports this module
+        export = JR.materialize_code_export()
+        result["mode"] = "pristine_code_export"
+        result["code_export"] = str(export)
+        dyn = dynamic_probe(_dotenv_parse_text(env_block), env_file,
+                            backend_root=export, allowlisted=True)
+        result["dynamic_probe"] = dyn
+        if do_boot:
+            server = JR.ScratchServer("parity_pristine", allowlisted=True,
+                                      code_export=export)
+            boot = server.up()
+            boot["mode"] = "pristine_code_export"
+            if boot.get("booted") and journey_j1:
+                boot["journey_j1"] = _journey_j1_assertions(
+                    server.base, server.admin_password)
+            result["boot"] = boot
+    else:
+        result["mode"] = "configuration_parity_plus_public_api_smoke"
+        dyn = dynamic_probe(_dotenv_parse_text(env_block), env_file)
+        result["dynamic_probe"] = dyn
+        if do_boot:
+            result["boot"] = boot_check(_dotenv_parse_text(env_block),
+                                        journey_j1=journey_j1)
     ops = dyn.get("operation") or {}
     parity_ok = (static["ok"] and sources["ok"]
                  and all(dyn.get("gates", {}).values())
@@ -557,6 +597,8 @@ def run(env_block: str, label: str, do_boot: bool,
                          f"_{uuid.uuid4().hex[:6]}.json")
     out.write_text(json.dumps(result, indent=2, default=str))
     print(f"results: {out}")
+    if server is not None:
+        server.stop()
     return result
 
 
@@ -570,6 +612,11 @@ def main() -> int:
     ap.add_argument("--journey-j1", action="store_true",
                     help="with --boot: also run the J1 sign-in + workspace "
                          "assertions against the scratch world")
+    ap.add_argument("--pristine", action="store_true",
+                    help="run against a git-archive CODE EXPORT of the "
+                         "pinned revision with an ALLOWLISTED environment "
+                         "(no developer .env, no inherited shell vars) — "
+                         "pristine-install coverage, not checkout smoke")
     ap.add_argument("--label", default="current")
     args = ap.parse_args()
 
@@ -579,7 +626,8 @@ def main() -> int:
         block += ("\n# (simulated fix — appended by --fix-check)\n"
                   + "".join(f"{k}={v['value']}\n"
                             for k, v in REQUIRED_GATES.items()))
-    result = run(block, args.label, args.boot, journey_j1=args.journey_j1)
+    result = run(block, args.label, args.boot,
+                 journey_j1=args.journey_j1, pristine=args.pristine)
     if result["parity_ok"]:
         print(f"PARITY PASS ({args.label})")
         if "journey_j1_pass" in result:

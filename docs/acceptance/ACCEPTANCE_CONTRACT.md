@@ -84,13 +84,22 @@ source** (upload or file ingest), **one business-record connector**, and
 is not proof that its user workflow works. Extend the same contract to
 the advertised connector set only after the first wave holds.
 
-## Current status (2026-10-11, campaign open — first wave J1–J3)
+## Current status (2026-10-11, campaign round 3 — first wave J1–J3)
 
 | Journey | Status | Evidence |
 |---------|--------|----------|
-| J1 | **4/5 verified** — config parity (incl. lifecycle OPERATION: begin→settle→fresh-reload→idempotent replay), boot, sign-in, workspace creation; clean-state venv creation `untested` | `journey_matrix/parity_hardened2_*.json`, `browser_signed_in_*.json` (real-form login + auth cookie) |
-| J2 | **3/5 verified, 1 FAILING (root-caused), 1 blocked** — BYOK product path + restart persistence + local-provider registration pass; **real-reply FAILING**: the chat leg never sees workspace-scoped providers | `journey_matrix/j2_model_setup_*.json`; root cause in `journey_status.json` record `J2.real-reply` |
-| J3 | **3/3 verified** — upload, authorized read, cross-workspace denial (two isolation defects found and fixed en route) | `journey_matrix/j3_source_connection_*.json` (before/after runs) |
+| J1 | **4/5 verified, now on PRISTINE coverage** — gates effective + lifecycle operation + boot + sign-in + workspace all pass on a git-archive CODE EXPORT (no developer `.env`, data/, logs/ excluded by construction and asserted) with an ALLOWLISTED process environment; clean-state venv creation `untested` | `journey_matrix/parity_pristine_20261011_195843_037677.json` |
+| J2 | **3/5 verified, 1 FAILING (root-caused, handed to Agent 2), 1 blocked** — BYOK product path + restart persistence + local-provider registration pass (checkout smoke); **real-reply FAILING**: the chat leg never sees workspace/tenant-scoped providers | `journey_matrix/j2_model_setup_*.json`; root cause + bounded patch sketch in `journey_status.json` record `J2.real-reply` and the coordination log HANDOFF |
+| J3 | **3/3 verified, PRISTINE** — upload, authorized read, cross-workspace denial all pass on the code export | `journey_matrix/j3_source_connection_20261011_195910_2d0501.json` (pristine), `..._192442_*.json` (checkout smoke) |
+
+**Modes.** `configuration_parity_plus_public_api_smoke` = dirty-checkout
+boot (honest label: developer `.env` loads unconditionally). 
+`pristine_code_export` = app runs from a `git archive` export of the
+pinned revision with an allowlisted environment (PATH/HOME/locale/tmp +
+generated config + scratch overrides only). Only pristine runs may back
+pristine-install claims; smoke runs remain recorded as supporting
+evidence. J2's pristine rerun is ready (Ollama needs no credentials) and
+runs the moment the chat-leg repair lands.
 
 **Release gate** (`journey_contract.py --check --strict --release`): currently
 **FAILING — J2** is the bounded repair blocking the first-wave release.

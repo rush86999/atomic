@@ -52,8 +52,22 @@ def _search(base: str, token: str, q: str) -> dict:
 
 
 def main() -> int:
-    server = JR.ScratchServer("j3_source_connection")
-    ev: dict = {"journey": "J3", "mode": JR.BOOT_MODE,
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--pristine", action="store_true",
+                    help="run against a git-archive CODE EXPORT with an "
+                         "ALLOWLISTED environment (pristine-install "
+                         "coverage, not checkout smoke)")
+    args = ap.parse_args()
+
+    kwargs = {}
+    mode = JR.BOOT_MODE
+    if args.pristine:
+        export = JR.materialize_code_export()
+        kwargs = {"allowlisted": True, "code_export": export}
+        mode = "pristine_code_export"
+    server = JR.ScratchServer("j3_source_connection", **kwargs)
+    ev: dict = {"journey": "J3", "mode": mode,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
     passed = False

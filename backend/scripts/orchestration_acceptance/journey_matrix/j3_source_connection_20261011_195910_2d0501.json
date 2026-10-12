@@ -1,0 +1,46 @@
+{
+  "journey": "J3",
+  "mode": "pristine_code_export",
+  "started_at": "2026-10-11T23:59:02+00:00",
+  "boot": {
+    "booted": true,
+    "seconds": 6.1,
+    "status": "healthy",
+    "pid": 38941,
+    "git_commit": "unknown"
+  },
+  "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j3_source_connection_rxvtrca3/run/atom.db",
+  "byok_vault_isolated": true,
+  "user_a": {
+    "workspace_id": "9187821c-bb99-418c-8132-a7209ed1f32b"
+  },
+  "upload": {
+    "http": 200,
+    "success": true,
+    "doc_id": null,
+    "raw_head": "{\"success\": true, \"data\": {\"file_name\": \"journey_probe_33ec5b.md\", \"size_bytes\": 199, \"extracted_chars\": 199}, \"timestamp\": \"2026-10-11T23:59:09.840953+00:00\", \"message\": \"Document uploaded and indexed successfully\"}"
+  },
+  "authorized_read": {
+    "http": 200,
+    "n_results": 1,
+    "marker_in_results": true,
+    "raw_head": "{\"query\": \"ACCEPTANCE-MARKER-84fd1f3e5733ec5b\", \"results\": [{\"id\": \"60302811-0ac5-45f7-8fb3-9aaf284f634f\", \"title\": \"journey_probe_33ec5b.md\", \"content_preview\": \"# Journey probe document\\n\\nACCEPTANCE-MARKER-84fd1f3e5733ec5b\\n\\nQuarterly revenue for the journ"
+  },
+  "user_b": {
+    "workspace_id": "223e3801-5349-4f2a-8104-190c45d7ce2c"
+  },
+  "isolation_check": {
+    "http": 200,
+    "n_results": 0,
+    "marker_in_results": false,
+    "raw_head": "{\"query\": \"ACCEPTANCE-MARKER-84fd1f3e5733ec5b\", \"results\": [], \"total_count\": 0, \"timestamp\": \"2026-10-11T19:59:10.283762\"}"
+  },
+  "workspaces_distinct": true,
+  "assertions": {
+    "J3.upload": true,
+    "J3.authorized-read": true,
+    "J3.isolation": true
+  },
+  "pass": true,
+  "uvicorn_log_tail": "INFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/documents/search\nINFO:core.lancedb_handler:Creating isolated LanceDBHandler for workspace: 223e3801-5349-4f2a-8104-190c45d7ce2c at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j3_source_connection_rxvtrca3/data/atom_memory/223e3801-5349-4f2a-8104-190c45d7ce2c\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5254619952. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j3_source_connection_rxvtrca3/data/atom_memory/223e3801-5349-4f2a-8104-190c45d7ce2c with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/documents/search -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}
