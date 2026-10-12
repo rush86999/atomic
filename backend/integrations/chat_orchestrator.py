@@ -6914,6 +6914,34 @@ class ChatOrchestrator:
             "metadata": {"platform": platform.value}
         }
 
+    def _request_llm_scope(self, user_id: Optional[str]) -> Dict[str, str]:
+        """The AUTHENTICATED request's LLM dispatch scope (J2 user-boundary,
+        2026-10-12): the reply must be generated with the workspace/tenant
+        the REQUEST's user actually belongs to — the providers THEY
+        configured through Settings serve their turns. The orchestrator is
+        a module-level singleton constructed with the default scope; a
+        per-request scope dict threaded to every dispatch call is the
+        explicit authenticated context (never a shared-handler mutation).
+        Fallback is the deliberate default scope (unresolvable user)."""
+        workspace_id, tenant_id = "default", "default"
+        try:
+            # DYNAMIC accessor: a module-import-time SessionLocal binding
+            # predates test/scratch repointing and would silently resolve
+            # the WRONG database (read defaults → dispatch on default).
+            from core.database import get_db_session
+
+            with get_db_session() as db:
+                from core.models import User
+
+                row = db.query(User).filter(User.id == user_id).first()
+                if row is not None:
+                    workspace_id = row.workspace_id or workspace_id
+                    tenant_id = row.tenant_id or tenant_id
+        except Exception as exc:  # noqa: BLE001 — scope resolution, not routing
+            logger.debug("request LLM scope resolution failed for %s: %s",
+                         user_id, exc)
+        return {"workspace_id": workspace_id, "tenant_id": tenant_id}
+
     async def process_chat_message(
         self,
         user_id: str,
@@ -14407,6 +14435,16 @@ class ChatOrchestrator:
         if not self.llm_service:
             return None
 
+        # THE REQUEST'S LLM DISPATCH SCOPE (J2 user-boundary,
+        # 2026-10-12): the authenticated user's own workspace/tenant,
+        # resolved once and threaded to EVERY dispatch below
+        # (**_llm_scope). The orchestrator singleton is default-scoped
+        # at import; serving the reply from that scope made the user's
+        # own registered provider invisible (pristine-J2 first-request
+        # failure: registered in their workspace, dispatched from
+        # "default").
+        _llm_scope = self._request_llm_scope(user_id)
+
         try:
             # Build messages from history
             _connected_line = "unknown"
@@ -19716,6 +19754,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     _reasoning_parts: List[str] = []
                     _reasoning_sink: Dict[str, Any] = {"deltas": _reasoning_parts}
                     _stream_agen = self.llm_service.stream_completion(
+    **_llm_scope,
                         messages=messages,
                         model=_s_model,
                         provider_id=_s_prov,
@@ -19914,7 +19953,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -19960,7 +19999,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20076,7 +20115,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=_retry_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **_retry_kwargs,
                                 )
                             )
@@ -20111,7 +20150,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20140,7 +20179,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20184,7 +20223,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20211,7 +20250,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20248,7 +20287,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20294,7 +20333,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )
@@ -20439,7 +20478,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             self.llm_service.generate_completion(
                                 messages=messages,
                                 model=_ns_model,
-                                tenant_id=self.tenant_id,
+                                **_llm_scope,
                                 **_ns_kwargs,
                             ),
                             timeout=_ns_left,
@@ -20512,7 +20551,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -20548,7 +20587,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -20624,7 +20663,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=_retry_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **_retry_kwargs,
                         )
                     )
@@ -20658,7 +20697,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -20692,7 +20731,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -20728,7 +20767,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -20774,7 +20813,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -20805,7 +20844,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 ),
                             }],
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -21225,7 +21264,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             self.llm_service.generate_completion(
                                 messages=messages,
                                 model=forced_model,
-                                tenant_id=self.tenant_id,
+                                **_llm_scope,
                                 **extra_kwargs,
                             )
                         )
@@ -21285,7 +21324,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         self.llm_service.generate_completion(
                             messages=messages,
                             model=forced_model,
-                            tenant_id=self.tenant_id,
+                            **_llm_scope,
                             **extra_kwargs,
                         )
                     )
@@ -21386,7 +21425,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 self.llm_service.generate_completion(
                                     messages=messages,
                                     model=forced_model,
-                                    tenant_id=self.tenant_id,
+                                    **_llm_scope,
                                     **extra_kwargs,
                                 )
                             )

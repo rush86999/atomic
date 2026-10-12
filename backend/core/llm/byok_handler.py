@@ -4055,6 +4055,12 @@ class BYOKHandler:
             # have just REPLACED the public cache dict — re-stamp this
             # workspace's registration routes so the candidate source
             # carries them for THIS ranking, whatever the refresh did.
+            # RE-LOAD before re-stamp (pristine-J2 user-boundary finding,
+            # 2026-10-12): a scoped handler built BEFORE the user
+            # registered their provider must still see it — registrations
+            # that happen after handler construction are picked up here,
+            # at the same boundary, for every ranking.
+            self._load_local_providers()
             self._stamp_local_routes_into_pricing_cache(fetcher)
             
             # Context window requirements

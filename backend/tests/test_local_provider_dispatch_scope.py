@@ -1019,3 +1019,122 @@ class TestScopeResolutionFailures:
                 f"when the pricing refresh replaced the public cache; "
                 f"got {str(out.get('content'))[:160]!r}")
             assert ep_a.hit_count == 1
+
+
+class TestChatPublicRouteScope:
+    """The PUBLIC-ROUTE user boundary (pristine-J2 first-request failure,
+    2026-10-12): the chat orchestrator singleton is constructed
+    default-scoped at import, and the reply dispatch rode that scope —
+    a fresh user's own registered provider was invisible ("No eligible
+    LLM providers found for your current plan") even though the rows
+    were durably theirs. The counted first authenticated chat message
+    must dispatch in the REQUEST's scope and reach the user's own
+    endpoint."""
+
+    def test_first_chat_message_dispatches_in_the_user_scope(
+            self, scoped_world, world_app):
+        import asyncio
+        import json
+        from contextlib import ExitStack
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import integrations.chat_orchestrator as co
+        from core.llm_service import LLMService
+        from core.chat_tool_planner import ToolPlan
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+
+            # THE PUBLIC-ROUTE SHAPE: a default-scoped orchestrator
+            # singleton with the default-scoped service — exactly what
+            # the module-level construction produces at import.
+            orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+            orch.tenant_id = "default"
+            orch._cancelled_sessions = set()
+            orch._budget_exceeded_runs = set()
+            orch.llm_service = LLMService(tenant_id="default")
+
+            session = {"id": "sess-scope", "history": []}
+
+            async def _plan_ce(*a, **k):
+                class _P:
+                    wants_edit = False
+                return _P()
+
+            no_tool_plan = ToolPlan(use_tool=False, service="datasets",
+                                    intent="search", query="unused",
+                                    reason="no tool for a plain reply")
+
+            with ExitStack() as st:
+                for cm in [
+                    patch.object(orch, "_get_or_create_session",
+                                 return_value=session),
+                    patch.object(orch, "_resolve_canvas_ctx",
+                                 new=AsyncMock(return_value=dict({
+                                     "canvas_id": "cv-scope",
+                                     "canvas_type": "email",
+                                     "title": "Scope",
+                                     "content": {"body": "<p>quote table</p>"}}))),
+                    patch.object(orch, "_start_chat_execution",
+                                 return_value="exec-scope"),
+                    patch.object(orch, "_record_chat_step", new=AsyncMock()),
+                    patch.object(orch, "_emit_agent_status",
+                                 new=AsyncMock()),
+                    patch.object(orch, "_update_session",
+                                 new=MagicMock()),
+                    patch.object(orch, "_finish_chat_execution",
+                                 new=MagicMock()),
+                    patch.object(orch, "_load_conversation_mail_handles",
+                                 return_value=([], [])),
+                    patch.object(orch, "_route_to_features",
+                                 new=AsyncMock(return_value={})),
+                    patch("core.chat_tool_planner.plan_tool_use",
+                          new=AsyncMock(return_value=no_tool_plan)),
+                    patch("core.chat_tool_planner.execute_tool_plan",
+                          new=AsyncMock(return_value="")),
+                    patch("core.memory_context_assembler.assembly_enabled",
+                          return_value=False),
+                    patch("core.chat_mini_app_authoring.try_handle",
+                          new=AsyncMock(return_value=None)),
+                    patch("core.chat_tool_planner._provenance_menu",
+                          new=AsyncMock(return_value="")),
+                    patch("integrations.chat_orchestrator."
+                          "_verbatim_mail_evidence",
+                          new=AsyncMock(return_value=[])),
+                    patch("integrations.chat_orchestrator._begin_task_edit",
+                          return_value={"status": "legacy"}),
+                    patch("core.chat_canvas_editor.plan_canvas_edit",
+                          new=AsyncMock(side_effect=_plan_ce)),
+                    patch("core.student_learning_service.get_agent_lessons",
+                          return_value=[]),
+                    patch("integrations.chat_orchestrator."
+                          "_task_lifecycle_for",
+                          return_value=None),
+                ]:
+                    st.enter_context(cm)
+                out = asyncio.run(orch.process_chat_message(
+                    ws_a["user_id"],
+                    "What are the approved prices and delivery times "
+                    "for rows 1 through 5 of the draft?",
+                    "sess-scope",
+                    context={"workspace_id": ws_a["workspace_id"],
+                             "canvas": dict({
+                                 "canvas_id": "cv-scope",
+                                 "canvas_type": "email",
+                                 "title": "Supplier quote",
+                                 "content": {"body":
+                                             "<p>quote table</p>"}}),
+                             "agent_id": "agent-scope"}))
+
+            # ONE counted USER request; internal same-request fallbacks
+            # (streaming attempt -> non-streaming) may add HTTP calls to
+            # the SAME endpoint — that is one user request served.
+            assert ep_a.hit_count >= 1, (
+                "the counted FIRST authenticated chat message must reach "
+                f"the user's own registered endpoint; got {ep_a.hit_count} "
+                f"calls; response={json.dumps(out, default=str)[:300]}")
+            assert out.get("message") == "pong-A", (
+                "the reply must come from the user's own provider: "
+                f"{json.dumps(out, default=str)[:300]}")
