@@ -1000,33 +1000,10 @@ class TestStockSuccessorSelection:
 
         # THE CONTINUATION: a bare 'continue' through the REAL turn
         # with the planner AUTHORIZED for the zoho inventory action —
-        # the external response is the controlled receipt
-        plan = ToolPlan(use_tool=True, service="zoho", intent="search",
-                        query=("Tennsmith Slitter SLE24-16 availability "
-                               "in Zoho inventory"),
-                        reason="the ledger's stock obligation")
-        zoho_receipt = {"success": True,
-                        "items": [{"sku": "SLE24-16",
-                                   "availability": "In Stock",
-                                   "warehouse": "Woodstock"}]}
-        async def _exec_tp(*a, **k):
-            plan._result_meta["zoho_inventory"] = zoho_receipt
-            return "ZOHO INVENTORY: " + json.dumps(
-                zoho_receipt.get("items") or [])
-
-        session = {"id": "sess-e2e", "history": []}
-        edit_calls = {"n": 0}
-
-        async def _plan_ce(*a, **k):
-            edit_calls["n"] += 1
-
-            class _P:
-                wants_edit = False
-            return _P()
-
-        # the bare 'continue' on the owning session (the REAL
-        # process_chat_message; planner authorized for zoho)
-        out = _continue_turn_on(orch, "sess-e2e")
+        # the controlled receipt rides the harness executor in
+        # _continue_turn_on (the ledger-selected plan is executed with
+        # its own controlled external response)
+        out = _continue_turn_on(orch, "sess-e2e", lifecycle=tl)
 
         # the SAME job: the stock question's settlement is on ITS
         # record — the RECEIPT PAYLOAD (Woodstock/items) must be in the
@@ -1038,6 +1015,35 @@ class TestStockSuccessorSelection:
         assert "inventory_receipt" in durable, (
             "the settle's inventory_receipt fact is on the record")
         post_ops = len(post.get("operations") or [])
+
+        # ATTRIBUTION (assignment 2026-10-12): the receipt lives on an
+        # operation of THE ORIGINAL JOB, and that operation is the
+        # stock obligation's lookup — never an unlinked record the
+        # assertion merely found somewhere in the store.
+        receipt_ops = [
+            o for o in post.get("operations") or []
+            if "Woodstock" in json.dumps(
+                (o.get("execution") or {}), default=str)]
+        assert receipt_ops, (
+            "the receipt-carrying operation is on the seeded job's own "
+            "operation list")
+        assert any(
+            "zoho" in str(o.get("requested_change") or "").lower()
+            for o in receipt_ops), (
+            "the receipt's operation is the stock lookup itself "
+            f"(requested_change names it): "
+            f"{[o.get('requested_change') for o in receipt_ops]}")
+        # the typed availability finding is bound to the stock
+        # obligation's subject (SLE24-16 within 'Tennsmith Slitter
+        # SLE24-16') — a receipt, an operation, one attributable
+        # subject
+        assert any(
+            "sle24-16" in json.dumps(
+                (o.get("execution") or {}).get("findings") or [],
+                default=str).lower()
+            for o in receipt_ops), (
+                "the typed availability finding carries the stock "
+                "obligation's subject")
 
 
     def test_availability_read_does_not_certify_the_stock_field(self):
@@ -1195,6 +1201,52 @@ class TestStockExecutionProductionPath:
         o, structured = receipt_ops[0]
         inv = structured.get("zoho_inventory") or {}
         assert inv.get("items"), "the receipt's items are on the record"
+        # ATTRIBUTION (assignment 2026-10-12): the receipt's operation
+        # IS the stock lookup — the planned zoho search the settle
+        # began and settled — with the bounded receipt stating what the
+        # source returned (truncation recorded, never silent).
+        assert "zoho" in str(o.get("requested_change") or "").lower(), (
+            "the receipt's operation is the planned stock lookup: "
+            f"{o.get('requested_change')!r}")
+        stored_receipt = (o.get("execution") or {}).get(
+            "inventory_receipt") or {}
+        assert stored_receipt.get("truncated") is False, (
+            "the bounded receipt states its coverage honestly")
+        assert stored_receipt.get("received_count") == len(inv.get("items")), (
+            "the record states how many items the source returned")
+
+    def test_bounded_receipt_records_truncation_and_never_claims_coverage(
+            self):
+        """The eight-item receipt cap (assignment 2026-10-12): a receipt
+        larger than the cap is stored BOUNDED with the omission
+        recorded — and a requested item living beyond the cap is never
+        settled as evidence: the stock question stays open."""
+        result, tl = self._run_zoho_turn({
+            "success": True,
+            "items": ([{"sku": "SLE24-16", "availability": "In Stock",
+                        "warehouse": "Woodstock"}]
+                      + [{"sku": f"FILLER-{i:02d}",
+                          "availability": "In Stock",
+                          "warehouse": "Woodstock"} for i in range(9)]),
+        })
+        bounded = []
+        for run in tl.runs.list_runs(include_terminal=True, limit=20):
+            for o in tl.get_task(run["id"]).get("operations") or []:
+                stored = ((o.get("execution") or {}).get(
+                    "inventory_receipt") or {})
+                if stored.get("items"):
+                    bounded.append(stored)
+        assert bounded, "the receipt settled"
+        stored = bounded[0]
+        assert len(stored["items"]) == 8, "the cap holds"
+        assert stored["truncated"] is True, (
+            "the truncation is on the record, never silent")
+        assert stored["received_count"] == 10, (
+            "the record states how many items the source returned")
+        # the beyond-cap items are NOT evidence: the settle's typed
+        # findings never claim coverage the bounded receipt does not
+        # carry — the requested subject's question (had one been open)
+        # stays open by the recorded omission, not by a claim.
 
 
 class TestSameJobContinuation:

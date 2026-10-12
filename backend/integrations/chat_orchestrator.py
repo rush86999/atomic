@@ -2750,7 +2750,15 @@ def _search_execution_receipt(
     # pipeline as search threads and structured results, so the stock
     # obligation's settlement carries the ACTUAL inventory data (not a
     # search_returned_no_receipt that discards it).
+    # PAYLOAD SHAPE NORMALIZATION (snapshot trace 2026-10-12: the
+    # executor stamps the receipt as the items LIST — replay identity
+    # 38b0895416e0 entered this converter and left as {}): the
+    # canonical shape here is a DICT; a bare list is the items payload.
     inventory = meta.get("zoho_inventory") or {}
+    if isinstance(inventory, list):
+        inventory = {"items": inventory}
+    elif not isinstance(inventory, dict):
+        inventory = {}
     inventory_error = meta.get("zoho_error") or ""
     threads = meta.get("searched_threads") or []
     observations = meta.get("source_observations") or []
@@ -2791,6 +2799,12 @@ def _search_execution_receipt(
     dispatched = returned_text or bool(threads) or bool(structured) \
         or bool(ds)
     ds_hits = int(ds.get("hits") or 0) if isinstance(ds, dict) else 0
+    # AN ACCESS/EXECUTION ERROR IS NOT RETRIEVAL (snapshot trace
+    # 2026-10-12): the error marker must be ON the settled record, but
+    # it must never count as row evidence or as an executed search — a
+    # denied lookup is neither a receipt nor a bounded absence.
+    _evidence_structured = {
+        k: v for k, v in structured.items() if k != "zoho_inventory_error"}
     # COVERAGE IS NOT RETRIEVAL (2026-10-11, the live T1 boundary): a
     # coverage-only trace names the documents carrying each item but
     # reads no rows — it is a LEAD (it creates pending-read actions
@@ -2800,8 +2814,8 @@ def _search_execution_receipt(
     # round-34 rule the coverage shortcut overrode: success requires a
     # structured retrieval receipt, and the consultation credit below
     # follows the same flag.
-    row_evidence = bool(threads or observations or reads or structured
-                        or ds_hits or inventory)
+    row_evidence = bool(threads or observations or reads
+                        or _evidence_structured or ds_hits or inventory)
     retrieved = row_evidence and not prose_only
     # BOUNDED ABSENCE (reviewer, round 35/36): a search that provably
     # EXECUTED over its store with a receipt and zero usable hits is a
@@ -2812,7 +2826,7 @@ def _search_execution_receipt(
     # that located documents leaves leads OPEN (its pending reads), it
     # never establishes that the rows are absent.
     executed_search = ("searched_threads" in meta) or bool(observations) \
-        or bool(reads) or bool(structured) or (
+        or bool(reads) or bool(_evidence_structured) or (
             isinstance(ds, dict) and bool(ds.get("files_searched"))) \
         or ("value_trace" in meta)
     bounded_absence = bool(executed_search and not retrieved
@@ -2828,6 +2842,12 @@ def _search_execution_receipt(
         "dispatched": dispatched,
         "retrieved": retrieved,
         "bounded_absence": bounded_absence,
+        # TOP-LEVEL RECEIPT KEYS (snapshot trace 2026-10-12): the settle
+        # arm reads the inventory payload and its access error HERE —
+        # nesting them only under receipt{} left every read empty (the
+        # settle stamped inventory_receipt=null on a search_succeeded).
+        "zoho_inventory": inventory if isinstance(inventory, dict) else {},
+        "zoho_inventory_error": (inventory_error or None),
         "receipt": {
             "structured_keys": sorted(structured),
             "searched_threads": len(threads),
@@ -16452,12 +16472,85 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 if _ms_receipt.get("zoho_inventory"):
                                     _ms_execution["inventory_receipt"] = (
                                         _ms_receipt["zoho_inventory"])
+                                # THE STRUCTURED RECORD RIDES THE DURABLE
+                                # FACTS (snapshot trace 2026-10-12): the
+                                # settle's payload (workbook_read /
+                                # inventory receipt) attaches to the op —
+                                # fresh-reload evidence reconstruction reads
+                                # the operation record, never the transient
+                                # plan meta. The inventory payload rides
+                                # under its OWN source key, so the record
+                                # states WHERE each payload came from.
+                                if _ms_receipt.get("zoho_inventory"):
+                                    _structured_view = dict(
+                                        _ms_execution.get("structured")
+                                        or {})
+                                    _structured_view.setdefault(
+                                        "zoho_inventory",
+                                        _ms_receipt["zoho_inventory"])
+                                    _ms_execution["structured"] = (
+                                        _structured_view)
+                                elif isinstance(_ms_structured, dict) and \
+                                        _ms_structured:
+                                    _ms_execution["structured"] = (
+                                        _ms_structured)
                                 if _ms_receipt.get(
                                         "zoho_inventory_error"):
                                     _ms_execution["failure_stage"] = (
                                         "zoho_inventory: "
                                         + _ms_receipt[
                                             "zoho_inventory_error"])[:120]
+                                    # STOCK UNRESOLVED (assignment
+                                    # 2026-10-12): a blocked lookup
+                                    # persists its actual failure stage
+                                    # AND leaves the verification open —
+                                    # the job's tasked subjects carry an
+                                    # explicit successor question naming
+                                    # why the taught-source lookup did
+                                    # not complete (never a silent
+                                    # drop, never a fabricated
+                                    # resolution).
+                                    _err_text = str(
+                                        _ms_receipt[
+                                            "zoho_inventory_error"])[:200]
+                                    _stock_subjects = [
+                                        str(e) for e in
+                                        (((_ms_tl.get_task(
+                                            _ms_tl_begin[0]) or {}).get(
+                                                "task_revision") or {}).get(
+                                                    "entities") or [])
+                                    ][:8]
+                                    _zoho_error_questions = [
+                                        {
+                                            "item": _subj,
+                                            "kind": "verification",
+                                            "question": (
+                                                f"{_subj}: verify "
+                                                f"availability against the "
+                                                f"taught inventory source "
+                                                f"— the lookup failed "
+                                                f"({_err_text})"),
+                                            "evidence": (
+                                                f"planned {_planned}; "
+                                                f"{_err_text}"),
+                                            "next_action": (
+                                                f"re-run {_subj} "
+                                                f"availability verification "
+                                                f"in the taught inventory "
+                                                f"source (Zoho inventory)"),
+                                            "inputs": {
+                                                "intent": "inventory_check",
+                                                "item": _subj,
+                                                "field": "delivery",
+                                                "failure_stage": _err_text,
+                                                "provenance": {
+                                                    "source": "execution"},
+                                            },
+                                        }
+                                        for _subj in _stock_subjects
+                                        if _subj.strip()]
+                                else:
+                                    _zoho_error_questions = []
                                 # TYPED AVAILABILITY FINDINGS (owner
                                 # correction 2026-10-11): an EXPLICIT
                                 # matching availability result settles the
@@ -16475,6 +16568,24 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                      or {}).get("items") or [])
                                 _observed_at = time.strftime(
                                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                                # THE OBLIGATION'S SUBJECT (assignment
+                                # 2026-10-12): a pure inventory settle has
+                                # no workbook targets — the subjects the
+                                # receipt may settle are the job's OWN
+                                # open stock obligations (intent
+                                # inventory_check). An unrelated SKU is
+                                # still a search result, never evidence.
+                                _stock_question_items = [
+                                    str(((q.get("inputs") or {})
+                                         .get("item")) or q.get("item")
+                                        or "")
+                                    for q in (((_ms_tl.get_task(
+                                        _ms_tl_begin[0]) or {}).get(
+                                            "task_revision") or {}).get(
+                                                "unresolved") or [])
+                                    if ((q.get("inputs") or {})
+                                        .get("intent")
+                                        == "inventory_check")]
                                 for _it in _inv_items[:8]:
                                     _sku = str((_it or {}).get("sku")
                                                or "").strip()
@@ -16482,11 +16593,14 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         "availability") or "").strip()
                                     if not _sku or not _avail:
                                         continue
+                                    _subjects_seen = list(
+                                        _ms_execution.get("items")
+                                        or {}) + _stock_question_items
                                     _matched_subject = any(
                                         _sku.lower() in str(_t).lower()
-                                        for _t in (
-                                            _ms_execution.get("items")
-                                            or {}))
+                                        or str(_t).lower() in _sku.lower()
+                                        for _t in _subjects_seen
+                                        if str(_t).strip())
                                     if not _matched_subject:
                                         continue  # unrelated SKU: a
                                         # search result, not evidence
@@ -16551,12 +16665,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     # coverage must create the per-item
                                     # read actions, not just the chain's.
                                     extra_questions=(
-                                        _value_trace_pending_reads(
+                                        list(_value_trace_pending_reads(
                                             _ms_receipt,
                                             requested_fields=list(
                                                 (shared_tool_state or {}).get(
                                                     "ask_requested_fields")
-                                                or []))))
+                                                or [])))
+                                        + list(_zoho_error_questions)))
                                 if isinstance(session, dict):
                                     session["_last_open_work"] = _ms_open
                             except Exception as _ms_settle_err:  # noqa: BLE001

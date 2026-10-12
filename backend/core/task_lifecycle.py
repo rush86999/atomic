@@ -267,21 +267,24 @@ def _json_safe(value: Any, *, depth: int = 0) -> Any:
     return str(value)[:200]
 
 
-def _bounded_nested(value: Any, *, depth: int = 0) -> Any:
+def _bounded_nested(value: Any, *, depth: int = 0,
+                    max_depth: int = 3) -> Any:
     """Bound a nested diagnostic payload without minting a log dump.
 
     Lists keep at most 12 entries, dicts at most 20 keys, strings 200
-    chars, and nesting stops at depth 3. Anything cut is cut — this
+    chars, and nesting stops at ``max_depth``. Anything cut is cut — this
     helper does not try to summarize, because a summary would be a
     claim the record cannot support."""
-    if depth > 3:
+    if depth > max_depth:
         return "…"
     if isinstance(value, dict):
         return {
-            str(k)[:40]: _bounded_nested(v, depth=depth + 1)
+            str(k)[:40]: _bounded_nested(v, depth=depth + 1,
+                                         max_depth=max_depth)
             for k, v in list(value.items())[:20]}
     if isinstance(value, (list, tuple)):
-        return [_bounded_nested(v, depth=depth + 1) for v in list(value)[:12]]
+        return [_bounded_nested(v, depth=depth + 1, max_depth=max_depth)
+                for v in list(value)[:12]]
     if isinstance(value, str):
         return value[:200]
     if value is None or isinstance(value, (int, float, bool)):
@@ -787,6 +790,42 @@ def normalize_execution_facts(raw: Any) -> Dict[str, Any]:
                 executor[key] = _bounded_nested(v)
             else:
                 executor[key] = str(v)[:200] if v is not None else None
+    # INVENTORY RECEIPT (owner correction 2026-10-11): an authorized
+    # inventory lookup's raw receipt — the stock obligation's
+    # settlement evidence. Bounded: items capped, string fields
+    # capped. A receipt hash identifies the captured payload; it
+    # does NOT prove the inventory remained unchanged (no
+    # workbook-style source_version is manufactured).
+    # TRUNCATION IS RECORDED (assignment 2026-10-12): a bounded
+    # receipt must never masquerade as complete inventory coverage —
+    # the record states how many items the source returned and that
+    # items beyond the cap are omitted (they are never settled as
+    # findings; the stock question stays open instead of claiming
+    # coverage).
+    _inv_raw = raw.get("inventory_receipt")
+    _inv_items_in = ((_inv_raw or {}).get("items") or []
+                     if isinstance(_inv_raw, dict) else [])
+    _inventory_receipt = (
+        {"items": [
+            {k: (str(v)[:80] if v is not None else None)
+             for k, v in (_it or {}).items() if k in
+             ("sku", "item", "availability", "warehouse",
+              "quantity", "record_id", "updated_at")}
+            for _it in _inv_items_in[:8]],
+         "received_count": len(_inv_items_in),
+         "truncated": len(_inv_items_in) > 8}
+        if isinstance(_inv_raw, dict) else None)
+    # STRUCTURED RECORD passthrough (assignment 2026-10-12): the
+    # settle arm's structured retrieval record (workbook_read /
+    # zoho_inventory payloads) rides on the operation's execution
+    # facts, bounded — evidence reconstruction after a fresh reload
+    # reads THIS, not the transient plan meta. max_depth=4: the
+    # receipt's own item fields (structured → source key → items →
+    # item → field) must survive bounding, or the record would state
+    # "…" where the receipt data belongs.
+    _structured_raw = raw.get("structured")
+    _structured_facts = (_bounded_nested(_structured_raw, max_depth=4)
+                         if isinstance(_structured_raw, dict) else None)
     return {
         "invoked": invoked,
         "outcome": outcome,
@@ -800,23 +839,10 @@ def normalize_execution_facts(raw: Any) -> Dict[str, Any]:
         # ingested copy today does not make its contents current.
         "source_version": (str(raw.get("source_version"))[:80]
                            if raw.get("source_version") else None),
-        # INVENTORY RECEIPT (owner correction 2026-10-11): an authorized
-        # inventory lookup's raw receipt — the stock obligation's
-        # settlement evidence. Bounded: items capped, string fields
-        # capped. A receipt hash identifies the captured payload; it
-        # does NOT prove the inventory remained unchanged (no
-        # workbook-style source_version is manufactured).
-        "inventory_receipt": (
-            {"items": [
-                {k: (str(v)[:80] if v is not None else None)
-                 for k, v in (_it or {}).items() if k in
-                 ("sku", "item", "availability", "warehouse",
-                  "quantity", "record_id", "updated_at")}
-                for _it in (raw.get("inventory_receipt") or {}).get(
-                    "items") or []][:8]}
-            if isinstance(raw.get("inventory_receipt"), dict) else None),
+        "inventory_receipt": _inventory_receipt,
         "inventory_error": (str(raw.get("inventory_error"))[:200]
                             if raw.get("inventory_error") else None),
+        "structured": _structured_facts,
         "items": items,
         "planning": planning,
         "raw_outcome": raw_outcome,
