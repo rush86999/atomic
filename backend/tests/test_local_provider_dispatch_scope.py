@@ -2030,6 +2030,9 @@ class TestSearchOutcomeFinalization:
             f"{meta!r}")
         assert meta.get("session_id") == "sess-neg", (
             f"original session_id must survive: {meta!r}")
+        assert "task_outcome" in meta, (
+            "the finalizer must have written task_outcome to the durable "
+            f"row; keys: {sorted(meta.keys())}")
         oc = meta.get("task_outcome") or {}
         assert oc.get("objective_met") is not True, (
             "a STALE receipt (keyed to another execution) must never "
@@ -2072,6 +2075,9 @@ class TestSearchOutcomeFinalization:
         assert meta.get("pre_existing_note") == "here-before-finalization", (
             f"original metadata must survive the finalization write: "
             f"{meta!r}")
+        assert "task_outcome" in meta, (
+            "the finalizer must have written task_outcome to the durable "
+            f"row; keys: {sorted(meta.keys())}")
         oc = meta.get("task_outcome") or {}
         assert oc.get("objective_met") is not True, (
             "an UNVERIFIED receipt must never certify objective_met=True")
