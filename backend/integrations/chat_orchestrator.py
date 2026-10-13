@@ -5099,6 +5099,24 @@ def _fallback_turn_outcome(
                 f"_planner_tool_receipts_{execution_id}")
             if _receipts_carry_verified_complete_search(_planner_rows):
                 validated = True
+        # INCOMPLETE CALCULATION (owner R3b): a calculate op that resolved
+        # to waiting/incomplete delivered a clarification naming the
+        # pending input — this validates the DELIVERY (not the
+        # computation), producing a partial outcome with the obligation
+        # named. Never a fabricated computation, never unconfirmed.
+        _incomplete_calc = any(
+            isinstance(op, dict)
+            and isinstance(op.get("calculation"), dict)
+            and op["calculation"].get("status") == "incomplete"
+            for op in this_ops
+        )
+        _pending_calc_delivery = False
+        if _incomplete_calc and not validated:
+            validated = True  # the clarification is the delivery
+            _pending_calc_delivery = True
+        # And the state must be partial (not unconfirmed) when the
+        # calculation is pending but the clarification was delivered.
+        _pending_calc_delivery = _incomplete_calc
         # The session's delivered-result carrier, bound to THIS
         # execution when it carries one: the recorded "results actually
         # included in this answer" (owner step 1). A carrier bound to
@@ -5291,6 +5309,11 @@ def _fallback_turn_outcome(
         # Map to the state.
         if recorded_failure:
             state["state"] = "failed"
+        elif _pending_calc_delivery and not _ops_carry_values(this_ops):
+            # The clarification named the missing input — a delivered
+            # partial outcome with the obligation open, never an error.
+            state["state"] = "partial"
+            state["open_work"] = state.get("open_work", [])[:2]
         elif continuation and not validated:
             state["state"] = "continuation_queued"
         elif validated and open_work and not labelled_decisions:
@@ -6965,6 +6988,67 @@ class ChatOrchestrator:
                         dict(r) for r in _planner_rows if isinstance(r, dict)]
             except Exception:  # noqa: BLE001 — receipts never gate
                 pass
+            # CALCULATION EVIDENCE (owner directive R3): a calculate op
+            # bound to THIS execution is calculation evidence — the
+            # generic tool_outcomes builder must not label it as a
+            # failed datasets search. Read the actual, execution-linked
+            # calculation record from the task lifecycle.
+            _calc_evidence = []
+            try:
+                _run_id = (session or {}).get("_task_run_id") if isinstance(
+                    session, dict) else None
+                if _run_id and _task_lifecycle_for is not None:
+                    _tl = _task_lifecycle_for(
+                        getattr(self, "tenant_id", None) if hasattr(
+                            self, "tenant_id") else None,
+                        (session or {}).get("workspace_id"))
+                    if _tl is not None:
+                        _rec = _tl.get_task(_run_id)
+                        for _op in (_rec or {}).get("operations") or []:
+                            if str(_op.get("execution_id") or "") != str(
+                                    execution_id or ""):
+                                continue
+                            _calc = _op.get("calculation") or {}
+                            if not isinstance(_calc, dict):
+                                continue
+                            if _calc.get("status") == "succeeded" and (
+                                    _calc.get("proposed") or {}).get(
+                                        "amount") is not None:
+                                _calc_evidence.append({
+                                    "tool": "expression_engine",
+                                    "verified": True,
+                                    "outcome": (
+                                        f"computed "
+                                        f"{_calc.get('proposed', {}).get('amount')}"),
+                                    "required": True,
+                                    "evidence_refs": [{
+                                        "kind": "calculation",
+                                        "policy_id": _calc.get(
+                                            "policy_id") or "",
+                                        "result_id": _op.get(
+                                            "operation_id") or "",
+                                    }],
+                                })
+                            elif _calc.get("status") == "incomplete":
+                                _calc_evidence.append({
+                                    "tool": "expression_engine",
+                                    "verified": False,
+                                    "outcome": (
+                                        f"incomplete: "
+                                        f"{_calc.get('missing_dependency') or 'unknown'}"),
+                                    "required": True,
+                                    "evidence_refs": [],
+                                })
+            except Exception:  # noqa: BLE001 — evidence is additive
+                _calc_evidence = []
+            if _calc_evidence:
+                # Prevent the generic receipt builder from labeling an
+                # executed calculation `not_executed` (owner R3).
+                tool_outcomes = [
+                    t for t in tool_outcomes
+                    if not (t.get("tool") == "datasets"
+                            and t.get("outcome") == "not_executed")]
+                tool_outcomes = list(tool_outcomes) + _calc_evidence
             objective_met = None
             if status in {"failed", "cancelled"} or response.get("success") is False:
                 objective_met = False
@@ -6988,6 +7072,16 @@ class ChatOrchestrator:
                 and _receipts_carry_verified_complete_search(
                     session.get(f"_planner_tool_receipts_{execution_id}")
                     if isinstance(session, dict) else None)
+            ):
+                objective_met = True
+            elif (
+                # CALCULATION COMPLETION (owner R3): a succeeded
+                # calculation with recorded inputs and result, on this
+                # execution, with the delivered reply agreeing, is a
+                # completed calculation — not a failed search.
+                _calc_evidence
+                and any(e.get("verified") is True for e in _calc_evidence)
+                and delivered
             ):
                 objective_met = True
             elif comparison_complete and delivered:
