@@ -2575,19 +2575,42 @@ async def calculate_expression_from_query(
     if m is None:
         return None
     expr = (m.group("expr") or "").strip()
-    inputs: Dict[str, str] = {}
+    # COLLECT ALL ASSIGNMENTS (owner directive: conflicting values must
+    # produce a durable clarification or explicitly authorized resolution
+    # — never a silent last-wins). Each key accumulates every value it
+    # was assigned; identical duplicates normalize, conflicts are
+    # surfaced to the caller and persisted.
+    assignments: Dict[str, List[str]] = {}
     units: Dict[str, str] = {}
     for tok in (m.group("rest") or "").split():
         if "=" not in tok:
             continue
         k, v = tok.split("=", 1)
         k = k.strip()
+        v = v.strip()
         if k.endswith("_unit"):
-            units[k[:-5]] = v.strip()
+            units[k[:-5]] = v
         else:
-            inputs[k] = v.strip()
+            assignments.setdefault(k, []).append(v)
+    # Resolve: identical duplicates normalize; conflicts are recorded.
+    inputs: Dict[str, str] = {}
+    input_conflicts: Dict[str, List[str]] = {}
+    for k, vals in assignments.items():
+        unique = list(dict.fromkeys(vals))
+        if len(unique) == 1:
+            inputs[k] = unique[0]
+        else:
+            input_conflicts[k] = vals
+            inputs[k] = unique[-1]  # the engine still needs a value
     calc = evaluate_expression(expr, inputs, units=units)
+    # Carry conflicts into the durable record via inputs_snapshot so
+    # they survive settlement and reload.
     lines = [f"**{expr} — formula engine result**"]
+    for k, vals in input_conflicts.items():
+        lines.append(
+            f"- ⚠ CONFLICT: {k} was assigned multiple values "
+            f"({' vs '.join(vals)}); the LAST value ({inputs[k]}) was "
+            f"used. Clarify which value is correct.")
     if calc.status == "computed":
         lines.append(f"- Value (computed): {calc.value}")
     elif calc.status == "incomplete":
@@ -2627,6 +2650,9 @@ async def calculate_expression_from_query(
             "basis": "explicitly provided expression, evaluated by the "
                      "general formula engine (core.formula_engine)",
             "inputs": {d.cell: d.value for d in named},
+            # CONFLICT SURVIVES SETTLEMENT (owner directive)
+            **({"_input_conflicts": input_conflicts}
+               if input_conflicts else {}),
         })
     _recorded = _record_on_job(conversation_id, workspace_id, expr[:60],
                                result, canvas_id=canvas_id,
