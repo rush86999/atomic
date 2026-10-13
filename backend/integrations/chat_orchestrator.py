@@ -12269,6 +12269,16 @@ class ChatOrchestrator:
                             "(%.0fs) — enforced, honest timeout returned",
                             _reply_leg_budget or -1)
                         ai_response = _turn_budget_error_response()
+                        # THE CONSUMER RENDERS THIS (13181+):
+                        # stamping the execution id routes the
+                        # turn through the budget-halted outcome
+                        # (error_code=turn_budget_exceeded,
+                        # success=False) — the assigned envelope
+                        # alone was silently discarded by the
+                        # response composition (round-7 probe).
+                        if _execution_id:
+                            self._budget_exceeded_runs.add(
+                                _execution_id)
                 else:
                     ai_response = await _reply_leg()
                 # NOT-FOUND GUARANTEE (2026-10-01 three-domain live
