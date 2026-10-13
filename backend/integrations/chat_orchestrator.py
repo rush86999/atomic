@@ -2954,6 +2954,21 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
             "required": True,
             "evidence_refs": [{
                 "kind": "documents",
+                # STRUCTURED SEARCH SCOPE (owner directive: preserve
+                # receipt scope through normalization — the settled row
+                # used to reduce to {"kind": "documents"}). Bounded by
+                # _copy_ref at settlement; truncated/degraded searches
+                # stamp degraded coverage so they can never certify a
+                # complete absence.
+                "query": str(docs.get("query") or "")[:200],
+                "match_count": int(docs.get("match_count") or 0),
+                "coverage": (
+                    "degraded" if (docs.get("degraded")
+                                   or docs.get("truncated"))
+                    else "complete"),
+                "truncated": bool(docs.get("truncated")),
+                "paths": [str(p)[:200]
+                          for p in (docs.get("paths") or [])[:10]],
                 "action": docs.get("action") or "search",
                 "query": docs.get("query") or "",
                 "paths": list(docs.get("paths") or []),
@@ -4824,6 +4839,110 @@ def _operation_has_values(op: Dict[str, Any]) -> bool:
     return False
 
 
+def _execution_verified_complete_search(execution_id: Any) -> bool:
+    """THE AUTHORITY for the scoped-absence outcome (owner contract B):
+    the AgentExecution row bound to THIS execution id carries
+    task_outcome.tool_outcomes; a verified receipt whose coverage is
+    complete (match_count stated, zero included) certifies a COMPLETED
+    bounded search with scoped absence. Unverified/partial/degraded
+    receipts and unknown-count receipts never validate. Identity-bound:
+    a receipt from an earlier execution cannot license this request."""
+    if not execution_id:
+        return False
+    try:
+        from core.database import get_db_session
+        from core.models import AgentExecution
+
+        with get_db_session() as db:
+            row = (db.query(AgentExecution)
+                   .filter(AgentExecution.id == str(execution_id))
+                   .first())
+        meta = (row.metadata_json if row is not None else None)
+        if isinstance(meta, str):
+            import json as _json
+
+            try:
+                meta = _json.loads(meta or "{}")
+            except Exception:  # noqa: BLE001
+                meta = {}
+        outcome = (meta or {}).get("task_outcome") if isinstance(
+            meta, dict) else None
+        receipts = (outcome or {}).get("tool_outcomes") if isinstance(
+            outcome, dict) else None
+        if not isinstance(receipts, list):
+            return False
+        for receipt in receipts:
+            if not isinstance(receipt, dict):
+                continue
+            if receipt.get("verified") is not True:
+                continue
+            # scope lives in the evidence refs (the producer stamps it
+            # there; settlement's _copy_ref preserves it)
+            for ref in receipt.get("evidence_refs") or []:
+                if not isinstance(ref, dict):
+                    continue
+                coverage = ref.get("coverage")
+                if coverage in (None, "", "partial", "degraded",
+                                "incomplete"):
+                    continue
+                if not isinstance(ref.get("match_count"), int) or \
+                        isinstance(ref.get("match_count"), bool):
+                    continue
+                return True
+    except Exception as exc:  # noqa: BLE001 — outcome probe, not routing
+        logger.debug(
+            "[outcome] complete-search read for %s failed: %r",
+            execution_id, exc)
+    return False
+
+
+def _operation_carries_verified_complete_search(op: Dict[str, Any]) -> bool:
+    """Does this operation carry a VERIFIED, COMPLETE search execution?
+
+    Owner outcome contract B (2026-10-13): executed + complete + zero
+    matches = completed search with scoped absence — delivered truth,
+    never an unknown. The receipt must be verified (not merely stamped)
+    and its coverage must be complete; truncated/degraded searches stay
+    partial or unresolved per the existing contract. Unverified or
+    partial receipts never validate.
+    """
+    execr = op.get("execution")
+    if not isinstance(execr, dict):
+        return False
+    outcomes = (
+        ((execr.get("task_outcome") or {}).get("tool_outcomes"))
+        if isinstance(execr.get("task_outcome"), dict) else None)
+    if not isinstance(outcomes, list):
+        return False
+    for receipt in outcomes:
+        if not isinstance(receipt, dict):
+            continue
+        if receipt.get("verified") is not True:
+            continue
+        # SCOPE LIVES IN THE EVIDENCE REFS (the producer stamps
+        # query/match_count/coverage there; settlement's _copy_ref
+        # preserves them). A receipt with no scoped ref cannot certify
+        # a complete search.
+        for ref in receipt.get("evidence_refs") or []:
+            if not isinstance(ref, dict):
+                continue
+            coverage = ref.get("coverage")
+            if coverage in (None, "", "partial", "degraded",
+                            "incomplete"):
+                continue
+            if not isinstance(ref.get("match_count"), int) or \
+                    isinstance(ref.get("match_count"), bool):
+                continue
+            return True
+        # top-level scope (legacy producers) still counts
+        coverage = receipt.get("coverage")
+        if coverage not in (None, "", "partial", "degraded",
+                            "incomplete") and isinstance(
+                                receipt.get("match_count"), int):
+            return True
+    return False
+
+
 def _fallback_turn_outcome(
     session: Any,
     execution_id: Any,
@@ -4930,10 +5049,24 @@ def _fallback_turn_outcome(
             inputs = (snap.get("inputs") if isinstance(snap, dict) else None)
             return bool(proposed.get("amount") is not None and inputs)
 
+        # SCOPED-ABSENCE DELIVERY (owner outcome contract B, 2026-10-13):
+        # an executed, COMPLETE search with zero relevant matches is a
+        # completed search with a scoped absence — an honest, attributable
+        # RESULT in its own right, not an unknown. `validated` used to
+        # require value-bearing findings, which resolved a truthful
+        # bounded absence to `unconfirmed` (success=false,
+        # outcome_unconfirmed) — the pristine-J2 run-5/6 user-boundary
+        # failure. Values still validate as before; a verified complete
+        # search receipt on THIS execution now does too, while open
+        # obligations still resolve the state to partial (never completed
+        # for the broader task).
         validated = (
             _ops_carry_values(this_ops)
             or any(_operation_carries_calculation_result(op)
-                   for op in this_ops))
+                   for op in this_ops)
+            or any(_operation_carries_verified_complete_search(op)
+                   for op in this_ops)
+            or _execution_verified_complete_search(execution_id))
         # The session's delivered-result carrier, bound to THIS
         # execution when it carries one: the recorded "results actually
         # included in this answer" (owner step 1). A carrier bound to

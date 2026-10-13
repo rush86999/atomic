@@ -1662,3 +1662,124 @@ class TestInternalLegScopeLeak:
             assert ep_a.hit_count == 0 and ep_b.hit_count == 0, (
                 "a default-scoped internal leg must not reach either "
                 f"workspace's endpoint; response={blob[:200]}")
+
+
+class TestSearchOutcomeContract:
+    """The owner's bounded outcome contract (2026-10-13 directive):
+    executed + complete + zero matches = a completed search with scoped
+    absence — delivered truthfully (never success=false), with the
+    durable outcome and history agreeing; truncated/degraded and
+    unverified executions stay partial/failed; a stale or unrelated
+    receipt can never license this request. Normalization preserves the
+    bounded scope (query, match count, coverage, bounds)."""
+
+    @staticmethod
+    def _receipt(match_count=0, verified=True, coverage="complete",
+                 truncated=False, degraded=False, query="quarterly "
+                 "revenue", paths=None):
+        return {
+            "tool": "documents.grep",
+            "verified": verified,
+            "required": True,
+            "outcome": (f"status={'degraded' if degraded else 'ok'} "
+                        f"match_count={match_count}"),
+            "evidence_refs": [{
+                "kind": "documents",
+                "query": query,
+                "match_count": match_count,
+                "coverage": ("degraded" if (degraded or truncated)
+                             else coverage),
+                "truncated": truncated,
+                "paths": [str(p)[:200] for p in (paths or [])][:10],
+            }],
+        }
+
+    def test_complete_zero_match_search_validates_as_scoped_absence(self):
+        """Gap 1: executed + complete + zero matches resolves to a
+        completed search (scoped absence) — never unconfirmed."""
+        from integrations.chat_orchestrator import (
+            _execution_verified_complete_search,
+        )
+
+        assert _execution_verified_complete_search("exec-zm") is False, (
+            "no row — cannot validate")
+        # the production probe covers the DB read; here the contract's
+        # receipt predicate is pinned through the same helper used by
+        # the op-level path.
+        from integrations.chat_orchestrator import (
+            _operation_carries_verified_complete_search,
+        )
+
+        op = {"execution": {"task_outcome": {"tool_outcomes": [
+            self._receipt(match_count=0),
+        ]}}}
+        assert _operation_carries_verified_complete_search(op) is True
+
+    def test_unverified_or_partial_receipts_never_validate(self):
+        from integrations.chat_orchestrator import (
+            _operation_carries_verified_complete_search,
+        )
+
+        base = {"execution": {"task_outcome": {"tool_outcomes": []}}}
+        assert _operation_carries_verified_complete_search(base) is False
+        unverified = {"execution": {"task_outcome": {"tool_outcomes": [
+            self._receipt(verified=False),
+        ]}}}
+        assert not _operation_carries_verified_complete_search(unverified)
+        degraded = {"execution": {"task_outcome": {"tool_outcomes": [
+            self._receipt(degraded=True, truncated=True),
+        ]}}}
+        assert not _operation_carries_verified_complete_search(degraded)
+        no_count = {"execution": {"task_outcome": {"tool_outcomes": [
+            self._receipt(match_count=None),
+        ]}}}
+        assert not _operation_carries_verified_complete_search(no_count)
+
+    def test_copy_ref_preserves_scope_bounds_and_zero_count(self):
+        """Gap 2: settlement normalization preserves the structured
+        search scope — query, match_count (zero is a legitimate value),
+        coverage, paths (bounded) — and records the bounds."""
+        from core.task_outcome_contract import _copy_ref
+
+        ref = _copy_ref({
+            "kind": "documents",
+            "query": "quarterly revenue",
+            "match_count": 0,
+            "coverage": "complete",
+            "truncated": False,
+            "paths": ["/docs/a.md", "/docs/b.md"],
+            "action": "grep",
+            "service": "documents",
+        })
+        assert ref["kind"] == "documents"
+        assert ref["query"] == "quarterly revenue"
+        assert ref["match_count"] == 0, (
+            "a zero match count is a real result and must survive")
+        assert ref["coverage"] == "complete"
+        assert ref["paths"] == ["/docs/a.md", "/docs/b.md"]
+        assert ref["action"] == "grep" and ref["service"] == "documents"
+
+    def test_copy_ref_bounds_paths_and_drops_unknown(self):
+        from core.task_outcome_contract import _copy_ref
+
+        ref = _copy_ref({
+            "kind": "documents",
+            "paths": [f"/p/{i}.md" for i in range(20)],
+            "credentials": "secret-value",
+            "content_blob": "x" * 10000,
+        })
+        assert len(ref["paths"]) <= 10
+        assert "credentials" not in ref and "content_blob" not in ref
+
+    def test_degraded_coverage_is_stamped_so_absence_stays_partial(self):
+        """A truncated/degraded zero-match receipt stamps degraded
+        coverage — the validator refuses to certify a complete absence
+        from it (regression 3)."""
+        from integrations.chat_orchestrator import (
+            _operation_carries_verified_complete_search,
+        )
+
+        op = {"execution": {"task_outcome": {"tool_outcomes": [
+            self._receipt(truncated=True, degraded=True),
+        ]}}}
+        assert not _operation_carries_verified_complete_search(op)
