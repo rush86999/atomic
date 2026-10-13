@@ -5024,6 +5024,17 @@ def _fallback_turn_outcome(
         this_ops = ev["operations"]
         deliveries = ev["deliveries"]
         work_turn = bool(this_ops or deliveries)
+        # PLANNER DISPATCH IS WORK (ordering-repair follow-through): a
+        # planner-dispatched search may execute without lifecycle
+        # operation bindings — the execution's own stamped receipts are
+        # the proof the work ran, and the recorded outcome must not be
+        # gated to None before the completed search is credited.
+        if (not work_turn and isinstance(session, dict)
+                and execution_id):
+            _dispatch_rows = session.get(
+                f"_planner_tool_receipts_{execution_id}")
+            if isinstance(_dispatch_rows, list) and _dispatch_rows:
+                work_turn = True
 
         # 2. RECORDED FAILURE — this turn's operations only.
         recorded_failure = False
@@ -7147,7 +7158,13 @@ class ChatOrchestrator:
                     row.completed_at = _dt.utcnow()
                     row.result_summary = result_summary[:500]
                     if task_outcome:
-                        meta = row.metadata_json if isinstance(
+                        # FRESH dict (round-13 verifier finding): mutating
+                        # the row's loaded dict and reassigning the SAME
+                        # reference produced no SQLAlchemy change history —
+                        # task_outcome was silently dropped whenever the
+                        # ownership listener had stamped a pre-existing
+                        # metadata dict.
+                        meta = dict(row.metadata_json) if isinstance(
                             row.metadata_json, dict
                         ) else {}
                         from core.task_outcome_contract import derive_success_kinds
