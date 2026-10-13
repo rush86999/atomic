@@ -1807,3 +1807,203 @@ class TestSearchOutcomeContract:
         # not-a-list / empty never validate
         assert _receipts_carry_verified_complete_search(None) is False
         assert _receipts_carry_verified_complete_search([]) is False
+
+
+class TestSearchOutcomeFinalization:
+    """The owner's 6-case table through ACTUAL finalization
+    (`_finish_chat_execution` → builder → durable AgentExecution row),
+    driving the real resolver (`_fallback_turn_outcome`) and the real
+    planner-receipt stamp. The final outcome is never seeded."""
+
+    @staticmethod
+    def _drive(orch, session, response, execution_id="exec-fin-1",
+               ai_response=None):
+        import asyncio
+
+        asyncio.run(orch._finish_chat_execution(
+            execution_id, "completed", "summary",
+            session=session, message="Search my documents for quarterly "
+            "revenue.",
+            response=response, ai_response=ai_response or {},
+            deadline=None, pending_task=None,
+            user_id="u-fin", workspace_id="default",
+            allow_persisted_evidence=False))
+
+    @staticmethod
+    def _recorded(execution_id, state="completed", delivered=True):
+        return {"state": state, "delivered": delivered,
+                "work_turn": True, "open_work": [],
+                "execution_ids": [execution_id]}
+
+    @staticmethod
+    def _read_row(db, execution_id):
+        from core.models import AgentExecution
+
+        row = (db.query(AgentExecution)
+               .filter(AgentExecution.id == execution_id).first())
+        meta = row.metadata_json if row is not None else {}
+        outcome = (meta or {}).get("task_outcome") or {}
+        return row, outcome
+
+    def _build_world(self, scoped_world):
+        from core.models import AgentExecution
+
+        db = scoped_world["Session"]()
+        try:
+            db.add(AgentExecution(
+                id="exec-fin-1", status="success", triggered_by="chat",
+                agent_id=None, task_id=None, goal_run_id=None))
+            db.commit()
+        except Exception:  # noqa: BLE001 — id may exist
+            db.rollback()
+        finally:
+            db.close()
+
+
+    def test_complete_zero_match_settles_objective_met_true(
+            self, scoped_world, world_app):
+        """Case 1 (positive), through ACTUAL FINALIZATION: the real
+        resolver decides `completed` from the planner's own dispatch
+        receipts; the real builder carries objective_met=true into the
+        durable AgentExecution row; a fresh session reads it back with
+        success kinds and the preserved receipt scope. The final outcome
+        is never seeded — only the dispatch-level facts are."""
+        import json
+
+        import integrations.chat_orchestrator as co
+        from core.chat_tool_planner import ToolPlan
+        from core.models import AgentExecution
+        from core.llm_service import LLMService
+
+        ws_ws = "ws-fin-0000"
+        exec_id = "exec-fin-1"
+        plan = ToolPlan(use_tool=True, service="documents",
+                        intent="search", query="quarterly revenue",
+                        reason="documents search")
+        plan._result_meta["documents_read"] = {
+            "action": "grep", "query": "quarterly revenue",
+            "executed": True, "match_count": 0,
+            "paths": ["/docs/empty.md"], "degraded": False,
+            "truncated": False, "error": "",
+            "workspace_id": ws_ws,
+        }
+
+        session = {"id": "sess-fin", "history": [],
+                   "_planner_tool_receipts_" + exec_id:
+                       co._planner_receipt_rows(plan)}
+        assert session["_planner_tool_receipts_" + exec_id], (
+            "the real producer must stamp the executed receipt")
+
+        recorded = co._fallback_turn_outcome(
+            session, exec_id, {}, {"workspace_id": ws_ws},
+            workspace_id=ws_ws)
+        assert recorded.get("state") == "completed", (
+            f"the completed scoped absence must resolve completed; got "
+            f"{recorded.get('state')!r}")
+        assert recorded.get("delivered") is True
+
+        response = {"_recorded_outcome": recorded,
+                    "message": "No matches found in your documents."}
+
+        db = scoped_world["Session"]()
+        try:
+            db.add(AgentExecution(id=exec_id, status="success",
+                                  triggered_by="chat"))
+            db.commit()
+        finally:
+            db.close()
+
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        from core.llm_service import LLMService as _LS
+
+        orch.llm_service = _LS(tenant_id="default")
+        orch._finish_chat_execution(
+            exec_id, "completed", "summary",
+            task_outcome=None,  # the builder derives it — never seeded
+            session=session, message="Search my documents.",
+            response=response, ai_response=None, deadline=None,
+            pending_task=None, user_id="u-fin", workspace_id=ws_ws,
+            allow_persisted_evidence=False)
+
+        db = scoped_world["Session"]()
+        try:
+            row = (db.query(AgentExecution)
+                   .filter(AgentExecution.id == exec_id).first())
+        finally:
+            db.close()
+        assert row is not None
+        meta = row.metadata_json if isinstance(row.metadata_json, dict) else {}
+        oc = meta.get("task_outcome") or {}
+        assert oc.get("objective_met") is True, (
+            f"the completed bounded search must settle objective_met=true; "
+            f"got {oc.get('objective_met')!r}")
+        assert oc.get("success_kinds"), (
+            "success kinds must be derived from the durable outcome")
+        tools = (oc.get("tool_outcomes") or [])
+        refs = [r for t in tools for r in (t.get("evidence_refs") or [])]
+        assert refs, (
+            f"receipt scope must survive settlement: "
+            f"{json.dumps(oc, default=str)[:300]}")
+        assert refs[0].get("query") == "quarterly revenue", (
+            f"receipt scope must survive settlement: {refs!r}")
+        assert refs[0].get("match_count") == 0, (
+            "the zero count is a real result and must survive")
+        assert refs[0].get("coverage") == "complete", (
+            "complete coverage must survive settlement")
+
+    def test_stale_or_unverified_receipts_cannot_promote(
+            self, scoped_world, world_app):
+        """Cases 4-5: a receipt from a PRIOR execution and an UNVERIFIED
+        receipt each fail to promote the current turn."""
+        import integrations.chat_orchestrator as co
+        from core.chat_tool_planner import ToolPlan
+        from core.models import AgentExecution
+        from core.llm_service import LLMService
+
+        plan = ToolPlan(use_tool=True, service="documents",
+                        intent="search", query="quarterly revenue",
+                        reason="documents search")
+        plan._result_meta["documents_read"] = {
+            "action": "grep", "query": "quarterly revenue",
+            "executed": True, "match_count": 0, "paths": [],
+            "degraded": False, "truncated": False, "error": "",
+            "workspace_id": "ws-x",
+        }
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+            orch.tenant_id = "default"
+            orch._cancelled_sessions = set()
+            orch._budget_exceeded_runs = set()
+            from core.llm_service import LLMService as _LS
+
+            orch.llm_service = _LS(tenant_id="default")
+
+            # PRIOR execution's receipts under a DIFFERENT key cannot
+            # license THIS execution.
+            session = {"_planner_tool_receipts_exec-old-1":
+                       co._planner_receipt_rows(plan)}
+            orch._finish_chat_execution(
+                "exec-cur-1", "completed", "s",
+                session=session, message="Search my documents.",
+                response={}, ai_response=None, deadline=None,
+                pending_task=None, user_id="u", workspace_id="ws-cur",
+                allow_persisted_evidence=False)
+            db = scoped_world["Session"]()
+            try:
+                row = (db.query(AgentExecution)
+                       .filter(AgentExecution.id == "exec-cur-1").first())
+                meta = row.metadata_json if row is not None else {}
+            finally:
+                db.close()
+            oc = (meta or {}).get("task_outcome") or {}
+            assert oc.get("objective_met") is not True, (
+                "another execution's receipts must not promote the "
+                "current turn")
+
+

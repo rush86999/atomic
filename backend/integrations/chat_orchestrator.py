@@ -4929,21 +4929,25 @@ def _receipts_carry_verified_complete_search(receipts) -> bool:
             continue
         if receipt.get("verified") is not True:
             continue
+        # Coverage must be the DOCUMENTED complete value — an allowlist,
+        # not a blacklist: unknown coverage values never validate
+        # (round-7 owner finding). The count must be a NONNEGATIVE int
+        # (bools and negatives excluded), in scoped refs and the legacy
+        # top-level shape alike.
         for ref in receipt.get("evidence_refs") or []:
             if not isinstance(ref, dict):
                 continue
-            coverage = ref.get("coverage")
-            if coverage in (None, "", "partial", "degraded",
-                            "incomplete"):
+            if ref.get("coverage") != "complete":
                 continue
-            if not isinstance(ref.get("match_count"), int) or \
-                    isinstance(ref.get("match_count"), bool):
+            count = ref.get("match_count")
+            if isinstance(count, bool) or not isinstance(count, int) \
+                    or count < 0:
                 continue
             return True
         coverage = receipt.get("coverage")
-        if coverage not in (None, "", "partial", "degraded",
-                            "incomplete") and isinstance(
-                                receipt.get("match_count"), int):
+        count = receipt.get("match_count")
+        if coverage == "complete" and isinstance(count, int) \
+                and not isinstance(count, bool) and count >= 0:
             return True
     return False
 
@@ -6953,6 +6957,28 @@ class ChatOrchestrator:
             objective_met = None
             if status in {"failed", "cancelled"} or response.get("success") is False:
                 objective_met = False
+            elif (
+                # BOUNDED PLANNER-SEARCH COMPLETION (owner repair
+                # directive 2026-10-13, reusing the validated resolver
+                # decision — never response["success"] and never a bare
+                # receipt): the turn's OWN recorded outcome must resolve
+                # `completed` with THIS execution in its identity set and
+                # successful delivery, AND the current execution's
+                # planner receipt must pass the shared complete-search
+                # predicate. partial / queued / unconfirmed decisions
+                # never promote.
+                isinstance(response.get("_recorded_outcome"), dict)
+                and response["_recorded_outcome"].get("state") == "completed"
+                and str(execution_id or "") in {
+                    str(e) for e in (
+                        response["_recorded_outcome"].get("execution_ids")
+                        or [])}
+                and response["_recorded_outcome"].get("delivered") is True
+                and _receipts_carry_verified_complete_search(
+                    session.get(f"_planner_tool_receipts_{execution_id}")
+                    if isinstance(session, dict) else None)
+            ):
+                objective_met = True
             elif comparison_complete and delivered:
                 objective_met = True
             elif deterministic and retrieval_complete:
