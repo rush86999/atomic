@@ -1,0 +1,71 @@
+{
+  "probe": "verifier round-11 diagnostic (machine outcome at the public boundary)",
+  "candidate": {
+    "runtime_commit": "2eb46a8b97babf4076dc6324c44671c60a03a8ef",
+    "runtime_tree": "8925f0c6fc755e4856d074c5764b32de2b9cac50",
+    "harness_dirty_tracked": "clean"
+  },
+  "evidence_identity": {
+    "file": "j2_machine_outcome_probe_20261013.json",
+    "note": "captured by the verifier diagnostic script; runtime identical to the pristine r11b harness run"
+  },
+  "response": {
+    "success": false,
+    "error_code": "outcome_unconfirmed",
+    "outcome": "unconfirmed",
+    "provider": "local_eafd48e1",
+    "model": "llama3.1:8b",
+    "execution_id": "f280b54f-2cfb-448b-94e4-fb3d3390f8ca",
+    "session_id": "6df62af2-5001-4b57-8a83-ba25fc7180c6"
+  },
+  "response_message_head": "LIVE TOOL RESULTS (documents.grep, pattern='quarterly revenue', under 'knowledge') \u2014 regex scan over the WHOLE stored tree:\n\n* 0 match line(s) found.\n\nThe evidence shows that no lines or matches were returned from searching all stored documents for the terms 'quarterly revenue'. If you'd like to exp",
+  "durable_receipts": [
+    {
+      "execution_id": "f280b54f-2cfb-448b-94e4-fb3d3390f8ca",
+      "tool": "documents.grep",
+      "verified": true,
+      "outcome": "status=empty_in_scope match_count=0",
+      "required": true,
+      "evidence_refs": 1,
+      "evidence": [
+        {
+          "kind": "documents",
+          "action": "grep",
+          "query": "quarterly revenue",
+          "coverage": "complete",
+          "match_count": 0
+        }
+      ]
+    }
+  ],
+  "execution_objective_met": false,
+  "execution_delivery": false,
+  "request_record": {
+    "state": "completed",
+    "error": null,
+    "finalized": {
+      "success": false,
+      "error_code": "outcome_unconfirmed",
+      "outcome": null
+    }
+  },
+  "history_before_restart": {
+    "http": 200,
+    "count": 2,
+    "assistant_head": "LIVE TOOL RESULTS (documents.grep, pattern='quarterly revenue', under 'knowledge') \u2014 regex scan over the WHOLE stored tree:\n\n* 0 match line(s) found.\n\nThe evidence shows that no lines or matches were ",
+    "machine": {},
+    "agrees_with_delivery": true
+  },
+  "restart": {
+    "booted": true,
+    "seconds": 9.3,
+    "restart_number": 1
+  },
+  "history_after_restart": {
+    "http": 200,
+    "count": 2,
+    "same_count": true
+  },
+  "first_demonstrated_boundary": "the turn's recorded-outcome resolution (_fallback_turn_outcome, chat_orchestrator.py:13205) runs BEFORE the planner-lane receipt is settled onto the AgentExecution row (_planner_tool_receipts_<execution_id> stamped in _get_qwen_response ~:16903; merged into task_outcome by _build_turn_task_outcome ~:6927; attached by _finish_chat_execution ~:13541/:13595 AFTER the response assembly). The resolver queries only the durable row, so _execution_verified_complete_search sees no receipt and _operation_carries_verified_complete_search sees no op receipt -> state=unconfirmed, success=false, objective_met=false shipped for an executed, complete, scoped zero-match search whose narration is truthful.",
+  "log_hit": null
+}

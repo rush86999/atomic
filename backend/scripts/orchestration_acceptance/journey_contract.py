@@ -122,6 +122,19 @@ JOURNEYS: List[Dict[str, Any]] = [
                    "tool-shaped ask (separate capability verdict; the "
                    "deterministic application-executed read is certified "
                    "separately by J2.app-executed-supported-read)"},
+         # Round-11 verifier finding (2026-10-13): an executed, complete,
+         # scoped zero-match search was delivered with success=false /
+         # outcome_unconfirmed because the turn's recorded-outcome
+         # resolution runs BEFORE its receipt settles. This assertion
+         # keeps that boundary visible; it is NOT covered by the harness
+         # gate (which certifies execution/receipt/narration).
+         {"id": "J2.consistent-machine-outcome",
+          "check": "an executed, complete, scoped search (zero matches "
+                   "included) is delivered as a RESOLVED outcome: the "
+                   "public response success/error_code/outcome agree "
+                   "with the durable verified receipt and the persisted "
+                   "task_outcome (never outcome_unconfirmed for a "
+                   "completed bounded search)"},
      ]},
     {"id": "J3", "name": "Source connection",
      "assertions": [
