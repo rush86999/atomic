@@ -31,6 +31,7 @@ their own paths (Letta sleep-time principle).
 
 import asyncio
 import json
+import contextvars
 import logging
 import os
 import re
@@ -123,6 +124,28 @@ async def _graph_leg(message: str, workspace_id: str, tenant_id: str) -> str:
     return context
 
 
+# RETRIEVAL SOURCE OBSERVATIONS (owner directive R4): the context
+# assembler publishes the identities of the sources it actually
+# retrieved from, so the finalizer can produce attributable evidence
+# refs without manufacturing them from reply text or re-running a
+# planner search. A contextvar (not a module attribute) keeps this
+# safe under concurrency — each request's observations travel with
+# its own execution context.
+_RETRIEVAL_SOURCES: contextvars.ContextVar = contextvars.ContextVar(
+    "atom_retrieval_sources", default=None)
+
+
+def publish_retrieval_sources(sources: list) -> None:
+    """Publish the source identities the assembler actually retrieved."""
+    _RETRIEVAL_SOURCES.set(list(sources or [])[:12])
+
+
+def get_retrieval_sources() -> list:
+    """The current context's retrieval source observations (bounded).
+    Empty list when the assembler didn't run or retrieved nothing."""
+    return list(_RETRIEVAL_SOURCES.get() or [])
+
+
 async def _knowledge_leg(
     message: str, workspace_id: str, owner_user_id: Optional[str] = None
 ) -> List[str]:
@@ -145,6 +168,18 @@ async def _knowledge_leg(
         return []
     if not (result or {}).get("results"):
         return []
+    # CAPTURE SOURCE IDENTITIES (owner directive R4): the actual
+    # retrieval records carry the source identities — file names,
+    # titles, content hashes — before they're formatted into display
+    # text. Published via the contextvar for the finalizer to read.
+    _sources = []
+    for hit in (result or {}).get("results", []) or []:
+        if isinstance(hit, dict):
+            _sources.append({
+                "source": str(hit.get("source") or "")[:100],
+                "title": str(hit.get("title") or "")[:200],
+            })
+    publish_retrieval_sources(_sources)
     lines: List[str] = [
         # Provenance spotlighting (core/provenance.py lattice): ingested
         # email/drive/app content is attacker-influenceable RETRIEVED data —
