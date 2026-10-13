@@ -135,6 +135,19 @@ JOURNEYS: List[Dict[str, Any]] = [
                    "with the durable verified receipt and the persisted "
                    "task_outcome (never outcome_unconfirmed for a "
                    "completed bounded search)"},
+         # Round-12 (ordering repair a8d11f902): the public leg is now
+         # demonstrated and recorded separately — resolution AND
+         # finalization make the focused J2 tool turn deliver
+         # success=true / outcome=completed, with the assistant metadata
+         # and history re-serving the same state. The durable
+         # objective_met agreement stays its own failing verdict.
+         {"id": "J2.public-completed-outcome",
+          "check": "the focused pristine J2 tool turn's PUBLIC response "
+                   "resolves the executed complete search as completed "
+                   "(success=true, outcome=completed, error_code=null) "
+                   "through resolution AND finalization, and the "
+                   "assistant metadata and history re-serve the same "
+                   "state"},
      ]},
     {"id": "J3", "name": "Source connection",
      "assertions": [
