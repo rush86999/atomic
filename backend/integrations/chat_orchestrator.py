@@ -2961,20 +2961,19 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
                 # stamp degraded coverage so they can never certify a
                 # complete absence.
                 "query": str(docs.get("query") or "")[:200],
-                "match_count": int(docs.get("match_count") or 0),
-                "coverage": (
-                    "degraded" if (docs.get("degraded")
-                                   or docs.get("truncated"))
-                    else "complete"),
-                "truncated": bool(docs.get("truncated")),
-                "paths": [str(p)[:200]
-                          for p in (docs.get("paths") or [])[:10]],
-                "action": docs.get("action") or "search",
+                # SINGLE match_count/coverage pair (round-12 verifier:
+                # the row previously declared both keys twice — the last
+                # pair won; the existing contract's vocabulary
+                # (partial/complete) is the one kept).
                 "match_count": count,
                 "coverage": (
                     "partial" if (docs.get("degraded")
                                   or docs.get("truncated"))
                     else "complete"),
+                "truncated": bool(docs.get("truncated")),
+                "paths": [str(p)[:200]
+                          for p in (docs.get("paths") or [])[:10]],
+                "action": docs.get("action") or "search",
             }],
         })
     service = str(getattr(plan, "service", "") or "")
