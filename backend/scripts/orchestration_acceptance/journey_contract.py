@@ -230,12 +230,12 @@ def _candidate_identity() -> Dict[str, str]:
     """Commit + dirty-tracked identity captured at record time. A verified
     record without identity is unauditable — rejected, not warned."""
     import subprocess
-    def _run(*argv: str) -> str:
+    def _run(*argv: str, empty: str = "unknown") -> str:
         try:
             out = subprocess.run(
                 list(argv), cwd=str(BACKEND.parent), capture_output=True,
                 text=True, timeout=15).stdout.strip()
-            return out or "unknown"
+            return out or empty
         except Exception:
             return "unknown"
     commit = _run("git", "rev-parse", "HEAD")
@@ -244,8 +244,9 @@ def _candidate_identity() -> Dict[str, str]:
                          "failed) — refusing to record a verified status "
                          "without identity")
     return {"commit": commit,
+            # A committed tree reads "clean" — never "unknown".
             "dirty_tracked": _run("git", "status", "--short",
-                                  "--untracked-files=no")}
+                                  "--untracked-files=no", empty="clean")}
 
 
 def _validate_evidence(evidence: Optional[str]) -> str:

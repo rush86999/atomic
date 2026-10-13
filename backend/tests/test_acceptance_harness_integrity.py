@@ -478,3 +478,21 @@ def test_settlement_preserves_receipt_scope_binding():
         "I searched your documents and found no matches.",
         linked_execution_id="e1", requested_source="documents")
     assert verdict["pass"] is True, verdict
+
+
+# ----------------------------------------------------------------------
+# Identity honesty (round-11): a FULLY COMMITTED tree must read "clean",
+# never "unknown" — the r11 review found empty `git status` output (a
+# committed harness) recorded as "unknown", which conflates a committed
+# candidate with an unidentified dirty harness.
+# ----------------------------------------------------------------------
+def test_clean_tree_identity_reads_clean_not_unknown(monkeypatch):
+    class _Done:
+        stdout = ""
+
+    monkeypatch.setattr(JR.subprocess, "run", lambda *a, **k: _Done())
+    ident = JR.source_identity("HEAD")
+    assert ident["dirty_tracked"] == "clean"
+    assert ident["commit"] == "unknown", (
+        "an empty commit read stays unknown — only the clean-tree "
+        "reading is special")

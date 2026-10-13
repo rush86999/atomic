@@ -104,11 +104,11 @@ def source_identity(ref: str = "HEAD",
     the candidate binding)."""
     cwd = str(repo or REPO)
 
-    def _run(*argv: str) -> str:
+    def _run(*argv: str, empty: str = "unknown") -> str:
         try:
             out = subprocess.run(list(argv), cwd=cwd, capture_output=True,
                                  text=True, timeout=15).stdout.strip()
-            return out or "unknown"
+            return out or empty
         except Exception:  # noqa: BLE001
             return "unknown"
 
@@ -117,8 +117,12 @@ def source_identity(ref: str = "HEAD",
         "commit": _run("git", "rev-parse", ref),
         "tree": _run("git", "rev-parse", f"{ref}^{{tree}}"),
         "source_repo": cwd,
+        # A SUCCESSFUL empty status means a fully committed tree — it
+        # must read "clean", never "unknown" (round-11 review: an
+        # unidentified dirty harness and a committed one must not be
+        # conflated; empty output used to read "unknown").
         "dirty_tracked": _run("git", "status", "--short",
-                              "--untracked-files=no"),
+                              "--untracked-files=no", empty="clean"),
     }
 
 
