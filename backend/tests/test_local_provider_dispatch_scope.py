@@ -1451,6 +1451,129 @@ class TestTruthfulToolRequest:
 
 
 
+    def test_budget_exhausted_before_the_reply_leg_delivers_zero_dispatch(
+            self, scoped_world, world_app):
+        """Control B (owner diagnostic bounds): max(5.0, remaining) used
+        to grant fresh dispatch time AFTER the turn budget was spent.
+        Exhausted budget ⇒ the honest envelope with ZERO dispatch."""
+        import asyncio
+        from contextlib import ExitStack
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        import integrations.chat_orchestrator as co
+        from core.chat_tool_planner import ToolPlan
+
+        dispatched = {"n": 0}
+
+        class _NoDispatch:
+            handler = type("_H", (), {"clients": {},
+                                      "workspace_id": "default"})()
+
+            def is_available(self):
+                return True
+
+            async def generate_completion(*a, **k):
+                dispatched["n"] += 1
+                return {"success": True, "content": "should not happen"}
+
+            def stream_completion(self, *a, **k):
+                dispatched["n"] += 1
+                raise AssertionError("no streaming past a spent budget")
+
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        orch.llm_service = _NoDispatch()
+        session = {"id": "sess-spent", "history": []}
+
+        async def _plan_ce(*a, **k):
+            class _P:
+                wants_edit = False
+            return _P()
+
+        class _SpentClock:
+            def __init__(self, *a, **k):
+                pass
+
+            def expired(self, *a, **k):
+                return True
+
+            def remaining(self, *a, **k):
+                return -1.0
+
+        with ExitStack() as st:
+            for cm in [
+                patch.object(orch, "_get_or_create_session",
+                             return_value=session),
+                patch.object(orch, "_resolve_canvas_ctx",
+                             new=AsyncMock(return_value=dict({
+                                 "canvas_id": "cv-spent",
+                                 "canvas_type": "email",
+                                 "title": "Spent",
+                                 "content": {"body": "<p>x</p>"}}))),
+                patch.object(orch, "_start_chat_execution",
+                             return_value="exec-spent"),
+                patch.object(orch, "_record_chat_step", new=AsyncMock()),
+                patch.object(orch, "_emit_agent_status", new=AsyncMock()),
+                patch.object(orch, "_update_session", new=MagicMock()),
+                patch.object(orch, "_finish_chat_execution",
+                             new=MagicMock()),
+                patch.object(orch, "_load_conversation_mail_handles",
+                             return_value=([], [])),
+                patch.object(orch, "_route_to_features",
+                             new=AsyncMock(return_value={})),
+                patch("core.chat_tool_planner.plan_tool_use",
+                      new=AsyncMock(return_value=ToolPlan(
+                          use_tool=False, service="datasets",
+                          intent="search", query="unused", reason="r"))),
+                patch("core.chat_tool_planner.execute_tool_plan",
+                      new=AsyncMock(return_value="")),
+                patch("core.memory_context_assembler.assembly_enabled",
+                      return_value=False),
+                patch("core.chat_mini_app_authoring.try_handle",
+                      new=AsyncMock(return_value=None)),
+                patch("core.chat_tool_planner._provenance_menu",
+                      new=AsyncMock(return_value="")),
+                patch("integrations.chat_orchestrator."
+                      "_verbatim_mail_evidence",
+                      new=AsyncMock(return_value=[])),
+                patch("integrations.chat_orchestrator._begin_task_edit",
+                      return_value={"status": "legacy"}),
+                patch("core.chat_canvas_editor.plan_canvas_edit",
+                      new=AsyncMock(side_effect=_plan_ce)),
+                patch("core.student_learning_service.get_agent_lessons",
+                      return_value=[]),
+                patch("integrations.chat_orchestrator."
+                      "_task_lifecycle_for", return_value=None),
+                patch("integrations.chat_orchestrator."
+                      "ChatOrchestrator._get_qwen_response",
+                      new=AsyncMock(
+                          side_effect=AssertionError(
+                              "no dispatch past a spent budget"))),
+                patch("integrations.chat_orchestrator.TurnDeadline",
+                      new=_SpentClock),
+            ]:
+                st.enter_context(cm)
+            out = asyncio.run(orch.process_chat_message(
+                "user-spent", "What are the approved prices for rows 1 "
+                "through 5 of the draft?", "sess-spent",
+                context={"workspace_id": "default",
+                         "canvas": dict({"canvas_id": "cv-spent",
+                                         "canvas_type": "email",
+                                         "title": "Spent",
+                                         "content": {"body":
+                                                     "<p>x</p>"}})}))
+
+        assert dispatched["n"] == 0, (
+            f"a spent turn budget must produce ZERO dispatch, got "
+            f"{dispatched['n']}")
+        blob = json.dumps(out, default=str)
+        assert "turn_budget_exceeded" in blob, (
+            "the honest budget envelope must be delivered, got: "
+            f"{blob[:300]}")
+
+
 
 class TestProgramKinds:
     """The mapping pin (coordinated peer integration, 41c4c54da→): the
@@ -1479,3 +1602,5 @@ class TestProgramKinds:
         assert normalize_source_kind("documents") == "document"
         assert normalize_source_kind("workbooks") == "spreadsheet"
         assert normalize_source_kind("flurb") == ""
+
+

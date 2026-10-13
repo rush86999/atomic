@@ -12243,6 +12243,11 @@ class ChatOrchestrator:
                         "[deadline] turn budget exhausted before the "
                         "reply leg — honest envelope, zero dispatch")
                     ai_response = _turn_budget_error_response()
+                    # SAME CONSUMER ROUTE as the timeout branch (round-7
+                    # class): without the stamp, response composition
+                    # silently discards the envelope.
+                    if _execution_id:
+                        self._budget_exceeded_runs.add(_execution_id)
                 else:
                     async def _reply_leg():
                         ai_response = await self._get_qwen_response(

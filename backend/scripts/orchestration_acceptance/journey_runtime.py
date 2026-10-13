@@ -37,9 +37,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import socket
+import collections
+import threading
 import subprocess
 import sys
 import tempfile
@@ -366,6 +369,33 @@ class ScratchServer:
              "--log-level", "warning"],
             cwd=str(self.cwd), env=self.base_env,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        # DRAIN THE LOG PIPE (pristine-J2 runs 3/4 root cause, diagnosed
+        # 2026-10-12): an undrained PIPE fills at ~64KB — a fresh world
+        # emits that much by the first tool turn — and the server's next
+        # log write then blocks FOREVER inside StreamHandler.emit while
+        # holding the logging lock. The event loop freezes on the same
+        # lock; the turn clock's wait_for never fires; the client times
+        # out at 300s with the request stuck in_progress. The drain
+        # thread keeps the pipe empty (ring buffer for log_tail evidence).
+        self._log_buffer: "collections.deque[str]" = collections.deque(
+            maxlen=2000)
+        self._drain = threading.Thread(
+            target=self._drain_logs, daemon=True)
+        self._drain.start()
+
+    def _drain_logs(self) -> None:
+        """Consume the server's stdout forever (daemon). Lines land in a
+        bounded ring so log_tail() keeps returning evidence after the
+        process is stopped."""
+        try:
+            for line in self.proc.stdout:
+                self._log_buffer.append(line.rstrip("\n"))
+        except Exception:  # noqa: BLE001 — process gone; drain is done
+            pass
+
+    def log_tail(self, limit: int = 1500) -> str:
+        lines = list(self._log_buffer)
+        return "\n".join(lines[-limit:])
 
     def _wait_health(self) -> Dict[str, Any]:
         import httpx
@@ -411,23 +441,17 @@ class ScratchServer:
             self.proc.wait(timeout=20)
         except subprocess.TimeoutExpired:
             self.proc.kill()
+            self.proc.wait(timeout=5)
+        # The drain thread exits when the pipe closes; join briefly so
+        # the ring holds every final line before teardown moves on.
+        drain = getattr(self, "_drain", None)
+        if drain is not None and drain.is_alive():
+            drain.join(timeout=5)
         self.proc = None
 
     @property
     def base(self) -> str:
         return f"http://127.0.0.1:{self.port}"
-
-    def log_tail(self, limit: int = 1500) -> str:
-        if self.proc is None or self.proc.stdout is None:
-            return ""
-        try:
-            self.proc.terminate()
-            log = self.proc.stdout.read() or ""
-            self.proc.wait(timeout=10)
-        except Exception:  # noqa: BLE001
-            log = ""
-        self.proc = None
-        return log[-limit:]
 
     def __enter__(self) -> "ScratchServer":
         self.up()
@@ -596,6 +620,22 @@ def execution_tool_receipts(db: Path, execution_id: str) -> Dict[str, Any]:
     return _collect_receipts(db, [str(execution_id)])
 
 
+def request_execution_id(db: Path, request_id: str) -> Optional[str]:
+    """The execution THIS request record linked (current-request
+    linkage, verifier check 1): client-minted request_id ->
+    chat_request_records.execution_id. None when the record or the link
+    is absent — never a session-wide fallback."""
+    if not request_id:
+        return None
+    rows = _sqlite_rows(
+        db, "SELECT execution_id FROM chat_request_records WHERE "
+            "request_id=? ORDER BY updated_at DESC LIMIT 1",
+        (str(request_id),))
+    if not rows or rows[0][0] in (None, ""):
+        return None
+    return str(rows[0][0])
+
+
 def turn_tool_receipts(db: Path, session_id: str) -> Dict[str, Any]:
     """Attributable tool-execution records for one chat session: the
     assistant turns' execution ids -> agent_executions -> task_outcome
@@ -646,13 +686,30 @@ def _collect_receipts(db: Path, exec_ids: List[str],
                         if isinstance(a, dict)],
         })
         for tool in tools:
+            refs = [r for r in (tool.get("evidence_refs") or [])
+                    if isinstance(r, dict)]
+            evidence = []
+            for ref in refs[:4]:
+                entry = {
+                    key: ref.get(key)
+                    for key in ("kind", "action", "query", "service",
+                                "coverage")
+                    if ref.get(key) is not None
+                }
+                mc = ref.get("match_count")
+                if isinstance(mc, int) and not isinstance(mc, bool):
+                    entry["match_count"] = mc
+                if isinstance(ref.get("paths"), list):
+                    entry["paths"] = len(ref["paths"])
+                evidence.append(entry)
             receipts.append({
                 "execution_id": eid,
                 "tool": tool.get("tool"),
                 "verified": tool.get("verified"),
                 "outcome": tool.get("outcome"),
                 "required": tool.get("required"),
-                "evidence_refs": len(tool.get("evidence_refs") or []),
+                "evidence_refs": len(refs),
+                "evidence": evidence,
             })
     verified = [r["verified"] for r in receipts]
     if not receipts:
@@ -672,4 +729,200 @@ def _collect_receipts(db: Path, exec_ids: List[str],
         "evidence_ref_count": evidence_ref_count,
         "tool_success": tool_success,
         "attributable": bool(exec_ids),
+    }
+
+
+# ----------------------------------------------------------------------
+# Owner-mandated tool-planning gate (round-10 verifier REJECT, checks
+# 1-2): the verified boolean is replaced by five checks evaluated on the
+# CURRENT request's durable execution record — request linkage, an
+# attributable executed action, evidence/bounded-absence, relevance to
+# the requested read obligation, and narration agreement with the
+# delivered result. Pure function: the J2 script passes exactly what it
+# read from the scratch DB; tests pin every negative control here.
+# ----------------------------------------------------------------------
+#: Mutation verbs can never serve a READ obligation — a verified
+#: mutation receipt is not evidence that the requested read ran.
+_READ_MUTATION_MARKERS = (
+    "delete", "remove", "destroy", "create", "update", "write", "send",
+    "post", "append", "edit", "move", "rename", "trash", "purge",
+)
+
+_POSITIVE_COUNT_RE = re.compile(
+    r"\b(\d[\d,]*)\s+(?:records?|results?|matches|rows|files|documents|"
+    r"emails?|messages|items|entries)\b", re.IGNORECASE)
+
+_ABSENCE_WORDING_RE = re.compile(
+    r"no (?:matches|results|hits|documents|records|files|entries)\b|"
+    r"\bnothing (?:was )?found\b|\bfound nothing\b|\bdidn'?t find\b|"
+    r"\bdid not find\b|\bnone\b|\b0 match", re.IGNORECASE)
+
+
+def _ref_count(row: Dict[str, Any]) -> int:
+    value = row.get("evidence_refs")
+    if isinstance(value, list):
+        return len([r for r in value if isinstance(r, dict)])
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _structured_match_count(row: Dict[str, Any]) -> Optional[int]:
+    """The receipt's structured match count: top-level when a producer
+    stamps it, otherwise the first evidence ref that carries one (the
+    planner lane's scope ref). None means no structured count exists —
+    never guessed from prose."""
+    value = row.get("match_count")
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    for ref in row.get("evidence") or []:
+        if not isinstance(ref, dict):
+            continue
+        value = ref.get("match_count")
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+    return None
+
+
+def _row_source(row: Dict[str, Any]) -> str:
+    source = str(row.get("source") or "").strip()
+    if not source:
+        tool = str(row.get("tool") or "")
+        source = tool.split(".", 1)[0]
+        if source in ("", "unknown"):
+            for ref in row.get("evidence") or []:
+                if isinstance(ref, dict) and ref.get("service"):
+                    source = str(ref["service"])
+                    break
+    return source.lower()
+
+
+def _row_is_read(row: Dict[str, Any]) -> bool:
+    text = f"{row.get('tool') or ''} {row.get('operation') or ''}".lower()
+    return not any(marker in text for marker in _READ_MUTATION_MARKERS)
+
+
+def evaluate_read_obligation(
+    receipts: Dict[str, Any],
+    delivered_content: str,
+    *,
+    linked_execution_id: Optional[str],
+    requested_source: str,
+) -> Dict[str, Any]:
+    """The five owner-mandated checks for a read-shaped ask, evaluated
+    on the CURRENT request's durable record (pure — no I/O):
+
+    1. request_linked — the receipts read belong to the execution id
+       linked to THIS request (response execution_id or the request
+       record); a prior turn's receipt can never license this turn.
+    2. executed_action — at least one VERIFIED row that actually
+       dispatched (not "not_dispatched"/"not_executed").
+    3. evidence_or_bounded_absence — every obligation-relevant executed
+       row carries evidence references OR a structured zero-match
+       record (bounded absence); an unexplained verified row with no
+       references is not a receipt.
+    4. obligation_relevant — the executed row serves the REQUESTED
+       source's READ family (never a mutation, never another
+       integration).
+    5. narration_agrees — the delivered result is checked against the
+       receipt: no search claims the relevant execution cannot cover
+       (the runtime's own truthfulness contract), no positive count
+       against a zero-match receipt, and a bounded-absence-only receipt
+       requires honest scoped wording from the delivered result.
+    """
+    rows = [r for r in (receipts.get("receipts") or []) if isinstance(r, dict)]
+    executions = [e for e in (receipts.get("executions") or [])
+                  if isinstance(e, dict)]
+    execution_ids = [str(e) for e in (receipts.get("execution_ids") or [])]
+    linked = str(linked_execution_id or "").strip()
+
+    request_linked = bool(
+        linked
+        and linked in execution_ids
+        and any(str(e.get("execution_id") or "") == linked
+                for e in executions)
+        and all(str(r.get("execution_id") or "") == linked for r in rows))
+
+    serving = [r for r in rows
+               if str(r.get("execution_id") or "") == linked]
+    executed = [
+        r for r in serving
+        if r.get("verified") is True
+        and str(r.get("tool") or "").strip()
+        and "not_dispatched" not in str(r.get("outcome") or "").lower()
+        and "not_executed" not in str(r.get("outcome") or "").lower()
+    ]
+    executed_action = bool(executed)
+
+    requested = str(requested_source or "").strip().lower()
+    relevant = [r for r in executed
+                if _row_source(r) == requested and _row_is_read(r)]
+    obligation_relevant = bool(relevant)
+
+    hits = [r for r in relevant if _ref_count(r) > 0
+            and (_structured_match_count(r) or 0) > 0]
+    bounded = [r for r in relevant
+               if _structured_match_count(r) == 0]
+
+    def _has_row_evidence(row: Dict[str, Any]) -> bool:
+        # A structured zero count IS the bounded-absence record; a
+        # positive count needs a real row reference (paths / count); a
+        # reference that names an actual evidence kind counts too.
+        if _structured_match_count(row) == 0:
+            return True
+        for ref in row.get("evidence") or []:
+            if not isinstance(ref, dict):
+                continue
+            if ref.get("paths") or ref.get("match_count") is not None:
+                return True
+            if ref.get("kind") not in (None, "", "search_scope"):
+                return True
+        return False
+
+    evidence_or_bounded_absence = bool(relevant) and all(
+        _has_row_evidence(r) for r in relevant)
+
+    content = str(delivered_content or "")
+    unbacked_claims: List[str] = []
+    counts: List[str] = []
+    narration_agrees = True
+    if not content.strip():
+        narration_agrees = False
+    else:
+        relevant_tools = [str(r.get("tool") or "") for r in relevant]
+        try:
+            from core.chat_tool_planner import unbacked_search_claims
+
+            unbacked_claims = list(
+                unbacked_search_claims(content, relevant_tools))
+        except Exception:  # noqa: BLE001 — fail closed, never silent
+            unbacked_claims = ["<agreement helper unavailable>"]
+        if unbacked_claims:
+            narration_agrees = False
+        counts = [
+            m.group(0) for m in _POSITIVE_COUNT_RE.finditer(content)
+            if int(m.group(1).replace(",", "")) > 0]
+        if counts and not hits:
+            narration_agrees = False
+        if relevant and not hits and not _ABSENCE_WORDING_RE.search(content):
+            narration_agrees = False
+
+    checks = {
+        "request_linked": request_linked,
+        "executed_action": executed_action,
+        "evidence_or_bounded_absence": evidence_or_bounded_absence,
+        "obligation_relevant": obligation_relevant,
+        "narration_agrees": narration_agrees,
+    }
+    return {
+        "pass": all(checks.values()),
+        "checks": checks,
+        "linked_execution_id": linked or None,
+        "serving_tools": [str(r.get("tool") or "") for r in executed],
+        "relevant_tools": [str(r.get("tool") or "") for r in relevant],
+        "hits": len(hits),
+        "bounded_absence": len(bounded),
+        "positive_count_claims": counts,
+        "unbacked_claims": unbacked_claims[:4],
     }
