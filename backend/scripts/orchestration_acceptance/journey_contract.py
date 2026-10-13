@@ -87,6 +87,41 @@ JOURNEYS: List[Dict[str, Any]] = [
           "check": "tool planning selects a tool for a tool-shaped ask AND "
                    "the turn carries an attributable execution receipt "
                    "(agent_executions.task_outcome.tool_outcomes)"},
+         # Round-9 verification split (owner directive, 2026-10-13): the
+         # demonstrated legs get their own precise labels, recorded from the
+         # live world-A evidence at e8b01dcec. The MODEL-native planning
+         # capability stays a separate, open verdict so the application-
+         # executed read path can never read as model-tool-calling proof.
+         {"id": "J2.provider-setup-first-reply",
+          "check": "the provider is configured through the product AND the "
+                   "COUNTED FIRST authenticated chat request is served by "
+                   "it (own-tenant scope, not mock, no fallback)"},
+         {"id": "J2.app-executed-supported-read",
+          "check": "a seek-shaped ask results in the deterministic "
+                   "application read actually EXECUTED over the request's "
+                   "linked execution (not merely narrated)",
+          "harness": f"{HARNESS}/j2_model_setup.py world A"},
+         {"id": "J2.attributable-durable-receipt",
+          "check": "the executed read leaves a durable receipt bound to "
+                   "the CURRENT request's execution id "
+                   "(agent_executions.task_outcome.tool_outcomes: "
+                   "verified=true plus evidence refs)",
+          "harness": f"{HARNESS}/j2_model_setup.py world A"},
+         {"id": "J2.truthful-result",
+          "check": "the delivered narration agrees with the durable "
+                   "outcome (zero unbacked claims; an empty result is "
+                   "reported as empty)",
+          "harness": f"{HARNESS}/j2_model_setup.py world A"},
+         {"id": "J2.restart-durability",
+          "check": "registered settings persist across a REAL restart AND "
+                   "a post-restart request is usable (providers listed "
+                   "plus a second real reply)",
+          "harness": f"{HARNESS}/j2_model_setup.py world A"},
+         {"id": "J2.model-native-tool-calling",
+          "check": "the MODEL natively plans/selects the tool call for a "
+                   "tool-shaped ask (separate capability verdict; the "
+                   "deterministic application-executed read is certified "
+                   "separately by J2.app-executed-supported-read)"},
      ]},
     {"id": "J3", "name": "Source connection",
      "assertions": [

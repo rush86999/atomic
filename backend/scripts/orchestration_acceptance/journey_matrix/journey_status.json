@@ -91,11 +91,16 @@
     }
   },
   "J2.real-reply": {
-    "status": "failing",
-    "evidence": "journey_matrix/probe_j2_ranking_20261012_103859_08fb31.json",
-    "notes": "STILL FAILING at HEAD d6fbcd846. OWNER-CONFIRMED DIAGNOSIS (round 9): the service-level repair (16/16 dispatch controls) holds, but the PUBLIC chat route loses authenticated scope before reaching it \u2014 chat_routes.py:37 builds a module-level ChatOrchestrator() default-scoped; reply paths pass tenant_id=self.tenant_id (chat_orchestrator.py:13124 passes workspace_id='default' explicitly; :10622/:13204/:14840 pass self.tenant_id or 'default'), so dispatch ranks under workspace 'default' ('Managed AI blocked for free tier workspace default', 0 candidates) while local_model_providers binds the route to the user's workspace (read-only DB check). 4/4 fresh worlds refused on first dispatch, never recovered in-session. ATTRIBUTION: a reproducible public-path scope failure \u2014 NOT the previously suspected cold-start/pricing-cache flake (that hypothesis remains unproven and separate). Bounded work order for the runtime owner is in docs/acceptance/ACCEPTANCE_CONTRACT.md (round-9 section). ATTEMPTS PRESERVED, none replaced: (1) 102735_3b5124 \u2014 RETAINED AS PRODUCT-DEFAULT EVIDENCE: quality_score 0.5 is the Settings->local-models DEFAULT and ranks below every floor (>=85) with no UI hint, so a normally configured provider is ineligible out of the box; defaults assessed separately AFTER scope propagation. (2) 103650_283772 \u2014 refusal persists at quality 0.9 supports_tools=true (dispatch capability proven absent, not a configuration artifact); probe fast-fail 12s; first attempt's second turn hung to the 300s timeout (also j4 104909). Acceptance reruns pristine J2 with the FIRST attempt counted after the verifier approves the repair; no further model probes until then.",
-    "campaign": "2026-10-12-j2-repair",
-    "recorded_at": "2026-10-12T15:38:38+00:00"
+    "status": "verified",
+    "evidence": "journey_matrix/j2_model_setup_20261013_072410_09737a.json",
+    "notes": "PRISTINE two-case re-run at HEAD e8b01dcec (fresh git-archive export per run, cold pricing cache, counted first request, no warm-up). POSITIVE case world A: COUNTED FIRST /api/chat/message request_id 5add0280-8fe5-4d79-82a3-7027bb499934, HTTP 200 in 7.166s (window 300s), success=true, provider=ollama model=llama3.1:8b \u2014 the user's own product-registered provider (allowlisted env: no inherited credential can explain service) \u2014 reply PONG, looks_mock=false, error_code=null. NEGATIVE control (supports_tools=false) equally served: request_id 69e80347-1c90-4f5a-8d11-65eb09c817d6, 4.816s, PONG. No singleflight envelopes in either run (log-scanned). UPGRADES the standing failing record from candidate d6fbcd846 (public-route scope diagnosis) and the r9 configuration-parity+smoke evidence \u2014 THIS record is pristine-export evidence (mode=pristine_code_export, commit e8b01dcec, tree 0a70be913; negative sibling j2_model_setup_20261013_072627_fd2193.json).",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:28:58+00:00",
+    "evidence_path": "journey_matrix/j2_model_setup_20261013_072410_09737a.json",
+    "identity": {
+      "commit": "e8b01dcecf11fa3542ed6e647eb4c355504560f0",
+      "dirty_tracked": "M backend/scripts/orchestration_acceptance/j2_model_setup.py"
+    }
   },
   "J2.tool-planning": {
     "status": "untested",
@@ -258,5 +263,72 @@
     "notes": "Untested \u2014 same J8 sequencing note.",
     "campaign": "2026-10-12-j2-repair",
     "recorded_at": "2026-10-12T15:04:44+00:00"
+  },
+  "J2.provider-setup-first-reply": {
+    "status": "verified",
+    "evidence": "journey_matrix/j2_preflight_ollama_capability_20261013_072306.json (capability preflight; run evidence journey_matrix/j2_model_setup_20261013_072410_09737a.json)",
+    "notes": "POSITIVE case, pristine export e8b01dcec: provider configured through the product (POST /api/local-models 200 registered; /discover 200 with the live Ollama model; /capabilities 200) with supports_tools=true registered ONLY AFTER direct capability verification \u2014 GET /api/show capabilities=[completion, tools] on the exact tag llama3.1:8b PLUS a LIVE /api/chat tool-calling probe returning a real get_current_weather tool_call (Paris/celsius, 2.028s) \u2014 never a family claim. Then the COUNTED FIRST authenticated chat request (request_id 5add0280-8fe5-4d79-82a3-7027bb499934) served by that own provider: PONG, 7.166s, own-tenant scope, not mock, no fallback.",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:29:55+00:00",
+    "evidence_path": "journey_matrix/j2_preflight_ollama_capability_20261013_072306.json",
+    "identity": {
+      "commit": "e8b01dcecf11fa3542ed6e647eb4c355504560f0",
+      "dirty_tracked": "M backend/scripts/orchestration_acceptance/j2_model_setup.py\n M backend/scripts/orchestration_acceptance/journey_contract.py\n M backend/scripts/orchestration_acceptance/journey_matrix/journey_status.json"
+    }
+  },
+  "J2.app-executed-supported-read": {
+    "status": "verified",
+    "evidence": "journey_matrix/j2_model_setup_20261013_072410_09737a.json (positive; negative control journey_matrix/j2_model_setup_20261013_072627_fd2193.json)",
+    "notes": "The seek-shaped ask (Search my documents for anything about quarterly revenue and tell me what you find) EXECUTED the deterministic application read over the CURRENT request's linked execution in BOTH pristine runs at e8b01dcec. POSITIVE (supports_tools=true): request 3e09336e-d3e3-46f7-8f0a-7343b54c8be5, execution 041e2136-688b-473f-8f0a-4a555798e43a, documents.grep, 3.398s. NEGATIVE control (supports_tools=false): request 8307057a-6c4b-4d5f-a3d1-cd76e8172acc, execution 851334c1-f69f-4d27-9a55-27d857f78fd8, 5.761s \u2014 per the owner's 2026-10-13 ruling the deterministic application read IS valid control behavior: the control verifies the read is timely (both far inside the 300s window, no indefinite running), attributable, and truthful \u2014 not a refusal.",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:29:55+00:00",
+    "evidence_path": "journey_matrix/j2_model_setup_20261013_072410_09737a.json",
+    "identity": {
+      "commit": "e8b01dcecf11fa3542ed6e647eb4c355504560f0",
+      "dirty_tracked": "M backend/scripts/orchestration_acceptance/j2_model_setup.py\n M backend/scripts/orchestration_acceptance/journey_contract.py\n M backend/scripts/orchestration_acceptance/journey_matrix/journey_status.json"
+    }
+  },
+  "J2.attributable-durable-receipt": {
+    "status": "verified",
+    "evidence": "journey_matrix/j2_model_setup_20261013_072410_09737a.json (positive; negative control journey_matrix/j2_model_setup_20261013_072627_fd2193.json)",
+    "notes": "Durable receipt bound to the CURRENT request's execution id in BOTH runs, read from agent_executions.task_outcome via read-only sqlite (receipt_source): positive execution 041e2136-688b-473f-8f0a-4a555798e43a, negative execution 851334c1-f69f-4d27-9a55-27d857f78fd8; tool=documents.grep verified=true required=true evidence_refs=1 kind=documents outcome=status=empty_in_scope match_count=0. Five-check gate all true in both runs (request_linked, executed_action, evidence_or_bounded_absence, obligation_relevant, narration_agrees) \u2014 the stored verified boolean alone is never the assertion.",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:29:55+00:00",
+    "evidence_path": "journey_matrix/j2_model_setup_20261013_072410_09737a.json",
+    "identity": {
+      "commit": "e8b01dcecf11fa3542ed6e647eb4c355504560f0",
+      "dirty_tracked": "M backend/scripts/orchestration_acceptance/j2_model_setup.py\n M backend/scripts/orchestration_acceptance/journey_contract.py\n M backend/scripts/orchestration_acceptance/journey_matrix/journey_status.json"
+    }
+  },
+  "J2.truthful-result": {
+    "status": "verified",
+    "evidence": "journey_matrix/j2_model_setup_20261013_072410_09737a.json (positive; negative control journey_matrix/j2_model_setup_20261013_072627_fd2193.json)",
+    "notes": "Delivered narration agrees with the durable outcome in BOTH runs: the positive reply opens 'LIVE TOOL RESULTS (documents.grep, pattern=quarterly revenue, under knowledge) \u2014 regex scan over the WHOLE stored tree \u2014 none. The search did not return any matches in the knowledge store.'; the negative reply likewise reports the empty scan. The durable receipt records status=empty_in_scope match_count=0 \u2014 a truthful zero-match in an empty world; positive_count_claims=[] and unbacked_claims=[] in both runs \u2014 no fabricated claim. The chat JSON's own success boolean (false on the tool turn in both runs; the receipts' tool_success is true) is recorded as-is \u2014 informational input, never the assertion.",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:29:56+00:00",
+    "evidence_path": "journey_matrix/j2_model_setup_20261013_072410_09737a.json",
+    "identity": {
+      "commit": "e8b01dcecf11fa3542ed6e647eb4c355504560f0",
+      "dirty_tracked": "M backend/scripts/orchestration_acceptance/j2_model_setup.py\n M backend/scripts/orchestration_acceptance/journey_contract.py\n M backend/scripts/orchestration_acceptance/journey_matrix/journey_status.json"
+    }
+  },
+  "J2.restart-durability": {
+    "status": "verified",
+    "evidence": "journey_matrix/j2_model_setup_20261013_072410_09737a.json (positive; negative control journey_matrix/j2_model_setup_20261013_072627_fd2193.json)",
+    "notes": "REAL restart per run (same scratch run dir+DB, new process, restart_number=1): positive 7.4s, negative 7.4s, booted. Persisted settings usable after restart in BOTH: GET /api/local-models HTTP 200 count=1 AND a post-restart second real reply (positive PONG2 3.464s success=true; negative PONG2 3.448s success=true). World B BYOK also survives a real restart in both runs (8.2s, key decrypts before and after). Persisted settings PLUS subsequent usable request per the round-10 mandate.",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:29:56+00:00",
+    "evidence_path": "journey_matrix/j2_model_setup_20261013_072410_09737a.json",
+    "identity": {
+      "commit": "e8b01dcecf11fa3542ed6e647eb4c355504560f0",
+      "dirty_tracked": "M backend/scripts/orchestration_acceptance/j2_model_setup.py\n M backend/scripts/orchestration_acceptance/journey_contract.py\n M backend/scripts/orchestration_acceptance/journey_matrix/journey_status.json"
+    }
+  },
+  "J2.model-native-tool-calling": {
+    "status": "untested",
+    "evidence": "journey_matrix/j2_model_setup_20261013_072410_09737a.json (positive; negative control journey_matrix/j2_model_setup_20261013_072627_fd2193.json)",
+    "notes": "deterministic application reads are certified separately; model-native tool planning was NOT exercised in the verified runs (the planner declined on the registered configuration) \u2014 its verdict remains open. (Note preserved verbatim from the 2026-10-13-r9-verify record; still holds for this pristine two-case run at e8b01dcec \u2014 both runs executed the deterministic application read, and the model-native planning path was not separately demonstrated.)",
+    "campaign": "2026-10-13-j2-pristine-r6",
+    "recorded_at": "2026-10-13T11:29:56+00:00"
   }
 }

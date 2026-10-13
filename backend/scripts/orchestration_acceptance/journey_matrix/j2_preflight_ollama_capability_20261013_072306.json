@@ -1,0 +1,33 @@
+{
+  "preflight": "ollama-capability-verification",
+  "model": "llama3.1:8b",
+  "started_at": "2026-10-13T11:23:04+00:00",
+  "installed_models": [
+    "llama3.1:8b"
+  ],
+  "api_show": {
+    "http": 200,
+    "capabilities": [
+      "completion",
+      "tools"
+    ],
+    "family": "llama",
+    "parameters": "8.0B"
+  },
+  "live_tool_probe": {
+    "http": 200,
+    "elapsed_s": 2.028,
+    "returned_tool_call": true,
+    "tool_name": "get_current_weather",
+    "tool_args": {
+      "location": "Paris",
+      "unit": "celsius"
+    },
+    "content_head": "",
+    "done_reason": "stop",
+    "model": "llama3.1:8b"
+  },
+  "capability_verified": true,
+  "verdict_basis": "/api/show capabilities=['completion', 'tools'] AND live tool_call name='get_current_weather' \u2014 direct verification of the exact tag, not a family claim",
+  "completed_at": "2026-10-13T11:23:06+00:00"
+}

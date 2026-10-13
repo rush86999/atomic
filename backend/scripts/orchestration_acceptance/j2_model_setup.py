@@ -33,10 +33,18 @@ ROUND-10 EVIDENCE INTEGRITY (owner review 2026-10-12):
     of BOTH worlds. A world that raises leaves its assertion map at None
     (untested) instead of silently vanishing — the round-9 evidence
     reported `pass: true` on world B alone while world A had refused.
-  * Tool evidence is ATTRIBUTABLE execution records: the turn's
-    execution id -> agent_executions -> task_outcome.tool_outcomes
-    (receipts with `verified`), read from the scratch DB. Substring
-    matching over response/prompt echoes is gone.
+  * Tool evidence is ATTRIBUTABLE execution records: the CURRENT
+    request's execution id (response body, or the request record after
+    a client timeout) -> agent_executions -> task_outcome.tool_outcomes,
+    read from the scratch DB. The gate is five checks — request-linked
+    attribution, an actually-dispatched action, receipt/evidence
+    references (or a structured bounded absence), relevance to the
+    requested read obligation, and agreement with the delivered result —
+    never the stored `verified` boolean alone (verifier controls: a
+    prior turn's receipt, an unrelated mutation, empty evidence
+    references and fabricated narration all failed the old boolean and
+    must fail here too). Substring matching over response/prompt echoes
+    is gone.
   * Client-window failure and later server delivery are preserved
     SEPARATELY: a timeout is a failed user request (the client gets the
     request_id back for the server-side lookup), and the server-side
@@ -253,20 +261,32 @@ def world_a_local(ollama_model: str,
         first_ok = first["client"]["outcome"] == "response" and _real(r1)
         out["assertions"]["J2.real-reply"] = first_ok
 
-        # --- tool-shaped ask: attributable receipts, not substrings ------
+        # --- tool-shaped ask: the CURRENT request's attributable
+        # receipts, never session-wide (round-10 verifier checks 1-2) ----
         tool = _turn(server, token, uid,
                      "Search my documents for anything about quarterly "
                      "revenue and tell me what you find.")
         tj = (tool.get("response") or {}).get("json") or {}
-        tool_sid = tj.get("session_id")
-        server_exec = (tool.get("server") or {}).get("execution_id")
+        request_id = tool["client"]["request_id"]
+        # CURRENT-REQUEST LINKAGE: this request's own execution id (the
+        # response carries it; after a client window failure the request
+        # record does). No linked execution = nothing to certify.
+        linked_exec = tj.get("execution_id")
+        if not linked_exec and server.db_path.exists():
+            linked_exec = JR.request_execution_id(server.db_path, request_id)
+        if not linked_exec:
+            linked_exec = (tool.get("server") or {}).get("execution_id")
         receipts: dict = {}
-        if tool_sid and server.db_path.exists():
-            receipts = JR.turn_tool_receipts(server.db_path, tool_sid)
-        elif server_exec and server.db_path.exists():
-            receipts = JR.execution_tool_receipts(server.db_path, server_exec)
+        if linked_exec and server.db_path.exists():
+            receipts = JR.execution_tool_receipts(
+                server.db_path, str(linked_exec))
+        verdict = JR.evaluate_read_obligation(
+            receipts, str(tj.get("message") or ""),
+            linked_execution_id=linked_exec, requested_source="documents")
         out["tool_shaped"] = {
             "client": tool["client"],
+            "request_id": request_id,
+            "linked_execution_id": linked_exec,
             "server": tool.get("server"),
             "http": (tool.get("response") or {}).get("http"),
             "success": tj.get("success"),
@@ -276,14 +296,24 @@ def world_a_local(ollama_model: str,
             "receipts": receipts.get("receipts", []),
             "receipt_count": receipts.get("receipt_count", 0),
             "evidence_ref_count": receipts.get("evidence_ref_count", 0),
-            "tool_success": receipts.get("tool_success"),
+            # Informational only: the old gate's input is recorded as
+            # evidence, never used as the assertion (an unrelated
+            # verified mutation satisfied it — verifier control B).
+            "tool_success_boolean": receipts.get("tool_success"),
+            "checks": verdict["checks"],
+            "verdict": {
+                key: verdict[key]
+                for key in ("pass", "linked_execution_id", "serving_tools",
+                            "relevant_tools", "hits", "bounded_absence",
+                            "positive_count_claims", "unbacked_claims")
+            },
             "receipt_source": "agent_executions.task_outcome "
                               "(read-only sqlite)",
         }
         out["assertions"]["J2.tool-planning"] = bool(
             tool["client"]["outcome"] == "response"
             and (tool.get("response") or {}).get("http") == 200
-            and receipts.get("tool_success") is True)
+            and verdict["pass"])
 
         # --- restart durability (exercised even after a failed turn) -----
         restart = server.restart()
