@@ -2970,8 +2970,6 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
                 "paths": [str(p)[:200]
                           for p in (docs.get("paths") or [])[:10]],
                 "action": docs.get("action") or "search",
-                "query": docs.get("query") or "",
-                "paths": list(docs.get("paths") or []),
                 "match_count": count,
                 "coverage": (
                     "partial" if (docs.get("degraded")
