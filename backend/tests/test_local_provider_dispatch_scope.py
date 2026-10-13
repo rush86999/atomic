@@ -1604,3 +1604,61 @@ class TestProgramKinds:
         assert normalize_source_kind("flurb") == ""
 
 
+class TestInternalLegScopeLeak:
+    """The KNOWN owned finding (runs 2-4): the chat singleton's internal
+    legs (turn-fact extraction, legacy intent analysis) dispatch from the
+    module singleton's DEFAULT scope when no request scope is published.
+    Owner question: can that default-scoped handler REACH another
+    workspace's registered provider or endpoint? Expected: NO — the
+    failure mode is under-service (the leg sees nothing), never
+    cross-workspace access."""
+
+    def test_default_scope_sees_no_other_workspaces_provider(
+            self, scoped_world, world_app):
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            # THE SINGLETON SHAPE: default/default, constructed exactly
+            # as the module-level chat singleton is.
+            singleton = LLMService(tenant_id="default")
+            routes = singleton.handler._local_routes
+            clients = singleton.handler.clients
+            assert not routes, (
+                f"the default-scoped handler must not adopt another "
+                f"workspace's routes; got {list(routes)}")
+            foreign = [k for k in clients if k.startswith("local_")]
+            assert not foreign, (
+                f"the default-scoped handler must not hold another "
+                f"workspace's provider clients; got {foreign}")
+            assert ep_a.hit_count == 0, (
+                "no endpoint may be reachable from the default scope")
+            from core.llm.byok_handler import QueryComplexity
+
+            ranked = singleton.handler.get_ranked_providers(
+                singleton.handler.analyze_query_complexity("x"))
+            assert not [p for p, _m in ranked
+                        if str(p).startswith("local_")], (
+                "another workspace's registered route must never rank in "
+                "the default scope")
+
+    def test_workspace_rows_are_invisible_to_the_default_scope(
+            self, scoped_world, world_app):
+        from core.llm_service import LLMService
+
+        with _CountingEndpoint("A") as ep_a, _CountingEndpoint("B") as ep_b:
+            ws_a = _authorized_workspace(world_app, scoped_world)
+            ws_b = _authorized_workspace(world_app, scoped_world)
+            _register_local_route(world_app, ws_a, ep_a.base_url,
+                                  tools=True, quality=0.9)
+            _register_local_route(world_app, ws_b, ep_b.base_url,
+                                  tools=False, quality=0.85)
+            default_svc = LLMService(tenant_id="default")
+            out = asyncio.run(default_svc.generate_completion(
+                messages=[{"role": "user", "content": "PONG"}]))
+            blob = json.dumps(out, default=str)
+            assert ep_a.hit_count == 0 and ep_b.hit_count == 0, (
+                "a default-scoped internal leg must not reach either "
+                f"workspace's endpoint; response={blob[:200]}")
