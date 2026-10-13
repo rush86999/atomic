@@ -1954,14 +1954,23 @@ class TestSearchOutcomeFinalization:
         assert refs[0].get("coverage") == "complete", (
             "complete coverage must survive settlement")
 
-    def test_stale_or_unverified_receipts_cannot_promote(
+    def test_stale_and_unverified_receipts_never_promote(
             self, scoped_world, world_app):
-        """Cases 4-5: a receipt from a PRIOR execution and an UNVERIFIED
-        receipt each fail to promote the current turn."""
+        """Cases 4-5 through ACTUAL FINALIZATION with a REAL, PRE-EXISTING
+        execution row (owner correction: the previous negative control
+        passed vacuously on an absent record). The row is created with
+        pre-existing metadata BEFORE finalization runs; after the real
+        builder + finalizer, the row must exist, the ORIGINAL metadata
+        must survive, and objective_met must be exactly the pinned
+        tri-state value — stale receipts and unverified receipts never
+        certify success (stale: not True; unverified: None, "unknown",
+        not the definitive False)."""
+        import json
+
         import integrations.chat_orchestrator as co
         from core.chat_tool_planner import ToolPlan
-        from core.models import AgentExecution
         from core.llm_service import LLMService
+        from core.models import AgentExecution
 
         plan = ToolPlan(use_tool=True, service="documents",
                         intent="search", query="quarterly revenue",
@@ -1972,38 +1981,106 @@ class TestSearchOutcomeFinalization:
             "degraded": False, "truncated": False, "error": "",
             "workspace_id": "ws-x",
         }
-        with _CountingEndpoint("A") as ep_a:
-            ws_a = _authorized_workspace(world_app, scoped_world)
-            _register_local_route(world_app, ws_a, ep_a.base_url,
-                                  tools=True, quality=0.9)
-            orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
-            orch.tenant_id = "default"
-            orch._cancelled_sessions = set()
-            orch._budget_exceeded_runs = set()
-            from core.llm_service import LLMService as _LS
+        receipts = co._planner_receipt_rows(plan)
+        assert receipts, "the real producer must stamp the receipt"
 
-            orch.llm_service = _LS(tenant_id="default")
+        from core.llm_service import LLMService
 
-            # PRIOR execution's receipts under a DIFFERENT key cannot
-            # license THIS execution.
-            session = {"_planner_tool_receipts_exec-old-1":
-                       co._planner_receipt_rows(plan)}
-            orch._finish_chat_execution(
-                "exec-cur-1", "completed", "s",
-                session=session, message="Search my documents.",
-                response={}, ai_response=None, deadline=None,
-                pending_task=None, user_id="u", workspace_id="ws-cur",
-                allow_persisted_evidence=False)
-            db = scoped_world["Session"]()
-            try:
-                row = (db.query(AgentExecution)
-                       .filter(AgentExecution.id == "exec-cur-1").first())
-                meta = row.metadata_json if row is not None else {}
-            finally:
-                db.close()
-            oc = (meta or {}).get("task_outcome") or {}
-            assert oc.get("objective_met") is not True, (
-                "another execution's receipts must not promote the "
-                "current turn")
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        orch.llm_service = LLMService(tenant_id="default")
 
+        # Non-colliding keys: the ownership listener stamps its own
+        # "owner" key at insert; pre-existing NON-owner keys must survive.
+        original_metadata = {"pre_existing_note": "here-before-finalization",
+                             "session_id": "sess-neg"}
 
+        # === CASE A: STALE receipt (keyed to a DIFFERENT execution) ===
+        exec_a = "exec-stale-1"
+        session_a = {"_planner_tool_receipts_" + exec_a: receipts,
+                     "_planner_tool_receipts_exec-other-9": receipts}
+        db = scoped_world["Session"]()
+        try:
+            db.add(AgentExecution(
+                id=exec_a, status="success", triggered_by="chat",
+                metadata_json=dict(original_metadata)))
+            db.commit()
+        finally:
+            db.close()
+        orch._finish_chat_execution(
+            exec_a, "completed", "s",
+            session=session_a, message="Search my documents.",
+            response={}, ai_response=None, deadline=None,
+            pending_task=None, user_id="u", workspace_id="ws-x",
+            allow_persisted_evidence=False)
+        db = scoped_world["Session"]()
+        try:
+            row = (db.query(AgentExecution)
+                   .filter(AgentExecution.id == exec_a).first())
+        finally:
+            db.close()
+        assert row is not None, "the execution row must exist"
+        meta = row.metadata_json if isinstance(
+            row.metadata_json, dict) else {}
+        # ORIGINAL metadata survived the finalization write
+        assert meta.get("pre_existing_note") == "here-before-finalization", (
+            f"original metadata must survive the finalization write: "
+            f"{meta!r}")
+        assert meta.get("session_id") == "sess-neg", (
+            f"original session_id must survive: {meta!r}")
+        oc = meta.get("task_outcome") or {}
+        assert oc.get("objective_met") is not True, (
+            "a STALE receipt (keyed to another execution) must never "
+            f"promote objective_met to True; got {oc.get('objective_met')!r}")
+
+        # === CASE B: CURRENT UNVERIFIED receipt ===
+        # The receipts ARE keyed to this execution, but verified=false:
+        # the completion predicate must refuse, and the tri-state result
+        # is objective_met=None ("unknown"), never True (certified) and
+        # never False (definitively failed) — unverified means unknown.
+        exec_b = "exec-unv-1"
+        unverified_receipts = co._planner_receipt_rows(plan)
+        for r in unverified_receipts:
+            r["verified"] = False
+        session_b = {"_planner_tool_receipts_" + exec_b:
+                     unverified_receipts}
+        db = scoped_world["Session"]()
+        try:
+            db.add(AgentExecution(
+                id=exec_b, status="success", triggered_by="chat",
+                metadata_json=dict(original_metadata)))
+            db.commit()
+        finally:
+            db.close()
+        orch._finish_chat_execution(
+            exec_b, "completed", "s",
+            session=session_b, message="Search my documents.",
+            response={}, ai_response=None, deadline=None,
+            pending_task=None, user_id="u", workspace_id="ws-x",
+            allow_persisted_evidence=False)
+        db = scoped_world["Session"]()
+        try:
+            row = (db.query(AgentExecution)
+                   .filter(AgentExecution.id == exec_b).first())
+        finally:
+            db.close()
+        assert row is not None, "the unverified execution row must exist"
+        meta = row.metadata_json if isinstance(
+            row.metadata_json, dict) else {}
+        assert meta.get("pre_existing_note") == "here-before-finalization", (
+            f"original metadata must survive the finalization write: "
+            f"{meta!r}")
+        oc = meta.get("task_outcome") or {}
+        assert oc.get("objective_met") is not True, (
+            "an UNVERIFIED receipt must never certify objective_met=True")
+        assert oc.get("objective_met") is None, (
+            f"the exact tri-state for unverified is None (unknown), got "
+            f"{oc.get('objective_met')!r}")
+        # Success kinds ARE derived (the finalizer records the honest
+        # outcome) but every kind must be False — nothing is certified
+        # from an unverified execution.
+        sk = oc.get("success_kinds") or {}
+        assert not any(v is True for v in sk.values()), (
+            f"no success kind may be True from an unverified turn: {sk!r}")
