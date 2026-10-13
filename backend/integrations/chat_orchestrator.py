@@ -5099,6 +5099,21 @@ def _fallback_turn_outcome(
                 f"_planner_tool_receipts_{execution_id}")
             if _receipts_carry_verified_complete_search(_planner_rows):
                 validated = True
+        # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the memory-context
+        # assembler publishes the source identities it actually
+        # retrieved from — these become attributable evidence refs for
+        # context-backed answers without rerunning a planner search or
+        # manufacturing them from reply text. Retrieved observations are
+        # distinguished from verified answer support (the assembler
+        # found them; whether the delivered answer relies on them is
+        # the narration's claim, checked separately).
+        _context_sources: List[Dict[str, Any]] = []
+        try:
+            from core.memory_context_assembler import get_retrieval_sources
+
+            _context_sources = get_retrieval_sources()
+        except Exception:  # noqa: BLE001 — attribution is additive
+            _context_sources = []
         # INCOMPLETE CALCULATION (owner R3b): a calculate op that resolved
         # to waiting/incomplete delivered a clarification naming the
         # pending input — this validates the DELIVERY (not the
@@ -6988,21 +7003,37 @@ class ChatOrchestrator:
                         dict(r) for r in _planner_rows if isinstance(r, dict)]
             except Exception:  # noqa: BLE001 — receipts never gate
                 pass
-            # CALCULATION EVIDENCE (owner directive R3): a calculate op
-            # bound to THIS execution is calculation evidence — the
-            # generic tool_outcomes builder must not label it as a
-            # failed datasets search. Read the actual, execution-linked
-            # calculation record from the task lifecycle.
+            # CONTEXT-ASSEMBLY SOURCES (owner R4): the assembler
+            # publishes the retrieval source identities it found — the
+            # builder consumes them as attributable evidence refs.
+            _context_sources = []
+            try:
+                from core.memory_context_assembler import (
+                    get_retrieval_sources,
+                )
+
+                _context_sources = get_retrieval_sources()
+            except Exception:  # noqa: BLE001 — attribution is additive
+                _context_sources = []
+            # CALCULATION EVIDENCE (owner directive R3): resolve the
+            # lifecycle using the conversation-scoped task resolution
+            # (the fallback resolver's own path — not session["_task_run_id"]
+            # which calc-lane turns don't stamp), then use
+            # _turn_evidence_set to scope operations to THIS execution.
             _calc_evidence = []
             try:
-                _run_id = (session or {}).get("_task_run_id") if isinstance(
-                    session, dict) else None
-                if _run_id and _task_lifecycle_for is not None:
-                    _tl = _task_lifecycle_for(
-                        getattr(self, "tenant_id", None) if hasattr(
-                            self, "tenant_id") else None,
-                        (session or {}).get("workspace_id"))
-                    if _tl is not None:
+                from core.task_lifecycle import _task_lifecycle_for as _tlf
+
+                _tl = _task_lifecycle_for(
+                    getattr(self, "tenant_id", None) if hasattr(
+                        self, "tenant_id") else None,
+                    workspace_id)
+                if _tl is not None:
+                    _conv = (session or {}).get(
+                        "id") or (session or {}).get("session_id") or ""
+                    _active = _tl.find_active_task(str(_conv)) if _conv else None
+                    _run_id = (_active or {}).get("run_id")
+                    if _run_id:
                         _rec = _tl.get_task(_run_id)
                         for _op in (_rec or {}).get("operations") or []:
                             if str(_op.get("execution_id") or "") != str(
@@ -7011,6 +7042,8 @@ class ChatOrchestrator:
                             _calc = _op.get("calculation") or {}
                             if not isinstance(_calc, dict):
                                 continue
+                            _result_id = _calc.get("result_id") or ""
+                            _op_id = _op.get("operation_id") or ""
                             if _calc.get("status") == "succeeded" and (
                                     _calc.get("proposed") or {}).get(
                                         "amount") is not None:
@@ -7025,8 +7058,14 @@ class ChatOrchestrator:
                                         "kind": "calculation",
                                         "policy_id": _calc.get(
                                             "policy_id") or "",
-                                        "result_id": _op.get(
-                                            "operation_id") or "",
+                                        # BOTH identifiers preserved
+                                        # separately (owner correction):
+                                        # the op id is the lifecycle's
+                                        # attribution; the result_id is
+                                        # the engine's citation for
+                                        # reply agreement.
+                                        "operation_id": _op_id,
+                                        "result_id": _result_id,
                                     }],
                                 })
                             elif _calc.get("status") == "incomplete":
@@ -7049,6 +7088,22 @@ class ChatOrchestrator:
                     if not (t.get("tool") == "datasets"
                             and t.get("outcome") == "not_executed")]
                 tool_outcomes = list(tool_outcomes) + _calc_evidence
+            # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the assembler's
+            # retrieval observations become attributable evidence refs —
+            # retrieved observations, not verified answer support.
+            if _context_sources:
+                tool_outcomes.append({
+                    "tool": "context_assembly",
+                    "verified": True,
+                    "outcome": (
+                        f"retrieved {len(_context_sources)} source(s) "
+                        f"into context"),
+                    "required": False,
+                    "evidence_refs": [
+                        {"kind": "context_source", **s}
+                        for s in _context_sources
+                    ],
+                })
             objective_met = None
             if status in {"failed", "cancelled"} or response.get("success") is False:
                 objective_met = False
@@ -7198,7 +7253,7 @@ class ChatOrchestrator:
             )
             return outcome
         except Exception as error:
-            logger.debug(f"task outcome build skipped: {error}")
+            logger.warning(f"task outcome build skipped: {error}", exc_info=True)
             return {}
 
     def _finish_chat_execution(
