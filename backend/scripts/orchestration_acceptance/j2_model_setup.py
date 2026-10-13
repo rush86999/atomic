@@ -59,6 +59,7 @@ ROUND-10 EVIDENCE INTEGRITY (owner review 2026-10-12):
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -230,10 +231,17 @@ def world_a_local(ollama_model: str,
             "count": len((models["json"] or {}).get("models")
                          or (models["json"] or {}).get("data") or []),
             "raw_head": json.dumps(models["json"], default=str)[:300]}
+        # PRISTINE-J2 R5 (acceptance owner): the declared capability must
+        # match what was DIRECTLY verified about the model. The live probe
+        # (GET /api/show capabilities + a real /api/chat tool call against
+        # llama3.1:8b, 2026-10-12) returned tools support, so the positive
+        # case declares supports_tools=true (J2_SUPPORTS_TOOLS=1); the
+        # default stays False as the truthful-refusal negative control.
+        supports_tools = os.environ.get("J2_SUPPORTS_TOOLS", "") == "1"
         caps = JR.auth_post(
             server.base, token,
             f"/api/local-models/{provider_id}/capabilities",
-            {"model_id": ollama_model, "supports_tools": False,
+            {"model_id": ollama_model, "supports_tools": supports_tools,
              "supports_vision": False, "supports_reasoning": False,
              # Above the SIMPLE ranking floor (85/100, byok_handler
              # min_quality): the 2026-10-12 run declared 0.5 and the route
@@ -241,7 +249,8 @@ def world_a_local(ollama_model: str,
              # bug — the UI slider allows the same mistake with no hint.
              "quality_score": 0.9, "speed_score": 0.8,
              "context_window": 8192})
-        out["set_capabilities"] = {"http": caps["http"]}
+        out["set_capabilities"] = {"http": caps["http"],
+                                   "supports_tools": supports_tools}
         test = JR.auth_post(server.base, token,
                             f"/api/local-models/{provider_id}/test", {})
         out["test_connection"] = {"http": test["http"],
