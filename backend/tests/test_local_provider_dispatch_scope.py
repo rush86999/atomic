@@ -1479,4 +1479,3 @@ class TestProgramKinds:
         assert normalize_source_kind("documents") == "document"
         assert normalize_source_kind("workbooks") == "spreadsheet"
         assert normalize_source_kind("flurb") == ""
-

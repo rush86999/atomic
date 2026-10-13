@@ -56,6 +56,11 @@ logger = logging.getLogger(__name__)
 
 from core.request_scope import current_request_scope
 
+# Control A fallback bound (owner diagnostic bounds, 2026-10-12): when
+# the turn clock cannot be read, the reply leg still runs BOUNDED — the
+# orchestration default the stall trace measured (95s), never unbounded.
+_DEFAULT_TURN_BUDGET_SECONDS = 95.0
+
 
 def resolve_user_workspace(user_id: Optional[str], fallback: str = "default") -> str:
     """Map a user id to their workspace — the store integration syncs write
@@ -12192,14 +12197,33 @@ class ChatOrchestrator:
                 # bounds the whole reply leg (kwargs verbatim from the
                 # original call); on expiry the existing honest budget
                 # envelope is what the client receives.
+                # TWO EXPLICIT CONTROLS (owner diagnostic bounds,
+                # 2026-10-12 — both behaviors are tested):
+                # Control A — a clock-calculation failure must NOT fall
+                # back to an unbounded call: the reply leg gets the
+                # default turn budget instead (bounded degradation).
+                # Control B — `max(5.0, remaining)` must not grant fresh
+                # time after the turn budget is already exhausted:
+                # remaining <= 0 delivers the honest budget envelope with
+                # ZERO dispatch, before the leg is awaited.
                 _reply_leg_budget = None
+                _budget_already_spent = False
                 try:
-                    _reply_leg_budget = (
-                        max(5.0, float(_deadline.remaining()))
-                        if _deadline is not None else None)
-                except Exception:  # noqa: BLE001 — clock is optional
-                    _reply_leg_budget = None
-
+                    _remaining_s = float(_deadline.remaining())
+                except Exception:  # noqa: BLE001 — Control A: bounded
+                    logger.warning(
+                        "[deadline] remaining() failed — the reply leg "
+                        "runs under the default turn budget, unbounded "
+                        "dispatch refused")
+                    _remaining_s = _DEFAULT_TURN_BUDGET_SECONDS
+                if _remaining_s <= 0.0:
+                    # Control B: the turn budget is spent. No dispatch.
+                    _budget_already_spent = True
+                else:
+                    # STRICT bound: the leg never gets more than the turn
+                    # has left (the old max(5.0, remaining) granted fresh
+                    # time after the budget was spent — Control B).
+                    _reply_leg_budget = _remaining_s
                 # HOISTED before the nested coroutine (round-5 F2):
                 # locals() inside _reply_leg is the nested frame — the
                 # miss-handoff names live in THIS frame only, and reading
@@ -12214,73 +12238,79 @@ class ChatOrchestrator:
                     locals().get("_ask_handoff_block")
                     if locals().get("_ask_miss_handoff") else None)
 
-                async def _reply_leg():
-                    ai_response = await self._get_qwen_response(
-                        message, history, routing_overrides,
-                        deadline=_deadline,
-                        sticky_hint=sticky_hint, user_id=user_id,
-                        agent_id=_consult_agent_id or (
-                            context or {}).get('agent_id'),
-                        planner_history=session.get("history", []),
-                        session_id=session_id,
-                        execution_id=_execution_id,
-                        workspace_id=(context or {}).get("workspace_id"),
-                        canvas_context=_canvas_ctx,
-                        tool_plan_task=_tool_plan_task,
-                        # MISS-HANDOFF EVIDENCE (2026-10-01): the file-ask
-                        # handoff lane never publishes to the turn's tool
-                        # blackboard — its read block died here, leaving the
-                        # narrator evidence-less. The handoff block stands in
-                        # when the blackboard is empty (the read already ran;
-                        # re-planning it would double latency for identical
-                        # results).
-                        prefetched_tool_block=(
-                            _hoisted_prefetched_block),
-                        miss_handoff=_hoisted_miss_handoff,
-                        miss_handoff_block=_hoisted_miss_handoff_block,
-                        shared_tool_state=_shared_tool,
-                        # RELEVANCE GATE (RCA findings 2 and 4; 2026-09-22
-                        # revision). A block produced by a plan built for an
-                        # OLDER request must not stand as this turn's evidence —
-                        # but a follow-up consuming the exchange it approves
-                        # ("yes go ahead") DOES address its task via the resolved
-                        # lineage. The tri-state verdict feeds the typed status:
-                        # unproven/mismatch withhold with an honest note and
-                        # never claim a lookup failed.
-                        canvas_evidence_status=_canvas_evidence_status,
-                        request_reference=_request_reference,
-                        pending_file_task=_pending_file_task,
-                        disambiguation=(context or {}).get("disambiguation"),
-                        async_continuation_forked=bool(
-                            _shared_tool.get("async_continuation_forked")),
-                        session=session,
-                        mission_critical=bool((context or {}).get("mission_critical")),
-                        canvas_provenance=(context or {}).get("canvas_provenance"),
-                        images=images,
-                    )
-                    return ai_response
-                if _reply_leg_budget is not None:
-                    try:
-                        ai_response = await asyncio.wait_for(
-                            _reply_leg(), timeout=_reply_leg_budget)
-                    except asyncio.TimeoutError:
-                        logger.error(
-                            "[deadline] reply leg exceeded the turn clock "
-                            "(%.0fs) — enforced, honest timeout returned",
-                            _reply_leg_budget or -1)
-                        ai_response = _turn_budget_error_response()
-                        # THE CONSUMER RENDERS THIS (13181+):
-                        # stamping the execution id routes the
-                        # turn through the budget-halted outcome
-                        # (error_code=turn_budget_exceeded,
-                        # success=False) — the assigned envelope
-                        # alone was silently discarded by the
-                        # response composition (round-7 probe).
-                        if _execution_id:
-                            self._budget_exceeded_runs.add(
-                                _execution_id)
+                if _budget_already_spent:
+                    logger.error(
+                        "[deadline] turn budget exhausted before the "
+                        "reply leg — honest envelope, zero dispatch")
+                    ai_response = _turn_budget_error_response()
                 else:
-                    ai_response = await _reply_leg()
+                    async def _reply_leg():
+                        ai_response = await self._get_qwen_response(
+                            message, history, routing_overrides,
+                            deadline=_deadline,
+                            sticky_hint=sticky_hint, user_id=user_id,
+                            agent_id=_consult_agent_id or (
+                                context or {}).get('agent_id'),
+                            planner_history=session.get("history", []),
+                            session_id=session_id,
+                            execution_id=_execution_id,
+                            workspace_id=(context or {}).get("workspace_id"),
+                            canvas_context=_canvas_ctx,
+                            tool_plan_task=_tool_plan_task,
+                            # MISS-HANDOFF EVIDENCE (2026-10-01): the file-ask
+                            # handoff lane never publishes to the turn's tool
+                            # blackboard — its read block died here, leaving the
+                            # narrator evidence-less. The handoff block stands in
+                            # when the blackboard is empty (the read already ran;
+                            # re-planning it would double latency for identical
+                            # results).
+                            prefetched_tool_block=(
+                                _hoisted_prefetched_block),
+                            miss_handoff=_hoisted_miss_handoff,
+                            miss_handoff_block=_hoisted_miss_handoff_block,
+                            shared_tool_state=_shared_tool,
+                            # RELEVANCE GATE (RCA findings 2 and 4; 2026-09-22
+                            # revision). A block produced by a plan built for an
+                            # OLDER request must not stand as this turn's evidence —
+                            # but a follow-up consuming the exchange it approves
+                            # ("yes go ahead") DOES address its task via the resolved
+                            # lineage. The tri-state verdict feeds the typed status:
+                            # unproven/mismatch withhold with an honest note and
+                            # never claim a lookup failed.
+                            canvas_evidence_status=_canvas_evidence_status,
+                            request_reference=_request_reference,
+                            pending_file_task=_pending_file_task,
+                            disambiguation=(context or {}).get("disambiguation"),
+                            async_continuation_forked=bool(
+                                _shared_tool.get("async_continuation_forked")),
+                            session=session,
+                            mission_critical=bool((context or {}).get("mission_critical")),
+                            canvas_provenance=(context or {}).get("canvas_provenance"),
+                            images=images,
+                        )
+                        return ai_response
+                    if _reply_leg_budget is not None:
+                        try:
+                            ai_response = await asyncio.wait_for(
+                                _reply_leg(), timeout=_reply_leg_budget)
+                        except asyncio.TimeoutError:
+                            logger.error(
+                                "[deadline] reply leg exceeded the turn clock "
+                                "(%.0fs) — enforced, honest timeout returned",
+                                _reply_leg_budget or -1)
+                            ai_response = _turn_budget_error_response()
+                            # THE CONSUMER RENDERS THIS (round-7 probe):
+                            # stamping the execution id routes the turn
+                            # through the budget-halted outcome
+                            # (error_code=turn_budget_exceeded,
+                            # success=False) — the assigned envelope alone
+                            # was silently discarded by response
+                            # composition.
+                            if _execution_id:
+                                self._budget_exceeded_runs.add(
+                                    _execution_id)
+                    else:
+                        ai_response = await _reply_leg()
                 # NOT-FOUND GUARANTEE (2026-10-01 three-domain live
                 # finding): on a not-found-shaped ask the absent items'
                 # NAMES are a deterministic fact from the structured
