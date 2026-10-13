@@ -4912,15 +4912,24 @@ def _operation_carries_verified_complete_search(op: Dict[str, Any]) -> bool:
         if isinstance(execr.get("task_outcome"), dict) else None)
     if not isinstance(outcomes, list):
         return False
-    for receipt in outcomes:
+    return _receipts_carry_verified_complete_search(outcomes)
+
+
+def _receipts_carry_verified_complete_search(receipts) -> bool:
+    """Do these tool_outcome rows contain a VERIFIED, COMPLETE search?
+
+    Scope lives in the evidence refs (the producer stamps
+    query/match_count/coverage there; settlement's _copy_ref preserves
+    them). A receipt with no scoped ref, a partial/degraded coverage, or
+    an unstated match count cannot certify a complete search. Legacy
+    top-level scope still counts."""
+    if not isinstance(receipts, list):
+        return False
+    for receipt in receipts:
         if not isinstance(receipt, dict):
             continue
         if receipt.get("verified") is not True:
             continue
-        # SCOPE LIVES IN THE EVIDENCE REFS (the producer stamps
-        # query/match_count/coverage there; settlement's _copy_ref
-        # preserves them). A receipt with no scoped ref cannot certify
-        # a complete search.
         for ref in receipt.get("evidence_refs") or []:
             if not isinstance(ref, dict):
                 continue
@@ -4932,7 +4941,6 @@ def _operation_carries_verified_complete_search(op: Dict[str, Any]) -> bool:
                     isinstance(ref.get("match_count"), bool):
                 continue
             return True
-        # top-level scope (legacy producers) still counts
         coverage = receipt.get("coverage")
         if coverage not in (None, "", "partial", "degraded",
                             "incomplete") and isinstance(
@@ -5065,6 +5073,18 @@ def _fallback_turn_outcome(
             or any(_operation_carries_verified_complete_search(op)
                    for op in this_ops)
             or _execution_verified_complete_search(execution_id))
+        # ORDERING REPAIR (peer round-11 finding at 2eb46a8b9): the
+        # recorded-outcome resolution runs BEFORE the execution row's
+        # task_outcome settles, so an executed, complete, scoped
+        # zero-match search resolved to unconfirmed. The planner's own
+        # receipts for THIS execution are stamped at dispatch (session,
+        # keyed by execution id) and are identity-bound — they carry the
+        # completed search at resolution time.
+        if not validated and isinstance(session, dict) and execution_id:
+            _planner_rows = session.get(
+                f"_planner_tool_receipts_{execution_id}")
+            if _receipts_carry_verified_complete_search(_planner_rows):
+                validated = True
         # The session's delivered-result carrier, bound to THIS
         # execution when it carries one: the recorded "results actually
         # included in this answer" (owner step 1). A carrier bound to

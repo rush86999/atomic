@@ -1783,3 +1783,27 @@ class TestSearchOutcomeContract:
             self._receipt(truncated=True, degraded=True),
         ]}}}
         assert not _operation_carries_verified_complete_search(op)
+
+
+    def test_session_planner_receipts_validate_before_settlement(self):
+        """The ordering repair (peer round-11 finding at 2eb46a8b9): the
+        recorded-outcome resolution runs BEFORE the execution row's
+        task_outcome settles. The planner's own receipts for this
+        execution — stamped into the session at dispatch — must carry
+        the completed search at resolution time."""
+        from integrations.chat_orchestrator import (
+            _receipts_carry_verified_complete_search,
+        )
+
+        rows = self._receipt(match_count=0)
+        rows["evidence_refs"][0]["query"] = "quarterly revenue"
+        assert _receipts_carry_verified_complete_search([rows]) is True
+        # an unverified row never carries it
+        unverified = self._receipt(verified=False)
+        assert _receipts_carry_verified_complete_search([unverified]) is False
+        # degraded coverage never carries it
+        degraded = self._receipt(degraded=True, truncated=True)
+        assert _receipts_carry_verified_complete_search([degraded]) is False
+        # not-a-list / empty never validate
+        assert _receipts_carry_verified_complete_search(None) is False
+        assert _receipts_carry_verified_complete_search([]) is False
