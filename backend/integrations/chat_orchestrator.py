@@ -12268,8 +12268,7 @@ class ChatOrchestrator:
                             "[deadline] reply leg exceeded the turn clock "
                             "(%.0fs) — enforced, honest timeout returned",
                             _reply_leg_budget or -1)
-                        ai_response = await self._turn_budget_envelope(
-                            session_id=session_id)
+                        ai_response = _turn_budget_error_response()
                 else:
                     ai_response = await _reply_leg()
                 # NOT-FOUND GUARANTEE (2026-10-01 three-domain live

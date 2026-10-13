@@ -1450,6 +1450,8 @@ class TestTruthfulToolRequest:
             f"{str(out.get('message'))[:200]!r}")
 
 
+
+
 class TestProgramKinds:
     """The mapping pin (coordinated peer integration, 41c4c54da→): the
     decision's documents source ask survives the REAL compiler with its
@@ -1477,3 +1479,4 @@ class TestProgramKinds:
         assert normalize_source_kind("documents") == "document"
         assert normalize_source_kind("workbooks") == "spreadsheet"
         assert normalize_source_kind("flurb") == ""
+
