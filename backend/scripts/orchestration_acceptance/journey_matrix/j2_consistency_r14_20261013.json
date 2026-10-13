@@ -1,0 +1,57 @@
+{
+  "probe": "verifier round-14 J2 consistency check (pristine export 8a4ac9b66)",
+  "candidate": {
+    "commit": "8a4ac9b6695c9bfe06e31f91430c399156e531c8",
+    "tree": "e6da6706f2c1a8826ccaadefb15d1ca734c20014",
+    "harness_dirty_tracked": "clean",
+    "config_digest": "177ef2a107552dfeb64a6caf65a30041aa0358035cd327e34059a7576baf0f05"
+  },
+  "public_response": {
+    "success": true,
+    "error_code": null,
+    "outcome": "completed",
+    "provider": "ollama",
+    "model": "llama3.1:8b",
+    "execution_id": "4c6c5bf8-86dd-43ea-9bc9-ae397b3cdb87",
+    "session_id": "a56e737b-249c-4794-aad6-9b7cbf2a42a5"
+  },
+  "durable_execution": {
+    "objective_met": true,
+    "delivery": true,
+    "receipt": {
+      "execution_id": "4c6c5bf8-86dd-43ea-9bc9-ae397b3cdb87",
+      "tool": "documents.grep",
+      "verified": true,
+      "outcome": "status=empty_in_scope match_count=0",
+      "required": true,
+      "evidence_refs": 1,
+      "evidence": [
+        {
+          "kind": "documents",
+          "action": "grep",
+          "query": "quarterly revenue",
+          "coverage": "complete",
+          "match_count": 0
+        }
+      ]
+    }
+  },
+  "assistant_metadata": {
+    "source": "scratch-DB chat_messages.metadata_json (history route source)",
+    "success": true,
+    "error_code": null,
+    "outcome": "completed",
+    "note": "verified by direct read-only query after the probe; the probe's nested join returned [] (probe bug, not product)"
+  },
+  "history": {
+    "content_agrees_with_delivery": true,
+    "survives_restart": true
+  },
+  "restart": {
+    "booted": true,
+    "seconds": 10.6,
+    "restart_number": 1
+  },
+  "request_record_disclosed_nuance": "chat_request_records.finalized_response stores success=true but no 'outcome' key (pre-alignment snapshot); assistant metadata and the execution outcome carry the completed state",
+  "verdict": "PASS \u2014 success, outcome, durable objective_met and history agree for the executed complete zero-match search"
+}
