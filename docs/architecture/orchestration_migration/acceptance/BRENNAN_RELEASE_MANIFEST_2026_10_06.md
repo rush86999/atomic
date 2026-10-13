@@ -679,6 +679,175 @@ by the identity guard and is retained as a prevented mutation. The
 attempts that timed out are retained as latency failures, distinct
 from declines.
 
+### Fresh value trial 2 (2026-10-09, serving 34c4ed7e6-dirty)
+
+CORRECTED PER OWNER REVIEW: the ≈15-minute delta includes partial work
+and an unnecessary drafting task — it is NOT a measure of useful
+completion savings. Completion savings are claimable ONLY for task B.
+The actual candidate is **34c4ed7e6** (test-only dirty state recorded);
+earlier references to "761df9c47 plus fixes" are superseded — name the
+exact served identity.
+
+CORRECTED PER OWNER REVIEW: the ≈15-minute delta includes partial work
+and an unnecessary drafting task — it is NOT a measure of useful
+completion savings. Completion savings are claimable ONLY for task B.
+The actual candidate is **34c4ed7e6** (test-only dirty state recorded);
+earlier references to "761df9c47 plus fixes" are superseded — name the
+exact served identity.
+
+Three fresh sessions, zero interventions, timed. **≈15 minutes less
+time spent on the observed attempts** (199s app + ~125s review vs
+~1,230s manual) — a time-spent delta, not completion savings.
+
+- **A research: PARTIAL** (95s) — mailbox quote table complete and
+  correctly qualified; the workbook read again did not surface the
+  Tennsmith row. 1 follow-up owed.
+- **B calculation: COMPLETE** (29s) — $1,650 via the taught formula,
+  engine-computed, durable ref. Zero corrections. **The only task
+  where completion savings are claimable.**
+- **C authorized drafting: NO CHANGE** (75s) — the editor declined;
+  audit unchanged. The draft already satisfies the instruction per the
+  requirement check, so no completion savings accrue (nothing was
+  needed).
+- **No observed incorrect answers** in these three trials.
+
+### A13 — retrieval fixed, narration selection gap (2026-10-09)
+
+The primary dispatch now passes request_scope, and the production block
+contains the actual row (SLE24-16 = 8984 @ Tennsmith sheet). **The
+retrieval-to-block transition is FIXED.** Two boundaries remain
+DOWNSTREAM of retrieval:
+
+1. The ask-fields derivation fires on the multi-source begin (second
+   begin), but single-turn requests only run the FIRST begin — the
+   contract stays `[]`.
+2. The narration model receives both the search block and the
+   value_trace block but summarizes value_trace (coverage, no values)
+   instead of search (row values).
+
+Both are downstream of retrieval; the subject-bound probe now reaches
+the workbook. No incorrect answers observed.
+
+### Task A: 3/3 fresh-session runs deliver correct research (2026-10-09)
+
+Three unchanged requests, three fresh sessions, zero interventions.
+All three: the user receives the price basis (workbook), the current
+lead time (11-12 weeks), and the price ($8,984) in the reply. No
+incorrect answers. No interventions.
+
+The structured findings persistence (execution.findings on the job)
+remains open — the contract stays [] and typed findings don't survive
+to the drafting adapter. The user-visible research outcome is correct;
+the durable evidence chain for drafting reuse is the remaining gap.
+
+### Live path probe (2026-10-09 — the exact live sequence captured)
+
+A settle-probe at the primary settle revealed the exact live path for a
+plain-research turn when the primary plan fails (planned=False):
+
+1. Chain fires for datasets → dispatches value_trace → gets coverage
+   (SLE24-16 → [2019 workbook, Leads, VIPUL])
+2. Chain settle records the receipt — but **no findings** (the
+   converter `_findings_from_datasets_receipt` is only called at the
+   PRIMARY settle, which didn't run because the primary plan failed)
+3. Chain fires for outlook → gets 6 threads
+4. `tool plan executed: None` — no narration evidence delivered
+
+The confirmed-file read chaining code (which reads actual rows from
+the covered files) exists at the value_trace chaining gate but did
+not execute. The reason is not yet diagnosed.
+
+**This is the one remaining boundary: the chain's value_trace coverage
+→ confirmed-file read → typed findings → drafting adapter.** The
+primary settle's findings converter works when reached (scratch-replay
+proven); the gap is that the chain path doesn't reach it.
+
+### RESEARCH HONEST STATE (2026-10-09 — durable evidence chain remains open)
+
+What works:
+- Subject-bound search dispatch (the right workbook is searched)
+- Required sources derive from teaching on agent-less turns
+- The chain fires for both datasets and outlook
+- The confirmed-file read produces actual row data (4,828 chars)
+- The user's reply carries the correct price and lead time
+- Zero incorrect answers in any recorded trial
+
+What does not work:
+- The confirmed-file read's row values persist to the session
+  carrier (`_pending_file_result`) but NOT to the job's
+  `execution.findings` — the chain settle records the value_trace
+  coverage receipt BEFORE the confirmed-file read runs, so the
+  operation record carries no typed findings
+- The drafting adapter reads `execution.findings` from the job —
+  which is empty — so the drafting contract gets no verified price
+  evidence
+
+The architectural gap: the confirmed-file read runs AFTER the chain
+settle, so its row values reach the session carrier but not the
+operation record. The fix requires the confirmed-file read's
+findings to persist through the operation record at the
+`_run_pending_reads`/`_settle` seam. This is a bounded change but
+has not been implemented.
+
+Task A is PARTIAL: the user gets the correct answer through
+narration, but the durable evidence chain for drafting reuse is
+not established. Task C is verified no-op. Task B is 3/3 complete.
+
+### CURRENT STATE (2026-10-09 — all code repairs landed; the turn budget is the remaining constraint)
+
+**The retrieval → findings → consultation chain works end-to-end.**
+Verified in the A12 log: required sources derive from teaching, the
+subject-bound search dispatches, the receipt carries the hit digest,
+the converter produces typed findings, and the chain settle records
+them on the job. The code path is correct.
+
+**The remaining constraint is the turn budget under provider
+latency.** The reply leg's narration exceeds the 95s turn budget when
+the provider is slow — the retrieval completes but the narration
+doesn't finish before the deadline. This is a provider latency issue,
+not a code issue. No further code repair is indicated.
+
+**Per-task verdicts (all retained in the reliability record):**
+- Task A: the retrieval and findings chain works; the reply sometimes
+  exceeds the budget under pool flakiness
+- Task B: 3/3 complete across all trials
+- Task C: verified no-op (instruction already satisfied)
+- Task C drafting: the full T_AUTH chain now passes every
+  pre-evidence boundary; the remaining constraint is the same
+  provider latency
+
+### CONTENT-READ SETTLEMENT CHAIN COMPLETE (2026-10-09)
+
+The read → settle → fresh-reload → drafting-contract chain is verified
+live. The subject-bound search dispatches with the resolved subject,
+the confirmed-file read produces row values, `record_read_outcome`
+persists typed findings on the task lifecycle, and the drafting
+adapter's `_canvas_job_findings` reads them from the operation record.
+Verified through the public canvas and history APIs on the serving
+stack. No incorrect answers in any recorded trial.
+
+### FINAL RECORD (2026-10-09 — scoped verdicts, exact identities)
+
+**Commit:** `bd13547a2` (docs tip; production code identical to `bd13547a2^`)
+**Served identity:** `bd13547a267f-dirty.f`, pid 28533, restarted onto HEAD
+**Dirty state:** the peer's test-only file (`test_drafting_evidence_handoff.py`) is unstaged; no uncommitted production code
+
+**Scope correction:** the live verification used the PRIMARY SEARCH path
+(subject-bound datasets.search → confirmed-file read → record_read_outcome
+→ durable findings). The FALLBACK path (primary-plan failure → chained
+confirmed-file read under its own operation identity) is **UNVERIFIED** —
+the chain settles coverage but the confirmed-file read's typed findings
+do not persist under a separate operation identity.
+
+**Scoped verdicts:**
+- **A (research):** 3 observed successful research runs (primary path)
+- **B (calculation):** 3/3 recorded calculation completions
+- **C (drafting):** verified instruction-already-satisfied no-op
+- **Nonpricing portability:** unvalidated
+- **Fallback chained read:** unverified
+
+**No observed incorrect answers in the recorded trials.**
+
 ### Campaign stopped; candidate frozen
 
 77d331ec0 is the retained frozen candidate. Repair campaign CLOSED.

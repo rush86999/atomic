@@ -517,6 +517,7 @@ class ChatMessageResponse(BaseModel):
     error_code: Optional[str] = Field(None, description="Structured error code (e.g. no_llm_provider, budget_exceeded)")
     failure_reason: Optional[str] = Field(None, description="Machine-readable cause for structured errors (e.g. provider_credits_exhausted). The orchestrator and the M1 finalizer both carry it — undeclared here it was silently DROPPED at route serialization (case-5 finding, 2026-10-06), so clients could never render the distinct retry/top-up UI the backend promised.")
     recovery_url: Optional[str] = Field(None, description="Recovery URL for structured errors")
+    outcome: Optional[str] = Field(None, description="Record-resolved turn outcome: failed / partial / continuation_queued / completed / unconfirmed. Present when the fallback honesty gate aligned the envelope with the recorded state — the machine status agrees with the reply text.")
 
 
 class ChatHistoryRequest(BaseModel):
@@ -734,6 +735,17 @@ async def get_chat_history(
                         "response": {"message": row.content} if row.role == "assistant" else None,
                         "timestamp": row.created_at.isoformat() if row.created_at else None,
                     }
+                    # MACHINE STATUS ON HISTORY RELOAD: the persisted
+                    # success/error_code/outcome ride the history entry,
+                    # so a reload shows the same turn state the API
+                    # returned for it (2026-10-09 agreement check: the
+                    # API and the row agreed while history served only
+                    # the text).
+                    if row.role == "assistant":
+                        for _k in ("success", "error_code", "outcome",
+                                   "failure_reason"):
+                            if _meta.get(_k) is not None:
+                                _entry["response"][_k] = _meta[_k]
                     # Surface the persisted chain-of-thought so reloading a
                     # session re-renders the "Reasoning Process" drawer (the
                     # trace route only covers agent-tool steps, not CoT).
@@ -1439,6 +1451,13 @@ def _persist_finalized_outcome(
                 meta["quality"] = "error"
         if response.get("error_code") is not None:
             meta["error_code"] = str(response.get("error_code"))
+        # The record-resolved outcome rides the persisted metadata too
+        # (owner work order 2026-10-09): without this the row keeps the
+        # PRE-finalization value (None) while the delivered envelope
+        # carries the outcome — the live defect where a truthful failure
+        # persisted success/outcome disagreement.
+        if response.get("outcome") is not None:
+            meta["outcome"] = str(response.get("outcome"))
         _record_lifecycle_delivery(
             response, str(target.id), str(execution_id), target)
         final_text = str(response.get("message") or "")
@@ -1606,6 +1625,22 @@ def _finalize_chat_response(
                 "message": UNKNOWN_OUTCOME_MESSAGE,
                 "execution_id": execution_id,
             }
+    # RECORDED-OUTCOME ALIGNMENT (owner work order 2026-10-09): the
+    # execution STATUS is coarse — a turn that produced a reply is
+    # recorded success even when the work behind it failed. The
+    # orchestrator's record-resolved outcome is the finer truth, and it
+    # governs machine status HERE, at the one boundary every lane
+    # (model-authored, template, coordinated, calc) passes through. The
+    # text is owned upstream; this aligns status/error/outcome only, and
+    # never rewrites a specific drafted failure envelope.
+    try:
+        from core.finalization import apply_recorded_outcome
+
+        finalized = apply_recorded_outcome(
+            finalized, response.get("_recorded_outcome"))
+    except Exception as outcome_error:  # noqa: BLE001 — additive
+        logger.warning(
+            f"recorded-outcome alignment failed open: {outcome_error}")
     _store_delivery_record(db, row, execution_id, finalized)
     return finalized
 
@@ -2281,6 +2316,7 @@ async def send_chat_message(
             # distinct retry/top-up UI the fields exist for.
             failure_reason=response.get("failure_reason"),
             recovery_url=response.get("recovery_url"),
+            outcome=response.get("outcome"),
         )
         _complete_transport_request(db, _treq, _final)
         return _final

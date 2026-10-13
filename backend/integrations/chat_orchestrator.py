@@ -2514,13 +2514,43 @@ def _job_scope_items(
 def _findings_from_structured_result(
         receipt: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Typed findings from a named-file read's structured result (the
-    targets carry item + identity + per-field evidence)."""
+    targets carry item + identity + per-field evidence).
+
+    Input shape (the converter's contract): a dict carrying the
+    structured record under ``structured_result`` — or the read's
+    ``storage_read`` meta, whose ``structured_result`` is that record.
+    The record's targets carry each bound value under ``field.values``
+    (column/basis, parsed value, display) with the row locator on
+    ``identity`` and the file identity on ``source_identity``.
+
+    Output: one finding per bound value in the ledger's documented
+    shape ({field, column, raw, parsed, source}) — what
+    ``_canvas_job_findings`` reads to keep subject/field/value/basis/
+    source together — alongside the legacy association keys. A target
+    with no values yields nothing: receipt-less prose is never a
+    finding, and a value with no display is dropped."""
     out: List[Dict[str, Any]] = []
     try:
         sr = receipt.get("structured_result") or receipt.get(
             "storage_read") or {}
         if not isinstance(sr, dict):
             return []
+        # The named-file read stamps the record INSIDE storage_read —
+        # accept the record itself, the storage meta, or a meta whose
+        # storage_read holds it.
+        if not sr.get("targets") and isinstance(
+                sr.get("structured_result"), dict):
+            sr = sr["structured_result"]
+        if not isinstance(sr, dict):
+            return []
+        src = sr.get("source_identity") if isinstance(
+            sr.get("source_identity"), dict) else {}
+        file_name = str(
+            src.get("file_name") or sr.get("file_name") or "")[:160]
+        content_hash = str(
+            src.get("content_hash") or sr.get("content_hash") or "")[:64]
+        requested = [str(f) for f in (sr.get("requested_fields") or [])
+                     if str(f).strip()]
         for t in (sr.get("targets") or [])[:12]:
             if not isinstance(t, dict):
                 continue
@@ -2528,19 +2558,67 @@ def _findings_from_structured_result(
                        .get("matched") or "").strip()
             if not item:
                 continue
-            out.append({
-                "item": item[:120],
-                "field": "price",
-                "value": str(
-                    (t.get("evidence") or [{}])[0].get("raw_value")
-                    or "")[:40],
-                "source_file_name": str(
-                    sr.get("file_name") or "")[:160],
-                "sheet": str(
-                    (t.get("identity") or {}).get("sheet") or "")[:80],
-                "content_hash": str(
-                    sr.get("content_hash") or "")[:64],
-            })
+            ident = t.get("identity") if isinstance(
+                t.get("identity"), dict) else {}
+            sheet = str(ident.get("sheet") or "").strip()
+            row = ident.get("row")
+            for cand in (ident.get("candidates")
+                         or ident.get("references") or []):
+                if not isinstance(cand, dict):
+                    continue
+                ref = str(cand.get("ref") or "")
+                if ref and "!R" in ref:
+                    _sh, _rn = ref.rsplit("!R", 1)
+                    sheet = sheet or _sh
+                    row = row if row is not None else (
+                        int(_rn) if str(_rn).isdigit() else None)
+                    break
+                if cand.get("sheet") and not sheet:
+                    sheet = str(cand.get("sheet"))
+                if cand.get("row") is not None and row is None:
+                    row = cand.get("row")
+            locator = f"{file_name}!{sheet}!row{row}" if sheet and row \
+                is not None else (f"{file_name}!{sheet}" if sheet
+                                  else file_name)
+            fld = t.get("field") if isinstance(t.get("field"), dict) else {}
+            values = fld.get("values") if isinstance(
+                fld.get("values"), list) else []
+            for v in values:
+                if not isinstance(v, dict):
+                    continue
+                display = str(v.get("display") if v.get("display")
+                              is not None else v.get("raw")
+                              if v.get("raw") is not None
+                              else v.get("value") or "").strip()
+                if not display:
+                    continue
+                parsed: Dict[str, Any] = {
+                    "value": v.get("value") if v.get("value") is not None
+                    else display,
+                    "raw": display,
+                }
+                if v.get("basis"):
+                    parsed["basis"] = str(v.get("basis"))
+                if v.get("unit"):
+                    parsed["unit"] = v.get("unit")
+                if v.get("currency"):
+                    parsed["currency"] = v.get("currency")
+                field_name = requested[0] if requested else str(
+                    v.get("basis") or "value")
+                out.append({
+                    "item": item[:120],
+                    "field": field_name[:60],
+                    "column": str(v.get("basis") or v.get("col") or "")[:80],
+                    "raw": display[:40],
+                    "parsed": parsed,
+                    "value": display[:40],
+                    "source": locator[:160],
+                    "source_file_name": file_name,
+                    "sheet": sheet[:80],
+                    "content_hash": content_hash,
+                })
+                if len(out) >= 12:
+                    return out
     except Exception:  # noqa: BLE001 — additive
         return []
     return [f for f in out if f["value"]]
@@ -2677,7 +2755,9 @@ def _search_execution_receipt(
 
 
 def _value_trace_pending_reads(
-        receipt: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        receipt: Optional[Dict[str, Any]],
+        requested_fields: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
     """Per-item PENDING READ actions from a value_trace receipt (round 42).
 
     Discovery is not completion: each item the trace located in a
@@ -2686,7 +2766,11 @@ def _value_trace_pending_reads(
     continuation can dispatch the targeted read without rediscovery.
     Irrelevant discoveries (no coverage) create nothing; dedupe by
     (item, document) — repeated receipts must not multiply actions, and
-    add_unresolved_questions re-dedupes durably by (item, text)."""
+    add_unresolved_questions re-dedupes durably by (item, text).
+    When ``requested_fields`` is given, they ride INSIDE ``inputs`` —
+    the one carrier ``_normalize_question`` persists and the executors
+    read (a question-level key is dropped at normalization, so the
+    content read received an empty contract and bound nothing)."""
     coverage = ((receipt or {}).get("receipt") or {}).get(
         "value_trace_coverage") or {}
     questions: List[Dict[str, Any]] = []
@@ -2707,8 +2791,14 @@ def _value_trace_pending_reads(
                 "next_action": f"read {doc} for {item}",
                 # STRUCTURED INPUTS (round 53): stable action identity —
                 # the worker dispatches from these, never from prose.
+                # The requested-value obligation rides here too: ``inputs``
+                # is the one key set normalization persists, so the content
+                # read's field contract depends on its placement (a
+                # question-level key is dropped by ``_normalize_question``).
                 "inputs": {"item": str(item), "file": str(doc),
-                           "service": "datasets", "intent": "find_all"},
+                           "service": "datasets", "intent": "find_all",
+                           **({"requested_fields": list(requested_fields)[:6]}
+                              if requested_fields else {})},
             })
     return questions
 
@@ -4243,6 +4333,492 @@ def _canvas_id_from_context(context: Any) -> Optional[str]:
     if isinstance(canvas, str) and canvas:
         return canvas
     return None
+
+
+#: Operation statuses that RECORD a failure. ``uncertain`` is
+#: deliberately excluded: a confirmed-lost worker means the effect may
+#: or may not have happened — that is unconfirmed, never failed.
+_FAILED_OP_STATUSES = ("failed", "cancelled", "rejected", "conflict")
+
+#: The legacy template's completion claim. Served with success=true it
+#: reports unfinished work as completed — the false-completion shape
+#: this module's fallback-honesty gate replaces.
+_FALLBACK_COMPLETION_CLAIM = (
+    "I've processed your request across all connected platforms.")
+
+
+#: Recorded execution outcomes that establish FAILURE. A dispatch that
+#: never ran (pool starved) and a dispatched read that returned nothing
+#: are recorded failures of THIS turn. Bounded absence
+#: (``search_succeeded_empty``) and a prose-only return
+#: (``*_returned_no_receipt``) are NOT failures: the first is a real
+#: result, the second leaves item coverage as an open question.
+_EXEC_FAILED_OUTCOMES = frozenset(
+    ("read_failed", "search_failed", "not_dispatched"))
+
+
+def _turn_evidence_set(record: Optional[Dict[str, Any]],
+                       execution_id: Any,
+                       extra_ids: Any = None) -> Dict[str, Any]:
+    """This turn's evidence set — scoped by IDENTITY, never by recency.
+
+    Returns the operations bound to THIS execution, the delivery records
+    for THIS execution, and the operations those deliveries explicitly
+    name (the recorded evidence-reuse link).
+
+    The bound matters: an earlier successful operation on the same job
+    must not certify a later turn that failed. Operations are selected by
+    ``execution_id`` equality or by an explicit delivery reference — never
+    by "any findings on this job".
+    """
+    empty = {"operations": [], "deliveries": [], "reused": [],
+             "operation_ids": set(), "execution_ids": set()}
+    if not isinstance(record, dict) or not execution_id:
+        return empty
+    # THE RECORDED LINKAGE (owner closeout): the outer id and any inner
+    # id the turn's own lane explicitly stashed. Matching is scoped to
+    # EXACTLY these two ids — nothing derived by recency, nothing
+    # propagated from other turns — so matching either id cannot admit
+    # an unrelated operation.
+    targets = {str(execution_id or "")} | {str(e) for e in (
+        extra_ids or ()) if e}
+    targets.discard("")
+    all_ops = [op for op in (record.get("operations") or [])
+               if isinstance(op, dict)]
+    this_ops = [op for op in all_ops
+                if str(op.get("execution_id") or "") in targets]
+    deliveries = [d for d in (record.get("deliveries") or [])
+                  if isinstance(d, dict)
+                  and str(d.get("execution_id") or "") in targets]
+    # Operations the delivery records explicitly name: the recorded
+    # "this answer includes these results" link.
+    named = {str(oid) for d in deliveries
+             for oid in (d.get("operation_ids") or [])}
+    reused = [op for op in all_ops
+              if str(op.get("operation_id") or "") in named]
+    return {
+        "operations": this_ops,
+        "deliveries": deliveries,
+        "reused": reused,
+        "all_operations": all_ops,
+        "execution_ids": sorted(targets),
+        "operation_ids": {str(op.get("operation_id") or "")
+                          for op in this_ops + reused},
+    }
+
+
+def _operation_outcome(op: Dict[str, Any]) -> Optional[str]:
+    execr = op.get("execution")
+    if isinstance(execr, dict):
+        return str(execr.get("outcome") or "") or None
+    return None
+
+
+def _operation_has_values(op: Dict[str, Any]) -> bool:
+    """Does this operation actually carry REQUESTED VALUES?
+
+    A discovery-only receipt — dispatched, returned prose, no structured
+    values (``findings: []`` with ``items: {"M-1": "matched"}``) —
+    obtained evidence about WHERE to look and WHAT matched, not an
+    answer. Match-status strings are setup facts, not values (owner
+    finding 2: stored findings/match maps must not certify delivery).
+    Only value-bearing entries count: a findings entry with a value
+    field, or an items map whose entries are value-shaped dicts.
+    """
+    execr = op.get("execution")
+    if not isinstance(execr, dict):
+        return False
+    findings = execr.get("findings")
+    if isinstance(findings, list) and any(
+            isinstance(f, dict) and f for f in findings):
+        return True
+    items = execr.get("items")
+    if isinstance(items, dict):
+        for v in items.values():
+            if isinstance(v, dict) and any(
+                    v.get(k) not in (None, "")
+                    for k in ("value", "amount", "price", "raw_value",
+                              "parsed")):
+                return True
+    return False
+
+
+def _fallback_turn_outcome(
+    session: Any,
+    execution_id: Any,
+    feature_responses: Any,
+    context: Any,
+    workspace_id: Any = None,
+    canvas_was_read: bool = False,
+    noop_receipt: bool = False,
+    extra_execution_ids: Any = None,
+) -> Dict[str, Any]:
+    """Resolve the turn's outcome from DURABLE, IDENTITY-BOUND records.
+
+    Never from the reply's wording, never from dictionary non-emptiness,
+    and never from work that belongs to another turn.
+
+    The evidence set (owner review 2026-10-09):
+      1. operations bound to THIS execution, plus the operations this
+         execution's delivery records explicitly name (recorded reuse);
+      2. the delivery records for THIS execution — the proof that an
+         answer was assembled and persisted;
+      3. the open obligations RELEVANT TO THIS REQUEST — executable
+         actions, owner decisions, and exhausted questions alike;
+      4. a continuation bound to THIS turn's operations.
+
+    Mapping:
+      - a RECORDED failure on this turn's operations -> failed;
+      - a validated answer (values actually obtained, or this turn's
+        own delivery) with relevant obligations still open -> partial;
+      - a real continuation for this operation -> continuation_queued;
+      - all relevant obligations settled with a validated result ->
+        completed;
+      - anything else -> unconfirmed. A canvas read or an existing task
+        proves work was ATTEMPTED, never that it failed.
+
+    Returns ``{"state", "open_work", "delivered", "work_turn",
+    "continuation_id"}``.
+    """
+    state = {"state": "unconfirmed", "open_work": [], "delivered": False,
+             "work_turn": False}
+    try:
+        open_work: List[str] = []
+
+        # 1. the durable task record for this session. The session's
+        #    run binding when present; otherwise the conversation's own
+        #    active run — a calculation turn creates and settles its run
+        #    without stamping the session, and the conversation IS the
+        #    request scope, so the scoped lookup stays identity-bound.
+        run_id = (session or {}).get("_task_run_id") if isinstance(
+            session, dict) else None
+        record = None
+        try:
+            tl = _task_lifecycle_for(
+                None, workspace_id
+                or (context or {}).get("workspace_id"))
+            if tl is not None and not run_id and isinstance(session, dict):
+                _conv = (session or {}).get("id") or (
+                    session or {}).get("session_id")
+                if _conv:
+                    _active = tl.find_active_task(str(_conv))
+                    if _active:
+                        run_id = _active.get("run_id")
+            if run_id:
+                record = tl.get_task(run_id) if tl else None
+        except Exception:  # noqa: BLE001 — record stays best-effort
+            record = None
+
+        _extra = {str(e) for e in (
+            extra_execution_ids or ()) if e}
+        ev = _turn_evidence_set(record, execution_id, extra_ids=_extra)
+        this_ops = ev["operations"]
+        deliveries = ev["deliveries"]
+        work_turn = bool(this_ops or deliveries)
+
+        # 2. RECORDED FAILURE — this turn's operations only.
+        recorded_failure = False
+        for op in this_ops:
+            if str(op.get("status") or "") == "failed":
+                recorded_failure = True
+                break
+            if _operation_outcome(op) in _EXEC_FAILED_OUTCOMES:
+                recorded_failure = True
+                break
+
+        # 3. VALIDATED ANSWER — this turn delivered actual values.
+        #    Two identity-bound proofs, neither of which is a stale
+        #    carrier or a discovery receipt:
+        #      (a) an operation bound to THIS execution carries requested
+        #          values (findings/items);
+        #      (b) a delivery record FOR THIS execution names the
+        #          operations its answer was assembled from — the
+        #          recorded reuse link — and those operations (or this
+        #          execution's) carry values.
+        #    A delivery whose named operations carry NO values (an
+        #    empty-answer dispatch) does not validate delivery.
+        def _ops_carry_values(ops) -> bool:
+            return any(_operation_has_values(op) for op in ops)
+
+        def _operation_carries_calculation_result(op) -> bool:
+            calc = op.get("calculation") if isinstance(op, dict) else None
+            if not isinstance(calc, dict):
+                return False
+            proposed = calc.get("proposed") or {}
+            snap = calc.get("inputs") or {}
+            inputs = (snap.get("inputs") if isinstance(snap, dict) else None)
+            return bool(proposed.get("amount") is not None and inputs)
+
+        validated = (
+            _ops_carry_values(this_ops)
+            or any(_operation_carries_calculation_result(op)
+                   for op in this_ops))
+        # The session's delivered-result carrier, bound to THIS
+        # execution when it carries one: the recorded "results actually
+        # included in this answer" (owner step 1). A carrier bound to
+        # ANOTHER execution — or one that predates the binding — is
+        # stale and never validates.
+        if not validated and isinstance(session, dict):
+            _result = session.get("_pending_file_result")
+            if isinstance(_result, dict) and (
+                    _result.get("structured_result")
+                    or _result.get("findings")
+                    or _result.get("rows")):
+                _carrier_exec = str(_result.get("execution_id") or "")
+                if (not execution_id or not _carrier_exec
+                        or _carrier_exec == str(execution_id)):
+                    validated = True
+        if not validated:
+            for delivery in deliveries:
+                _named = {str(o) for o in (
+                    delivery.get("operation_ids") or [])}
+                _linked = [op for op in all_operations
+                           if str(op.get("operation_id") or "") in _named]
+                if _named and not _linked:
+                    # Names a delivery for an operation we cannot see:
+                    # treat the delivery as proof it assembled an answer.
+                    validated = True
+                    break
+                if _ops_carry_values(_linked):
+                    validated = True
+                    break
+
+        # 4. RELEVANT OPEN OBLIGATIONS — actions, owner decisions, and
+        #    exhausted questions are all unfinished requested work.
+        #    EXCEPT the DISCLOSED LIMITATION (owner example): a
+        #    saved-copy value served WITH its freshness note completes
+        #    the historical-value request — the re-verify note is part
+        #    of the answer, not unfinished requested work.
+        if isinstance(record, dict):
+            try:
+                from core.task_lifecycle import (
+                    next_unfinished_work, open_unresolved_questions,
+                )
+
+                snap = next_unfinished_work(record) or {}
+                raw = {str(q.get("question_id") or ""): q
+                       for q in open_unresolved_questions(record)}
+                for bucket, label in (
+                        (snap.get("actions") or [], ""),
+                        (snap.get("owner_decisions") or [],
+                         "your decision: "),
+                        (snap.get("exhausted") or [],
+                         "exhausted: ")):
+                    for entry in bucket:
+                        qid = str(entry.get("question_id") or "") if (
+                            isinstance(entry, dict)) else ""
+                        q = raw.get(qid) or {}
+                        evid = str(q.get("evidence") or "")
+                        if "served_basis=saved_copy" in evid:
+                            continue  # disclosed with the answer
+                        text = (entry.get("next_action") if isinstance(
+                            entry, dict) else None) or (
+                            entry.get("question") if isinstance(
+                                entry, dict) else None) or str(entry)
+                        if text:
+                            work_turn = True
+                            open_work.append(f"{label}{text}")
+            except Exception:  # noqa: BLE001 — additive
+                pass
+
+        # 4b. Durable pending-input questions (a calculation awaiting
+        #     the owner's values) are OUTSTANDING OBLIGATIONS — named,
+        #     never counted as delivery (their existence does not prove
+        #     the clarification reached the user; the shipped reply and
+        #     its delivery record prove that, and the envelope decides
+        #     that from the lane that shipped it).
+        if isinstance(session, dict):
+            try:
+                from core.pricing_calculation import (
+                    _open_pending_questions,
+                )
+
+                if _open_pending_questions(
+                        (session or {}).get("id"),
+                        workspace_id
+                        or (context or {}).get("workspace_id")):
+                    work_turn = True
+                    open_work.append(
+                        "a calculation waiting on your missing inputs")
+            except Exception:  # noqa: BLE001 — additive
+                pass
+
+        # 5. The turn's OWN open-work snapshot (written at the
+        #    multi-source settle seam, still on the session).
+        if isinstance(session, dict):
+            snap = session.get("_last_open_work")
+            if isinstance(snap, dict):
+                for a in (snap.get("actions") or []):
+                    if isinstance(a, dict) and a.get("next_action"):
+                        work_turn = True
+                        open_work.append(str(a["next_action"]))
+
+        # 6. CONTINUATION BOUND TO THIS OPERATION. Another operation's
+        #    running continuation must not certify this turn.
+        continuation = False
+        continuation_id: Optional[str] = None
+        try:
+            _sess_id = ((session or {}).get("id")
+                        or (session or {}).get("session_id"))
+            if _sess_id:
+                from core.async_turn_continuation import (
+                    continuation_in_flight,
+                )
+
+                _cid = continuation_in_flight(str(_sess_id))
+                # IDENTITY-BOUND (owner review 2026-10-09): a running
+                # continuation certifies this turn only when it belongs to
+                # THIS turn's execution or to one of this turn's
+                # operations. A continuation left running by ANOTHER
+                # operation says nothing about this request, so it must
+                # not turn an unverified turn into queued — nor into a
+                # success. Without a resolvable identity the claim is
+                # simply unverified, which is the honest answer.
+                _owned = {str(execution_id or "")} | {
+                    str(op.get("execution_id") or "") for op in this_ops} - {""}
+                if _cid and (_owned and str(_cid) in _owned):
+                    continuation = True
+                    work_turn = True
+                    continuation_id = str(_cid)
+        except Exception:  # noqa: BLE001 — additive
+            pass
+
+        if canvas_was_read:
+            # A read proves execution OCCURRED. It is not evidence that
+            # the work failed, so it never selects `failed`.
+            work_turn = True
+        # An ATTACHED canvas on a work-shaped ask is also an attempt:
+        # the read itself may have failed (no content resolved), which
+        # leaves the outcome unverified — attempted, not processed.
+        try:
+            if _canvas_id_from_context(context):
+                work_turn = True
+        except Exception:  # noqa: BLE001 — additive
+            pass
+        if record is not None and not work_turn:
+            work_turn = True
+
+        # Map to the state.
+        if recorded_failure:
+            state["state"] = "failed"
+        elif continuation and not validated:
+            state["state"] = "continuation_queued"
+        elif validated and open_work:
+            state["state"] = "partial"
+        elif validated:
+            state["state"] = "completed"
+        elif work_turn:
+            # Work was attempted; nothing recorded a failure and nothing
+            # validated a result. That is UNKNOWN, not failure.
+            state["state"] = "unconfirmed"
+        else:
+            state["state"] = "unconfirmed"
+        state["work_turn"] = bool(work_turn)
+        # EXPLICIT LINKAGE RECORD: which execution ids this outcome was
+        # resolved from (outer + the calc lane's inner id) — auditable on
+        # the outcome itself, so either-id matching is accounted for and
+        # scoped, never implicit.
+        state["execution_ids"] = sorted(
+            str(e) for e in (
+                [str(execution_id or "")] + (
+                    [str(_extra_e) for _extra_e in (
+                        extra_execution_ids or []) if _extra_e])))
+        state["open_work"] = open_work[:4]
+        if continuation_id:
+            state["continuation_id"] = continuation_id
+        state["delivered"] = bool(validated)
+    except Exception:  # noqa: BLE001 — the gate never blocks the turn
+        state = {"state": "unconfirmed", "open_work": [],
+                 "delivered": False, "work_turn": False}
+    return state
+
+
+
+def _fallback_outcome_text(outcome: Dict[str, Any],
+                           canvas_was_read: bool = False) -> str:
+    """The honest reply text for a resolved fallback outcome."""
+    state = outcome.get("state")
+    work = "; ".join(outcome.get("open_work") or [])
+    read_note = (" The draft itself was read." if canvas_was_read else "")
+    if state == "failed":
+        return ("I couldn't complete your request just now"
+                " — nothing was retrieved or computed this "
+                "turn, so there is no result to report."
+                + read_note
+                + (f" Still open: {work}." if work else "")
+                + " Send another message to retry.")
+    if state == "partial":
+        return ("Here is what I have so far — the rest of this "
+                "request is still open"
+                + (f" ({work})" if work else "") + "."
+                + read_note + " Tell me to continue and I will.")
+    if state == "continuation_queued":
+        _cid = str(outcome.get("continuation_id") or "")
+        # A GENUINE running continuation needs no nudge: telling the
+        # owner to "send another message to pick it up" contradicts the
+        # acknowledgement that it is already running. Pending owner
+        # INPUTS are a different state (partial) and do need an answer.
+        return ("Your request is still running in the background"
+                + (f" (task {_cid})" if _cid else "")
+                + " — nothing has been delivered yet."
+                + (f" Still open: {work}." if work else "")
+                + read_note + " I'll keep going and bring you the "
+                "result when it lands.")
+    if state == "completed":
+        return ("Your request completed this turn."
+                + read_note)
+    return ("I couldn't confirm what happened with your request "
+            "just now — no result was delivered and I can't verify "
+            "the turn's outcome."
+            + read_note + " Please try again.")
+
+
+_FALLBACK_OUTCOME_ERROR_CODES = {
+    "failed": "turn_failed_no_result",
+    "unconfirmed": "outcome_unconfirmed",
+}
+
+
+def _fallback_honesty_replacement(
+    main_message: Any,
+    used_model: Any,
+    feature_responses: Any,
+    context: Any,
+    canvas_ctx: Any,
+    session: Any = None,
+    execution_id: Any = None,
+) -> Optional[Dict[str, Any]]:
+    """Honest replacement for a false template completion claim.
+
+    Fires when the served message is the exact fallthrough completion
+    claim AND the deterministic template leg rendered it. The outcome is
+    resolved from durable records (``_fallback_turn_outcome``) — canvas
+    context is NOT required: a standalone work request earns the same
+    honest treatment. Returns ``None`` when the reply must stand
+    (genuine content, calc-lane delivery, anything actually delivered
+    as claimed); otherwise a dict of ``{"message", "outcome"}`` so the
+    caller can align the machine-readable status and persisted metadata
+    with the text.
+    """
+    try:
+        if not isinstance(main_message, str):
+            return None
+        if main_message != _FALLBACK_COMPLETION_CLAIM:
+            return None
+        if str(used_model or "") != "template":
+            return None
+        read = bool(
+            isinstance(canvas_ctx, dict)
+            and (canvas_ctx.get("content") is not None))
+        outcome = _fallback_turn_outcome(
+            session, execution_id, feature_responses, context,
+            (context or {}).get("workspace_id") if isinstance(
+                context, dict) else None,
+            canvas_was_read=read)
+        return {"message": _fallback_outcome_text(outcome, read),
+                "outcome": outcome}
+    except Exception:  # noqa: BLE001 — additive
+        return None
 
 
 def _stored_requested_items(session: Optional[Dict[str, Any]]) -> List[str]:
@@ -7786,11 +8362,29 @@ class ChatOrchestrator:
                         # leaves a durable pending operation with zero
                         # tool effects.
                         from core import task_lifecycle as _tlm
+                        # ASK-DERIVED FIELD CONTRACT (2026-10-09 owner
+                        # assignment step 1): the FIRST begin derives the
+                        # requested fields from the owner's own words.
+                        # Without this, the job's contract is [] and
+                        # successor row reads return no-receipt because
+                        # they cannot bind values.
+                        _begin_fields: list = []
+                        try:
+                            from core.workbook_read_artifact import (
+                                extract_field_requests,
+                            )
+                            _begin_fields = [
+                                str(f) for f in (
+                                    extract_field_requests([message]) or [])
+                                if str(f).strip()][:6]
+                        except Exception:  # noqa: BLE001
+                            _begin_fields = []
                         _tl_begin = _tlm.begin_retrieval_turn(
                             _tl_lifecycle, session, session_id, message,
                             _execution_id,
                             items=list(
                                 _ask_task.get("requested_targets") or []),
+                            requested_fields=_begin_fields,
                             agent_id=getattr(self, "_turn_agent_id", None),
                             canvas_id=_canvas_id_from_context(context))
                     except Exception as _tl_err:  # noqa: BLE001
@@ -10618,6 +11212,15 @@ class ChatOrchestrator:
                             "moment.")
                     if (_shared_tool or {}).get(
                             "canvas_edit_decline_noop"):
+                        # VERIFIED-SATISFIED RECEIPT (owner closeout):
+                        # the planner served wants_edit=False against the
+                        # CURRENT draft it read — the requirement check
+                        # (authorized canvas, requirements compared, read
+                        # draft, nothing written). Recorded state, not
+                        # wording; the resolver and the envelope consume
+                        # it.
+                        if isinstance(_shared_tool, dict):
+                            _shared_tool["canvas_noop_receipt"] = True
                         _no_apply_message = (
                             str((_shared_tool or {}).get(
                                 "canvas_edit_decline_reply")
@@ -10770,6 +11373,14 @@ class ChatOrchestrator:
                         "task_run_id": _edit_task_reserved.get("run_id"),
                         "outcome": "refused",
                     }
+                    # REQUIREMENT-CHECK RECORD (owner closeout): the
+                    # satisfied receipt is the lane's structured check —
+                    # authorization + canvas identity + authoritative
+                    # revision — never this message's wording.
+                    _noop_satisfied = bool(
+                        _shared_tool.get("canvas_edit_decline_noop"))
+                    _noop_check = _shared_tool.get(
+                        "canvas_decline_requirement_check")
                     if _shared_tool.get("canvas_planning_unavailable"):
                         _canvas_edit_data["plan_unavailable"] = True
                     if _shared_tool.get("task_lifecycle_block"):
@@ -10779,6 +11390,28 @@ class ChatOrchestrator:
                         _canvas_edit_data["planner_outcome"] = _shared_tool[
                             "canvas_planning_outcome"
                         ]
+                    # VERIFIED-SATISFIED NO-OP (owner closeout): the
+                    # planner compared the authorized ask against the
+                    # CURRENT draft and needed no change — record the
+                    # receipt so the outcome is completed (the finalizer's
+                    # genuine-no-op escape preserves it).
+                    if _noop_satisfied:
+                        _canvas_edit_data["noop"] = True
+                        _canvas_edit_data["noop_reason"] = (
+                            "already_satisfied")
+                    # VERIFIED-SATISFIED NO-OP (owner closeout): the REQUIREMENT
+                    # CHECK — not this message's wording — is the
+                    # confirmation (the authorized edit is already
+                    # satisfied by the authoritative draft, nothing was
+                    # written), the machine outcome is completed, and the
+                    # receipt rides the data for the finalizer's
+                    # genuine-no-op escape.
+                    if _noop_satisfied:
+                        _no_apply_message = (
+                            str(_shared_tool.get(
+                                "canvas_edit_decline_reply") or "").strip()
+                            or _no_apply_message)
+
                     # CHAIN REPORT (no-apply path): even when the edit
                     # could not apply, the fallback ladder's findings and
                     # the ready-to-send ask must reach the user.
@@ -10786,14 +11419,39 @@ class ChatOrchestrator:
                         _no_apply_message = (
                             f"{_no_apply_message}\n\n"
                             f"{_shared_tool['chain_report']}").strip()
+                    # REQUIREMENT-CHECK RECORD (owner closeout): the
+                    # satisfied receipt is the lane's structured check —
+                    # authorization + canvas identity + authoritative
+                    # revision — never this message's wording. With it,
+                    # the no-op is completed; without it, the served
+                    # decline ships UNCONFIRMED (never failed, queued, or
+                    # certified completed).
+                    _noop_satisfied = bool(
+                        _shared_tool.get("canvas_edit_decline_noop"))
+                    _noop_check = _shared_tool.get(
+                        "canvas_decline_requirement_check")
                     response = {
-                        "success": True,
+                        "success": bool(_noop_satisfied),
                         "message": _no_apply_message,
                         "session_id": session_id,
                         # D3: every outcome carries the execution it belongs to.
                         "execution_id": _execution_id,
                         "intent": "canvas_edit",
                         "confidence": 0.9,
+                        # VERIFIED-SATISFIED NO-OP: the machine outcome
+                        # agrees with the confirmation text.
+                        "outcome": (
+                            "completed" if _noop_satisfied
+                            else "unconfirmed"),
+                        "error_code": (
+                            None if _noop_satisfied
+                            else "outcome_unconfirmed"),
+                        "_recorded_outcome": {
+                            "state": ("completed" if _noop_satisfied
+                                      else "unconfirmed"),
+                            "work_turn": True,
+                            "noop": _noop_satisfied,
+                        },
                         "data": {"canvas_edit": _canvas_edit_data},
                         "suggested_actions": [],
                         "requires_confirmation": False,
@@ -10805,11 +11463,12 @@ class ChatOrchestrator:
                         {"primary_intent": "canvas_edit", "confidence": 0.9},
                     )
                     await self._emit_agent_status(
-                        session_id, _trace_agent_id, _execution_id, "success"
+                        session_id, _trace_agent_id, _execution_id,
+                        "success" if _noop_satisfied else "failed"
                     )
                     self._finish_chat_execution(
                         _execution_id,
-                        "success",
+                        "success" if _noop_satisfied else "failed",
                         _no_apply_message,
                         session=session,
                         message=message,
@@ -11346,6 +12005,35 @@ class ChatOrchestrator:
                         used_provider = "deterministic"
                 except Exception:  # noqa: BLE001 — delivery is additive
                     pass
+                # FAILED-TURN HONESTY (owner directive 2026-10-09,
+                # measurement trial C1, session 3038c208): the modern
+                # lane collapsed (planning + replan timeouts under pool
+                # distress) with the draft retrieved but ZERO
+                # dispositions delivered — and the fallthrough line
+                # shipped as a SUCCESSFUL reply. The decision lives in
+                # _fallback_honesty_replacement (pinned directly); this
+                # call site only applies it. OUTCOME-ALIGNED (owner work
+                # order 2026-10-09): the replacement carries the record-
+                # resolved outcome so the envelope's machine status and
+                # the persisted metadata agree with the text — and the
+                # gate is GENERAL (no canvas requirement).
+                try:
+                    _fb_replacement = _fallback_honesty_replacement(
+                        main_message, used_model,
+                        feature_responses, context, _canvas_ctx,
+                        session=session, execution_id=_execution_id)
+                    if _fb_replacement:
+                        main_message = _fb_replacement["message"]
+                        _fallback_outcome = _fb_replacement["outcome"]
+                        logger.warning(
+                            "[fallback-honesty] template completion "
+                            "claim replaced with the recorded %s "
+                            "outcome (canvas=%s, execution=%s)",
+                            _fallback_outcome.get("state"),
+                            str(_canvas_id_from_context(context))[:8],
+                            str(_execution_id)[:8])
+                except Exception:  # noqa: BLE001 — additive
+                    pass
 
             # Mentioned-file mini canvas (2026-09-23 revision): opens ONLY
             # on a VERIFIED file identity (exact/normalized). The old
@@ -11555,9 +12243,64 @@ class ChatOrchestrator:
                     for d in (_open_work_snapshot.get("owner_decisions")
                               or [])][:2]
 
+            # RECORDED-OUTCOME RESOLUTION (owner work order 2026-10-09).
+            # Previously resolved ONLY when the honesty gate fired (the
+            # exact template claim), so a model-authored failure shipped
+            # under success=true with no outcome. Now resolved for EVERY
+            # work turn from durable records and handed to the common
+            # finalization boundary (_finalize_chat_response), which
+            # aligns success/error_code/outcome. Non-work turns resolve no
+            # outcome and keep established semantics.
+            _fb_outcome = locals().get("_fallback_outcome") or None
+            # The honesty gate firing IS the work signal: the lane fell
+            # through and served a completion claim, so work was
+            # attempted whatever the durable carriers say.
+            _fb_from_gate = _fb_outcome is not None
+            if _fb_outcome is None:
+                try:
+                    _fb_read = bool(
+                        isinstance(locals().get("_canvas_ctx"), dict)
+                        and (locals()["_canvas_ctx"].get("content")
+                             is not None))
+                    _noop_receipt = bool(
+                        isinstance(locals().get("_shared_tool"), dict)
+                        and _shared_tool.get("canvas_edit_decline_noop"))
+                    # the calc lane runs on the reply leg's own inner
+                    # execution id — carried on the blackboard so the
+                    # identity-bound resolver matches its operations
+                    _extra_exec = None
+                    if isinstance(locals().get("_shared_tool"), dict):
+                        _extra_exec = _shared_tool.get(
+                            "calc_lane_execution_id")
+                    _fb_outcome = _fallback_turn_outcome(
+                        session, _execution_id, feature_responses, context,
+                        workspace_id=(context or {}).get("workspace_id"),
+                        canvas_was_read=_fb_read,
+                        noop_receipt=_noop_receipt,
+                        extra_execution_ids=(
+                            [_extra_exec] if _extra_exec else None))
+                except Exception:  # noqa: BLE001 — additive
+                    _fb_outcome = None
+            if not _fb_from_gate and not (_fb_outcome or {}).get(
+                    "work_turn"):
+                # Conversational turn: nothing was attempted, so there is
+                # no outcome to verify. Established envelope stands.
+                _fb_outcome = None
+            # SHIPPED CLARIFICATION (owner case 6): when the calculate
+            # lane's pending-input question is what actually shipped,
+            # the clarification was delivered and the values are the
+            # outstanding obligation — partial, never unconfirmed.
+            if (_fb_outcome and _fb_outcome.get("state") == "unconfirmed"
+                    and str(used_model or "") == "calc-lane"):
+                _fb_outcome["state"] = "partial"
+            _fb_failed = bool(_fb_outcome and _fb_outcome.get(
+                "state") in ("failed", "unconfirmed"))
+
             response = {
-                "success": not budget_failure and not locals().get(
-                    "_llm_provider_failed"),
+                "success": (
+                    not budget_failure
+                    and not locals().get("_llm_provider_failed")
+                    and not _fb_failed),
                 "message": budget_failure["message"] if budget_failure else main_message,
                 "session_id": session["id"],
                 # Lets the client finalize THIS turn's streamed bubble (and
@@ -11573,6 +12316,30 @@ class ChatOrchestrator:
                 "timestamp": datetime.now().isoformat(),
                 "model": used_model,
                 "provider": used_provider,
+                # OUTCOME FIELD (owner work order): the record-resolved
+                # state rides the envelope AND the persisted metadata so
+                # text, machine status, and history agree.
+                "outcome": _fb_outcome.get("state") if _fb_outcome else None,
+                # the verified-satisfied receipt rides data so the
+                # finalizer's genuine-no-op escape can see it
+                ** (
+                    {"data": {**(
+                        response_data if isinstance(
+                            response_data := locals().get("combined_data"),
+                            dict) else {}),
+                        "noop": True,
+                        "noop_reason": "already_satisfied"}}
+                    if _fb_outcome and _fb_outcome.get("state")
+                    == "completed" and _fb_outcome.get("noop_receipt")
+                    else {}),
+                # The full resolved outcome, consumed by the route's
+                # finalization boundary. Private: never persisted as a
+                # client field, never rendered.
+                "_recorded_outcome": _fb_outcome,
+                "error_code": (
+                    _FALLBACK_OUTCOME_ERROR_CODES.get(
+                        _fb_outcome.get("state"))
+                    if _fb_failed else None),
                 "deterministic_delivery": bool(
                     (ai_response or {}).get("deterministic_delivery")
                 ),
@@ -14743,6 +15510,15 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             if str(f).strip()][:6]
                                     except Exception:  # noqa: BLE001
                                         _ask_fields = []
+                                    # STASH AFTER DERIVATION: the shared
+                                    # tool state carries the derived fields
+                                    # so the value_trace question spawner
+                                    # and the successor row reads can
+                                    # bind values (2026-10-09).
+                                    if isinstance(shared_tool_state, dict):
+                                        shared_tool_state[
+                                            "ask_requested_fields"
+                                        ] = list(_ask_fields)
                                     _ms_tl_begin = _tlm.begin_retrieval_turn(
                                         _ms_tl,
                                         session if isinstance(
@@ -14838,6 +15614,25 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             # the derivation-seam dispatch of
                                             # the same request (case 3).
                                             "workspace_id": workspace_id,
+                                            # REQUEST-BOUND SCOPE on the
+                                            # PRIMARY dispatch (2026-10-09
+                                            # owner assignment): the
+                                            # resolved subjects lead the
+                                            # probe; without them the free-
+                                            # text sweep misses the
+                                            # Tennsmith row (case-4, A12).
+                                            "request_scope": {
+                                                "subjects": [
+                                                    str(t.get("item")
+                                                        if isinstance(t, dict)
+                                                        else str(t))
+                                                    for t in (
+                                                        _requested_targets
+                                                        or []) if t
+                                                ],
+                                                "scope_change": "replace",
+                                            } if _requested_targets
+                                            else None,
                                             # The current ask, ahead of session
                                             # history (which is written only
                                             # after the response): the stated-
@@ -15056,6 +15851,16 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 _ms_findings = (
                                     _findings_from_datasets_receipt(
                                         _ms_receipt.get("receipt") or {}))
+                                logger.info(
+                                    "[settle-probe] primary: receipt_keys=%s "
+                                    "ds_keys=%s hits_count=%d findings=%d",
+                                    sorted((_ms_receipt.get("receipt") or {}).keys()),
+                                    sorted((_ms_receipt.get("receipt") or {})
+                                           .get("datasets_search", {}).keys()),
+                                    len((_ms_receipt.get("receipt") or {})
+                                        .get("datasets_search", {})
+                                        .get("_hits", [])),
+                                    len(_ms_findings))
                                 _ms_execution = {
                                     "invoked": _ms_invoked,
                                     "outcome": _ms_outcome,
@@ -15112,7 +15917,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     # read actions, not just the chain's.
                                     extra_questions=(
                                         _value_trace_pending_reads(
-                                            _ms_receipt)))
+                                            _ms_receipt,
+                                            requested_fields=list(
+                                                (shared_tool_state or {}).get(
+                                                    "ask_requested_fields")
+                                                or []))))
                                 if isinstance(session, dict):
                                     session["_last_open_work"] = _ms_open
                             except Exception as _ms_settle_err:  # noqa: BLE001
@@ -15536,6 +16345,30 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _research_turn = False
                             _required_sources = set()
                             _tool_block = _calc_block
+                            # BLACKBOARD DELIVERY: the outer flow's
+                            # grounding/delivery guard reads the tool
+                            # block from ITS scope — carry this block out
+                            # so a recorded engine result can ship
+                            # deterministically when the reply leg's
+                            # providers fail (pv-B3, 2026-10-09).
+                            if isinstance(shared_tool_state, dict):
+                                shared_tool_state["calc_lane_block"] = \
+                                    _calc_block
+                                # The ledger binds the operation to the
+                                # INNER execution id of this reply leg —
+                                # carried so identity-bound resolution can
+                                # match it. (This method's parameter is
+                                # ``execution_id``; the underscore-prefixed
+                                # name never existed here and raised
+                                # NameError on EVERY calc-lane delivery,
+                                # unwinding the block right after the
+                                # engine had already computed — the live
+                                # 2026-10-10 defect where the reply
+                                # narrated the arithmetic and no durable
+                                # result rode the turn.)
+                                shared_tool_state[
+                                    "calc_lane_execution_id"] = execution_id
+
                             logger.info(
                                 "[calc-lane] goal-session calculation "
                                 "ask answered by datasets.calculate "
@@ -16150,6 +16983,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # first receipt-bearing attempt died on
                     # UnboundLocalError (live run msA13).
                     nonlocal _tool_block
+                    # The confirmed-file read's RECEIPT (its storage_read
+                    # meta) — captured as the read runs so the settle's
+                    # findings converter receives the read's own evidence
+                    # instead of the pre-read search receipt snapshot.
+                    _read_receipt_metas: List[Dict[str, Any]] = []
                     _attempt_wait = min(
                         20.0, max(0.0, _chain_turn_left() - 15.0))
                     if _attempt_wait < 8.0:
@@ -16160,6 +16998,28 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         return
                     _c_tl = _task_lifecycle_for(
                         getattr(self, "tenant_id", None), workspace_id)
+                    # THE REQUESTED-VALUE OBLIGATION (2026-10-09): the
+                    # chain begin runs on the FALLBACK path (planned=False),
+                    # where the primary begin's ask-fields stash never fires
+                    # — derive the contract from the ask HERE (the existing
+                    # derivation) so the job's revision and the pending
+                    # reads carry it into the content read. Discovery names
+                    # the document; it never resolves the requested value.
+                    _chain_fields: List[str] = list(
+                        (shared_tool_state or {}).get(
+                            "ask_requested_fields") or [])
+                    if not _chain_fields:
+                        try:
+                            from core.workbook_read_artifact import (
+                                extract_field_requests,
+                            )
+
+                            _chain_fields = [
+                                str(f) for f in (
+                                    extract_field_requests([message])
+                                    or []) if str(f).strip()][:6]
+                        except Exception:  # noqa: BLE001
+                            _chain_fields = []
                     _begin = (None, None)
                     if _c_tl is not None:
                         try:
@@ -16173,6 +17033,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 f"{_missing_svc} ({_chain_query[:120]})",
                                 execution_id,
                                 items=_chain_items,
+                                requested_fields=list(_chain_fields),
                                 canvas_id=_chain_canvas_id())
                         except Exception as _cb_err:  # noqa: BLE001
                             _begin = (None, None)
@@ -16215,9 +17076,20 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     # read's structured result carries the
                                     # row values — persist them as typed
                                     # findings alongside the settle so the
-                                    # drafting adapter reads them.
+                                    # drafting adapter reads them. The
+                                    # converter's input is the READ'S OWN
+                                    # receipt (storage_read meta); the
+                                    # search-receipt sub-dict never carries
+                                    # structured_result/storage_read keys,
+                                    # so feeding it produced zero findings
+                                    # even when the read had returned rows.
                                     "findings": (
-                                        _findings_from_structured_result(
+                                        [f for m in _read_receipt_metas
+                                         for f in
+                                         _findings_from_structured_result(m)]
+                                        or _findings_from_structured_result(
+                                            _receipt.get("receipt") or {})
+                                        or _findings_from_datasets_receipt(
                                             _receipt.get("receipt") or {})),
                                     "items": {
                                         item: "" for item in _chain_items},
@@ -16243,7 +17115,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         # coverage.
                                         extra_questions=(
                                             _value_trace_pending_reads(
-                                                _receipt)
+                                                _receipt,
+                                                requested_fields=list(
+                                                    _chain_fields))
                                             or ([] if _complete else (
                                                 # PER-ITEM NEXT ACTIONS
                                                 # (round 39): coverage from
@@ -16483,6 +17357,19 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                                 session[
                                                     "_pending_file_result"
                                                 ] = _merged
+                                                # CONTENT-READ SETTLEMENT:
+                                                # the read's own receipt
+                                                # (storage_read meta) rides
+                                                # to the settle's findings
+                                                # converter below — the
+                                                # operation record is the
+                                                # evidence store the
+                                                # drafting adapter reads
+                                                # after a fresh reload.
+                                                if isinstance(_vt_sr, dict) \
+                                                        and _vt_sr:
+                                                    _read_receipt_metas.append(
+                                                        _vt_sr)
                                                 logger.info(
                                                     "[planner-boundary] "
                                                     "chained read persisted "
@@ -16607,6 +17494,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         _pa_read_ok = bool(
                             _pa_receipt["receipt"]
                             .get("structured_keys"))
+                        # CONTENT-READ FINDINGS (2026-10-09): the in-turn
+                        # content read's structured result carries the row
+                        # values — convert and settle them like the
+                        # chained read's, so BOTH scheduling paths leave
+                        # typed findings on the operation record.
+                        _pa_findings = _findings_from_structured_result(
+                            getattr(_pa_plan, "_result_meta", None) or {})
                         if _pa_block:
                             _tool_block = (
                                 f"{_tool_block}\n\nTARGETED READ "
@@ -16630,6 +17524,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         "saved_copy" if _pa_read_ok
                                         else "live"),
                                     "failure_stage": None,
+                                    "findings": _pa_findings,
                                     "items": (
                                         {_pa_item: "single"}
                                         if (_pa_read_ok and _pa_item)
@@ -18766,6 +19661,19 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 # Global recency is never authority: a later reply cannot
                 # inherit unrelated evidence. Unknown currency (XXX) invents
                 # nothing; non-succeeded statuses stay qualified.
+                if isinstance(shared_tool_state, dict) and \
+                        shared_tool_state.get("calc_lane_block"):
+                    # CALC-FORCE BLOCK DELIVERY (owner assignment
+                    # 2026-10-09, pv-B3): when providers are down the
+                    # planner never runs and the calc-force lane answers
+                    # INSIDE _get_qwen_response — its block was captured
+                    # and dropped, so this guard saw no evidence and a
+                    # RECORDED engine result shipped as a raw provider
+                    # error. The blackboard carries it out. The engine's
+                    # own block takes precedence over any earlier
+                    # retrieval evidence: the narration is validated
+                    # against THE calculation.
+                    _tool_block = shared_tool_state["calc_lane_block"]
                 _calc_allowance = None
                 try:
                     from core.pricing_calculation import (
@@ -18827,17 +19735,15 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 # The honest replacement is deterministic (no regen: a
                 # regen is exactly what provider distress cannot afford)
                 # — refuse-with-retry, no figure, no authority claim.
-                _pending_ask_open = False
-                try:
-                    from core.pricing_calculation import (
-                        _open_pending_questions as _opq,
-                    )
-
-                    _pending_ask_open = bool(_opq(session_id, workspace_id))
-                except Exception:  # noqa: BLE001 — additive
-                    _pending_ask_open = False
+                # PENDING-ASK TIGHTENING (owner assignment 2026-10-09,
+                # pv-B): an open pending-input question does NOT license
+                # a figure — a reply that both asks and narrates a
+                # teaching-authority total ("$1,470 … taught formula",
+                # no honest disclosure) is the false-complete shape the
+                # guard exists for. Ask-only replies carry no money
+                # figure and are untouched; disclosed figures are left
+                # alone by the detector itself.
                 if (not _calc_evidence and _content and message
-                        and not _pending_ask_open
                         and _calc_bound_turn(
                             message, session_id, workspace_id)
                         and _reply_claims_unrecorded_teaching_figure(
@@ -20698,27 +21604,46 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         and not plan.wants_edit
                         and not str(getattr(plan, "reply", "") or "").strip()
                         else "declined")
-                    # NO-CHANGES-NEEDED DECLINE (2026-10-08 owner step 5,
-                    # live capture): a SERVED planner that declines
-                    # because "the draft already reflects the approved
-                    # prices; no changes were needed" is a COMPLETION
-                    # (nothing to change, nothing sent), not a failure —
-                    # the truthful terminal the case wants. The words ride
-                    # the shared state; the response assembly and the
-                    # continuation map them to an already-correct outcome.
+                    # NO-CHANGES-NEEDED DECLINE — REQUIREMENT CHECK, NOT
+                    # WORDING (owner assignment 2026-10-10). This used to
+                    # read the planner's own sentence ("already reflects
+                    # the approved values") with a regex, which let the
+                    # model grant itself completion authority by how it
+                    # phrased a decline. Completion is now a CHECK
+                    # against the authoritative draft, bound to three
+                    # things: authorization (an edit really was asked for
+                    # over an open canvas), canvas identity, and the
+                    # authoritative revision the caller intended to edit.
+                    # Without that evidence the decline is an UNCONFIRMED
+                    # served decline — never a completion.
                     _decline_reply = str(
                         getattr(plan, "reply", "") or "").strip()
-                    if _decline_reply and re.search(
-                            r"no\s+(?:\w+\s+){0,2}changes (?:were )?"
-                            r"needed|already (?:reflects|preserves|"
-                            r"includes|contains|matches|uses)|nothing "
-                            r"to change|no canvas changes",
-                            _decline_reply, re.IGNORECASE):
+                    _requirement_check = None
+                    try:
+                        from core.chat_canvas_editor import (
+                            requirement_check as _requirement_check_fn,
+                        )
+
+                        _requirement_check = _requirement_check_fn(
+                            message=message,
+                            canvas=canvas,
+                            authorized=bool(_edit_requested),
+                            expected_prior_audit_id=(
+                                expected_prior_audit_id),
+                        )
+                    except Exception:  # noqa: BLE001 — never assert
+                        _requirement_check = None
+                    shared_tool_state["canvas_decline_requirement_check"] = (
+                        _requirement_check)
+                    if bool((_requirement_check or {}).get("satisfied")):
                         shared_tool_state[
                             "canvas_edit_decline_noop"] = True
                         shared_tool_state[
                             "canvas_edit_decline_reply"] = (
-                                _decline_reply[:300])
+                                _decline_reply[:300] or
+                                "The draft already reflects the approved "
+                                "values — no changes were needed, and "
+                                "nothing was sent.")
             return None
         if not _edit_requested:
             if shared_tool_state is not None:
@@ -21551,7 +22476,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         from ai.nlp_engine import CommandType
         command_type = nlp_result.command_type
         
-        # Map command types to intents
+        # Map command types to intents. An UNCLASSIFIABLE turn is NOT a
+        # search: the legacy lane's SEARCH handler returns success even
+        # over an empty store, so the unclassifiable tail used to end in
+        # a guaranteed-useless "I found 0 results" template. The general
+        # agent (Phase 30) is the honest default for what no classifier
+        # recognized — one deadline-bounded run instead of a fake search.
         intent_mapping = {
             CommandType.SEARCH: ChatIntent.SEARCH_REQUEST,
             CommandType.CREATE: ChatIntent.TASK_MANAGEMENT,
@@ -21592,6 +22522,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         elif any(word in message_lower for word in ["deal", "lead", "pipeline", "sales", "prospect", "forecast"]):
             intent = ChatIntent.CRM
         else:
+            # No keyword matched: free-form text the rules cannot read.
+            # Route to the general agent rather than pretending it is a
+            # search (the else-branch used to return SEARCH_REQUEST,
+            # which dead-ended in the "0 results" template — see
+            # _classify_intent for the same decision).
             intent = ChatIntent.AGENT_REQUEST
 
         return {
@@ -21599,7 +22534,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             "confidence": 0.6,
             "entities": [],
             "platforms": [],
-            "command_type": "agent"
+            # "search" remains the tolerated default for every
+            # rule-classified intent (see _TOOL_PLAN_INTENT_MAP);
+            # "agent" only when that is what was actually decided.
+            "command_type": (
+                "agent" if intent is ChatIntent.AGENT_REQUEST else "search")
         }
 
     def _continuation_decision(
@@ -21809,10 +22748,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
 
         logger.info(f"Feature handling complete. Handled: {handled}, Intent: {primary_intent}")
 
-        # Fallback to ComputerUseAgent only when no feature handled the turn.
-        # A successful Atom/LLM agent response is already the user-facing answer;
-        # starting a background ComputerUse task here overwrites it with a
-        # generic "Task ID" status bubble.
+        # Fallback to ComputerUseAgent only when NO feature handled the
+        # turn. AGENT_REQUEST routes to the Atom meta-agent above; when
+        # Atom succeeds, its final_output IS the user-facing answer, and
+        # this branch used to overwrite it with a generic task-ID bubble
+        # while spawning a duplicate background agent (every tool-plan
+        # "agent_request" turn lost its answer that way). Atom failing
+        # leaves handled=False, so the safety net survives.
         if not handled:
              try:
                 # Use the General Agent (ComputerUseAgent) for unhandled queries
@@ -21876,12 +22818,35 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         # Generate main response message
         main_message = self._generate_main_message(message, intent_analysis, feature_responses)
 
+        # OUTCOME ALIGNMENT (owner work order 2026-10-09): the legacy
+        # envelope hardcoded success=true even when the generated
+        # message was the template completion claim over zero delivered
+        # work. When (and only when) the claim text is present, resolve
+        # the recorded outcome and let it govern — text, success, and
+        # the outcome field agree. Non-claim messages keep the
+        # established envelope semantics.
+        outcome: Optional[Dict[str, Any]] = None
+        if main_message == _FALLBACK_COMPLETION_CLAIM:
+            outcome = _fallback_turn_outcome(
+                session, (session or {}).get("_last_execution_id"),
+                feature_responses, None,
+                (session or {}).get("workspace_id"))
+            if outcome.get("state") != "completed":
+                main_message = _fallback_outcome_text(outcome)
+
+        _coordinated_failed = bool(
+            outcome and outcome.get("state") in ("failed", "unconfirmed"))
+
         return {
-            "success": True,
+            "success": not _coordinated_failed,
             "message": main_message,
             "session_id": session["id"],
             "intent": intent_analysis["primary_intent"].value,
             "confidence": intent_analysis["confidence"],
+            "outcome": outcome.get("state") if outcome else None,
+            "error_code": (
+                _FALLBACK_OUTCOME_ERROR_CODES.get(outcome.get("state"))
+                if _coordinated_failed else None),
             "data": combined_data,
             "suggested_actions": suggested_actions[:5],  # Limit to top 5
             "ui_updates": ui_updates,
