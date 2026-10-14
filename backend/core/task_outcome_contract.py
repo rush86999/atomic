@@ -73,6 +73,12 @@ def _copy_ref(value: Any) -> Dict[str, Any]:
     for key in ("operation_id", "result_id", "policy_id"):
         if value.get(key) is not None:
             ref[key] = _bounded_text(value[key], 120)
+    # CANVAS MUTATION IDENTITY SURVIVES SETTLEMENT (verifier review
+    # defect 3, 84143bdd8): the audit row id is the write's durable
+    # attribution; canvas_id names what was written.
+    for key in ("canvas_id", "audit_id"):
+        if value.get(key) is not None:
+            ref[key] = _bounded_text(value[key], 120)
     match_count = value.get("match_count")
     if isinstance(match_count, int) and not isinstance(match_count, bool):
         ref["match_count"] = match_count

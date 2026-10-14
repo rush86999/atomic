@@ -1124,7 +1124,7 @@ def build_canvas_evidence_comparison(
         if decision_source_ids is not None
         else designated_source_ids(objective_text, source_observations or [])
     )
-    return build_source_comparison(
+    comparison = build_source_comparison(
         observations,
         requested_entities=requested_entities,
         requested_fields=requested_fields,
@@ -1132,6 +1132,18 @@ def build_canvas_evidence_comparison(
         decision_source_ids=decision_ids,
         authorized_actions=authorized_actions or [],
     )
+    # THE COMPARED ARTIFACT (verifier review defect 2, 84143bdd8):
+    # build_source_comparison's shape carries no top-level source, so
+    # the outcome builder's compared-revision ref never settled from a
+    # real producer — the canvas identity rode only per-observation
+    # sources. The authoritative revision is THIS comparison's own
+    # fact; name it at top level.
+    comparison["source"] = {
+        "source_id": canvas_source_id,
+        "source_type": "artifact",
+        "version": canvas_source_id,
+    }
+    return comparison
 
 
 def _footer_start(body: str, after: int = 0) -> Optional[int]:

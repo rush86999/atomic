@@ -150,6 +150,48 @@ def test_edit_response_carries_durable_mutation_evidence():
         f"outcome; got {edit!r}")
 
 
+def test_mutation_refs_survive_the_evidence_contract_path():
+    """Review defect 3 (84143bdd8): the evidence-contract spread used to
+    overwrite evidence_refs AFTER the mutation refs were written — and
+    its value was a list of observation-id STRINGS. The mutation refs
+    now win the key on every success path and the observation ids keep
+    their own field. apply_canvas_edit is pinned to a verified result so
+    the contract spread and the mutation spread are both live in the
+    same assembly — exactly the clobber scenario."""
+    contract = {"coverage": {"outcomes": [
+        {"status": "comparable_match"}]}}
+    store = _DurableStore(QUOTE)
+    upd_patch, read_patch = store.patches()
+    verified = {"success": True, "postcondition_verified": True,
+                "audit_id": "audit-contract-1",
+                "review_status": "accepted",
+                "postcondition_evidence_refs": ["obs-1", "obs-2"]}
+    with patch.object(cce, "plan_canvas_edit",
+                      new=AsyncMock(return_value=_valid_plan())), \
+         patch.object(
+             cce, "fetch_fresh_data_section",
+             new=AsyncMock(return_value=cce.FreshDataResult(
+                 "", False, True, evidence_contract=contract))), \
+         patch.object(cce, "apply_canvas_edit",
+                      new=AsyncMock(return_value=(verified, None))), \
+         upd_patch, read_patch:
+        out = asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+            _orch(), MESSAGE, [], {
+                "canvas_id": CANVAS_ID, "canvas_type": "document",
+                "title": "Q", "content": QUOTE,
+            }, "user-j6", "sess-j6", "exec-j6-contract", None))
+    edit = (out.get("data") or {}).get("canvas_edit") or {}
+    refs = edit.get("evidence_refs") or []
+    assert refs and isinstance(refs[0], dict), (
+        f"mutation ref dicts must survive the contract path; got {refs!r}")
+    assert refs[0]["kind"] == "canvas_mutation"
+    assert refs[0]["audit_id"] == "audit-contract-1", (
+        "the audit row id is the write's attribution")
+    obs = edit.get("postcondition_observation_ids") or []
+    assert obs == ["obs-1", "obs-2"], (
+        f"the observation ids keep their own field; got {obs!r}")
+
+
 def test_lane_makes_no_model_calls():
     """The lane ran with llm_service=None and a canned plan: if any code
     path tried to reach a model it would have raised — completing proves

@@ -6811,10 +6811,17 @@ class ChatOrchestrator:
             comparison_covered = sum(
                 status not in {
                     "unverified", "evidence_missing", "unresolved",
-                    "partially_comparable",
+                    "partially_comparable", "field_missing",
                 }
                 for status in comparison_statuses
             )
+            # field_missing JOINS the exclusion set (verifier review
+            # defect 1, 84143bdd8): the comparison ledger below already
+            # counts a missing source field as NOT known — the covered
+            # count must agree, and the fallback resolver's validated
+            # branch excludes it. A comparison whose source field was
+            # never found is not a delivered result on ANY lane; the
+            # two resolvers now state one contract.
             comparison_complete = bool(
                 comparison_total and comparison_covered == comparison_total
             )
@@ -7030,6 +7037,21 @@ class ChatOrchestrator:
             for ref in comparison_evidence_refs:
                 if ref not in evidence_refs:
                     evidence_refs.append(ref)
+            # CANVAS MUTATION EVIDENCE (review defect 3 consumer, from
+            # the edit lane's own records): a verified, readback-matched
+            # write settles a canvas_mutation ref — the audit row id and
+            # operation linkage from canvas_edit, never the reply.
+            if (canvas_edit.get("updated") is True
+                    and mutation.get("readback_matched") is True
+                    and canvas_edit.get("audit_id")):
+                evidence_refs.append({
+                    "kind": "canvas_mutation",
+                    "canvas_id": canvas_edit.get("canvas_id"),
+                    "audit_id": canvas_edit.get("audit_id"),
+                    "operation_id": canvas_edit.get("operation_id"),
+                    "execution_id": canvas_edit.get("execution_id")
+                    or execution_id,
+                })
             tool_outcomes = []
             if (result or comparison) and (
                 mentions or task.get("mention") or comparison
@@ -25117,18 +25139,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "postcondition_verified": True,
                     **({"audit_id": result.get("audit_id")}
                        if result.get("audit_id") else {}),
-                    # MUTATION EVIDENCE (verifier step 3, edit lane): the
-                    # durable attribution rides the response — the audit
-                    # row id and THIS operation's linkage — so the
-                    # outcome builder settles refs from the execution's
-                    # own records, never from the reply.
-                    **({"evidence_refs": [{
-                        "kind": "canvas_mutation",
-                        "canvas_id": canvas.get("canvas_id"),
-                        "audit_id": result.get("audit_id"),
-                        "operation_id": operation_id,
-                        "execution_id": execution_id,
-                    }]} if result.get("audit_id") else {}),
                     "review_status": (
                         result.get("review_status")
                         or ("pending_review" if learning_mode else "accepted")
@@ -25140,10 +25150,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "postcondition_error": result.get(
                             "postcondition_error"
                         ),
-                        "evidence_refs": result.get(
-                            "postcondition_evidence_refs"
-                        ) or [],
+                        # Observation ids are STRINGS from the evidence
+                        # contract — kept under their own name so the
+                        # mutation evidence_refs above (ref dicts) are
+                        # never clobbered or type-mixed (review defect
+                        # 3, 84143bdd8).
+                        **({"postcondition_observation_ids": list(
+                            result.get("postcondition_evidence_refs")
+                            or [])}
+                           if result.get("postcondition_evidence_refs")
+                           else {}),
                     } if fresh.evidence_contract else {}),
+                    # MUTATION EVIDENCE LAST (review defect 3): it wins
+                    # the evidence_refs key on every success path —
+                    # the outcome builder consumes THESE.
+                    **({"evidence_refs": [{
+                        "kind": "canvas_mutation",
+                        "canvas_id": canvas.get("canvas_id"),
+                        "audit_id": result.get("audit_id"),
+                        "operation_id": operation_id,
+                        "execution_id": execution_id,
+                    }]} if result.get("audit_id") else {}),
                     **({"learning_mode": True} if learning_mode else {}),
                     **({"matched_playbooks": matched_playbooks}
                        if matched_playbooks else {}),

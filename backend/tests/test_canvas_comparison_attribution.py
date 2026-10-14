@@ -120,6 +120,53 @@ def test_resolver_ignores_an_unresolved_carrier():
     assert state["state"] == "unconfirmed"
 
 
+def test_real_producer_carrier_settles_the_revision_ref():
+    """Review defect 2 (84143bdd8): the ref must settle from a REAL
+    producer — build_canvas_evidence_comparison's own output (which now
+    names the compared canvas at top level), not a hand-fabricated
+    fixture."""
+    from core.chat_canvas_editor import build_canvas_evidence_comparison
+
+    canvas = {
+        "canvas_id": "cv-real",
+        "canvas_type": "document",
+        "title": "Quotation",
+        "content": (
+            "# Quotation Q-2026-114\n\n"
+            "Client: Dunmore Fabrication LLC\n"
+            "Unit price: $48,000.00\n"
+            "Subtotal: $48,000.00\n"
+            "Valid until: 2026-11-30\n"),
+    }
+    carrier = build_canvas_evidence_comparison(
+        canvas, None, source_observations=[], authorized_actions=[],
+        objective_text="compare the unit price on this quotation")
+    assert (carrier.get("source") or {}).get("source_id") == "cv-real", (
+        f"the producer names the compared revision; got "
+        f"{carrier.get('source')!r}")
+    session = {"_objective_evidence_exec-real": carrier}
+    outcome = _built_outcome(session, "exec-real")
+    refs = [r for t in (outcome.get("tool_outcomes") or [])
+            for r in (t.get("evidence_refs") or [])]
+    assert any(
+        (r.get("source") or {}).get("source_id") == "cv-real"
+        and r.get("kind") == "source_comparison" for r in refs), (
+        f"the compared revision settles from the real producer; {refs}")
+
+
+def test_builder_field_missing_is_not_covered():
+    """Review defect 1 (84143bdd8) — the builder half: a comparison
+    whose source field was never found is NOT covered on ANY lane. The
+    fallback already excluded it; the builder's covered-set now agrees,
+    so the same carrier cannot read completed on one resolver and
+    unconfirmed on the other."""
+    session = {"_objective_evidence_exec-fm": _comparison(
+        outcome_status="field_missing")}
+    outcome = _built_outcome(session, "exec-fm")
+    assert outcome.get("objective_met") is not True, (
+        "a field-missing comparison does not complete the objective")
+
+
 def test_a_decline_without_a_recorded_result_stays_unconfirmed():
     """The classification rule: not every honest decline upgrades. A
     turn whose records show NO comparison, NO ops and NO delivery
