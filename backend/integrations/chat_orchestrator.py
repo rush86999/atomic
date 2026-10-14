@@ -7031,14 +7031,19 @@ class ChatOrchestrator:
                 # core.task_lifecycle fails silently — the function lives
                 # in chat_orchestrator.py, not core.task_lifecycle).
                 # THE TURN'S OWN WORKSPACE (J5-r18 evidence: the finish
-                # lanes pass workspace_id=None while the calc lane's run
-                # lives in the USER's resolved workspace — a default-
-                # scoped service saw zero runs and this evidence block
-                # silently degraded; resolve like the assembler leg).
+                # lanes pass NEITHER workspace_id NOR user_id down to
+                # this builder, while the calc lane's run lives in the
+                # USER's resolved workspace — a default-scoped service
+                # saw zero runs and this evidence block silently
+                # degraded; resolve like the assembler leg, through the
+                # session's user when the kwarg was dropped).
                 _tl = _task_lifecycle_for(
                     getattr(self, "tenant_id", None) if hasattr(
                         self, "tenant_id") else None,
-                    workspace_id or resolve_user_workspace(user_id))
+                    workspace_id or resolve_user_workspace(
+                        user_id or (
+                            session.get("user_id")
+                            if isinstance(session, dict) else None)))
                 if _tl is not None:
                     _conv = (session or {}).get(
                         "id") or (session or {}).get("session_id") or ""

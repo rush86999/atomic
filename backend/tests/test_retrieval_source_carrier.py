@@ -233,6 +233,9 @@ def test_calc_evidence_resolves_through_the_users_workspace(monkeypatch):
 
     monkeypatch.setattr(chat, "_task_lifecycle_for", fake_lifecycle_for)
 
+    # PRODUCTION SHAPE (J5-r18 second run): the finish lanes pass
+    # NEITHER user_id NOR workspace_id — the session is the only carrier
+    # of the user identity down to this builder.
     session = {"id": "conv-1", "user_id": "user-7"}
     orch = chat.ChatOrchestrator()
     outcome = orch._build_turn_task_outcome(
@@ -242,11 +245,11 @@ def test_calc_evidence_resolves_through_the_users_workspace(monkeypatch):
         None,
         None,
         execution_id="exec-calc",
-        user_id="user-7",
+        user_id=None,
         workspace_id=None,
     )
     # The scope contract: the lifecycle must be resolved through the
-    # USER's workspace, not the "default" fallback.
+    # USER's workspace (from the session), not the "default" fallback.
     assert seen["workspace_id"] == chat.resolve_user_workspace("user-7")
     rows = outcome.get("tool_outcomes") or []
     calc_rows = [t for t in rows if t.get("tool") == "expression_engine"]
