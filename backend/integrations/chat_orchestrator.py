@@ -6927,6 +6927,11 @@ class ChatOrchestrator:
                             "evidence_missing",
                             "unresolved",
                             "partially_comparable",
+                            # SAME covered-set as comparison_covered and
+                            # the fallback's validated branch (re-review
+                            # finding: the criterion rows were the last
+                            # place field_missing still read as met).
+                            "field_missing",
                         }
                     ),
                     "verifier": "source_comparison",

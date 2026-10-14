@@ -58,10 +58,12 @@ def _comparison(outcome_status="comparable_match"):
     }
 
 
-def _built_outcome(session, execution_id, message="compare the price"):
+def _built_outcome(session, execution_id, message="compare the price",
+                   response=None):
     orch = chat.ChatOrchestrator.__new__(chat.ChatOrchestrator)
     return chat.ChatOrchestrator._build_turn_task_outcome(
         orch, session, message,
+        response if response is not None else
         {"success": True, "message": "Unit price matches the source."},
         None, None, execution_id=execution_id)
 
@@ -152,6 +154,54 @@ def test_real_producer_carrier_settles_the_revision_ref():
         (r.get("source") or {}).get("source_id") == "cv-real"
         and r.get("kind") == "source_comparison" for r in refs), (
         f"the compared revision settles from the real producer; {refs}")
+
+
+def test_builder_settles_the_canvas_mutation_ref():
+    """Re-review coverage finding: the builder's canvas_mutation
+    settlement (updated + readback_matched + audit_id from the edit
+    lane's response) had NO committed test — one refactor away from
+    silently vanishing. The fixture carries the audit_id the real lane
+    always sets on the verified path."""
+    session = {}
+    response = {
+        "success": True,
+        "message": "Updated the Valid Until date.",
+        "data": {"canvas_edit": {
+            "canvas_id": "cv-mut",
+            "updated": True,
+            "execution_id": "exec-mut",
+            "operation_id": "op-mut",
+            "outcome": "completed",
+            "postcondition_verified": True,
+            "audit_id": "audit-mut-1",
+            "review_status": "accepted",
+        }},
+    }
+    outcome = _built_outcome(session, "exec-mut",
+                             message="Update the Valid Until date.",
+                             response=response)
+    # The mutation ref settles at the OUTCOME's top-level evidence_refs;
+    # after contract normalization it keeps kind/canvas_id/audit_id/
+    # operation_id (execution_id is not whitelisted — the op id IS the
+    # turn's execution linkage).
+    refs = outcome.get("evidence_refs") or []
+    assert any(r.get("kind") == "canvas_mutation"
+               and r.get("audit_id") == "audit-mut-1"
+               and r.get("canvas_id") == "cv-mut"
+               and r.get("operation_id") == "op-mut" for r in refs), (
+        "the verified write settles a canvas_mutation ref from the "
+        f"lane's own records; got {refs}")
+    # The gate is conjunctive: an unverified write settles nothing.
+    response["data"]["canvas_edit"]["postcondition_verified"] = False
+    response["data"]["canvas_edit"]["audit_id"] = "audit-mut-2"
+    outcome2 = _built_outcome(session, "exec-mut",
+                              message="Update the Valid Until date.",
+                              response=response)
+    refs2 = outcome2.get("evidence_refs") or []
+    assert not any(r.get("kind") == "canvas_mutation"
+                   and r.get("audit_id") == "audit-mut-2"
+                   for r in refs2), (
+        "an unverified write never claims mutation evidence")
 
 
 def test_builder_field_missing_is_not_covered():
