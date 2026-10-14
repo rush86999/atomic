@@ -337,28 +337,73 @@ def finish_turn(server, t: dict, sid: str | None) -> None:
 
 def stage_ladder(log_text: str, t: dict, canvas_after: dict,
                  audit_delta: int) -> dict:
-    """The five dispatch stages the verifier requires, read from
-    evidence (uvicorn log + durable reads), never from the reply:
-    ranked -> model_request_sent -> response_received -> plan_validated
-    -> edit_applied_and_read_back. /api/tags discovery GETs are NOT
-    dispatches; a "no plan (provider failure)" line denies stage 4."""
+    """Stage evidence with POSITIVE validation semantics (verifier
+    steps 1-2):
+
+      plan_validated is TRUE only when a [plan-stage] line for THIS
+      execution reports outcome=edit (or action) with contract=valid —
+      the planner's own schema+scope verdict, emitted by the lane. A
+      timeout, a bounded-out leg, or missing events means
+      "unknown/not_reached", never validated. The earlier heuristic
+      (model POST + a duration + absence of one failure phrase) could
+      mark a timeout validated and is retired.
+
+      model calls are separated per stage: [structured-trace] lines
+      carry route=<stage>:<eid> and attempt=N, so edit-plan dispatches
+      are counted apart from fresh-data, action, and narration calls.
+    """
+    eid = str(t.get("execution_id")
+              or t.get("request_record_execution_id") or "-")
     lines = (log_text or "").splitlines()
-    ranked = [ln for ln in lines
-              if "cost-priority active (task_type=planning)" in ln
-              or "BPC Ranking Successful" in ln]
-    sent = [ln for ln in lines
-            if "HTTP Request: POST http://localhost:11434" in ln]
-    no_plan = any("no plan (provider failure)" in ln for ln in lines)
-    plan_stage_s = t.get("plan_stage_s")
+
+    plan_stages = []
+    for ln in lines:
+        if "[plan-stage]" not in ln:
+            continue
+        fields = dict(kv.split("=", 1) for kv in
+                      ln.split("[plan-stage]", 1)[1].split()
+                      if "=" in kv)
+        if fields.get("eid") == eid:
+            plan_stages.append(fields)
+
+    attempts_by_stage = {}
+    for ln in lines:
+        if "[structured-trace]" not in ln or "route=" not in ln:
+            continue
+        route = ln.split("route=", 1)[1].split()[0]
+        if not route.endswith(":" + eid):
+            continue
+        stage = route.rsplit(":", 1)[0]
+        attempts_by_stage.setdefault(stage, []).append(ln)
+
+    edit_stage = next((s for s in plan_stages
+                       if s.get("stage") == "canvas_edit_plan"), None)
+    if edit_stage and edit_stage.get("outcome") == "edit"             and edit_stage.get("contract") == "valid":
+        validation = "validated"
+    elif edit_stage:
+        validation = f"not_validated ({edit_stage.get('outcome')})"
+    else:
+        validation = "not_reached"
+
+    plan_dispatches = attempts_by_stage.get("canvas_edit_plan", []) + \
+        attempts_by_stage.get("canvas_edit_plan_repair", []) + \
+        attempts_by_stage.get("canvas_edit_plan_reask", [])
+    other_dispatches = [ln for stg, lns in attempts_by_stage.items()
+                        if not stg.startswith("canvas_edit_plan")
+                        for ln in lns]
+
     return {
-        "ranked": {"yes": bool(ranked),
-                   "evidence": (ranked[-1][:170] if ranked else None)},
-        "model_request_sent": {"yes": bool(sent), "count": len(sent)},
-        "response_received": {"yes": bool(sent)
-                              and plan_stage_s is not None,
-                              "plan_stage_s": plan_stage_s},
-        "plan_validated": {"yes": bool(sent) and plan_stage_s is not None
-                           and not no_plan},
+        "plan_attempts": {
+            "edit_plan_dispatches": len(plan_dispatches),
+            "detail": [ln.split("[structured-trace]", 1)[1].strip()[:150]
+                       for ln in plan_dispatches],
+        },
+        "other_stage_dispatches": {
+            "count": len(other_dispatches),
+            "stages": sorted(attempts_by_stage.keys()),
+        },
+        "plan_stage_events": plan_stages,
+        "plan_validated": validation,
         "edit_applied_and_read_back": {
             "yes": bool(audit_delta and canvas_after
                         and canvas_after.get("has_new_date")),

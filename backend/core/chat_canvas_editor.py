@@ -279,6 +279,20 @@ def _small_edit_shape(message: str, prompt_len: int) -> bool:
     return len(msg) <= 220
 
 
+
+def _log_plan_stage(execution_id: Optional[str], stage: str,
+                    outcome: str, *, attempts: int = 1,
+                    contract: str = "-", detail: str = "") -> None:
+    """POSITIVE stage evidence (verifier steps 1-2): one parseable line
+    per planning stage terminal. plan_validated downstream requires
+    outcome=edit|action AND contract=valid — a timeout, a missing event,
+    or a parse failure is never 'validated'."""
+    logger.info(
+        "[plan-stage] eid=%s stage=%s outcome=%s attempts=%d "
+        "contract=%s detail=%s",
+        execution_id or "-", stage, outcome, attempts, contract,
+        str(detail)[:160])
+
 async def _plan_structured(
     llm_service: Any,
     *,
@@ -288,6 +302,8 @@ async def _plan_structured(
     message: str = "",
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    stage: str = "canvas_edit_plan",
 ) -> Any:
     """Structured canvas-planning call routed by BPC (no model pin).
 
@@ -348,6 +364,8 @@ async def _plan_structured(
         response_model=response_model,
         workspace_id=workspace_id,
         tenant_id=tenant_id,
+        execution_id=execution_id,
+        stage=stage,
         system_instruction=system_instruction,
         call_kwargs=_pin or None,
         log_label="canvas edit planning",
@@ -3433,6 +3451,7 @@ async def plan_canvas_edit(
     corrections: Optional[List[Dict[str, Any]]] = None,
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
     versions: Optional[List[Dict[str, Any]]] = None,
     lessons: Optional[List[Dict[str, Any]]] = None,
     similar_corrections: Optional[List[Dict[str, Any]]] = None,
@@ -3574,8 +3593,12 @@ async def plan_canvas_edit(
         message=message,
         workspace_id=workspace_id,
         tenant_id=tenant_id,
+        execution_id=execution_id,
+        stage="canvas_edit_plan",
     )
     if plan is None:
+        _log_plan_stage(execution_id, "canvas_edit_plan", "unavailable",
+                        detail="structured call returned None")
         # The structured call failed outright (all providers/timeout) — a
         # planning INFRASTRUCTURE failure, not "not an edit". Raise so the
         # caller answers honestly instead of routing an edit request into
@@ -3629,6 +3652,10 @@ async def plan_canvas_edit(
                 else CanvasPlanOutcome.SERVED_DECLINE)
         except Exception:  # noqa: BLE001 — diagnostic only
             pass
+        _log_plan_stage(
+            execution_id, "canvas_edit_plan", "declined", contract=(
+                "violation" if plan_contract_violation(plan) else "valid"),
+            detail="served decline")
         logger.info(
             "canvas edit: plan DECLINED | wants_edit=%s ops=%d "
             "replacement=%s restore=%s contract_violation=%s",
@@ -3688,9 +3715,15 @@ async def plan_canvas_edit(
         # behaviour, and honest.
         violation = plan_contract_violation(plan)
         if violation is None:
+            _log_plan_stage(execution_id, "canvas_edit_plan", "edit",
+                            contract="valid",
+                            detail="schema+scope valid on attempt 1")
             return plan
         logger.info(
             "canvas edit: SCHEMA-BOUNDARY contract violation: %s", violation)
+        _log_plan_stage(execution_id, "canvas_edit_plan", "repair",
+                        attempts=2, contract="violation",
+                        detail=f"attempt 1 invalid: {violation}")
         replan = await _plan_structured(
             llm_service,
             prompt=f"{prompt}\n\n{_INCONSISTENT_PLAN_SUFFIX}",
@@ -3698,6 +3731,8 @@ async def plan_canvas_edit(
             system_instruction="You return only the requested JSON object.",
             workspace_id=workspace_id,
             tenant_id=tenant_id,
+            execution_id=execution_id,
+            stage="canvas_edit_plan_repair",
         )
         # CAPTURE (2026-09-28): both answers, so a failure is attributable
         # without re-running. A model answering correctly is a routing fact and
@@ -3717,16 +3752,25 @@ async def plan_canvas_edit(
                 "canvas edit: consistency repair ALSO violated the contract "
                 "(%s) -- treating the turn as not-an-edit",
                 plan_contract_violation(replan))
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="violation",
+                            detail="repair also violated")
             return replan
         if not replan.wants_edit:
             logger.info(
                 "canvas edit: consistency repair returned a consistent "
                 "decline -- treating the turn as not-an-edit")
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="valid",
+                            detail="repair resolved to a decline")
             return replan
         if not (replan.ops or (replan.updated_content_json or "").strip()):
             logger.info(
                 "canvas edit: consistency repair claimed an edit but produced "
                 "nothing to apply -- treating the turn as not-an-edit")
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="valid",
+                            detail="repair produced nothing applicable")
             return replan
         # FENCE (2026-09-28, F02): the repair may resolve the contradiction, not
         # widen the edit. Reproduced here: a body-scoped request, a
@@ -3738,6 +3782,9 @@ async def plan_canvas_edit(
                 "canvas edit: consistency repair REJECTED — %s. The turn stays "
                 "a decline; the user is asked to name the exact text instead.",
                 _widened)
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="violation",
+                            detail=f"repair out of scope: {_widened}")
             # `None`, not `replan`: the plan is applicable-looking but out of
             # scope, and returning it would hand the orchestrator an edit the
             # user never asked for. `None` is the module's existing "no usable
@@ -3844,8 +3891,18 @@ async def plan_canvas_edit(
             return None
         if raw_plan is not None and (raw_plan.updated_content_json or "").strip():
             logger.info("canvas edit replace plan recovered via raw-JSON fallback")
+            _log_plan_stage(execution_id, "canvas_edit_plan", "edit",
+                            attempts=3, contract="valid",
+                            detail="recovered via raw-JSON fallback")
             return raw_plan
+        _log_plan_stage(execution_id, "canvas_edit_plan", "unavailable",
+                        attempts=3, detail="replace fallbacks exhausted")
         return None
+    _log_plan_stage(execution_id, "canvas_edit_plan", "edit",
+                    contract="valid",
+                    detail=(f"prompt_chars={len(prompt or '')} "
+                            "ops_match_current_content=true" if plan.ops
+                            else f"prompt_chars={len(prompt or '')}"))
     return plan
 
 
@@ -5292,6 +5349,7 @@ async def plan_canvas_action(
     fresh_data: Optional[str] = None,
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
 ) -> Optional[CanvasActionPlan]:
     """Decide whether this turn asks to DO something with the canvas (send
     email). ``fresh_data`` is the caller-gathered live evidence section
@@ -5325,7 +5383,13 @@ async def plan_canvas_action(
         system_instruction="You return only the requested JSON object — raw JSON, no markdown fences.",
         workspace_id=workspace_id,
         tenant_id=tenant_id,
+        execution_id=execution_id,
+        stage="canvas_action_plan",
     )
+    _log_plan_stage(execution_id, "canvas_action_plan",
+                    "action" if plan is not None and plan.wants_action
+                    else ("declined" if plan is not None else "unavailable"),
+                    contract="valid" if plan is not None else "-")
     if plan is None:
         # Deterministic fallback: the structured (Instructor/tool-mode) path
         # is unreliable for action-shaped schemas — the schema class name

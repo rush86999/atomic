@@ -29,7 +29,7 @@ import os
 os.environ.setdefault("TESTING", "1")
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import integrations.chat_orchestrator as co
 import core.chat_canvas_editor as cce
@@ -156,3 +156,86 @@ def test_lane_makes_no_model_calls():
     the downstream stages are model-free once the plan exists."""
     out, _store = _run_lane()
     assert out is not None
+
+
+def test_plan_stage_events_are_positive_evidence(caplog):
+    """Verifier steps 1-2: the lane emits [plan-stage] events with the
+    execution id, and a usable plan is recorded as outcome=edit with
+    contract=valid — the ONLY shape downstream may read as
+    plan_validated. A None plan must log outcome=unavailable, never a
+    validated shape."""
+    import logging
+
+    store = _DurableStore(QUOTE)
+    upd_patch, read_patch = store.patches()
+    # plan_canvas_edit's early guard needs a non-None service; the model
+    # work itself is intercepted at _plan_structured below.
+    _orch_llm = _orch()
+    _orch_llm.llm_service = MagicMock()
+
+    async def _structured(llm_service, *, prompt, response_model,
+                          **kwargs):
+        # One level below plan_canvas_edit: the REAL plan_canvas_edit
+        # runs, so its contract checks and [plan-stage] events execute.
+        if response_model is cce.CanvasEditPlan:
+            return _valid_plan()
+        return None
+
+    with patch.object(cce, "_plan_structured",
+                      new=AsyncMock(side_effect=_structured)), \
+         patch.object(cce, "fetch_fresh_data_section",
+                      new=AsyncMock(return_value=cce.FreshDataResult(
+                          "", False, True))), \
+         upd_patch, read_patch, \
+         caplog.at_level(logging.INFO, logger="core.chat_canvas_editor"):
+        asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+            _orch_llm, MESSAGE, [], {
+                "canvas_id": CANVAS_ID, "canvas_type": "document",
+                "title": "Q", "content": QUOTE,
+            }, "user-j6", "sess-j6", "exec-j6-stage", None))
+
+    events = [r for r in caplog.records
+              if "[plan-stage]" in r.getMessage()]
+    assert events, "the lane must emit [plan-stage] events"
+    edit_events = [r for r in events
+                   if "outcome=edit" in r.getMessage()
+                   and "eid=exec-j6-stage" in r.getMessage()]
+    assert edit_events, (
+        f"a usable plan must log outcome=edit for its execution; "
+        f"got {[r.getMessage() for r in events]}")
+    assert any("contract=valid" in r.getMessage()
+               for r in edit_events)
+    # Fresh-data is marked as its OWN stage — its calls are never
+    # edit-plan attempts.
+    lane_events = [r for r in caplog.records
+                   if "[lane-stage]" in r.getMessage()
+                   and "stage=fresh_data" in r.getMessage()]
+    assert lane_events, "fresh-data work is recorded as its own stage"
+
+    # The negative shape: a None structured call logs outcome=unavailable.
+    async def _structured_none(llm_service, *, prompt, response_model,
+                               **kwargs):
+        return None
+
+    _orch_llm2 = _orch()
+    _orch_llm2.llm_service = MagicMock()
+    with patch.object(cce, "_plan_structured",
+                      new=AsyncMock(side_effect=_structured_none)), \
+         patch.object(cce, "fetch_fresh_data_section",
+                      new=AsyncMock(return_value=cce.FreshDataResult(
+                          "", False, True))), \
+         caplog.at_level(logging.INFO, logger="core.chat_canvas_editor"):
+        try:
+            asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+                _orch_llm2, MESSAGE, [], {
+                    "canvas_id": CANVAS_ID, "canvas_type": "document",
+                    "title": "Q", "content": QUOTE,
+                }, "user-j6", "sess-j6", "exec-j6-none", None))
+        except cce.CanvasPlanUnavailable:
+            pass  # the honest infrastructure failure
+    none_events = [r for r in caplog.records
+                   if "[plan-stage]" in r.getMessage()
+                   and "eid=exec-j6-none" in r.getMessage()
+                   and "outcome=unavailable" in r.getMessage()]
+    assert none_events, (
+        "a None plan logs outcome=unavailable — never validated")

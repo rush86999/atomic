@@ -24302,6 +24302,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
 
         from core.chat_canvas_editor import fetch_fresh_data_section
         _edit_requested = _canvas_edit_shaped(message, {"canvas": canvas})
+        # LANE-STAGE MARKER (verifier step 1): fresh-data work is a
+        # SEPARATE stage from edit planning — its model calls (the
+        # read-only tool planner) must never be counted as edit-plan
+        # attempts.
+        logger.info(
+            "[lane-stage] eid=%s stage=fresh_data edit_requested=%s",
+            execution_id or "-", _edit_requested)
         # IN-LANE AUTHORIZATION GATE (owner work order 2026-10-10,
         # defense at the boundary itself): edit-shape NOMINATION is not
         # permission. Before ANY fresh-data or planning work, the lane
@@ -24528,6 +24535,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # workspace-registered local provider.
                         workspace_id=resolve_user_workspace(user_id),
                         tenant_id=getattr(self, "tenant_id", None),
+                        execution_id=execution_id,
                     )
                 )
             except Exception as action_task_err:  # noqa: BLE001
@@ -24545,6 +24553,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # the same registration served the reply lane.
                     workspace_id=resolve_user_workspace(user_id),
                     tenant_id=getattr(self, "tenant_id", None),
+                    execution_id=execution_id,
                     corrections=corrections,
                     versions=versions,
                     lessons=lessons,
@@ -25223,6 +25232,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # the edit lane).
                         workspace_id=resolve_user_workspace(user_id),
                         tenant_id=getattr(self, "tenant_id", None),
+                        execution_id=execution_id,
                     ),
                     timeout=25,
                 )

@@ -7662,12 +7662,14 @@ class BYOKHandler:
                             logger.info(
                                 "[structured-trace] %s/%s cap=%s "
                                 "dur=%.1fs finish=%s content_present=%s "
-                                "tool_calls_present=%s result_type=%s",
+                                "tool_calls_present=%s result_type=%s "
+                                "route=%s attempt=%d",
                                 provider_id, model,
                                 _create_kwargs.get("max_tokens"),
                                 time.time() - _attempt_t0, _fr,
                                 _content_present, _tool_calls_present,
-                                type(result).__name__)
+                                type(result).__name__,
+                                route_trace_id or "-", _attempt_count)
                             _record_structured_latency(
                                 provider_id, model,
                                 time.time() - _structured_start)

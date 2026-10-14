@@ -172,6 +172,8 @@ async def pinned_structured_call(
     task_type: Optional[str] = None,
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    stage: Optional[str] = None,
 ) -> Any:
     """Structured call that honours a pin, then falls back to unpinned routing.
 
@@ -220,6 +222,12 @@ async def pinned_structured_call(
         base["workspace_id"] = workspace_id
     if tenant_id:
         base["tenant_id"] = tenant_id
+    # PLAN-ATTEMPT ATTRIBUTION (verifier work order, steps 1-2): the
+    # dispatch traces carry THIS execution and stage, so per-attempt
+    # lines are attributable to one turn's one planning stage — model
+    # calls are distinguishable from fresh-data and narration calls.
+    if execution_id:
+        base["route_trace_id"] = f"{stage or log_label}:{execution_id}"
     if extra_kwargs:
         base.update(extra_kwargs)
 
