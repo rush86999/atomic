@@ -126,5 +126,16 @@
   "bottleneck_identified": "STRUCTURED-CONVERSION SHAPE INSTABILITY of the accepted 8B profile through the instructor path \u2014 not model workload (raw native completes the same payload in 11.2s with a valid plan), not nested retries (retries=2; each failed attempt ~15s), not cancellation contention (pinned as a real mechanism but no evidence it fired in these runs).",
   "next_candidate_for_owner_review": "stabilize the planning conversion for the accepted profile \u2014 e.g., request the native json format (the raw call's mode, which produced a valid plan deterministically) instead of tool-call-shaped structured output for the canvas-edit plan, benchmarked original-vs-candidate on completion rate and time-to-valid-plan with the FULL canvas preserved. That is a production change and waits for the owner's go.",
   "acceptance_status": "OPEN. The acceptance timeout stands as failed for every run; diagnostics do not retroactively pass it. No counted J6 campaign until the owner picks the stabilization direction."
+ },
+ "step5_rereview": {
+  "scope": "7cde15616's exact delta: real producer \u2192 carrier \u2192 response assembly \u2192 normalization \u2192 fresh reload; field_missing; revision identity; mutation refs",
+  "verdict": "APPROVE \u2014 the full chain verified empirically on the exact commit tree; mutation-tested; zero regressions (every failure identical on the parent 908507039)",
+  "chain_links": "A producer (top-level source names the canvas; zero-outcome case never counts as complete) | B carrier (verbatim, execution-keyed; nothing strips the new key) | C assembly\u2192builder (revision ref settles and survives _copy_ref; mutation refs win the spread; builder consumer verified end-to-end) | D field_missing aligned on both resolvers (comparable_match shapes unchanged) | E fresh reload round-trips both ref kinds through metadata_json",
+  "nonblocking_findings_closed_in_4e098bf92": [
+   "coverage gap: the builder's canvas_mutation settlement now has a committed test (conjunctive gate: updated + readback_matched + audit_id; unverified writes settle nothing)",
+   "residual divergence: the builder's per-criterion met rows join the one covered-set (field_missing no longer reads met in criterion rows)"
+  ],
+  "accepted_residuals": "execution_id is not whitelisted on canvas_mutation refs (the operation_id IS the turn's execution linkage); the decline pin is a baseline pin protected by the unresolved-carrier control",
+  "acceptance_status": "OPEN \u2014 unchanged: attributable usable plan \u2192 one verified write; counted campaign awaits the owner's stabilization choice (native-json candidate measured, recorded in round19_instrumented_diagnosis)."
  }
 }
