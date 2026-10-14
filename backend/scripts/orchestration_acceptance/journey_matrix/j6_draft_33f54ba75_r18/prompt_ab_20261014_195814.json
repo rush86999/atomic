@@ -1,0 +1,84 @@
+{
+ "benchmark": "prompt-construction A/B (heavyweight vs compact) through the REAL plan_canvas_edit",
+ "model": "llama3.1:8b",
+ "bound_s": 120.0,
+ "attempts_per_side": 3,
+ "identical": "scope, canvas (FULL), history, evidence, token cap, deadline, provider, retry policy",
+ "started_at": "2026-10-14T23:51:38+00:00",
+ "heavyweight": [
+  {
+   "attempt": "heavyweight-1",
+   "completed": false,
+   "reason": "bound expired",
+   "elapsed_s": 120.0,
+   "http": 0
+  },
+  {
+   "attempt": "heavyweight-2",
+   "completed": false,
+   "reason": "bound expired",
+   "elapsed_s": 120.0,
+   "http": 0
+  },
+  {
+   "attempt": "heavyweight-3",
+   "completed": false,
+   "reason": "bound expired",
+   "elapsed_s": 120.0,
+   "http": 0
+  }
+ ],
+ "heavyweight_summary": {
+  "effective_completions": "0/3",
+  "time_to_valid_plan_s": [],
+  "prompt_chars": [
+   null,
+   null,
+   null
+  ],
+  "http_requests_total": 12
+ },
+ "compact": [
+  {
+   "attempt": "compact-1",
+   "completed": true,
+   "time_to_valid_plan_s": 20.81,
+   "detail": "violation=None failed_ops=0 effective=True",
+   "prompt_chars": 1410,
+   "cap": 2000,
+   "http": 1
+  },
+  {
+   "attempt": "compact-2",
+   "completed": true,
+   "time_to_valid_plan_s": 4.52,
+   "detail": "violation=None failed_ops=0 effective=True",
+   "prompt_chars": 1410,
+   "cap": 2000,
+   "http": 2
+  },
+  {
+   "attempt": "compact-3",
+   "completed": true,
+   "time_to_valid_plan_s": 4.51,
+   "detail": "violation=None failed_ops=0 effective=True",
+   "prompt_chars": 1410,
+   "cap": 2000,
+   "http": 3
+  }
+ ],
+ "compact_summary": {
+  "effective_completions": "3/3",
+  "time_to_valid_plan_s": [
+   20.81,
+   4.52,
+   4.51
+  ],
+  "prompt_chars": [
+   1410,
+   1410,
+   1410
+  ],
+  "http_requests_total": 3
+ }
+}

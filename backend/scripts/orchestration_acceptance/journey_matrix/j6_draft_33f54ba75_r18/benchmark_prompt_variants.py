@@ -25,8 +25,18 @@ sys.path.insert(0, str(BACKEND))
 import os
 os.environ.setdefault("TESTING", "1")
 
+import logging
+import sys as _sys
+
 import httpx
 from unittest.mock import patch
+
+# Round-19 W3: capture the ranking/dispatch warnings that explain a
+# zero-second "provider failure".
+logging.basicConfig(
+    level=logging.INFO,
+    stream=_sys.stderr,
+    format="%(levelname)s:%(name)s:%(message)s")
 
 OLLAMA = "http://localhost:11434"
 MODEL = "llama3.1:8b"
@@ -96,16 +106,12 @@ async def run_side(label: str, compact: bool, http_counts: list) -> dict:
     for i in range(1, ATTEMPTS + 1):
         captured = {}
 
-        async def _capture(**kwargs):
-            captured["prompt"] = kwargs.get("prompt")
-            captured["cap"] = kwargs.get("max_tokens")
-            return await handler.generate_structured_response(**kwargs)
 
         t0 = time.monotonic()
         try:
             plan = await asyncio.wait_for(
                 cce.plan_canvas_edit(
-                    MESSAGE, [], dict(FULL_CANVAS), _Svc(handler, _capture),
+                    MESSAGE, [], dict(FULL_CANVAS), _Svc(handler, captured),
                     workspace_id="ws-ab", tenant_id="tenant-ab",
                     execution_id=f"ab2-{label}-{i}", compact=compact),
                 timeout=BOUND_S)
@@ -161,10 +167,25 @@ class _Svc:
     async def generate_structured_response(self, **kwargs):
         self.captured["prompt"] = kwargs.get("prompt")
         self.captured["cap"] = kwargs.get("max_tokens")
+        # plan_canvas_edit forwards workspace_id/tenant_id for the
+        # SERVICE seam; the HANDLER IS the scope here.
+        kwargs.pop("workspace_id", None)
+        kwargs.pop("tenant_id", None)
         return await self.handler.generate_structured_response(**kwargs)
 
 
 def main() -> int:
+    # DIAGNOSTIC: print the full traceback of every recorded planning
+    # failure (the warning line carries only str(err)).
+    import core.llm.pinned_planning as _pp
+    import traceback as _tb
+    _orig_pf = _pp._publish_failure
+
+    def _pf_with_tb(label, err):
+        _tb.print_exception(type(err), err, err.__traceback__)
+        return _orig_pf(label, err)
+
+    _pp._publish_failure = _pf_with_tb
     out: dict = {
         "benchmark": "prompt-construction A/B (heavyweight vs compact) "
                      "through the REAL plan_canvas_edit",

@@ -24,6 +24,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 BACKEND = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(BACKEND))
@@ -70,6 +71,17 @@ MESSAGE = ("On this quotation, update the Valid Until date to "
            "2026-12-31. Change nothing else.")
 
 
+def _instruction_variant(captured: dict) -> str:
+    """Which instruction assembly reached the model — classified from the
+    captured prompt text, never inferred from the flag."""
+    prompt = str(captured.get("prompt") or "")
+    if "You return only the CanvasEditPlan JSON object" in prompt:
+        return "compact"
+    if "AI co-editing panel" in prompt:
+        return "verbose"
+    return "unknown"
+
+
 def ollama_ps() -> dict:
     try:
         r = httpx.post(f"{OLLAMA}/api/ps", timeout=10, trust_env=False)
@@ -108,8 +120,15 @@ def raw_generate_timing(prompt: str, timeout_s: float) -> dict:
 
 
 async def plan_once(canvas: dict, label: str, bound_s: float,
-                    captured: dict) -> dict:
-    """The REAL plan_canvas_edit against a REAL endpoint-bound handler."""
+                    captured: dict,
+                    compact: Optional[bool] = None) -> dict:
+    """The REAL plan_canvas_edit against a REAL endpoint-bound handler.
+
+    ``compact`` None = production AUTO selection; True/False force the
+    instruction variant (the in-tree RED/GREEN control). The captured
+    prompt is classified by its instruction text so the evidence names
+    WHICH assembly reached the model. A completed plan still has to be
+    USABLE: valid contract and ops that apply to the canvas text."""
     import integrations.chat_orchestrator as co
     import core.chat_canvas_editor as cce
     from core.llm import pinned_planning as pp
@@ -172,32 +191,58 @@ async def plan_once(canvas: dict, label: str, bound_s: float,
             cce.plan_canvas_edit(
                 MESSAGE, [], dict(canvas), svc,
                 workspace_id="ws-diag", tenant_id="tenant-diag",
-                execution_id=f"diag-{label}"),
+                execution_id=f"diag-{label}",
+                compact=compact),
             timeout=bound_s)
     except asyncio.TimeoutError:
         return {"label": label, "completed": False,
                 "reason": "diagnostic window expired",
                 "bound_s": bound_s,
-                "elapsed_s": round(time.monotonic() - t0, 2)}
+                "elapsed_s": round(time.monotonic() - t0, 2),
+                "instruction_variant": _instruction_variant(captured)}
     except Exception as exc:  # noqa: BLE001
         return {"label": label, "completed": False,
                 "reason": f"{type(exc).__name__}: {str(exc)[:160]}",
                 "bound_s": bound_s,
-                "elapsed_s": round(time.monotonic() - t0, 2)}
+                "elapsed_s": round(time.monotonic() - t0, 2),
+                "instruction_variant": _instruction_variant(captured)}
     elapsed = round(time.monotonic() - t0, 2)
-    from core.chat_canvas_editor import plan_contract_violation
+    from core.chat_canvas_editor import (
+        _apply_patch_ops,
+        plan_contract_violation,
+    )
+    usable: dict = {}
+    if plan is not None and getattr(plan, "wants_edit", False):
+        _, failed = _apply_patch_ops(canvas.get("content"), plan.ops or [])
+        usable = {"ops_match_current_content": not failed,
+                  "failed_ops": len(failed or [])}
+    violation = plan_contract_violation(plan) if plan is not None \
+        else "no-plan"
     return {
-        "label": label, "completed": True,
+        "label": label, "completed": bool(
+            plan is not None and getattr(plan, "wants_edit", False)
+            and violation is None
+            and usable.get("ops_match_current_content")),
+        "plan_returned": plan is not None,
         "time_to_valid_plan_s": elapsed,
         "bound_s": bound_s,
         "wants_edit": bool(plan is not None and getattr(
             plan, "wants_edit", False)),
-        "contract_violation": plan_contract_violation(plan)
-        if plan is not None else "no-plan",
+        "contract_violation": violation,
+        **usable,
         "prompt_chars": len(captured.get("prompt") or ""),
         "cap": captured.get("cap"),
         "dispatches": captured.get("dispatches"),
+        "instruction_variant": _instruction_variant(captured),
     }
+
+
+def _write_evidence(out: dict) -> Path:
+    out_path = Path(__file__).parent / (
+        "diagnostic_benchmark_"
+        + time.strftime("%Y%m%d_%H%M%S") + ".json")
+    out_path.write_text(json.dumps(out, indent=1, default=str))
+    return out_path
 
 
 def main() -> int:
@@ -208,17 +253,67 @@ def main() -> int:
                                     time.gmtime()),
         "ollama_ps_before": ollama_ps(),
     }
+    if "--production-only" in sys.argv[1:]:
+        # Fast iteration path: just the production assembly (AUTO), three
+        # attempts, full canvas, completion + contract + ops validated.
+        runs = []
+        for _i in (1, 2, 3):
+            _cap: dict = {}
+            runs.append(asyncio.run(plan_once(
+                FULL_CANVAS, f"production-auto-{_i}",
+                COMPARISON_BOUND_S, _cap)))
+        out["production_auto"] = runs
+        out["production_auto_summary"] = {
+            "completions": sum(1 for r in runs if r.get("completed")),
+            "attempts": len(runs),
+            "times_s": [r.get("time_to_valid_plan_s") for r in runs],
+            "instruction_variants": sorted({
+                r.get("instruction_variant") for r in runs}),
+        }
+        out["ollama_ps_after"] = ollama_ps()
+        out_path = _write_evidence(out)
+        print(f"evidence: {out_path}")
+        print(json.dumps(out["production_auto_summary"],
+                         indent=1, default=str))
+        return 0
     captured: dict = {}
-    # 1. The ORIGINAL workload, diagnostic window.
-    out["original"] = asyncio.run(
-        plan_once(FULL_CANVAS, "original", DIAGNOSTIC_WINDOW_S, captured))
+    # 1. The ORIGINAL (verbose) workload, diagnostic window, FORCED so
+    # the arm stays the verbose path on any tree (the candidate's AUTO
+    # selection would otherwise relabel this arm). On the parent commit
+    # this is byte-equivalent to the historical "original" arm.
+    out["original_verbose_forced"] = asyncio.run(
+        plan_once(FULL_CANVAS, "original-verbose", DIAGNOSTIC_WINDOW_S,
+                  captured, compact=False))
     original_prompt = captured.get("prompt") or ""
-    out["original"]["payload_prompt_chars"] = len(original_prompt)
-    out["original"]["payload_cap"] = captured.get("cap")
+    out["original_verbose_forced"]["payload_prompt_chars"] = len(
+        original_prompt)
+    out["original_verbose_forced"]["payload_cap"] = captured.get("cap")
 
     # 2. The internal breakdown for the SAME payload (native API).
     out["raw_generate_original"] = raw_generate_timing(
         original_prompt, timeout_s=DIAGNOSTIC_WINDOW_S)
+
+    # 2b. THE PRODUCTION ASSEMBLY (owner direction: prompt construction
+    # through the existing planner). AUTO selection, full canvas, three
+    # attempts at the acceptance-class comparison bound; each attempt
+    # must COMPLETE with a valid contract AND ops that apply to the full
+    # canvas text. This is the arm a production change is measured on.
+    production_auto_runs = []
+    for _i in (1, 2, 3):
+        _cap: dict = {}
+        production_auto_runs.append(asyncio.run(
+            plan_once(FULL_CANVAS, f"production-auto-{_i}",
+                      COMPARISON_BOUND_S, _cap)))
+    out["production_auto"] = production_auto_runs
+    out["production_auto_summary"] = {
+        "completions": sum(1 for r in production_auto_runs
+                           if r.get("completed")),
+        "attempts": len(production_auto_runs),
+        "times_s": [r.get("time_to_valid_plan_s") for r in
+                    production_auto_runs],
+        "instruction_variants": sorted({
+            r.get("instruction_variant") for r in production_auto_runs}),
+    }
 
     # 3. The REDUCED prompt, SAME comparison bound for both.
     reduced_captured: dict = {}
@@ -322,17 +417,21 @@ def main() -> int:
     out_path.write_text(json.dumps(out, indent=1, default=str))
     print(f"evidence: {out_path}")
     print(json.dumps({
-        "original_completed": out["original"].get("completed"),
-        "original_elapsed_s": out["original"].get(
-            "elapsed_s") or out["original"].get("time_to_valid_plan_s"),
-        "original_prompt_chars": out["original"].get(
-            "payload_prompt_chars"),
+        "original_verbose_completed": out[
+            "original_verbose_forced"].get("completed"),
+        "original_verbose_elapsed_s": out[
+            "original_verbose_forced"].get(
+                "elapsed_s") or out["original_verbose_forced"].get(
+                    "time_to_valid_plan_s"),
+        "original_verbose_prompt_chars": out[
+            "original_verbose_forced"].get("payload_prompt_chars"),
         "raw_original_wall_s": (out["raw_generate_original"] or {}).get(
             "wall_s"),
         "raw_original_prompt_eval": (out["raw_generate_original"] or {}).get(
             "prompt_eval_count"),
         "raw_original_eval": (out["raw_generate_original"] or {}).get(
             "eval_count"),
+        "production_auto": out["production_auto_summary"],
         "reduced_completed": out["reduced"].get("completed"),
         "reduced_time_to_valid_plan_s": out["reduced"].get(
             "time_to_valid_plan_s"),

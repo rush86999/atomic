@@ -1,0 +1,68 @@
+{
+ "benchmark": "prompt-construction A/B (heavyweight vs compact) through the REAL plan_canvas_edit",
+ "model": "llama3.1:8b",
+ "bound_s": 120.0,
+ "attempts_per_side": 3,
+ "identical": "scope, canvas (FULL), history, evidence, token cap, deadline, provider, retry policy",
+ "started_at": "2026-10-14T23:50:26+00:00",
+ "heavyweight": [
+  {
+   "attempt": "heavyweight-1",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "elapsed_s": 0.0
+  },
+  {
+   "attempt": "heavyweight-2",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "elapsed_s": 0.0
+  },
+  {
+   "attempt": "heavyweight-3",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "elapsed_s": 0.0
+  }
+ ],
+ "heavyweight_summary": {
+  "effective_completions": "0/3",
+  "time_to_valid_plan_s": [],
+  "prompt_chars": [
+   null,
+   null,
+   null
+  ],
+  "http_requests_total": []
+ },
+ "compact": [
+  {
+   "attempt": "compact-1",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "elapsed_s": 0.0
+  },
+  {
+   "attempt": "compact-2",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "elapsed_s": 0.0
+  },
+  {
+   "attempt": "compact-3",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "elapsed_s": 0.0
+  }
+ ],
+ "compact_summary": {
+  "effective_completions": "0/3",
+  "time_to_valid_plan_s": [],
+  "prompt_chars": [
+   null,
+   null,
+   null
+  ],
+  "http_requests_total": []
+ }
+}

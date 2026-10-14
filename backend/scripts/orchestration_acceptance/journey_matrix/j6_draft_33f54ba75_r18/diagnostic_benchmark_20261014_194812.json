@@ -1,0 +1,126 @@
+{
+ "diagnostic": "j6 planning benchmark (isolated; NOT acceptance)",
+ "model": "llama3.1:8b",
+ "started_at": "2026-10-14T23:42:52+00:00",
+ "ollama_ps_before": {
+  "error": "Extra data: line 1 column 5 (char 4)"
+ },
+ "original_verbose_forced": {
+  "label": "original-verbose",
+  "completed": false,
+  "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+  "bound_s": 600.0,
+  "elapsed_s": 72.91,
+  "instruction_variant": "verbose",
+  "payload_prompt_chars": 10827,
+  "payload_cap": 2000
+ },
+ "raw_generate_original": {
+  "wall_s": 20.84,
+  "prompt_eval_count": 2598,
+  "prompt_eval_duration_ns": 17092752084,
+  "eval_count": 54,
+  "eval_duration_ns": 2938726079,
+  "load_duration_ns": 80386791,
+  "done_reason": "stop",
+  "response_head": "{\n  \"edit_mode\": \"patch\",\n  \"operations\": [\n    {\n      \"field\": \"Valid until\",\n      \"find\": \"2026-11-30\",\n      \"replace\": \"2026-12-31\"\n    }\n  ]\n}"
+ },
+ "production_auto": [
+  {
+   "label": "production-auto-1",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "bound_s": 180.0,
+   "elapsed_s": 36.79,
+   "instruction_variant": "compact"
+  },
+  {
+   "label": "production-auto-2",
+   "completed": true,
+   "plan_returned": true,
+   "time_to_valid_plan_s": 65.97,
+   "bound_s": 180.0,
+   "wants_edit": true,
+   "contract_violation": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0,
+   "prompt_chars": 2705,
+   "cap": 2000,
+   "dispatches": 2,
+   "instruction_variant": "compact"
+  },
+  {
+   "label": "production-auto-3",
+   "completed": false,
+   "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+   "bound_s": 180.0,
+   "elapsed_s": 38.69,
+   "instruction_variant": "compact"
+  }
+ ],
+ "production_auto_summary": {
+  "completions": 1,
+  "attempts": 3,
+  "times_s": [
+   null,
+   65.97,
+   null
+  ],
+  "instruction_variants": [
+   "compact"
+  ]
+ },
+ "reduced": {
+  "label": "reduced",
+  "completed": false,
+  "plan_returned": true,
+  "time_to_valid_plan_s": 52.32,
+  "bound_s": 180.0,
+  "wants_edit": false,
+  "contract_violation": "wants_edit=false but ops[2]={field=?,find='Valid until: 2026-11-30'}; {field=?,find=''} (legal forms: decline with all three empty, or wants_edit=true with the work)",
+  "prompt_chars": 2613,
+  "cap": 2000,
+  "dispatches": 2,
+  "instruction_variant": "compact",
+  "payload_prompt_chars": 2613
+ },
+ "raw_generate_reduced": {
+  "wall_s": 9.47,
+  "prompt_eval_count": 580,
+  "prompt_eval_duration_ns": 3849685291,
+  "eval_count": 85,
+  "eval_duration_ns": 4267046962,
+  "load_duration_ns": 110366875,
+  "done_reason": "stop",
+  "response_head": "{\n  \"wants_edit\": true,\n  \"ops\": [\n    {\n      \"op\": \"patch\",\n      \"find\": \"Valid until: 2026-11-30\",\n      \"replace\": \"Valid until: 2026-12-31\"\n    }\n  ],\n  \"edit_mode\": \"patch\",\n  \"updated_content_"
+ },
+ "reduced_scaffold_full_canvas": [
+  {
+   "label": "minimal-1",
+   "completed": true,
+   "time_to_valid_plan_s": 9.82,
+   "contract": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0
+  },
+  {
+   "label": "minimal-2",
+   "completed": true,
+   "time_to_valid_plan_s": 5.18,
+   "contract": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0
+  },
+  {
+   "label": "minimal-3",
+   "completed": true,
+   "time_to_valid_plan_s": 5.25,
+   "contract": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0
+  }
+ ],
+ "ollama_ps_after": {
+  "error": "Extra data: line 1 column 5 (char 4)"
+ }
+}
