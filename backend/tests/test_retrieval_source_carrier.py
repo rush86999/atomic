@@ -56,14 +56,33 @@ async def test_knowledge_leg_lines_only_observations_via_out_param():
             source_observations_out=observations)
     assert lines, "hits with previews must render"
     assert all(isinstance(line, str) for line in lines)
-    # C5: file_name falls back to the source path; absent hash stays
-    # empty — never a source-category echo.
+    # C5: file_name falls back to the TITLE (round-18 production
+    # evidence: the hybrid search returns source="ingested" — a category
+    # — for ingested docs; the title is the real document identity);
+    # absent hash stays empty — never a source-category echo.
     assert observations == [
         {"source": "knowledge/spec.md", "title": "Spec",
          "file_name": "spec.md", "content_hash": "hash-1"},
         {"source": "knowledge/notes.md", "title": "Notes",
-         "file_name": "knowledge/notes.md", "content_hash": ""},
+         "file_name": "Notes", "content_hash": ""},
     ]
+
+
+@pytest.mark.asyncio
+async def test_knowledge_leg_never_echoes_source_category():
+    """C5 (round-18 production evidence): ingested docs come back with
+    the source CATEGORY in `source` — the file identity must come from
+    file_name or title, never the category."""
+    observations = []
+    with _hybrid_patch([
+        {"source": "ingested", "title": "Regional Office Directory",
+         "preview": "Office manager: Priya Nair"},
+    ]):
+        await mca._knowledge_leg(
+            "who manages ashford", "ws-1",
+            source_observations_out=observations)
+    assert observations[0]["file_name"] == "Regional Office Directory"
+    assert observations[0]["source"] == "ingested"  # carried verbatim
 
 
 @pytest.mark.asyncio

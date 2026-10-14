@@ -170,6 +170,7 @@ async def _knowledge_leg(
                     "source": str(hit.get("source") or "")[:100],
                     "title": str(hit.get("title") or "")[:200],
                     "file_name": str(hit.get("file_name")
+                                     or hit.get("title")
                                      or hit.get("source") or "")[:200],
                     "content_hash": str(hit.get("content_hash") or "")[:100],
                 })
