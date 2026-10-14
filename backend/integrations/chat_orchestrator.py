@@ -8016,6 +8016,17 @@ class ChatOrchestrator:
 
             _scope_token = set_request_scope(
                 **self._request_llm_scope(user_id))
+            # SCOPED PLANNING SERVICE (J5 scope fix): the planning call
+            # dispatches from the USER'S OWN provider — not the
+            # module-singleton default. A new LLMService is built per
+            # scope (no shared-handler mutation); the scope travels with
+            # the plan_tool_use call.
+            from core.llm_service import LLMService as _ScopedLLM
+
+            _scope_llm = _ScopedLLM(
+                workspace_id=getattr(self, "_workspace_id", "default"),
+                tenant_id=getattr(self, "_tenant_id", "default"),
+            )
             # REQUEST REFERENCE — resolved ONCE per turn, before anything is
             # scheduled. "yes go ahead" (live 2026-09-22) used to be validated
             # against its own bare wording; the resolver identifies the
@@ -11471,7 +11482,7 @@ class ChatOrchestrator:
                             _wait_token = None
                     try:
                         return await plan_tool_use(
-                            _plan_msg, _plan_hist, user_id, self.llm_service,
+                            _plan_msg, _plan_hist, user_id, _scope_llm,
                             canvas=_canvas_ctx, provenance=prov,
                             allow_canvas_target=(
                                 _canvas_edit_shaped(
@@ -18158,7 +18169,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             plan_tool_use(
                                 _obligation,
                                 planner_history or history,
-                                user_id, self.llm_service,
+                                user_id, _scope_llm,
                                 # COORDINATION FIX (2026-10-04, round 35):
                                 # fourth undefined name in this recovery
                                 # block — ``_canvas_ctx`` is a
