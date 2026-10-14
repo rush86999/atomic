@@ -8044,12 +8044,13 @@ async def _documents_vfs_block(
                 )
             )
             if not matches:
-                # ZERO-MATCH READ FALLBACK (owner J4 directive): a grep
-                # whose pattern is the user's phrasing may miss a document
-                # that uses different words. List the VFS and cat the
-                # first document so the model answers from actual
-                # content — never a fabricated search claim over a
-                # zero-match.
+                # DOCUMENT RESOLUTION (owner J4 directive): the grep
+                # pattern is the user's phrasing — a document that uses
+                # different words can still contain the answer. List the
+                # VFS, score each document's title/path against the
+                # query terms, select the best match, and cat it so the
+                # model answers from actual content. Listing order is
+                # not relevance or identity evidence.
                 try:
                     _ls_res = await action_registry.execute_action(
                         "documents.ls",
@@ -8058,9 +8059,20 @@ async def _documents_vfs_block(
                          "workspace_id": (context or {}).get(
                              "workspace_id")})
                     _entries = (_ls_res or {}).get("entries") or []
-                    for _entry in _entries[:3]:
-                        _doc_path = str(_entry.get("path") or "")
-                        if not _doc_path:
+                    _query_terms = {
+                        w.lower() for w in re.findall(
+                            r"[a-z]{3,}", query or "") if len(w) >= 3}
+                    _scored: List[tuple] = []
+                    for _entry in _entries:
+                        _ep = str(_entry.get("path") or "")
+                        _en = str(_entry.get("name") or "")
+                        _haystack = (_ep + " " + _en).lower()
+                        _score = sum(
+                            1 for t in _query_terms if t in _haystack)
+                        _scored.append((_score, _ep, _en))
+                    _scored.sort(key=lambda x: x[0], reverse=True)
+                    for _score, _doc_path, _doc_name in _scored:
+                        if _score == 0:
                             continue
                         _cat_res = await action_registry.execute_action(
                             "documents.cat",
@@ -8079,16 +8091,17 @@ async def _documents_vfs_block(
                                     context or {}).get("workspace_id"))
                             return _with_grounding(
                                 f"LIVE TOOL RESULTS "
-                                f"(documents.cat, path='{_doc_path}') — "
-                                f"the grep pattern found no matches, but "
-                                f"the document was read in full so the "
-                                f"model can answer from actual content:\n"
-                                + _content[:4000]
-                            )
+                                f"(documents.cat, path='{_doc_path}', "
+                                f"matched by '{_doc_name}') — the grep "
+                                f"pattern found no direct content "
+                                f"matches, but the document was resolved "
+                                f"and read in full so the model can "
+                                f"answer from its content:\n"
+                                + _content[:4000])
                 except Exception as _fb_err:  # noqa: BLE001
                     logger.debug(
-                        f"documents zero-match read fallback skipped: "
-                        f"{_fb_err}")
+                        f"documents zero-match resolution fallback "
+                        f"skipped: {_fb_err}")
                 return _with_grounding(head.rstrip(":") + " — none.")
             # TOP-HIT HYDRATION (same pattern as the outlook leg's full
             # bodies): the turn is one-shot — the reply model cannot chain a
