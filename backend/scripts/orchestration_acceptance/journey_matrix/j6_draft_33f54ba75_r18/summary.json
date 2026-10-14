@@ -1,0 +1,37 @@
+{
+ "campaign": "2026-10-14-j6-draft (canvas lane, DRAFT status)",
+ "subject_drafted_on": "33f54ba75 (the J4/J5 green candidate, frozen)",
+ "spec": {
+  "setup": "canvas created + seeded via the product API (POST /api/canvas, PUT content, GET verified)",
+  "T1": "authorized edit (chat turn bound via context.canvas): 'update the Valid Until date to 2026-12-31. Change nothing else.'",
+  "T2": "read-only comparison: 'Compare Unit price and Subtotal ... Do NOT change anything.'",
+  "T3": "unmet requirement: 'Add the client's tax registration number' \u2014 the number exists NOWHERE in the world",
+  "gates": [
+   "preservation (audit delta +1 after T1, 0 after T2/T3)",
+   "authoritative readback (GET /api/canvas/{id}, never the reply)",
+   "durable attribution (task_outcome evidence: mutation op, comparison refs, non-certified outcome)",
+   "reload (fresh history + fresh canvas read agree; T3 still unmet)"
+  ]
+ },
+ "runs": [
+  {
+   "evidence": "j6_draft_20261014_110156_6a1a7e.json",
+   "subject": "33f54ba75",
+   "result": "all turns fail: the canvas-edit planner's structured pool was EMPTY ('no plan (provider failure)') \u2014 run 1's capability block declared supports_tools=False (inherited from the J4/J5 setup, never exercised there); the J2 registration gate correctly honored the declaration"
+  },
+  {
+   "evidence": "j6_draft_20261014_110843_ddbec4.json",
+   "subject": "33f54ba75",
+   "result": "supports_tools declared true (from ollama /api/show) \u2014 pool STILL empty"
+  },
+  {
+   "evidence": "j6_draft_20261014_111238_8961ec.json",
+   "subject": "33f54ba75",
+   "result": "context_window also declared from the runtime (131072) \u2014 pool STILL empty; the uvicorn log localizes it: the user-workspace handler ranks the route fine ('cheapest capable model local_b5cf8cd6/llama3.1:8b, quality 90, task_type=planning') while the edit-plan call runs on a handler scoped to workspace 'default'"
+  }
+ ],
+ "root_cause": "ChatOrchestrator builds ONE LLMService at __init__ with the tenant alone (the known J2 carry-forward); its tenant-to-workspace resolution froze at construction. The chat reply lane passes the request's workspace explicitly at its callsite; the canvas edit/action planning calls passed NOTHING, so the structured call resolved the frozen 'default'-scoped handler whose _local_routes never include the user-workspace registration. T2's comparison answered CORRECTLY via the read-only fallback but resolved unconfirmed for the same reason (no planner -> no comparison evidence).",
+ "also_found": "plan_canvas_edit crashed with UnboundLocalError (function-level re-import of log_redaction) on any decline plan carrying no reply text \u2014 pre-existing on the clean tree (verified by stash), fixed in the same lane.",
+ "repair": "the turn's workspace/tenant are threaded from the orchestrator's planning callsites through plan_canvas_edit/plan_canvas_action/_plan_structured into pinned_structured_call's generate_structured_response call; scope-less callers are byte-identical (pinned by tests/test_canvas_plan_scope.py).",
+ "status": "DRAFT \u2014 the passing gate run happens on the repaired successor; this file records the drafting findings."
+}
