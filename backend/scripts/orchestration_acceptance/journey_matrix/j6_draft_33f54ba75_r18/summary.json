@@ -96,5 +96,17 @@
   ],
   "step4_status": "No optimization chosen: with zero completed planning calls inside the bound, no prompt reduction can be benchmarked against a completing baseline, and widening the bound is an owner decision. The measured fact for that decision: one 8B planning call needs >74s on this hardware. The instrumentation now measures whichever path is chosen, with positive validation.",
   "acceptance_status": "OPEN \u2014 milestone unchanged: an attributable usable plan (positive [plan-stage] contract=valid), then one verified write."
- }
+ },
+ "step5_review": {
+  "scope": "84143bdd8's exact delta (comparison carrier + mutation refs + covered-set classification) and its negative controls",
+  "verdict": "DEFECTS \u2014 three defects, all confirmed with file:line and empirical reproduction; fixed in 7cde15616",
+  "defects": [
+   "covered-set divergence: the builder counted field_missing as covered while the fallback excluded it \u2014 the same carrier read completed on one resolver, unconfirmed on the other. Fixed: field_missing joins the builder's exclusion set (its own ledger already counted it as not-known).",
+   "inert revision ref: build_source_comparison emits no top-level source, so the compared-revision ref never settled from a real producer (the test's fixture fabricated it). Fixed: build_canvas_evidence_comparison names the compared canvas at top level; a new test settles the ref through the real producer.",
+   "clobbered mutation refs + no consumer: the evidence-contract spread overwrote evidence_refs (with observation-id STRINGS) and nothing consumed canvas_edit.evidence_refs. Fixed: mutation refs win the key on every success path, observation ids keep postcondition_observation_ids, _copy_ref keeps canvas_id/audit_id, and the builder settles a canvas_mutation ref from a verified readback-matched canvas_edit."
+  ],
+  "clean_findings": "carrier staleness clean (uuid4 per turn, exact per-execution keys); no downstream misinterpretation (neither new ref kind can certify a complete search); fallback branch additive-only for existing journeys; the audit-id guarantee on the verified success path holds (apply_canvas_edit requires audit_id for postcondition_verified=True).",
+  "negative_controls": "mutation-tested by the reviewer: both guard controls fail when their guard is removed; the decline pin is a baseline pin (protected by the unresolved-carrier control)."
+ },
+ "acceptance_status": "OPEN \u2014 milestone unchanged: an attributable usable plan (positive [plan-stage] contract=valid), then one verified write. The planning-latency decision (prompt-reduction benchmark or a bound change) is the owner's; the instrumentation measures either path with positive validation. The comparison-attribution and delivery-classification repairs are review-corrected and committed (7cde15616); their boundary observation still requires a completing run."
 }
