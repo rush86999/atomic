@@ -5107,6 +5107,30 @@ def _fallback_turn_outcome(
                 f"_planner_tool_receipts_{execution_id}")
             if _receipts_carry_verified_complete_search(_planner_rows):
                 validated = True
+        # COMPARISON DELIVERY (verifier steps 3-4): an executed read-only
+        # comparison for THIS execution — recorded by its producer on the
+        # execution-keyed session carrier with COVERED outcomes — is the
+        # requested result itself, recorded in structured facts. It
+        # validates the delivery; unresolved obligations (named below
+        # from the record) still resolve the state to partial, and a
+        # decline that supplied NO comparison is untouched by this
+        # branch (classified by what was delivered, never by honesty of
+        # wording).
+        if not validated and isinstance(session, dict) and execution_id:
+            _cmp = session.get(f"_objective_evidence_{execution_id}")
+            if isinstance(_cmp, dict):
+                _cov = _cmp.get("coverage") or {}
+                _outs = [o for o in (_cov.get("outcomes") or [])
+                         if isinstance(o, dict)]
+                if _outs and all(
+                        str(o.get("status") or "") not in (
+                            "unverified", "evidence_missing", "unresolved",
+                            "partially_comparable", "field_missing")
+                        for o in _outs):
+                    # SAME covered-set the outcome builder uses — a
+                    # partially-covered comparison is not a delivered
+                    # result.
+                    validated = True
         # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the memory-context
         # assembler publishes the source identities it actually
         # retrieved from — these become attributable evidence refs for
@@ -6749,6 +6773,19 @@ class ChatOrchestrator:
             )
             if not isinstance(comparison, dict):
                 comparison = {}
+            # COMPARISON CARRIER (verifier step 3): the canvas/file
+            # comparison producers record the executed comparison for
+            # THIS execution on the session — the authoritative canvas
+            # revision, coverage outcomes and source observations. The
+            # outcome builder used to read only the response shapes, so
+            # an executed read-only comparison settled ZERO evidence
+            # refs. Execution-keyed: another turn's comparison never
+            # donates.
+            if not comparison and isinstance(session, dict) and execution_id:
+                _carrier_cmp = session.get(
+                    f"_objective_evidence_{execution_id}")
+                if isinstance(_carrier_cmp, dict):
+                    comparison = _carrier_cmp
             comparison_coverage = comparison.get("coverage") or {}
             comparison_outcomes = [
                 item
@@ -6827,6 +6864,19 @@ class ChatOrchestrator:
                 "total": comparison_total,
             }
             comparison_evidence_refs = []
+            # THE COMPARED ARTIFACT ITSELF (verifier step 3): the
+            # authoritative canvas revision the comparison ran against —
+            # its source_id/version — settles alongside the observation
+            # sources, so the evidence names BOTH sides of the
+            # comparison.
+            _cmp_source = comparison.get("source") or {}
+            if isinstance(_cmp_source, dict) and _cmp_source.get(
+                    "source_id"):
+                comparison_evidence_refs.append({
+                    "kind": "source_comparison",
+                    "source": dict(_cmp_source),
+                    "addresses_requested": True,
+                })
             for observation in comparison.get("evidence") or []:
                 if not isinstance(observation, dict):
                     continue
@@ -25058,6 +25108,18 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "postcondition_verified": True,
                     **({"audit_id": result.get("audit_id")}
                        if result.get("audit_id") else {}),
+                    # MUTATION EVIDENCE (verifier step 3, edit lane): the
+                    # durable attribution rides the response — the audit
+                    # row id and THIS operation's linkage — so the
+                    # outcome builder settles refs from the execution's
+                    # own records, never from the reply.
+                    **({"evidence_refs": [{
+                        "kind": "canvas_mutation",
+                        "canvas_id": canvas.get("canvas_id"),
+                        "audit_id": result.get("audit_id"),
+                        "operation_id": operation_id,
+                        "execution_id": execution_id,
+                    }]} if result.get("audit_id") else {}),
                     "review_status": (
                         result.get("review_status")
                         or ("pending_review" if learning_mode else "accepted")
