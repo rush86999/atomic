@@ -24,6 +24,8 @@ removed — these controls pin the policy at the dispatch boundary:
 import os
 os.environ.setdefault("TESTING", "1")
 
+import asyncio
+
 import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -75,9 +77,14 @@ def _seed_pool(handler: BYOKHandler, monkeypatch, *,
     fetcher.pricing_cache = {}
     # The initializer refreshes whenever `_pricing_initialized` is False —
     # a fresh test process would re-fetch REAL sources over this pool.
-    # Mark it initialized; the seeded cache below is the pool under test.
+    # Mark it initialized AND bypass the initializer entirely: the seeded
+    # cache below is the pool under test, immune to inter-test singleton
+    # pollution.
     monkeypatch.setattr(
         "core.dynamic_pricing_fetcher._pricing_initialized", True)
+    monkeypatch.setattr(
+        "core.llm.byok_handler.get_pricing_fetcher_initialized_sync",
+        lambda auto_refresh=True, force_refresh=False: fetcher)
     # Ranking reloads the handler's registrations from the (empty) test
     # DB at call time, which would wipe the seeded route — keep the
     # seeded state frozen for the duration.
@@ -179,6 +186,48 @@ class TestControlCManagedRestrictedPerRoute:
             f"free workspace with no local client; got {pairs}")
 
 
+class TestControlALocalReachesEndpoint:
+    @pytest.mark.asyncio
+    async def test_structured_dispatch_reaches_the_workspace_client(
+            self, monkeypatch):
+        """Free workspace, mixed pool: the ONLY dispatch goes to the
+        workspace's own local client, and a schema-valid plan comes
+        back through the structured call."""
+        from types import SimpleNamespace as NS
+
+        import core.llm.byok_handler as bh
+
+        handler = _handler()
+        _seed_pool(handler, monkeypatch, with_local=True)
+        # Managed candidates have no client in THIS handler — the attempt
+        # loop skips them; the local route is the only dispatchable one.
+
+        plan = CanvasEditPlan(
+            wants_edit=True,
+            updated_content_json='"Valid until: 2026-12-31"')
+        create = MagicMock(return_value=plan)
+
+        def _fake_from_openai(client, **kwargs):
+            return NS(chat=NS(completions=NS(create=create)))
+
+        with patch.object(bh.instructor, "from_openai", _fake_from_openai):
+            out = await handler.generate_structured_response(
+                prompt="update the valid until date",
+                system_instruction="You return only the requested JSON object.",
+                response_model=CanvasEditPlan,
+                task_type="planning",
+            )
+        assert isinstance(out, CanvasEditPlan) and out.wants_edit is True, (
+            f"a schema-valid plan must come back; got {out!r}")
+        assert create.called, (
+            "the dispatch must reach the workspace's own client")
+        model_used = (create.call_args.kwargs or {}).get("model") or (
+            create.call_args.args and create.call_args.args[0])
+        assert LOCAL_MODEL in str(model_used), (
+            f"the dispatch must target the registered local route; "
+            f"got {model_used!r}")
+
+
 class TestControlBNoProviderNoDispatch:
     def test_zero_configured_providers_returns_none(self, monkeypatch):
         """No clients, no routes: generate_structured_response returns
@@ -235,42 +284,123 @@ async def _await_none():
     return None
 
 
-class TestControlALocalReachesEndpoint:
-    @pytest.mark.asyncio
-    async def test_structured_dispatch_reaches_the_workspace_client(
+
+
+class TestNativeSchemaSelection:
+    """The native json_schema constraint is selected by the REGISTERED
+    route's provider identity (provider_type on the registration
+    record) — never by a local_ prefix or model-name heuristic."""
+
+    def test_selection_requires_the_ollama_provider_identity(
             self, monkeypatch):
-        """Free workspace, mixed pool: the ONLY dispatch goes to the
-        workspace's own local client, and a schema-valid plan comes
-        back through the structured call."""
+        """Same route record, non-ollama identity: the dispatch carries
+        NO response_format — native schema selection is identity-driven,
+        not a local_-prefix or model-name heuristic."""
         import core.llm.byok_handler as bh
         from types import SimpleNamespace as NS
 
         handler = _handler()
         _seed_pool(handler, monkeypatch, with_local=True)
-        # Managed candidates have no client in THIS handler — the attempt
-        # loop skips them; the local route is the only dispatchable one.
-
-        plan = CanvasEditPlan(
-            wants_edit=True,
-            updated_content_json='"Valid until: 2026-12-31"')
-        create = MagicMock(return_value=plan)
+        handler._local_routes[LOCAL_MODEL]["provider_type"] = "generic-local"
+        seen = {}
 
         def _fake_from_openai(client, **kwargs):
-            return NS(chat=NS(completions=NS(create=create)))
+            return NS(chat=NS(completions=NS(create=(
+                lambda **kw: seen.update(kw) or "x"))))
 
         with patch.object(bh.instructor, "from_openai", _fake_from_openai):
-            out = await handler.generate_structured_response(
+            asyncio.run(handler.generate_structured_response(
                 prompt="update the valid until date",
                 system_instruction="You return only the requested JSON object.",
                 response_model=CanvasEditPlan,
                 task_type="planning",
-            )
-        assert isinstance(out, CanvasEditPlan) and out.wants_edit is True, (
-            f"a schema-valid plan must come back; got {out!r}")
-        assert create.called, (
-            "the dispatch must reach the workspace's own client")
-        model_used = (create.call_args.kwargs or {}).get("model") or (
-            create.call_args.args and create.call_args.args[0])
-        assert LOCAL_MODEL in str(model_used), (
-            f"the dispatch must target the registered local route; "
-            f"got {model_used!r}")
+                route_trace_id="diagnostic_minimal:probe",
+            ))
+        assert "response_format" not in seen, (
+            "a non-ollama registered identity must not carry the native "
+            "schema constraint")
+
+    def test_native_selection_sets_the_pydantic_schema(self, monkeypatch):
+        import core.llm.byok_handler as bh
+        from types import SimpleNamespace as NS
+
+        handler = _handler()
+        _seed_pool(handler, monkeypatch, with_local=True)
+        seen = {}
+
+        def _fake_from_openai(client, **kwargs):
+            return NS(chat=NS(completions=NS(create=(
+                lambda **kw: seen.update(kw) or "x"))))
+
+        with patch.object(bh.instructor, "from_openai", _fake_from_openai):
+            asyncio.run(handler.generate_structured_response(
+                prompt="update the valid until date",
+                system_instruction="You return only the requested JSON object.",
+                response_model=CanvasEditPlan,
+                task_type="planning",
+                route_trace_id="diagnostic_minimal:probe",
+            ))
+        rf = seen.get("response_format") or {}
+        assert rf.get("type") == "json_schema", (
+            f"the registered ollama identity selects the native "
+            f"constraint; got response_format={rf!r}")
+        schema = (rf.get("json_schema") or {}).get("schema") or {}
+        assert schema.get("properties", {}).get("wants_edit"), (
+            "the pydantic-generated schema must travel to the endpoint")
+
+    def test_malformed_native_payload_settles_nothing(self, monkeypatch):
+        """Valid JSON is not a valid plan: a malformed payload through
+        the NATIVE path (real instructor, mock HTTP transport returning
+        wrong-typed fields) exhausts the cascade and returns None — no
+        partial write, no certified completion."""
+        import httpx
+        import openai
+        import openai.types.chat as _chat
+
+        handler = _handler()
+        _seed_pool(handler, monkeypatch, with_local=True)
+
+        def _malformed_response(request: httpx.Request) -> httpx.Response:
+            body = {
+                "id": "chatcmpl-bad", "object": "chat.completion",
+                "created": 1, "model": MODEL,
+                "choices": [{
+                    "index": 0, "finish_reason": "stop",
+                    "message": {"role": "assistant", "content":
+                                '{"ops": {"find": 42}, '
+                                '"wants_edit": "yes"}'},
+                }],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5,
+                          "total_tokens": 15},
+            }
+            return httpx.Response(200, json=body)
+
+        transport = httpx.MockTransport(_malformed_response)
+        real_client = openai.OpenAI(
+            base_url="http://localhost:11434/v1", api_key="ollama",
+            http_client=httpx.Client(transport=transport))
+        handler.clients[LOCAL_PROVIDER] = real_client
+
+        out = asyncio.run(handler.generate_structured_response(
+            prompt="update the valid until date",
+            system_instruction="You return only the requested JSON object.",
+            response_model=CanvasEditPlan,
+            task_type="planning",
+            route_trace_id="diagnostic_minimal:bad",
+        ))
+        assert out is None, (
+            "a wrong-typed payload must settle nothing — never a partial "
+            "plan, never a certified completion")
+        # TEARDOWN (pollution source, found by bisect): the failed
+        # attempts legitimately memoize the pair as
+        # structured-protocol-unsupported in module memory — which
+        # would block the NEXT test's dispatch to the same pair. Clear
+        # everything the run taught, so the pin teaches nothing forward.
+        import core.llm.byok_handler as bh
+
+        bh._STRUCTURED_PROTOCOL_UNSUPPORTED.discard(
+            f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
+        bh._AUTH_FAILED.discard(f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
+        bh._REASONING_MANDATORY.discard(f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
+
+

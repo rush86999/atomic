@@ -7502,6 +7502,44 @@ class BYOKHandler:
                     if _json_mode:
                         instructor_client = instructor.from_openai(
                             client, mode=instructor.Mode.JSON)
+                    # NATIVE SCHEMA-CONSTRAINED OUTPUT (work order, round
+                    # 19): for a REGISTERED route whose OWN provider
+                    # identity is ollama — read from the registration
+                    # record (provider_type), never inferred from a
+                    # local_ prefix or model name — request
+                    # schema-constrained output through the SAME
+                    # OpenAI-compatible client via response_format. The
+                    # endpoint's grammar then enforces the response
+                    # model's shape at generation time, so the model
+                    # cannot echo tool-call envelopes or string-encode
+                    # arrays (the observed J6 planning failures).
+                    # Validation stays LOCAL: the returned object must
+                    # still satisfy the response model — valid JSON
+                    # alone is not a valid edit plan. Unsupported
+                    # endpoints surface a normal call error like any
+                    # provider mismatch.
+                    _native_schema_route = False
+                    if not _json_mode and response_model is not None:
+                        _own = (self._local_routes or {}).get(model)
+                        if (_own is not None
+                                and _own.get("provider_key") == provider_id
+                                and _own.get("provider_type") == "ollama"):
+                            try:
+                                _route_schema = (
+                                    response_model.model_json_schema())
+                            except Exception:  # noqa: BLE001
+                                _route_schema = None
+                            if _route_schema:
+                                _native_schema_route = True
+                                _native_schema = _route_schema
+                                instructor_client = instructor.from_openai(
+                                    client, mode=instructor.Mode.JSON)
+                                logger.info(
+                                    "[structured-dispatch] native "
+                                    "json_schema constraint selected for "
+                                    "%s/%s route=%s (registered ollama "
+                                    "route)", provider_id, model,
+                                    route_trace_id or "-")
                     # TEMPERATURE-LOCKED pairs (OpenCode Go: kimi-k2.7-code et
                     # al. accept only ONE temperature value each) send their
                     # required value from the start — the memo below means the
@@ -7635,6 +7673,16 @@ class BYOKHandler:
                             # a bare call blocked the loop for the whole
                             # structured round trip (same starvation as
                             # generate_response).
+                            if _native_schema_route:
+                                _create_kwargs["response_format"] = {
+                                    "type": "json_schema",
+                                    "json_schema": {
+                                        "name": getattr(
+                                            response_model, "__name__",
+                                            "response"),
+                                        "schema": _native_schema,
+                                    },
+                                }
                             _attempt_t0 = time.time()
                             if not self._claim_model_attempt(
                                     provider_id, model,
