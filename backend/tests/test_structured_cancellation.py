@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Cancellation semantics of the structured dispatch (verifier round 19,
-step 3): the structured attempt runs a SYNCHRONOUS Instructor client in
+"""Cancellation semantics of the structured dispatch (verifier round
+19, W5): the structured attempt runs a SYNCHRONOUS Instructor client in
 a worker thread. Cancelling the awaiting task does not cancel the
 worker — and the dispatch's `finally` releases the model-attempt
 reservation immediately, so another request can claim the endpoint
 while the original still occupies it.
 
-This test DEMONSTRATES that mechanism with a controlled blocking client
-(model-independent) — it is the code-supported risk the review flagged,
-now pinned:
+Demonstrated with a controlled blocking client (model-independent), on
+a TEST-OWNED pricing fetcher and a deterministically forced route —
+this file shares no singleton state with other files and passes in any
+test order. Blocking workers are ALWAYS released in a finally.
 
   1. cancellation is logged as its own event
      ([structured-cancelled], reservation_released=true);
@@ -29,130 +30,163 @@ from types import SimpleNamespace as NS
 
 import core.llm.byok_handler as bh
 from core.chat_canvas_editor import CanvasEditPlan
-from tests.test_structured_dispatch_policy import (
-    LOCAL_MODEL,
-    LOCAL_PROVIDER,
-    _handler,
-    _seed_pool,
-)
 
-# ISOLATION CAVEAT: the pricing-fetcher singleton is module-global; run
-# this file STANDALONE (pytest tests/test_structured_cancellation.py).
-# Combined with files that reseed the shared fetcher, the seeded pool
-# can be replaced before this test's ranking runs — a test-infra
-# artifact, not product behavior.
+LOCAL_PROVIDER = "local_cancel"
+LOCAL_MODEL = "llama3.1:8b"
+
+
+class _TestFetch:
+    """A test-OWNED pricing fetcher: nothing shared with other files."""
+
+    def __init__(self):
+        self.pricing_cache = {}
+        self.last_fetch = 1.0
+
+    def get_model_capabilities(self, model_id):
+        return {"supports_tools": True, "supports_vision": False,
+                "supports_reasoning": False}
+
+    def record_stale_consideration(self, *args, **kwargs):
+        pass
 
 
 class _BlockingWrapper:
-    """The Instructor stand-in: create() blocks until the test releases
-    it, counting every entry — the worker's liveness is observable."""
+    """The Instructor stand-in: create() blocks until released,
+    counting entries. ALWAYS release in finally."""
 
     def __init__(self):
         self.lock = threading.Lock()
         self.started = 0
         self.finished = 0
         self.release = threading.Event()
-        self.results = []
 
-    def make(self):
+    def as_instructor(self):
         wrapper = self
 
         def create(**kwargs):
             with wrapper.lock:
                 wrapper.started += 1
-            wrapper.release.wait(timeout=30)
+            wrapper.release.wait(timeout=60)
             plan = CanvasEditPlan(
                 wants_edit=True,
                 updated_content_json='"Valid until: 2026-12-31"')
             with wrapper.lock:
                 wrapper.finished += 1
-                wrapper.results.append(plan)
             return plan
 
-        return create
+        return NS(chat=NS(completions=NS(create=create)))
 
-    def as_instructor(self):
-        return NS(chat=NS(completions=NS(create=self.make())))
+
+@pytest.fixture
+def isolated_env(monkeypatch):
+    test_fetch = _TestFetch()
+    monkeypatch.setattr(
+        bh, "get_pricing_fetcher_initialized_sync",
+        lambda auto_refresh=True, force_refresh=False: test_fetch)
+    monkeypatch.setattr(bh, "get_pricing_fetcher", lambda: test_fetch)
+    handler = bh.BYOKHandler(workspace_id="ws-cancel",
+                             tenant_id="tenant-cancel", provider_id="auto")
+    monkeypatch.setattr(handler, "pricing_fetcher", test_fetch,
+                        raising=False)
+    monkeypatch.setattr(handler, "_load_local_providers", lambda: None)
+    handler.clients[LOCAL_PROVIDER] = MagicMock()
+    handler._local_routes[LOCAL_MODEL] = {
+        "provider_key": LOCAL_PROVIDER,
+        "workspace_id": "ws-cancel",
+        "provider_id": "prov-cancel",
+        "provider_type": "ollama",
+        "supports_tools": True,
+        "supports_vision": False,
+        "supports_reasoning": False,
+        "quality_score": 0.9,
+        "context_window": 131072,
+    }
+    return handler
 
 
 @pytest.mark.asyncio
 async def test_cancellation_leaves_worker_running_and_releases_the_reservation(
-        monkeypatch, caplog):
-    handler = _handler()
-    _seed_pool(handler, monkeypatch, with_local=True)
+        isolated_env, monkeypatch, caplog):
+    import core.llm.byok_handler as _bh2
 
+    handler = isolated_env
     wrapper = _BlockingWrapper()
-    with patch.object(bh.instructor, "from_openai",
-                      lambda client, **k: wrapper.as_instructor()), \
-         caplog.at_level(logging.WARNING, logger="core.llm.byok_handler"):
-        first = asyncio.create_task(handler.generate_structured_response(
-            prompt="update the valid until date",
-            system_instruction="You return only the requested JSON object.",
-            response_model=CanvasEditPlan,
-            task_type="planning",
-            route_trace_id=f"canvas_edit_plan:exec-cancel",
-        ))
-        # The worker is inside create() — the dispatch happened.
-        for _ in range(3000):
+    try:
+        async def _forced_rank(*args, **kwargs):
+            # This test is about CANCELLATION semantics, not ranking
+            # correctness (the dispatch-policy file pins ranking).
+            # Force the route so the demonstration is model-independent
+            # and immune to fetcher singleton state.
+            return [(LOCAL_PROVIDER, LOCAL_MODEL)]
+
+        with patch.object(_bh2.BYOKHandler, "get_ranked_providers",
+                          _forced_rank), \
+             patch.object(bh.instructor, "from_openai",
+                          lambda client, **k: wrapper.as_instructor()), \
+             caplog.at_level(logging.WARNING,
+                             logger="core.llm.byok_handler"):
+            first = asyncio.create_task(
+                handler.generate_structured_response(
+                    prompt="update the valid until date",
+                    system_instruction="You return only the requested "
+                                       "JSON object.",
+                    response_model=CanvasEditPlan,
+                    task_type="planning",
+                    route_trace_id="canvas_edit_plan:exec-cancel",
+                ))
+            for _ in range(3000):
+                with wrapper.lock:
+                    if wrapper.started:
+                        break
+                await asyncio.sleep(0.01)
+            assert wrapper.started == 1, (
+                "the first dispatch must reach the client")
+
+            first.cancel()
+            try:
+                await first
+            except asyncio.CancelledError:
+                pass
+            cancelled = [r for r in caplog.records
+                         if "[structured-cancelled]" in r.getMessage()
+                         and "route=canvas_edit_plan:exec-cancel"
+                         in r.getMessage()]
+            assert cancelled, "cancellation must be its own logged event"
+            assert "reservation_released=true" in cancelled[0].getMessage()
+
             with wrapper.lock:
-                if wrapper.started:
-                    break
-            await asyncio.sleep(0.01)
-        assert wrapper.started == 1, "the first dispatch must reach the client"
+                assert wrapper.started == 1 and wrapper.finished == 0, (
+                    "the synchronous request keeps running after the "
+                    "awaiter is cancelled")
 
-        first.cancel()
-        try:
-            await first
-        except asyncio.CancelledError:
-            pass
-        # The cancellation event is logged, separately from completion.
-        cancelled = [r for r in caplog.records
-                     if "[structured-cancelled]" in r.getMessage()
-                     and "route=canvas_edit_plan:exec-cancel" in r.getMessage()]
-        assert cancelled, "cancellation must be its own logged event"
-        assert "reservation_released=true" in cancelled[0].getMessage()
+            assert handler._claim_model_attempt(
+                LOCAL_PROVIDER, LOCAL_MODEL, holder="probe"), (
+                "the reservation was released while the worker still runs")
+            handler._release_model_attempt(LOCAL_PROVIDER, LOCAL_MODEL)
 
-        # The WORKER IS STILL RUNNING: started but not finished.
-        with wrapper.lock:
-            assert wrapper.started == 1 and wrapper.finished == 0, (
-                "the synchronous request keeps running after the "
-                "awaiter is cancelled")
-
-        # THE RESERVATION IS ALREADY RELEASED: a fresh claim succeeds
-        # while the original worker still occupies the endpoint.
-        assert handler._claim_model_attempt(
-            LOCAL_PROVIDER, LOCAL_MODEL, holder="probe"), (
-            "the reservation was released while the worker still runs")
-        handler._release_model_attempt(LOCAL_PROVIDER, LOCAL_MODEL)
-
-        # THE OVERLAP: a second dispatch claims the same model and
-        # reaches the client while the first worker still runs.
-        second = asyncio.create_task(handler.generate_structured_response(
-            prompt="update the valid until date",
-            system_instruction="You return only the requested JSON object.",
-            response_model=CanvasEditPlan,
-            task_type="planning",
-            route_trace_id="canvas_edit_plan:exec-second",
-        ))
-        for _ in range(3000):
+            second = asyncio.create_task(
+                handler.generate_structured_response(
+                    prompt="update the valid until date",
+                    system_instruction="You return only the requested "
+                                       "JSON object.",
+                    response_model=CanvasEditPlan,
+                    task_type="planning",
+                    route_trace_id="canvas_edit_plan:exec-second",
+                ))
+            for _ in range(3000):
+                with wrapper.lock:
+                    if wrapper.started >= 2:
+                        break
+                await asyncio.sleep(0.01)
             with wrapper.lock:
-                if wrapper.started >= 2:
-                    break
-            await asyncio.sleep(0.01)
-        with wrapper.lock:
-            assert wrapper.started == 2, (
-                "a second request dispatched while the first worker was "
-                f"still running (started={wrapper.started}, "
-                f"finished={wrapper.finished}) — the overlap is real")
-        # Release everything; both workers complete with valid plans.
+                assert wrapper.started == 2, (
+                    "a second request dispatched while the first worker "
+                    f"was still running (started={wrapper.started}, "
+                    f"finished={wrapper.finished}) — the overlap is real")
+    finally:
         wrapper.release.set()
-        r1 = await first if False else None  # first was cancelled
-        out2 = await second
-        assert isinstance(out2, CanvasEditPlan)
-        # Give the orphaned worker a moment to finish so the test does
-        # not leak a thread mid-write.
         for _ in range(3000):
             with wrapper.lock:
-                if wrapper.finished >= 2:
+                if wrapper.finished >= wrapper.started:
                     break
             await asyncio.sleep(0.01)

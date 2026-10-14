@@ -54,6 +54,34 @@ logger = logging.getLogger(__name__)
 
 # The current canvas content rides in the prompt; bound it so a huge sheet
 # can't blow the structured-call budget.
+# COMPACT EDIT INSTRUCTIONS (round-19 diagnostic: the 10k-char
+# instruction set dominated the planning prompt — 10.8k chars around a
+# ~330-char canvas — and the accepted 8B profile failed every planning
+# attempt inside the leg bound; the minimal instruction set with the
+# IDENTICAL full canvas completed 3/3 at 2.3-11.9s). The compact set
+# carries the edit-safety contract; it REPLACES ONLY the verbose
+# explanations — evidence, teaching, and user constraints travel
+# unchanged (they are never "scaffolding").
+_COMPACT_EDITOR_SYSTEM = (
+    "You are the canvas editor. Edit the canvas per the request.\n"
+    "Rules:\n"
+    "- Change ONLY the authorized targets; everything else is preserved "
+    "byte-for-byte (identities, fields, unrelated content).\n"
+    "- ops[].find MUST copy the current canvas text verbatim (first "
+    "occurrence); use the canvas's actual field names.\n"
+    "- For app canvases, the CANVAS APP section below defines the real "
+    "field names and op forms — SET-FIELD ops fill EMPTY fields "
+    "(field=<name>); patch ops carry find/replace for text.\n"
+    "- The user's own MANUAL EDITS on the canvas outrank recalled "
+    "memory (lessons, corrections, origin context).\n"
+    "- Restore requests: return edit_mode=\"restore\" with the exact "
+    "restore_audit_id shown in RECENT VERSIONS; never invent a "
+    "version_id or text for a version that isn't shown.\n"
+    "- Do not invent missing facts and do not resolve open evidence "
+    "decisions — name what is missing instead.\n"
+    "- Return the CanvasEditPlan JSON object only."
+)
+
 _MAX_CONTENT_CHARS = 6000
 
 # Total edit-plan prompt budget (chars ≈ tokens/4). Learning sections make
@@ -604,8 +632,14 @@ _REPLACE_FALLBACK_SUFFIX = (
 )
 
 
-def _serialize_content(content: Any) -> str:
-    """Current canvas content as prompt-safe text, bounded."""
+def _serialize_content(content: Any, max_chars: Optional[int] = _MAX_CONTENT_CHARS) -> str:
+    """Current canvas content as prompt-safe text.
+
+    ``max_chars`` bounds the text ONLY when the caller accepts
+    truncation; the edit-plan prompt passes None — the canvas is
+    authoritative and its full size goes into the budget accounting
+    (verifier work order: never silently truncate content needed to
+    construct the requested patch)."""
     if isinstance(content, str):
         text = content
     else:
@@ -613,8 +647,8 @@ def _serialize_content(content: Any) -> str:
             text = json.dumps(content, indent=2, default=str)
         except Exception:
             text = str(content)
-    if len(text) > _MAX_CONTENT_CHARS:
-        text = text[:_MAX_CONTENT_CHARS] + "\n…(truncated)"
+    if max_chars is not None and len(text) > max_chars:
+        text = text[:max_chars] + "\n…(truncated)"
     return text
 
 
@@ -3501,6 +3535,148 @@ def _quoted_value(message: str) -> str:
                   message or "", re.IGNORECASE)
     return m.group(1).strip().strip("'\"") if m else ""
 
+def _build_edit_plan_prompt(
+    *, message: str, history: List[Dict[str, Any]],
+    canvas: Dict[str, Any], fresh_data: Optional[str],
+    corrections: Optional[List[Dict[str, Any]]],
+    versions: Optional[List[Dict[str, Any]]],
+    job_findings: Optional[Dict[str, Any]],
+    lessons: Optional[List[Dict[str, Any]]],
+    similar_corrections: Optional[List[Dict[str, Any]]],
+    correction_patterns: Optional[List[Dict[str, Any]]],
+    provenance: Optional[Dict[str, Any]],
+    user_identity: Optional[Dict[str, Any]],
+    playbooks: Optional[List[Dict[str, Any]]],
+    compact: bool = False,
+) -> tuple[str, List[Dict[str, Any]]]:
+    """The edit-plan prompt, EXPLICITLY assembled (verifier work order
+    W1): returns the prompt plus a section manifest — section name,
+    size, included/omitted, truncated — so tests and the stage log can
+    see exactly what reached the model.
+
+    Contract:
+      - the canvas content is AUTHORITATIVE: it is serialized in full
+        (no silent truncation) and counted FIRST in the budget;
+      - every rendered section is budget-accounted, including identity
+        and playbooks (both used to ride outside the accounting);
+      - job findings ARE interpolated (they were budgeted but never
+        inserted — durable job evidence disappeared before planning);
+      - compact=True swaps ONLY the instruction set for the compact
+        edit-safety contract — evidence, teaching, and user constraints
+        travel unchanged (compact is a prompt-shape choice, never an
+        authorization or an evidence-omission permit).
+    """
+    from core.canvas_app_schema import app_prompt_section
+
+    canvas_text = _serialize_content(canvas.get("content"), max_chars=None)
+    canvas_truncated = False  # the artifact is never head-trimmed
+    app_section = app_prompt_section(
+        canvas.get("canvas_type"), canvas.get("content"))
+    content_section = f"Current canvas content:\n{canvas_text}\n\n"
+    history_section = (
+        f"Recent conversation:\n{_history_transcript(history, message)}\n\n"
+        "Return the edit plan."
+    )
+    identity_section = _identity_section(user_identity)
+    playbooks_section = _playbooks_section(playbooks)
+
+    rendered: Dict[str, str] = {  # canonical layout order; priority order
+        "scope": _request_scope_section(message, history, fresh_data),
+        "corrections": _corrections_section(corrections),
+        "versions": _versions_section(versions, canvas.get("content")),
+        # Evidence outranks the learning channels: it is the data THIS
+        # edit is about; lessons/corrections are advisory style guidance.
+        "fresh": fresh_data or "",
+        # Job findings outrank lessons (they are the verified record of
+        # THIS canvas's investigation) but sit beside evidence: applied
+        # findings must respect fresh_data when both speak.
+        "findings": _job_findings_section(job_findings),
+        "lessons": _lessons_section(lessons),
+        "cross": _similar_lessons_section(similar_corrections,
+                                          correction_patterns),
+        # Origin context ranks LAST — useful for grounding questions,
+        # never at the cost of the live artifact or the learning signal.
+        "origin": _provenance_section(provenance),
+        # Identity and playbooks are budget-accounted like every other
+        # section (verifier finding: they rode outside the accounting).
+        "identity": identity_section,
+        "playbooks": playbooks_section,
+    }
+
+    instructions = _COMPACT_EDITOR_SYSTEM if compact else _EDITOR_SYSTEM
+    manifest: List[Dict[str, Any]] = [
+        {"section": "instructions", "size": len(instructions),
+         "included": True, "truncated": False, "compact": compact},
+        {"section": "app", "size": len(app_section),
+         "included": True, "truncated": False},
+        {"section": "canvas", "size": len(canvas_text),
+         "included": True, "truncated": canvas_truncated},
+        {"section": "history", "size": len(history_section),
+         "included": True, "truncated": False},
+    ]
+
+    # Core (instructions + app + canvas + history) is charged up front;
+    # every other section — identity and playbooks included — is charged
+    # in the priority loop below, exactly once.
+    budget = _MAX_EDIT_PROMPT_CHARS - len(
+        instructions + app_section + content_section + history_section
+    )
+    included: Dict[str, str] = {}
+    trimmed_any = False
+    for name, section in rendered.items():
+        size = len(section)
+        if not section:
+            manifest.append({"section": name, "size": 0,
+                             "included": False, "truncated": False,
+                             "empty": True})
+            continue
+        if size <= budget:
+            included[name] = section
+            budget -= size
+            manifest.append({"section": name, "size": size,
+                             "included": True, "truncated": False})
+        elif budget > 800:  # keep only when a usable head fits
+            # Reserve the marker's own length so the kept head + marker
+            # still land inside the budget.
+            head = max(0, budget - 60)
+            included[name] = (
+                section[:head]
+                + "\n…(trimmed to fit the model's context budget)\n\n"
+            )
+            trimmed_any = True
+            budget = 0
+            manifest.append({"section": name, "size": size,
+                             "included": True, "truncated": True})
+        else:
+            trimmed_any = True
+            manifest.append({"section": name, "size": size,
+                             "included": False, "truncated": False,
+                             "omitted_for_budget": True})
+
+    prompt = (
+        # TASK SIGNAL FIRST (live 2026-09-23): front-load the user's
+        # message so the model reads "this is an edit for X" before the
+        # editing rules.
+        f"USER REQUEST (analyze this against the current canvas below and "
+        f"produce a CanvasEditPlan):\n{message}\n\n"
+        f"{instructions}\n\n"
+        f"{included.get('scope', '')}"
+        f"{included.get('fresh', '')}"
+        f"{included.get('findings', '')}"
+        f"{included.get('corrections', '')}"
+        f"{included.get('versions', '')}"
+        f"{included.get('lessons', '')}"
+        f"{included.get('cross', '')}"
+        f"{included.get('origin', '')}"
+        f"{included.get('identity', '')}"
+        f"{included.get('playbooks', '')}"
+        f"{app_section}\n"
+        f"{content_section}"
+        f"{history_section}"
+    )
+    return prompt, manifest
+
+
 async def plan_canvas_edit(
     message: str,
     history: List[Dict[str, Any]],
@@ -3510,6 +3686,7 @@ async def plan_canvas_edit(
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
     execution_id: Optional[str] = None,
+    compact: Optional[bool] = None,
     versions: Optional[List[Dict[str, Any]]] = None,
     lessons: Optional[List[Dict[str, Any]]] = None,
     similar_corrections: Optional[List[Dict[str, Any]]] = None,
@@ -3549,93 +3726,46 @@ async def plan_canvas_edit(
     if llm_service is None or not canvas.get("canvas_id"):
         return None
 
-    from core.canvas_app_schema import app_prompt_section
-
-    # Prompt budget: the core (system + app + current content + history)
-    # always stays; learning sections are included in priority order and
-    # the lowest-priority ones trim first when the budget is tight —
-    # recalled context must never crowd out the live artifact, and the
-    # whole prompt must fit the serving model's context window.
-    app_section = app_prompt_section(canvas.get("canvas_type"), canvas.get("content"))
-    content_section = (
-        f"Current canvas content:\n{_serialize_content(canvas.get('content'))}\n\n"
+    # PROMPT ASSEMBLY IS EXPLICIT (verifier work order W1/W2): the
+    # helper returns the prompt plus a section manifest, fixes the
+    # findings interpolation, budgets identity/playbooks, and never
+    # silently truncates the canvas. COMPACT is a prompt-SHAPE choice
+    # for small-edit-shaped requests — it swaps only the instruction
+    # set; evidence, teaching, and user constraints travel unchanged,
+    # and it is NOT an authorization (the authorization gates upstream
+    # and the apply fence downstream are untouched).
+    prompt, prompt_manifest = _build_edit_plan_prompt(
+        message=message,
+        history=history,
+        canvas=canvas,
+        fresh_data=fresh_data,
+        corrections=corrections,
+        versions=versions,
+        job_findings=job_findings,
+        lessons=lessons,
+        similar_corrections=similar_corrections,
+        correction_patterns=correction_patterns,
+        provenance=provenance,
+        user_identity=user_identity,
+        playbooks=playbooks,
+        # compact=None = auto: small-edit-shaped requests take the
+        # compact instruction set (a prompt-SHAPE choice — never an
+        # authorization or an evidence-omission permit). Callers may
+        # force either assembly explicitly (the heavyweight-content
+        # pins do).
+        compact=(
+            _small_edit_shape(
+                message,
+                len(str(canvas.get("content") or "")) + len(message or "")
+                + 4000)
+            if compact is None else compact),
     )
-    history_section = (
-        f"Recent conversation:\n{_history_transcript(history, message)}\n\n"
-        "Return the edit plan."
-    )
-    # Live evidence when the edit hinges on data the editor cannot see —
-    # fetched by the caller (orchestrator context assembly) via
-    # fetch_fresh_data_section and handed in; never gathered here, so this
-    # function stays a single structured LLM call.
-    rendered = {  # canonical layout order; priority = same order
-        "scope": _request_scope_section(message, history, fresh_data),
-        "corrections": _corrections_section(corrections),
-        "versions": _versions_section(versions, canvas.get("content")),
-        # Evidence outranks the learning channels: it is the data THIS edit
-        # is about; lessons/corrections are advisory style guidance.
-        "fresh": fresh_data or "",
-        # Job findings outrank lessons (they are the verified record of
-        # THIS canvas's investigation) but sit beside evidence: applied
-        # findings must respect fresh_data when both speak.
-        "findings": _job_findings_section(job_findings),
-        "lessons": _lessons_section(lessons),
-        "cross": _similar_lessons_section(similar_corrections, correction_patterns),
-        # Origin context ranks LAST — useful for grounding questions, never
-        # at the cost of the live artifact or the learning signal.
-        "origin": _provenance_section(provenance),
-    }
-    budget = _MAX_EDIT_PROMPT_CHARS - len(
-        _EDITOR_SYSTEM + app_section + content_section + history_section
-    )
-    included: Dict[str, str] = {}
-    trimmed_any = False
-    for name, section in rendered.items():
-        if not section:
-            continue
-        if len(section) <= budget:
-            included[name] = section
-            budget -= len(section)
-        elif budget > 800:  # keep only when a usable head fits
-            # Reserve the marker's own length so the kept head + marker
-            # still land inside the budget.
-            head = max(0, budget - 60)
-            included[name] = (
-                section[:head]
-                + "\n…(trimmed to fit the model's context budget)\n\n"
-            )
-            trimmed_any = True
-            budget = 0
-        else:
-            trimmed_any = True
-    if trimmed_any:
-        logger.info(
-            f"canvas edit prompt trimmed to {_MAX_EDIT_PROMPT_CHARS} chars — "
-            f"lowest-priority learning sections reduced first"
-        )
-    prompt = (
-        # TASK SIGNAL FIRST (live 2026-09-23): the 7k-char instruction set
-        # + optional context sections diluted the edit signal enough that
-        # flash-tier models returned wants_edit=False for clear rebuild
-        # requests — the canvas and request sat at the BOTTOM after all
-        # the instructions. Front-load the user's message so the model
-        # reads "this is an edit for X" before the editing rules.
-        f"USER REQUEST (analyze this against the current canvas below and "
-        f"produce a CanvasEditPlan):\n{message}\n\n"
-        f"{_EDITOR_SYSTEM}\n\n"
-        f"{_identity_section(user_identity)}"
-        f"{_playbooks_section(playbooks)}"
-        f"{included.get('scope', '')}"
-        f"{included.get('fresh', '')}"
-        f"{included.get('corrections', '')}"
-        f"{included.get('versions', '')}"
-        f"{included.get('lessons', '')}"
-        f"{included.get('cross', '')}"
-        f"{included.get('origin', '')}"
-        f"{app_section}\n"
-        f"{content_section}"
-        f"{history_section}"
-    )
+    logger.info(
+        "[plan-prompt] eid=%s sections=%s",
+        execution_id or "-",
+        json.dumps([{k: m.get(k) for k in
+                     ("section", "size", "included", "truncated")}
+                    for m in prompt_manifest], default=str)[:800])
 
     try:
         from core.llm import pinned_planning as _pp
