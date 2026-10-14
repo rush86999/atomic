@@ -160,13 +160,29 @@ def main() -> int:
             import integrations.chat_orchestrator as co
             # LLMService-less: plan via the seeded handler through the
             # REAL plan_canvas_edit (service seam patched below).
-            class _Svc:
-                llm_service = None
-
-            svc = _Svc()
             from core.llm.byok_handler import BYOKHandler as _B
             assert isinstance(handler, _B)
-            svc._get_handler = lambda **kwargs: handler
+
+            class _Svc:
+                pass
+
+            svc = _Svc()
+            # The REAL cascade on the seeded handler: plan_canvas_edit
+            # calls llm_service.generate_structured_response(**base) —
+            # forward the planning-relevant kwargs onto the handler
+            # (which IS the scope under test).
+            async def _dispatch(**kwargs):
+                return await handler.generate_structured_response(
+                    prompt=kwargs.get("prompt"),
+                    system_instruction=kwargs.get("system_instruction"),
+                    response_model=kwargs.get("response_model"),
+                    temperature=kwargs.get("temperature", 0.0),
+                    task_type=kwargs.get("task_type"),
+                    disable_reasoning=kwargs.get("disable_reasoning", True),
+                    route_trace_id=kwargs.get("route_trace_id"),
+                )
+
+            svc.generate_structured_response = _dispatch
             t0 = time.monotonic()
             n0 = len(http_counts)
             try:
