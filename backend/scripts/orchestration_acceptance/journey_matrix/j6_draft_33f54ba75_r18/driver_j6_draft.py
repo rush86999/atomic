@@ -52,7 +52,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "d6bfe85f9"
+SUBJECT = "e460bed15"
 
 QUOTE_TITLE = "Quotation Q-2026-114 (J6 draft)"
 QUOTE_CONTENT = (
@@ -335,6 +335,40 @@ def finish_turn(server, t: dict, sid: str | None) -> None:
     t["delivered_content"] = aids[-1] if aids else t["message_head"]
 
 
+def stage_ladder(log_text: str, t: dict, canvas_after: dict,
+                 audit_delta: int) -> dict:
+    """The five dispatch stages the verifier requires, read from
+    evidence (uvicorn log + durable reads), never from the reply:
+    ranked -> model_request_sent -> response_received -> plan_validated
+    -> edit_applied_and_read_back. /api/tags discovery GETs are NOT
+    dispatches; a "no plan (provider failure)" line denies stage 4."""
+    lines = (log_text or "").splitlines()
+    ranked = [ln for ln in lines
+              if "cost-priority active (task_type=planning)" in ln
+              or "BPC Ranking Successful" in ln]
+    sent = [ln for ln in lines
+            if "HTTP Request: POST http://localhost:11434" in ln]
+    no_plan = any("no plan (provider failure)" in ln for ln in lines)
+    plan_stage_s = t.get("plan_stage_s")
+    return {
+        "ranked": {"yes": bool(ranked),
+                   "evidence": (ranked[-1][:170] if ranked else None)},
+        "model_request_sent": {"yes": bool(sent), "count": len(sent)},
+        "response_received": {"yes": bool(sent)
+                              and plan_stage_s is not None,
+                              "plan_stage_s": plan_stage_s},
+        "plan_validated": {"yes": bool(sent) and plan_stage_s is not None
+                           and not no_plan},
+        "edit_applied_and_read_back": {
+            "yes": bool(audit_delta and canvas_after
+                        and canvas_after.get("has_new_date")),
+            "audit_delta": audit_delta,
+            "readback_new_date": bool(
+                canvas_after and canvas_after.get("has_new_date")),
+        },
+    }
+
+
 def history_rows(db_path: Path, sid: str) -> list:
     rows = JR._sqlite_rows(
         db_path,
@@ -434,6 +468,12 @@ def run_j6() -> dict:
         a1 = audit_rows(server.db_path, canvas_id)
         t1["audit_delta"] = len(a1) - len(baseline_audit)
         t1["audit_new_rows"] = a1[len(baseline_audit):]
+        _log1 = server.log_tail()
+        import re as _re
+        _st = _re.findall(r"canvas-edit plan: ([0-9.]+)s", _log1)
+        t1["plan_stage_s"] = float(_st[-1]) if _st else None
+        t1["stage_ladder"] = stage_ladder(
+            _log1, t1, t1.get("canvas_after"), t1["audit_delta"])
         de1 = t1["durable_execution"]
         to1 = de1.get("tool_outcomes") or []
         t1["mutation_rows"] = [x for x in to1 if isinstance(x, dict)
@@ -475,6 +515,12 @@ def run_j6() -> dict:
         t2["canvas_preserved"] = (after_t2["content"] == post_t1_content)
         a2 = audit_rows(server.db_path, canvas_id)
         t2["audit_delta"] = len(a2) - len(a1)
+        _log2 = server.log_tail()
+        import re as _re
+        _st2 = _re.findall(r"canvas-edit plan: ([0-9.]+)s", _log2)
+        t2["plan_stage_s"] = float(_st2[-1]) if _st2 else None
+        t2["stage_ladder"] = stage_ladder(
+            _log2, t2, {"has_new_date": False}, t2["audit_delta"])
         de2 = t2["durable_execution"]
         to2 = de2.get("tool_outcomes") or []
         comparison_refs = 0
@@ -517,6 +563,12 @@ def run_j6() -> dict:
         t3["canvas_preserved"] = (after_t3["content"] == post_t1_content)
         a3 = audit_rows(server.db_path, canvas_id)
         t3["audit_delta"] = len(a3) - len(a2)
+        _log3 = server.log_tail()
+        import re as _re
+        _st3 = _re.findall(r"canvas-edit plan: ([0-9.]+)s", _log3)
+        t3["plan_stage_s"] = float(_st3[-1]) if _st3 else None
+        t3["stage_ladder"] = stage_ladder(
+            _log3, t3, {"has_new_date": False}, t3["audit_delta"])
         de3 = t3["durable_execution"]
         low3 = (t3["delivered_content"] or "").lower()
         certified = any(w in low3 for w in (
