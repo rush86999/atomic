@@ -16470,7 +16470,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _plan = await asyncio.wait_for(
                                 plan_tool_use(
                                     message, planner_history or history, user_id,
-                                    self.llm_service, canvas=canvas_context,
+                                    _scope_llm, canvas=canvas_context,
                                     provenance=_prov,
                                     allow_canvas_target=_canvas_edit_shaped(
                                         message, {"canvas": canvas_context}),
