@@ -56,5 +56,34 @@
    "evidence": "/tmp/j45_r18_evidence/j5_r18_20261014_114146_c44653.json"
   },
   "note": "both green journeys re-pinned after the canvas-scope and structured-path repairs"
+ },
+ "verifier_round": {
+  "order": "owner handoff: (1) dispatch-policy verification, (2) edit-timing diagnosis, (3) comparison attribution at its producer, (4) delivery classification",
+  "step1": {
+   "verifier": "independent agent on the IMMUTABLE snapshot /tmp/j45-r18 @ e460bed15 (clean tree verified)",
+   "verdict": "CONFIRMED \u2014 5/5 controls + 77 regression green; MUTATION-TESTED: deleting _plan_applies either way flips control C exactly as predicted (allowlist, not availability/quality)",
+   "disclosed": "control C exercises the router directly (a re-added blanket block is caught by control A); env_key_providers exemption not separately pinned",
+   "report": "/tmp/verify_dispatch_e460bed15.md"
+  },
+  "step2": {
+   "measured": "plan leg 74.4s (validated: ranked -> model_request_sent -> response_received -> plan_validated) against the canvas-edit LEG BOUND of 74s \u2014 'bounded at 74s ... falling through to the tool path'; apply never reached (audit delta 0). Stage 5 denied by the ladder on every run.",
+   "controlled_reproduction": "tests/test_canvas_edit_stage_regression.py: the REAL _try_canvas_edit with a canned schema-valid plan (llm_service=None): apply ONCE, byte-preservation, postcondition readback verified, mutation evidence carried \u2014 downstream proven sound, model latency isolated",
+   "no_changes": "no model or budget change made; benchmarking any prompt reduction against the same preservation requirements is the next decision's precondition"
+  },
+  "step3": {
+   "edit_lane": "SUCCESS canvas_edit now carries mutation evidence_refs (canvas_id, audit_id, operation_id, execution_id)",
+   "comparison_lane": "the producers' execution-keyed carrier _objective_evidence_{eid} is now consumed by the outcome builder: the compared canvas revision settles as a source_comparison ref plus the observation source refs, through the established normalization",
+   "tests": "tests/test_canvas_comparison_attribution.py (5) + tests/test_canvas_edit_stage_regression.py (3)"
+  },
+  "step4": {
+   "rule": "a covered comparison (the builder's own covered-set) validates delivery; unresolved/field-missing does not; a decline with no recorded result stays unconfirmed",
+   "negative_controls": "another-turn carrier never donates; unresolved carrier not delivered; no-record decline stays unconfirmed"
+  },
+  "counted_run_84143bdd8": {
+   "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_125404_496423.json",
+   "result": "T1 115.5s and T3 115.1s budget envelopes; T2 95.1s budget envelope this round (latency variance \u2014 run 5's T2 comparison answered at 63.8s). No gate moved at the boundary: the producer fixes are committed and lane-proven, but the live completion is dominated by the accepted 8B profile's planning/reply latency against the 74s leg bound and turn budget.",
+   "stage_ladders": "recorded per turn in the evidence file"
+  },
+  "acceptance_status": "OPEN \u2014 gates: (1) authorized edit completes within the turn (awaits the planning-cost decision: prompt-reduction benchmark vs preservation, or a budget call \u2014 owner's), (2) comparison attribution observed at the user boundary (fix landed, lane-proven; boundary observation pending a completing run), (3) decline-outcome envelope at the boundary (classification landed; boundary observation pending). Negative controls committed."
  }
 }
