@@ -64,6 +64,15 @@ def _copy_ref(value: Any) -> Dict[str, Any]:
     for key in ("action", "query", "coverage", "service"):
         if value.get(key) is not None:
             ref[key] = _bounded_text(value[key], 300)
+    # CALCULATION IDENTITY SURVIVES SETTLEMENT (J5-r18 finding, same
+    # collapse class as the round-10 documents refs): the owner
+    # correction demanded BOTH identifiers on the settled ref — the op
+    # id is the lifecycle's attribution, the result_id the engine's
+    # citation for reply agreement; policy_id names the evaluated
+    # expression. This whitelist silently stripped all three.
+    for key in ("operation_id", "result_id", "policy_id"):
+        if value.get(key) is not None:
+            ref[key] = _bounded_text(value[key], 120)
     match_count = value.get("match_count")
     if isinstance(match_count, int) and not isinstance(match_count, bool):
         ref["match_count"] = match_count

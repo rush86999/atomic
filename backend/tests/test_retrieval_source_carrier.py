@@ -195,3 +195,96 @@ def test_builder_without_execution_id_settles_nothing():
     }
     outcome = _built_outcome(session, None)
     assert _context_rows(outcome) == []
+
+
+# ---------------------------------------------------------------------------
+# CALC-EVIDENCE WORKSPACE SCOPE (J5-r18: the finish lanes pass
+# workspace_id=None while the calc lane's run lives in the user's
+# resolved workspace — the builder's default-scoped lifecycle saw zero
+# runs, so a succeeded calculation shipped with no expression_engine
+# evidence, the stale datasets not_executed label survived, and
+# objective_met stayed None).
+# ---------------------------------------------------------------------------
+def test_calc_evidence_resolves_through_the_users_workspace(monkeypatch):
+    import integrations.chat_orchestrator as chat
+
+    seen = {}
+
+    class FakeLifecycle:
+        def find_active_task(self, conversation_id):
+            seen["conversation_id"] = conversation_id
+            return {"run_id": "run-1"}
+
+        def get_task(self, run_id):
+            return {"operations": [{
+                "operation_id": "op-1",
+                "execution_id": "exec-calc",
+                "calculation": {
+                    "status": "succeeded",
+                    "proposed": {"amount": 175},
+                    "policy_id": "expression:QTY * UNIT_PRICE",
+                    "result_id": "res-1",
+                },
+            }]}
+
+    def fake_lifecycle_for(tenant_id, workspace_id):
+        seen["workspace_id"] = workspace_id
+        return FakeLifecycle()
+
+    monkeypatch.setattr(chat, "_task_lifecycle_for", fake_lifecycle_for)
+
+    session = {"id": "conv-1", "user_id": "user-7"}
+    orch = chat.ChatOrchestrator()
+    outcome = orch._build_turn_task_outcome(
+        session,
+        "calculate expression QTY * UNIT_PRICE with QTY=7 UNIT_PRICE=25",
+        {"success": True, "message": "Value (computed): 175"},
+        None,
+        None,
+        execution_id="exec-calc",
+        user_id="user-7",
+        workspace_id=None,
+    )
+    # The scope contract: the lifecycle must be resolved through the
+    # USER's workspace, not the "default" fallback.
+    assert seen["workspace_id"] == chat.resolve_user_workspace("user-7")
+    rows = outcome.get("tool_outcomes") or []
+    calc_rows = [t for t in rows if t.get("tool") == "expression_engine"]
+    assert calc_rows and calc_rows[0]["verified"] is True
+    refs = calc_rows[0]["evidence_refs"]
+    assert refs and refs[0]["kind"] == "calculation"
+    assert refs[0]["operation_id"] == "op-1"
+    assert refs[0]["result_id"] == "res-1"
+    # The stale datasets not_executed label is dropped once real calc
+    # evidence exists (owner R3).
+    assert not [
+        t for t in rows
+        if t.get("tool") == "datasets"
+        and t.get("outcome") == "not_executed"]
+    # A delivered succeeded calculation completes the objective.
+    assert outcome.get("objective_met") is True
+
+
+def test_fallback_resolver_resolves_through_the_users_workspace(
+        monkeypatch):
+    import integrations.chat_orchestrator as chat
+
+    seen = {}
+
+    class FakeLifecycle:
+        def find_active_task(self, conversation_id):
+            return None  # no active binding; record stays None
+
+    def fake_lifecycle_for(tenant_id, workspace_id):
+        seen["workspace_id"] = workspace_id
+        return FakeLifecycle()
+
+    monkeypatch.setattr(chat, "_task_lifecycle_for", fake_lifecycle_for)
+
+    state = chat._fallback_turn_outcome(
+        {"session_id": "conv-9", "user_id": "user-7"},
+        "exec-x", [], None, workspace_id=None)
+    assert seen["workspace_id"] == chat.resolve_user_workspace("user-7")
+    assert state["state"] in (
+        "unconfirmed", "partial", "completed", "failed",
+        "continuation_queued")
