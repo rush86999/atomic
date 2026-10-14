@@ -7105,20 +7105,24 @@ class BYOKHandler:
                 except Exception as e:
                     logger.warning(f"Failed to get tenant plan: {e}")
             
-            # Block free tier managed AI — SAME CONTRACT AS THE COMPLETION
-            # PATH (see its note at the Phase 59 block: the no-provider case
-            # is already handled by the `if not self.clients` gate above;
-            # env-configured keys are the operator's own (BYOK), and a
-            # REGISTERED-LOCAL provider is the workspace's own hardware that
-            # bills nobody — the J2 principle. The unconditional return that
-            # stood here killed every structured call AFTER BPC had ranked
-            # the workspace's local route top (J6 draft run 4:
-            # j6_draft_*2c93a4.json — "Managed AI blocked" logged, then no
-            # plan, on a local-only deployment where the reply lane served
-            # the same turn).
-            if is_managed and tenant_plan.lower() == "free" and not self.clients:
-                logger.warning(f"Managed AI blocked for free tier workspace {self.workspace_id}")
-                return None
+            # FREE-TIER MANAGED RESTRICTION — PER ROUTE, IN THE ROUTER.
+            # A blanket pre-dispatch return stood here (and briefly came
+            # back guarded by `not self.clients`, which the gate above
+            # already handles — i.e. disabled for everyone): both forms
+            # reject a correctly ranked workspace-owned route before any
+            # model call (J6 draft runs 1-4, j6_draft_*2c93a4.json). The
+            # policy actually lives in get_ranked_providers' plan gating:
+            # `_plan_applies` classifies each candidate's PROVIDER — env-
+            # key and registered-local (`local_*`) routes are the
+            # workspace's own and exempt; every other (managed, platform-
+            # billed) route is held to the tenant plan's allowlist
+            # (MODEL_TIER_RESTRICTIONS, core/cost_config.py). A free-tier
+            # workspace therefore dispatches only to its own hardware/BYOK
+            # or to allowlisted value models, and a workspace with NO
+            # configured provider stops at the `if not self.clients` gate
+            # above — truthful unavailability, zero dispatch. Dispatch-
+            # level controls for all three shapes:
+            # tests/test_structured_dispatch_policy.py.
             
             # Get optimal provider and model
             complexity = self.analyze_query_complexity(prompt, task_type)
