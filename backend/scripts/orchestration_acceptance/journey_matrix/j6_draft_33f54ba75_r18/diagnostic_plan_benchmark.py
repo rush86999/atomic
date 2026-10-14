@@ -25,7 +25,7 @@ import sys
 import time
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parents[3]
+BACKEND = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(BACKEND))
 
 import os
