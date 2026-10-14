@@ -85,5 +85,16 @@
    "stage_ladders": "recorded per turn in the evidence file"
   },
   "acceptance_status": "OPEN \u2014 gates: (1) authorized edit completes within the turn (awaits the planning-cost decision: prompt-reduction benchmark vs preservation, or a budget call \u2014 owner's), (2) comparison attribution observed at the user boundary (fix landed, lane-proven; boundary observation pending a completing run), (3) decline-outcome envelope at the boundary (classification landed; boundary observation pending). Negative controls committed."
+ },
+ "instrumented_benchmark_454616578": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_134011_df3310.json",
+  "instrumentation": "per-attribution events landed: [plan-stage] eid/stage/outcome/attempts/contract at every planning terminal; [structured-trace] route=<stage>:<eid> attempt=N per dispatch; [lane-stage] fresh_data marker separating fresh-data calls from edit-plan calls; driver ladder v2 requires POSITIVE contract=valid evidence for plan_validated",
+  "findings": [
+   "RETRACTION (step 2): the '74.4s validated plan vs 74s bound' conclusion is withdrawn. The instrumented run shows ZERO completed structured dispatches and ZERO [plan-stage] events inside the bound on every turn: plan_validated=not_reached. What is established: the edit-plan model call is a SINGLE dispatch whose inference exceeds the 74s leg bound; it is cancelled before any completion.",
+   "POST accounting (step 1): 12 ollama POSTs in the T1 window but 0 edit-plan completions \u2014 the other POSTs are fresh-data, memory, and chat-leg calls, now distinguishable per stage.",
+   "small-edit allowance (step 3): the J6 ask QUALIFIES (_small_edit_shape: 82 chars, no row vocabulary) \u2014 the 2000-token output cap already applies; the latency is generation-dominated single-call inference on the accepted 8B profile, not retries (0 completed) and not an oversized reservation."
+  ],
+  "step4_status": "No optimization chosen: with zero completed planning calls inside the bound, no prompt reduction can be benchmarked against a completing baseline, and widening the bound is an owner decision. The measured fact for that decision: one 8B planning call needs >74s on this hardware. The instrumentation now measures whichever path is chosen, with positive validation.",
+  "acceptance_status": "OPEN \u2014 milestone unchanged: an attributable usable plan (positive [plan-stage] contract=valid), then one verified write."
  }
 }
