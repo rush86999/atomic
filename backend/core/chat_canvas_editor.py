@@ -286,6 +286,8 @@ async def _plan_structured(
     response_model: Any,
     system_instruction: str,
     message: str = "",
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Any:
     """Structured canvas-planning call routed by BPC (no model pin).
 
@@ -334,10 +336,18 @@ async def _plan_structured(
         _pin = build_provider_model_pin(llm_service, _prov.strip(),
                                         _mod.strip())
 
+    # THE TURN'S OWN SCOPE (J6 draft finding, j6_draft_*8961ec.json):
+    # without it the structured call resolves the SERVICE's frozen
+    # constructor scope (the orchestrator builds LLMService with the
+    # tenant alone), whose handler never sees the workspace-registered
+    # local provider — the edit planner's pool was empty on a deployment
+    # where the same registration served the reply lane.
     return await pinned_structured_call(
         llm_service,
         prompt=prompt,
         response_model=response_model,
+        workspace_id=workspace_id,
+        tenant_id=tenant_id,
         system_instruction=system_instruction,
         call_kwargs=_pin or None,
         log_label="canvas edit planning",
@@ -3421,6 +3431,8 @@ async def plan_canvas_edit(
     canvas: Dict[str, Any],
     llm_service: Any,
     corrections: Optional[List[Dict[str, Any]]] = None,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
     versions: Optional[List[Dict[str, Any]]] = None,
     lessons: Optional[List[Dict[str, Any]]] = None,
     similar_corrections: Optional[List[Dict[str, Any]]] = None,
@@ -3560,6 +3572,8 @@ async def plan_canvas_edit(
         response_model=CanvasEditPlan,
         system_instruction="You return only the requested JSON object.",
         message=message,
+        workspace_id=workspace_id,
+        tenant_id=tenant_id,
     )
     if plan is None:
         # The structured call failed outright (all providers/timeout) — a
@@ -3628,7 +3642,10 @@ async def plan_canvas_edit(
         # contention. Bounded + redacted (routine-log rule).
         if str(plan.reply or "").strip():
             try:
-                from core import log_redaction
+                # Module-level import only: a function-level re-import
+                # makes the name LOCAL, and the fingerprint line below
+                # (outside this branch) then raises UnboundLocalError on
+                # every decline plan that carries no reply text.
                 _captured = log_redaction.capture(
                     str(plan.reply)[:400], "canvas_edit_decline_reply")
                 logger.info(
@@ -3679,6 +3696,8 @@ async def plan_canvas_edit(
             prompt=f"{prompt}\n\n{_INCONSISTENT_PLAN_SUFFIX}",
             response_model=CanvasEditPlan,
             system_instruction="You return only the requested JSON object.",
+            workspace_id=workspace_id,
+            tenant_id=tenant_id,
         )
         # CAPTURE (2026-09-28): both answers, so a failure is attributable
         # without re-running. A model answering correctly is a routing fact and
@@ -3771,6 +3790,8 @@ async def plan_canvas_edit(
             prompt=f"{prompt}\n\n{_REPLACE_FALLBACK_SUFFIX}",
             response_model=CanvasEditPlan,
             system_instruction="You return only the requested JSON object.",
+            workspace_id=workspace_id,
+            tenant_id=tenant_id,
         )
         if replan is None:
             # First call proved this IS an edit; the re-ask dying is an
@@ -5269,6 +5290,8 @@ async def plan_canvas_action(
     canvas: Dict[str, Any],
     llm_service: Any,
     fresh_data: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Optional[CanvasActionPlan]:
     """Decide whether this turn asks to DO something with the canvas (send
     email). ``fresh_data`` is the caller-gathered live evidence section
@@ -5300,6 +5323,8 @@ async def plan_canvas_action(
         prompt=prompt,
         response_model=CanvasActionPlan,
         system_instruction="You return only the requested JSON object — raw JSON, no markdown fences.",
+        workspace_id=workspace_id,
+        tenant_id=tenant_id,
     )
     if plan is None:
         # Deterministic fallback: the structured (Instructor/tool-mode) path

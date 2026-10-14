@@ -170,6 +170,8 @@ async def pinned_structured_call(
     extra_kwargs: Optional[Dict[str, Any]] = None,
     log_label: str = "planning",
     task_type: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Any:
     """Structured call that honours a pin, then falls back to unpinned routing.
 
@@ -210,6 +212,14 @@ async def pinned_structured_call(
         base["disable_reasoning"] = True
     if task_type:
         base["task_type"] = task_type
+    # THE CALLER'S SCOPE (J6 draft finding): a structured call without it
+    # resolves the service's frozen constructor scope and never sees the
+    # workspace-registered local providers. Both are optional — callers
+    # that have no scope keep today's behaviour byte-identically.
+    if workspace_id:
+        base["workspace_id"] = workspace_id
+    if tenant_id:
+        base["tenant_id"] = tenant_id
     if extra_kwargs:
         base.update(extra_kwargs)
 

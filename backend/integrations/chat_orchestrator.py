@@ -24473,6 +24473,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     plan_canvas_action(
                         message, history, canvas, self.llm_service,
                         fresh_data=fresh_data,
+                        # THE TURN'S OWN SCOPE (J6 draft finding): the
+                        # frozen constructor scope never sees the
+                        # workspace-registered local provider.
+                        workspace_id=resolve_user_workspace(user_id),
+                        tenant_id=getattr(self, "tenant_id", None),
                     )
                 )
             except Exception as action_task_err:  # noqa: BLE001
@@ -24483,6 +24488,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             plan = await asyncio.wait_for(
                 plan_canvas_edit(
                     message, history, canvas, self.llm_service,
+                    # THE TURN'S OWN SCOPE (J6 draft finding, same as the
+                    # action lane): the frozen constructor scope never
+                    # sees the workspace-registered local provider — the
+                    # edit planner's pool was empty on a deployment where
+                    # the same registration served the reply lane.
+                    workspace_id=resolve_user_workspace(user_id),
+                    tenant_id=getattr(self, "tenant_id", None),
                     corrections=corrections,
                     versions=versions,
                     lessons=lessons,
@@ -25142,7 +25154,14 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 plan = await asyncio.wait_for(_pre_action, timeout=25)
             else:
                 plan = await asyncio.wait_for(
-                    plan_canvas_action(message, history, canvas, self.llm_service, fresh_data=fresh_data),
+                    plan_canvas_action(
+                        message, history, canvas, self.llm_service,
+                        fresh_data=fresh_data,
+                        # THE TURN'S OWN SCOPE (J6 draft finding, same as
+                        # the edit lane).
+                        workspace_id=resolve_user_workspace(user_id),
+                        tenant_id=getattr(self, "tenant_id", None),
+                    ),
                     timeout=25,
                 )
         except Exception as e:
