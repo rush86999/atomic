@@ -7655,14 +7655,23 @@ class BYOKHandler:
                             # internal retry policy. [structured-trace]
                             # after it = worker completed; the absence
                             # of both = still running or cancelled.
+                            _dispatch_prompt_chars = len(str(
+                                _create_kwargs.get("prompt") or ""))
+                            if not _dispatch_prompt_chars:
+                                # Instructor converts the prompt into
+                                # messages — size THEM.
+                                _dispatch_prompt_chars = sum(
+                                    len(str(m.get("content") or ""))
+                                    for m in (
+                                        _create_kwargs.get("messages")
+                                        or []) if isinstance(m, dict))
                             logger.info(
                                 "[structured-dispatch] %s/%s route=%s "
                                 "attempt=%d prompt_chars=%d cap=%s "
                                 "instructor_retries=%s",
                                 provider_id, model,
                                 route_trace_id or "-", _attempt_count,
-                                len(str(_create_kwargs.get("prompt")
-                                        or "")),
+                                _dispatch_prompt_chars,
                                 _create_kwargs.get("max_tokens"),
                                 getattr(instructor_client, "max_retries",
                                         None))

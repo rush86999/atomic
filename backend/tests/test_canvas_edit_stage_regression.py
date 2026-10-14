@@ -200,6 +200,43 @@ def test_lane_makes_no_model_calls():
     assert out is not None
 
 
+def test_the_model_s_tool_call_envelope_echo_validates():
+    """Round-19 diagnostic (diagnostic_benchmark_20261014_140958.json):
+    THREE identical attempts, 276 tokens each, all rejected — the model
+    answers the structured request by echoing the TOOL-CALL ENVELOPE as
+    content, with each op wrapped function-schema style. The plan inside
+    is valid; the wrapper must accept the observed output shape. The
+    raw native call with the same payload completed in 11.2s — the
+    rejection was the wrapper's, not the model's workload."""
+    import json as _json
+
+    model_said = _json.loads(
+        '{"name": "CanvasEditPlan", "parameters": {"edit_mode": "patch", '
+        '"ops": [{"title": "Update Valid Until date", "properties": '
+        '{"find": "2026-11-30", "replace": "2026-12-31", "field": null, '
+        '"cell": null}}], "reply": "", "restore_audit_id": null, '
+        '"updated_content_json": null, "wants_edit": true}}')
+    plan = cce.CanvasEditPlan.model_validate(model_said)
+    assert plan.wants_edit is True
+    assert plan.ops[0].find == "2026-11-30"
+    assert plan.ops[0].replace == "2026-12-31"
+    # A clean plan (the reduced run's shape) still validates unchanged.
+    plain = cce.CanvasEditPlan.model_validate({
+        "wants_edit": True,
+        "edit_mode": "patch",
+        "ops": [{"find": "2026-11-30", "replace": "2026-12-31"}],
+    })
+    assert plain.ops[0].find == "2026-11-30"
+    # OBSERVED SHAPE 3 (native tool-calls reproduction): ops arrive
+    # JSON-ENCODED as a string.
+    string_ops = cce.CanvasEditPlan.model_validate({
+        "wants_edit": True,
+        "ops": _json.dumps(
+            [{"find": "2026-11-30", "replace": "2026-12-31"}]),
+    })
+    assert string_ops.ops[0].replace == "2026-12-31"
+
+
 def test_plan_stage_events_are_positive_evidence(caplog):
     """Verifier steps 1-2: the lane emits [plan-stage] events with the
     execution id, and a usable plan is recorded as outcome=edit with

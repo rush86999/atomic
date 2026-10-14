@@ -31,7 +31,7 @@ from enum import Enum
 from html import unescape
 from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from core import log_redaction
 from core.evidence_grounding import CANVAS_ARTIFACT_GROUNDING_RULE
@@ -105,6 +105,52 @@ class CanvasEditPlan(BaseModel):
     updated_content_json: Optional[str] = None
     title: Optional[str] = None
     reply: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_model_output_shapes(cls, data: Any) -> Any:
+        """Accept the output shapes llama-class models demonstrably
+        produce for this schema (isolated diagnostic 2026-10-14,
+        diagnostic_benchmark_20261014_140958.json: THREE identical
+        attempts, 276 tokens each — a schema-valid plan the wrapper
+        rejected twice over):
+
+        1. the TOOL-CALL ENVELOPE ECHO: {"name": "CanvasEditPlan",
+           "parameters": {...}} as plain content — the request teaches
+           the model a tool; the model answers by restating the
+           envelope instead of emitting a native tool_call;
+        2. FUNCTION-SCHEMA OPS: each op wrapped as {"title": ...,
+           "properties": {find/replace/...}} — the same echo at the op
+           level.
+
+        Both are deterministic output SHAPES of a valid plan; unwrapping
+        them changes nothing about authorization, the contract checks,
+        or the apply fence — those run after this."""
+        if not isinstance(data, dict):
+            return data
+        if "wants_edit" not in data and isinstance(
+                data.get("parameters"), dict):
+            inner = data["parameters"]
+            if isinstance(inner, dict):
+                data = inner
+        ops = data.get("ops")
+        if isinstance(ops, str) and ops.strip():
+            # OBSERVED SHAPE 3 (reproduction round 19, native
+            # tool-calls): the ops array arrives JSON-ENCODED as a
+            # string — "[{\"find\": ...}]".
+            data["ops"] = _repair_json(ops)
+        ops = data.get("ops")
+        if isinstance(ops, list):
+            unwrapped = []
+            for op in ops:
+                if (isinstance(op, dict) and "find" not in op
+                        and isinstance(op.get("properties"), dict)):
+                    props = op["properties"]
+                    op = {**{k: v for k, v in op.items()
+                             if k != "properties"}, **props}
+                unwrapped.append(op)
+            data["ops"] = unwrapped
+        return data
 
 
 def _plan_shape(plan: "CanvasEditPlan") -> str:

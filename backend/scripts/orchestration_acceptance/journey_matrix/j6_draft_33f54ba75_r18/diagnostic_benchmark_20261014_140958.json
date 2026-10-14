@@ -1,0 +1,52 @@
+{
+ "diagnostic": "j6 planning benchmark (isolated; NOT acceptance)",
+ "model": "llama3.1:8b",
+ "started_at": "2026-10-14T18:08:30+00:00",
+ "ollama_ps_before": {
+  "error": "Extra data: line 1 column 5 (char 4)"
+ },
+ "original": {
+  "label": "original",
+  "completed": false,
+  "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+  "bound_s": 600.0,
+  "elapsed_s": 45.29,
+  "payload_prompt_chars": 10827,
+  "payload_cap": 2000
+ },
+ "raw_generate_original": {
+  "wall_s": 11.16,
+  "prompt_eval_count": 2598,
+  "prompt_eval_duration_ns": 8166229791,
+  "eval_count": 81,
+  "eval_duration_ns": 1964105496,
+  "load_duration_ns": 74239584,
+  "done_reason": "stop",
+  "response_head": "{\n    \"wants_edit\": true,\n    \"edit_mode\": \"patch\",\n    \"operations\": [\n        {\n            \"field\": \"Valid until\",\n            \"find\": \"2026-11-30\",\n            \"replace\": \"2026-12-31\"\n        }\n  "
+ },
+ "reduced": {
+  "label": "reduced",
+  "completed": true,
+  "time_to_valid_plan_s": 15.89,
+  "bound_s": 180.0,
+  "wants_edit": true,
+  "contract_violation": null,
+  "prompt_chars": 11823,
+  "cap": 2000,
+  "dispatches": 2,
+  "payload_prompt_chars": 11823
+ },
+ "raw_generate_reduced": {
+  "wall_s": 12.01,
+  "prompt_eval_count": 2786,
+  "prompt_eval_duration_ns": 9802753456,
+  "eval_count": 57,
+  "eval_duration_ns": 1410899963,
+  "load_duration_ns": 80276583,
+  "done_reason": "stop",
+  "response_head": "{ \"wants_edit\": true, \"ops\": [{\"field\": \"Valid Until\", \"find\": \"2026-11-30\", \"replace\": \"2026-12-31\"}], \"updated_content_json\": null, \"edit_mode\": \"patch\" }"
+ },
+ "ollama_ps_after": {
+  "error": "Extra data: line 1 column 5 (char 4)"
+ }
+}
