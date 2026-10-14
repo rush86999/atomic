@@ -52,7 +52,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "510bfda1e"
+SUBJECT = "d6bfe85f9"
 
 QUOTE_TITLE = "Quotation Q-2026-114 (J6 draft)"
 QUOTE_CONTENT = (
