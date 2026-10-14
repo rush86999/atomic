@@ -7003,18 +7003,12 @@ class ChatOrchestrator:
                         dict(r) for r in _planner_rows if isinstance(r, dict)]
             except Exception:  # noqa: BLE001 — receipts never gate
                 pass
-            # CONTEXT-ASSEMBLY SOURCES (owner R4): the assembler
-            # publishes the retrieval source identities it found — the
-            # builder consumes them as attributable evidence refs.
-            _context_sources = []
-            try:
-                from core.memory_context_assembler import (
-                    get_retrieval_sources,
-                )
-
-                _context_sources = get_retrieval_sources()
-            except Exception:  # noqa: BLE001 — attribution is additive
-                _context_sources = []
+            # CONTEXT-ASSEMBLY SOURCES (owner R4): populated by the
+            # knowledge leg via source_observations_out; the builder
+            # consumes them as attributable evidence refs.
+            _context_sources = session.get(
+                "_retrieval_source_observations") or [] if isinstance(
+                    session, dict) else []
             # CALCULATION EVIDENCE (owner directive R3): resolve the
             # lifecycle using the conversation-scoped task resolution
             # (the fallback resolver's own path — not session["_task_run_id"]
@@ -7022,8 +7016,9 @@ class ChatOrchestrator:
             # _turn_evidence_set to scope operations to THIS execution.
             _calc_evidence = []
             try:
-                from core.task_lifecycle import _task_lifecycle_for as _tlf
-
+                # MODULE-LOCAL helper (owner finding: importing from
+                # core.task_lifecycle fails silently — the function lives
+                # in chat_orchestrator.py, not core.task_lifecycle)
                 _tl = _task_lifecycle_for(
                     getattr(self, "tenant_id", None) if hasattr(
                         self, "tenant_id") else None,
@@ -7036,8 +7031,11 @@ class ChatOrchestrator:
                     if _run_id:
                         _rec = _tl.get_task(_run_id)
                         for _op in (_rec or {}).get("operations") or []:
-                            if str(_op.get("execution_id") or "") != str(
-                                    execution_id or ""):
+                            _op_exec = str(_op.get("execution_id") or "")
+                            _inner_exec = str((_op.get("calculation") or {}).get(
+                                "execution_id") or "")
+                            if (str(execution_id or "") not in (_op_exec, _inner_exec)
+                                    and str(execution_id or "") != _op_exec):
                                 continue
                             _calc = _op.get("calculation") or {}
                             if not isinstance(_calc, dict):
@@ -15402,6 +15400,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     user_workspace = resolve_user_workspace(user_id)
 
                     logger.info(f"[MEMCTX] agent_id={_agent_id!r}")
+                    # RETRIEVAL SOURCE OBSERVATIONS (owner R4): capture
+                    # the actual retrieval source identities for the
+                    # durable outcome's evidence refs.
+                    _retrieval_observations: List[Dict[str, Any]] = []
                     memory_block = await assemble_memory_context(
                         message=message,
                         workspace_id=user_workspace,
@@ -15415,7 +15417,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # canvas-scoped turns feed playbook retrieval —
                         # keyword-less playbooks trigger on canvas type
                         canvas_type=(canvas_context or {}).get("canvas_type"),
+                        source_observations_out=_retrieval_observations,
                     )
+                    if _retrieval_observations:
+                        session["_retrieval_source_observations"] = list(
+                            _retrieval_observations)
                     if memory_block:
                         messages.append({"role": "system", "content": memory_block})
 
