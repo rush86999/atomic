@@ -7644,11 +7644,53 @@ class BYOKHandler:
                                     f"{provider_id}/{model} is already in flight")
                             _attempted_any = True
                             _attempt_count += 1
+                            # PLAN-ATTEMPT ATTRIBUTION, BEFORE THE
+                            # BLOCKING CALL (verifier work order, round
+                            # 19): the completion trace below emits only
+                            # when the worker RETURNS — a cancelled or
+                            # hung wait emits nothing and the two are
+                            # indistinguishable from queueing. This line
+                            # fixes the dispatch point: identity, prompt
+                            # size, effective cap, and the wrapper's
+                            # internal retry policy. [structured-trace]
+                            # after it = worker completed; the absence
+                            # of both = still running or cancelled.
+                            logger.info(
+                                "[structured-dispatch] %s/%s route=%s "
+                                "attempt=%d prompt_chars=%d cap=%s "
+                                "instructor_retries=%s",
+                                provider_id, model,
+                                route_trace_id or "-", _attempt_count,
+                                len(str(_create_kwargs.get("prompt")
+                                        or "")),
+                                _create_kwargs.get("max_tokens"),
+                                getattr(instructor_client, "max_retries",
+                                        None))
                             try:
                                 result = await _to_thread_safe(
                                     instructor_client.chat.completions.create,
                                     **_create_kwargs
                                 )
+                            except asyncio.CancelledError:
+                                # CANCELLATION IS ITS OWN EVENT (verifier
+                                # step 3): the awaiting task died but the
+                                # worker thread's synchronous request is
+                                # NOT cancelled by this — and the finally
+                                # below releases the model-attempt
+                                # reservation immediately, so another
+                                # request can claim the endpoint while
+                                # this one still runs. Logged separately;
+                                # re-raised so the caller sees the true
+                                # cause.
+                                logger.warning(
+                                    "[structured-cancelled] %s/%s "
+                                    "route=%s attempt=%d waited=%.1fs "
+                                    "reservation_released=true "
+                                    "worker_may_still_run=true",
+                                    provider_id, model,
+                                    route_trace_id or "-", _attempt_count,
+                                    time.time() - _attempt_t0)
+                                raise
                             finally:
                                 self._release_model_attempt(
                                     provider_id, model)
