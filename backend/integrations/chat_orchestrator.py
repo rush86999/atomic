@@ -8023,9 +8023,10 @@ class ChatOrchestrator:
             # the plan_tool_use call.
             from core.llm_service import LLMService as _ScopedLLM
 
+            _turn_scope = self._request_llm_scope(user_id)
             _scope_llm = _ScopedLLM(
-                workspace_id=getattr(self, "_workspace_id", "default"),
-                tenant_id=getattr(self, "_tenant_id", "default"),
+                workspace_id=_turn_scope.get("workspace_id", "default"),
+                tenant_id=_turn_scope.get("tenant_id", "default"),
             )
             # REQUEST REFERENCE — resolved ONCE per turn, before anything is
             # scheduled. "yes go ahead" (live 2026-09-22) used to be validated
@@ -15177,6 +15178,16 @@ class ChatOrchestrator:
         from core.request_scope import current_request_scope
 
         _llm_scope = current_request_scope()
+        # SCOPED PLANNING SERVICE (J5 fix): the reply leg's planning
+        # call dispatches from the USER'S OWN provider, not the
+        # module-singleton default. The contextvar already carries the
+        # resolved scope from turn entry.
+        from core.llm_service import LLMService as _ScopedLLM
+
+        _scope_llm = _ScopedLLM(
+            workspace_id=_llm_scope.get("workspace_id", "default"),
+            tenant_id=_llm_scope.get("tenant_id", "default"),
+        )
 
         try:
             # Build messages from history

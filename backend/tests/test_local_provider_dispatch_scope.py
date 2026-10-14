@@ -1999,8 +1999,10 @@ class TestSearchOutcomeFinalization:
 
         # === CASE A: STALE receipt (keyed to a DIFFERENT execution) ===
         exec_a = "exec-stale-1"
-        session_a = {"_planner_tool_receipts_" + exec_a: receipts,
-                     "_planner_tool_receipts_exec-other-9": receipts}
+        # ONLY the stale key: the current execution's own key is
+        # deliberately absent so the test proves that stale-key rejection
+        # (not absent-response) is what prevents promotion.
+        session_a = {"_planner_tool_receipts_exec-other-9": receipts}
         db = scoped_world["Session"]()
         try:
             db.add(AgentExecution(

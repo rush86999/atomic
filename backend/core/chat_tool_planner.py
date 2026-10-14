@@ -8059,9 +8059,16 @@ async def _documents_vfs_block(
                          "workspace_id": (context or {}).get(
                              "workspace_id")})
                     _entries = (_ls_res or {}).get("entries") or []
+                    _STOPWORDS = {
+                        "the", "and", "for", "was", "that", "this",
+                        "with", "from", "have", "has", "had", "are",
+                        "were", "been", "their", "which", "what",
+                        "who", "when", "where", "how", "why",
+                    }
                     _query_terms = {
                         w.lower() for w in re.findall(
-                            r"[a-z]{3,}", query or "") if len(w) >= 3}
+                            r"[a-z]{3,}", query or "")
+                        if len(w) >= 3 and w.lower() not in _STOPWORDS}
                     _scored: List[tuple] = []
                     for _entry in _entries:
                         _ep = str(_entry.get("path") or "")
@@ -8072,7 +8079,7 @@ async def _documents_vfs_block(
                         _scored.append((_score, _ep, _en))
                     _scored.sort(key=lambda x: x[0], reverse=True)
                     for _score, _doc_path, _doc_name in _scored:
-                        if _score == 0:
+                        if _score < 2:
                             continue
                         _cat_res = await action_registry.execute_action(
                             "documents.cat",
