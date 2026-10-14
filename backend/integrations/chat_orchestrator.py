@@ -5107,13 +5107,14 @@ def _fallback_turn_outcome(
         # distinguished from verified answer support (the assembler
         # found them; whether the delivered answer relies on them is
         # the narration's claim, checked separately).
+        # CONTEXT-ASSEMBLY SOURCES: read from the session carrier
+        # (keyed by execution id) — not the deleted contextvar getter.
         _context_sources: List[Dict[str, Any]] = []
-        try:
-            from core.memory_context_assembler import get_retrieval_sources
-
-            _context_sources = get_retrieval_sources()
-        except Exception:  # noqa: BLE001 — attribution is additive
-            _context_sources = []
+        if isinstance(session, dict):
+            _ctx_raw = session.get("_retrieval_source_observations") or []
+            if isinstance(_ctx_raw, list):
+                _context_sources = [
+                    s for s in _ctx_raw if isinstance(s, dict)]
         # INCOMPLETE CALCULATION (owner R3b): a calculate op that resolved
         # to waiting/incomplete delivered a clarification naming the
         # pending input — this validates the DELIVERY (not the
@@ -7004,10 +7005,11 @@ class ChatOrchestrator:
             except Exception:  # noqa: BLE001 — receipts never gate
                 pass
             # CONTEXT-ASSEMBLY SOURCES (owner R4): populated by the
-            # knowledge leg via source_observations_out; the builder
-            # consumes them as attributable evidence refs.
-            _context_sources = session.get(
-                "_retrieval_source_observations") or [] if isinstance(
+            # knowledge leg via source_observations_out, KEYED BY THIS
+            # EXECUTION ID (owner C2: a later empty or skipped retrieval
+            # cannot inherit an earlier turn's sources).
+            _context_sources = (session or {}).get(
+                f"_retrieval_source_observations_{execution_id}") or [] if isinstance(
                     session, dict) else []
             # CALCULATION EVIDENCE (owner directive R3): resolve the
             # lifecycle using the conversation-scoped task resolution
@@ -15419,8 +15421,15 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         canvas_type=(canvas_context or {}).get("canvas_type"),
                         source_observations_out=_retrieval_observations,
                     )
-                    if _retrieval_observations:
-                        session["_retrieval_source_observations"] = list(
+                    # C4 (owner directive): observations are committed only
+                    # when content reaches the answer context (memory_block
+                    # exists) — a failed assembly must not certify sources
+                    # as supplied to narration.
+                    if memory_block and isinstance(session, dict) and _execution_id:
+                        # KEYED BY EXECUTION ID (owner C2): a later empty
+                        # or skipped retrieval cannot inherit an earlier
+                        # turn's sources.
+                        session[f"_retrieval_source_observations_{_execution_id}"] = list(
                             _retrieval_observations)
                     if memory_block:
                         messages.append({"role": "system", "content": memory_block})

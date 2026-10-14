@@ -227,7 +227,7 @@ async def _knowledge_leg(
         marker_str = f" [{' | '.join(markers)}]" if markers else ""
         lines.append(f"[{source}: {label}]{marker_str} {preview}")
     lines.append("</provenance>")
-    return lines, source_observations
+    return lines
 
 
 async def _episodes_leg(message: str, agent_id: str) -> List[str]:
