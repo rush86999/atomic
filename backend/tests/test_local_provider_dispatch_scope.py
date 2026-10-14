@@ -2118,24 +2118,50 @@ class TestRetrievalSourceObservations:
         # out-param mechanism itself is exercised (no crash, list intact)
         assert isinstance(observations, list)
 
-    def test_assembly_failure_does_not_commit_observations(
+    def test_writer_gate_and_keyed_store_source_pinned(
             self, scoped_world, world_app):
-        """C4: a failed assembly must not certify sources as supplied
-        to narration — the session store is gated on memory_block."""
-        # The J4 acceptance already proved this: when the context
-        # assembler fails (or returns None), the session store is
-        # not populated, so the finalizer's evidence refs stay empty.
-        # This is the designed behavior, verified by the J4 run's
-        # zero-receipt finding (the context-assembly lane produces
-        # no evidence refs when no search executed).
-        pass
+        """C4+C2 at the writer (round-18 review finding: the writer line
+        is unreachable in the test suite — every suite disables
+        assembly — so its contract is pinned at the source level).
+
+        Pinned: the gate reads `memory_block and isinstance(session,
+        dict) and execution_id` (the shipped-in-29a941faf defect gated
+        on a nonexistent `_execution_id`, whose NameError also aborted
+        the memory_block append that follows), and the store is the
+        execution-keyed carrier."""
+        import inspect
+
+        import integrations.chat_orchestrator as chat
+
+        src = inspect.getsource(chat.ChatOrchestrator._get_qwen_response)
+        assert 'if memory_block and isinstance(session, dict) ' \
+            'and execution_id:' in src
+        assert 'session[f"_retrieval_source_observations_' \
+            '{execution_id}"]' in src
+        # The defect token must not exist as a standalone identifier in
+        # this scope (29a941faf gated on `_execution_id`, a name that
+        # only exists in process_chat_message's scope).
+        import re as _re
+        assert not _re.search(r"(?<![A-Za-z0-9_])_execution_id\b", src)
 
     def test_context_sources_keyed_by_execution_id(
             self, scoped_world, world_app):
-        """C2: the session key includes the execution id — a later
-        empty or skipped retrieval cannot inherit an earlier turn's
-        sources."""
-        # Verified in TestInternalLegScopeLeak::test_workspace_rows_are_
-        # invisible_to_the_default_scope — the session carrier is keyed
-        # by execution id; a stale key's entries are inert.
-        pass
+        """C2+C3 at the readers (round-18 review finding: the resolver's
+        read shipped unscoped in 29a941faf): both consumers read the
+        execution-keyed carrier and the deleted contextvar getter is
+        not imported anywhere."""
+        import inspect
+
+        import integrations.chat_orchestrator as chat
+
+        resolver_src = inspect.getsource(chat._fallback_turn_outcome)
+        assert 'f"_retrieval_source_observations_{execution_id}"' \
+            in resolver_src
+        assert '"_retrieval_source_observations"' not in resolver_src
+        builder_src = inspect.getsource(
+            chat.ChatOrchestrator._build_turn_task_outcome)
+        assert 'f"_retrieval_source_observations_{execution_id}"' \
+            in builder_src
+        assert '"_retrieval_source_observations"' not in builder_src
+        orchestrator_src = inspect.getsource(chat)
+        assert "get_retrieval_sources" not in orchestrator_src
