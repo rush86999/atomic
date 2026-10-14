@@ -28,10 +28,33 @@
    "evidence": "j6_draft_20261014_111238_8961ec.json",
    "subject": "33f54ba75",
    "result": "context_window also declared from the runtime (131072) \u2014 pool STILL empty; the uvicorn log localizes it: the user-workspace handler ranks the route fine ('cheapest capable model local_b5cf8cd6/llama3.1:8b, quality 90, task_type=planning') while the edit-plan call runs on a handler scoped to workspace 'default'"
+  },
+  {
+   "evidence": "j6_draft_20261014_112804_2c93a4.json",
+   "subject": "510bfda1e",
+   "result": "scope threading WORKS (the ranking now runs on the user-workspace handler and selects the local model) but the structured call then died in 0.2s at the free-tier managed block \u2014 'Managed AI blocked' AFTER BPC had ranked the workspace's local route top"
+  },
+  {
+   "evidence": "j6_draft_20261014_113731_97a77c.json",
+   "subject": "d6bfe85f9",
+   "result": "the planner genuinely reaches the model (turns 63-115s). FINDINGS: (1) capacity boundary \u2014 the 8B planning leg consumes ~75s of the 115s budget; the reply leg is then deadline-enforced honestly ('ran past its time budget'), the edit never applies, audit delta 0. (2) preservation HELD: zero canvas_audit writes across all three turns; T2's comparison answered correctly. (3) T1's unfulfilled edit intent carries into T2 (a PROPOSED-edit in the reply) \u2014 correct employee behavior, but it flips the envelope to failed. (4) T3 is model-correct (asks for the tax number, certifies nothing, objective_met=False) but the envelope resolves failed rather than delivered-honest-decline."
   }
  ],
  "root_cause": "ChatOrchestrator builds ONE LLMService at __init__ with the tenant alone (the known J2 carry-forward); its tenant-to-workspace resolution froze at construction. The chat reply lane passes the request's workspace explicitly at its callsite; the canvas edit/action planning calls passed NOTHING, so the structured call resolved the frozen 'default'-scoped handler whose _local_routes never include the user-workspace registration. T2's comparison answered CORRECTLY via the read-only fallback but resolved unconfirmed for the same reason (no planner -> no comparison evidence).",
  "also_found": "plan_canvas_edit crashed with UnboundLocalError (function-level re-import of log_redaction) on any decline plan carrying no reply text \u2014 pre-existing on the clean tree (verified by stash), fixed in the same lane.",
  "repair": "the turn's workspace/tenant are threaded from the orchestrator's planning callsites through plan_canvas_edit/plan_canvas_action/_plan_structured into pinned_structured_call's generate_structured_response call; scope-less callers are byte-identical (pinned by tests/test_canvas_plan_scope.py).",
- "status": "DRAFT \u2014 the passing gate run happens on the repaired successor; this file records the drafting findings."
+ "status": "DRAFT COMPLETE \u2014 spec verified end-to-end; 2 production defects fixed (scope threading, structured free-tier contract) + 1 latent planner crash; remaining boundaries are ACCEPTANCE FINDINGS: (a) 8B planning latency vs the turn budget (authorized edit cannot complete on the accepted hardware profile), (b) honest-decline turns resolve envelope failed instead of a delivered partial, (c) the read-only comparison's durable evidence attribution (same family as J4's original gap) \u2014 all three are the next repair cycle's inputs, NOT harness defects.",
+ "lineage": "33f54ba75 (drafted) -> 510bfda1e (scope threading + UnboundLocalError fix) -> d6bfe85f9 (structured-path free-tier contract)",
+ "j45_repin": {
+  "subject": "d6bfe85f9",
+  "j4": {
+   "pass": true,
+   "evidence": "/tmp/j45_r18_evidence/j4_r18_20261014_114101_cbf88d.json"
+  },
+  "j5": {
+   "pass": true,
+   "evidence": "/tmp/j45_r18_evidence/j5_r18_20261014_114146_c44653.json"
+  },
+  "note": "both green journeys re-pinned after the canvas-scope and structured-path repairs"
+ }
 }
