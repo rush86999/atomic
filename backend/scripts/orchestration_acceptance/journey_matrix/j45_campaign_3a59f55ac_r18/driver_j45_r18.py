@@ -43,7 +43,7 @@ PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "3a59f55ac"
+SUBJECT = "31bc390bc"
 
 
 def sha_guard() -> dict:
