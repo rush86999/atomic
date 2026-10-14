@@ -1,0 +1,76 @@
+{
+ "benchmark": "native json_schema vs original (identical full-canvas production payload)",
+ "model": "llama3.1:8b",
+ "bound_s": 180.0,
+ "attempts_per_side": 3,
+ "started_at": "2026-10-14T21:35:25+00:00",
+ "llm_service_scope_patched": true,
+ "results": {
+  "original": [
+   {
+    "attempt": "original-1",
+    "completed": false,
+    "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+    "elapsed_s": 37.91,
+    "http_requests": 9
+   },
+   {
+    "attempt": "original-2",
+    "completed": false,
+    "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+    "elapsed_s": 8.21,
+    "http_requests": 3
+   },
+   {
+    "attempt": "original-3",
+    "completed": false,
+    "reason": "CanvasPlanUnavailable: canvas edit planning LLM returned no plan (provider failure)",
+    "elapsed_s": 8.43,
+    "http_requests": 3
+   }
+  ],
+  "candidate": [
+   {
+    "attempt": "candidate-1",
+    "completed": false,
+    "time_to_valid_plan_s": null,
+    "contract": null,
+    "failed_ops": 1,
+    "elapsed_s": 22.34,
+    "http_requests": 3
+   },
+   {
+    "attempt": "candidate-2",
+    "completed": false,
+    "time_to_valid_plan_s": null,
+    "contract": null,
+    "failed_ops": 1,
+    "elapsed_s": 12.07,
+    "http_requests": 3
+   },
+   {
+    "attempt": "candidate-3",
+    "completed": false,
+    "time_to_valid_plan_s": null,
+    "contract": null,
+    "failed_ops": 1,
+    "elapsed_s": 19.83,
+    "http_requests": 3
+   }
+  ]
+ },
+ "original_summary": {
+  "completions": "0/3",
+  "time_to_valid_plan_s": [],
+  "timeouts": 0,
+  "invalid_or_declined": 3,
+  "http_requests_total": 15
+ },
+ "candidate_summary": {
+  "completions": "0/3",
+  "time_to_valid_plan_s": [],
+  "timeouts": 0,
+  "invalid_or_declined": 3,
+  "http_requests_total": 9
+ }
+}

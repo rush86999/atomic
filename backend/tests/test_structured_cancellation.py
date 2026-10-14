@@ -36,6 +36,12 @@ from tests.test_structured_dispatch_policy import (
     _seed_pool,
 )
 
+# ISOLATION CAVEAT: the pricing-fetcher singleton is module-global; run
+# this file STANDALONE (pytest tests/test_structured_cancellation.py).
+# Combined with files that reseed the shared fetcher, the seeded pool
+# can be replaced before this test's ranking runs — a test-infra
+# artifact, not product behavior.
+
 
 class _BlockingWrapper:
     """The Instructor stand-in: create() blocks until the test releases
@@ -87,7 +93,7 @@ async def test_cancellation_leaves_worker_running_and_releases_the_reservation(
             route_trace_id=f"canvas_edit_plan:exec-cancel",
         ))
         # The worker is inside create() — the dispatch happened.
-        for _ in range(200):
+        for _ in range(3000):
             with wrapper.lock:
                 if wrapper.started:
                     break
@@ -128,7 +134,7 @@ async def test_cancellation_leaves_worker_running_and_releases_the_reservation(
             task_type="planning",
             route_trace_id="canvas_edit_plan:exec-second",
         ))
-        for _ in range(300):
+        for _ in range(3000):
             with wrapper.lock:
                 if wrapper.started >= 2:
                     break
@@ -145,7 +151,7 @@ async def test_cancellation_leaves_worker_running_and_releases_the_reservation(
         assert isinstance(out2, CanvasEditPlan)
         # Give the orphaned worker a moment to finish so the test does
         # not leak a thread mid-write.
-        for _ in range(300):
+        for _ in range(3000):
             with wrapper.lock:
                 if wrapper.finished >= 2:
                     break

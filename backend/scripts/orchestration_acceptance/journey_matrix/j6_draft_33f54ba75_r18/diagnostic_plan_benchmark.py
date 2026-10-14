@@ -232,6 +232,89 @@ def main() -> int:
     out["raw_generate_reduced"] = raw_generate_timing(
         reduced_prompt, timeout_s=COMPARISON_BOUND_S)
 
+    # 5. PRESERVATION-PRESERVING REDUCTION (verifier round 19
+    # correction): the FULL canvas verbatim — authorization context,
+    # protected content, every field — with the SCAFFOLDING reduced to
+    # the contract the lane actually enforces. Same dispatch path
+    # (instructor -> the same handler), same bound, and the result is
+    # held to the SAME post-checks plan_canvas_edit applies (contract
+    # violation + ops-match). A completion here is the benchmark a
+    # production scaffolding change must beat, on the unchanged
+    # workload.
+    minimal_sys = (
+        "You return only the CanvasEditPlan JSON object: "
+        '{\"wants_edit\": bool, \"edit_mode\": \"patch\", '
+        '\"ops\": [{"find": <exact current text>, '
+        '\"replace\": <new text>}], \"reply\": str}. '
+        "ops.find MUST copy the current canvas text verbatim (first "
+        "occurrence). Everything the ops do not touch is preserved "
+        "byte-for-byte. No markdown fences.")
+    minimal_user = (
+        f"Canvas title: {FULL_CANVAS['title']}\n"
+        f"Canvas type: {FULL_CANVAS['canvas_type']}\n"
+        f"Canvas content:\n{FULL_CANVAS['content']}\n\n"
+        f"Request: {MESSAGE}")
+    from core.chat_canvas_editor import CanvasEditPlan
+    from core.llm.byok_handler import BYOKHandler
+    import openai as _openai
+
+    diag_handler = BYOKHandler(workspace_id="ws-diag",
+                               tenant_id="tenant-diag", provider_id="auto")
+    diag_handler.clients["local_diag"] = _openai.OpenAI(
+        base_url=f"{OLLAMA}/v1", api_key="ollama")
+    diag_handler._local_routes[MODEL] = {
+        "provider_key": "local_diag", "workspace_id": "ws-diag",
+        "provider_id": "prov-diag", "provider_type": "ollama",
+        "supports_tools": True, "supports_vision": False,
+        "supports_reasoning": False, "quality_score": 0.9,
+        "context_window": 131072,
+    }
+    diag_handler._load_local_providers = lambda: None
+
+    async def _minimal_once(attempt_label: str) -> dict:
+        from core.chat_canvas_editor import (
+            CanvasEditPlan as CEP,
+            plan_contract_violation,
+            _apply_patch_ops,
+        )
+        t0 = time.monotonic()
+        try:
+            plan = await asyncio.wait_for(
+                diag_handler.generate_structured_response(
+                    prompt=f"{minimal_sys}\n\n{minimal_user}",
+                    system_instruction=minimal_sys,
+                    response_model=CEP,
+                    task_type="planning",
+                    route_trace_id=f"diagnostic_minimal:{attempt_label}"),
+                timeout=COMPARISON_BOUND_S)
+        except asyncio.TimeoutError:
+            return {"label": attempt_label, "completed": False,
+                    "reason": "bound expired",
+                    "elapsed_s": round(time.monotonic() - t0, 2)}
+        except Exception as exc:  # noqa: BLE001
+            return {"label": attempt_label, "completed": False,
+                    "reason": f"{type(exc).__name__}: {str(exc)[:140]}",
+                    "elapsed_s": round(time.monotonic() - t0, 2)}
+        elapsed = round(time.monotonic() - t0, 2)
+        usable = {}
+        if plan is not None and getattr(plan, "wants_edit", False):
+            _, failed = _apply_patch_ops(FULL_CANVAS.get("content"),
+                                         plan.ops or [])
+            usable = {"ops_match_current_content": not failed,
+                      "failed_ops": len(failed or [])}
+        violation = plan_contract_violation(plan) if plan is not None \
+            else "no-plan"
+        completed = bool(
+            plan is not None and getattr(plan, "wants_edit", False)
+            and violation is None
+            and usable.get("ops_match_current_content"))
+        return {"label": attempt_label, "completed": completed,
+                "time_to_valid_plan_s": elapsed, "contract": violation,
+                **usable}
+
+    out["reduced_scaffold_full_canvas"] = [
+        asyncio.run(_minimal_once(f"minimal-{i}")) for i in (1, 2, 3)]
+
     out["ollama_ps_after"] = ollama_ps()
     out_path = Path(__file__).parent / (
         "diagnostic_benchmark_"

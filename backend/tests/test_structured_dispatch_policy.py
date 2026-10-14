@@ -284,123 +284,49 @@ async def _await_none():
     return None
 
 
+def test_malformed_native_payload_settles_nothing(monkeypatch):
+    """Valid JSON is not a valid plan: a wrong-typed payload through
+    the real instructor path (mock HTTP transport) exhausts the cascade
+    and returns None — no partial write, no certified completion."""
+    import httpx
+    import openai
+    import core.llm.byok_handler as bh
 
+    handler = _handler()
+    _seed_pool(handler, monkeypatch, with_local=True)
 
-class TestNativeSchemaSelection:
-    """The native json_schema constraint is selected by the REGISTERED
-    route's provider identity (provider_type on the registration
-    record) — never by a local_ prefix or model-name heuristic."""
+    def _malformed_response(request: httpx.Request) -> httpx.Response:
+        body = {
+            "id": "chatcmpl-bad", "object": "chat.completion",
+            "created": 1, "model": MODEL,
+            "choices": [{
+                "index": 0, "finish_reason": "stop",
+                "message": {"role": "assistant", "content":
+                            '{"ops": {"find": 42}, '
+                            '"wants_edit": "yes"}'},
+            }],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5,
+                      "total_tokens": 15},
+        }
+        return httpx.Response(200, json=body)
 
-    def test_selection_requires_the_ollama_provider_identity(
-            self, monkeypatch):
-        """Same route record, non-ollama identity: the dispatch carries
-        NO response_format — native schema selection is identity-driven,
-        not a local_-prefix or model-name heuristic."""
-        import core.llm.byok_handler as bh
-        from types import SimpleNamespace as NS
+    transport = httpx.MockTransport(_malformed_response)
+    real_client = openai.OpenAI(
+        base_url="http://localhost:11434/v1", api_key="ollama",
+        http_client=httpx.Client(transport=transport))
+    handler.clients[LOCAL_PROVIDER] = real_client
 
-        handler = _handler()
-        _seed_pool(handler, monkeypatch, with_local=True)
-        handler._local_routes[LOCAL_MODEL]["provider_type"] = "generic-local"
-        seen = {}
-
-        def _fake_from_openai(client, **kwargs):
-            return NS(chat=NS(completions=NS(create=(
-                lambda **kw: seen.update(kw) or "x"))))
-
-        with patch.object(bh.instructor, "from_openai", _fake_from_openai):
-            asyncio.run(handler.generate_structured_response(
-                prompt="update the valid until date",
-                system_instruction="You return only the requested JSON object.",
-                response_model=CanvasEditPlan,
-                task_type="planning",
-                route_trace_id="diagnostic_minimal:probe",
-            ))
-        assert "response_format" not in seen, (
-            "a non-ollama registered identity must not carry the native "
-            "schema constraint")
-
-    def test_native_selection_sets_the_pydantic_schema(self, monkeypatch):
-        import core.llm.byok_handler as bh
-        from types import SimpleNamespace as NS
-
-        handler = _handler()
-        _seed_pool(handler, monkeypatch, with_local=True)
-        seen = {}
-
-        def _fake_from_openai(client, **kwargs):
-            return NS(chat=NS(completions=NS(create=(
-                lambda **kw: seen.update(kw) or "x"))))
-
-        with patch.object(bh.instructor, "from_openai", _fake_from_openai):
-            asyncio.run(handler.generate_structured_response(
-                prompt="update the valid until date",
-                system_instruction="You return only the requested JSON object.",
-                response_model=CanvasEditPlan,
-                task_type="planning",
-                route_trace_id="diagnostic_minimal:probe",
-            ))
-        rf = seen.get("response_format") or {}
-        assert rf.get("type") == "json_schema", (
-            f"the registered ollama identity selects the native "
-            f"constraint; got response_format={rf!r}")
-        schema = (rf.get("json_schema") or {}).get("schema") or {}
-        assert schema.get("properties", {}).get("wants_edit"), (
-            "the pydantic-generated schema must travel to the endpoint")
-
-    def test_malformed_native_payload_settles_nothing(self, monkeypatch):
-        """Valid JSON is not a valid plan: a malformed payload through
-        the NATIVE path (real instructor, mock HTTP transport returning
-        wrong-typed fields) exhausts the cascade and returns None — no
-        partial write, no certified completion."""
-        import httpx
-        import openai
-        import openai.types.chat as _chat
-
-        handler = _handler()
-        _seed_pool(handler, monkeypatch, with_local=True)
-
-        def _malformed_response(request: httpx.Request) -> httpx.Response:
-            body = {
-                "id": "chatcmpl-bad", "object": "chat.completion",
-                "created": 1, "model": MODEL,
-                "choices": [{
-                    "index": 0, "finish_reason": "stop",
-                    "message": {"role": "assistant", "content":
-                                '{"ops": {"find": 42}, '
-                                '"wants_edit": "yes"}'},
-                }],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5,
-                          "total_tokens": 15},
-            }
-            return httpx.Response(200, json=body)
-
-        transport = httpx.MockTransport(_malformed_response)
-        real_client = openai.OpenAI(
-            base_url="http://localhost:11434/v1", api_key="ollama",
-            http_client=httpx.Client(transport=transport))
-        handler.clients[LOCAL_PROVIDER] = real_client
-
-        out = asyncio.run(handler.generate_structured_response(
-            prompt="update the valid until date",
-            system_instruction="You return only the requested JSON object.",
-            response_model=CanvasEditPlan,
-            task_type="planning",
-            route_trace_id="diagnostic_minimal:bad",
-        ))
-        assert out is None, (
-            "a wrong-typed payload must settle nothing — never a partial "
-            "plan, never a certified completion")
-        # TEARDOWN (pollution source, found by bisect): the failed
-        # attempts legitimately memoize the pair as
-        # structured-protocol-unsupported in module memory — which
-        # would block the NEXT test's dispatch to the same pair. Clear
-        # everything the run taught, so the pin teaches nothing forward.
-        import core.llm.byok_handler as bh
-
-        bh._STRUCTURED_PROTOCOL_UNSUPPORTED.discard(
-            f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
-        bh._AUTH_FAILED.discard(f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
-        bh._REASONING_MANDATORY.discard(f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
-
-
+    out = asyncio.run(handler.generate_structured_response(
+        prompt="update the valid until date",
+        system_instruction="You return only the requested JSON object.",
+        response_model=CanvasEditPlan,
+        task_type="planning",
+        route_trace_id="diagnostic_minimal:bad",
+    ))
+    assert out is None
+    # TEARDOWN: clear what the failed run taught the in-memory memos,
+    # so this pin teaches nothing forward.
+    bh._STRUCTURED_PROTOCOL_UNSUPPORTED.discard(
+        f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
+    bh._AUTH_FAILED.discard(f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
+    bh._REASONING_MANDATORY.discard(f"{LOCAL_PROVIDER}/{LOCAL_MODEL}")
