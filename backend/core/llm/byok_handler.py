@@ -7105,8 +7105,18 @@ class BYOKHandler:
                 except Exception as e:
                     logger.warning(f"Failed to get tenant plan: {e}")
             
-            # Block free tier managed AI
-            if is_managed and tenant_plan.lower() == "free":
+            # Block free tier managed AI — SAME CONTRACT AS THE COMPLETION
+            # PATH (see its note at the Phase 59 block: the no-provider case
+            # is already handled by the `if not self.clients` gate above;
+            # env-configured keys are the operator's own (BYOK), and a
+            # REGISTERED-LOCAL provider is the workspace's own hardware that
+            # bills nobody — the J2 principle. The unconditional return that
+            # stood here killed every structured call AFTER BPC had ranked
+            # the workspace's local route top (J6 draft run 4:
+            # j6_draft_*2c93a4.json — "Managed AI blocked" logged, then no
+            # plan, on a local-only deployment where the reply lane served
+            # the same turn).
+            if is_managed and tenant_plan.lower() == "free" and not self.clients:
                 logger.warning(f"Managed AI blocked for free tier workspace {self.workspace_id}")
                 return None
             
