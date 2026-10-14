@@ -5108,10 +5108,11 @@ def _fallback_turn_outcome(
         # found them; whether the delivered answer relies on them is
         # the narration's claim, checked separately).
         # CONTEXT-ASSEMBLY SOURCES: read from the session carrier
-        # (keyed by execution id) — not the deleted contextvar getter.
+        # (keyed by THIS execution id) — not the deleted contextvar getter.
         _context_sources: List[Dict[str, Any]] = []
-        if isinstance(session, dict):
-            _ctx_raw = session.get("_retrieval_source_observations") or []
+        if isinstance(session, dict) and execution_id:
+            _ctx_raw = session.get(
+                f"_retrieval_source_observations_{execution_id}") or []
             if isinstance(_ctx_raw, list):
                 _context_sources = [
                     s for s in _ctx_raw if isinstance(s, dict)]
@@ -15425,11 +15426,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # when content reaches the answer context (memory_block
                     # exists) — a failed assembly must not certify sources
                     # as supplied to narration.
-                    if memory_block and isinstance(session, dict) and _execution_id:
+                    if memory_block and isinstance(session, dict) and execution_id:
                         # KEYED BY EXECUTION ID (owner C2): a later empty
                         # or skipped retrieval cannot inherit an earlier
                         # turn's sources.
-                        session[f"_retrieval_source_observations_{_execution_id}"] = list(
+                        session[f"_retrieval_source_observations_{execution_id}"] = list(
                             _retrieval_observations)
                     if memory_block:
                         messages.append({"role": "system", "content": memory_block})
