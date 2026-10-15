@@ -812,6 +812,13 @@ def validate_factual_changes(
                     "detail": record["named_requirement"],
                 })
                 continue
+        # USER-SUPPLIED (both forms): a planner-tagged user_supplied op
+        # whose value span appears in the instruction, OR an untagged op
+        # whose replacement value appears in the instruction (the
+        # instruction is the user's authorship of a replacement to an
+        # existing field's value — the T1 class). An op the planner tags
+        # user_supplied whose value appears NOWHERE in the instruction is
+        # a miscategorization: refused, not certified.
         if origin == Provenance.USER and \
                 _norm(change.value) not in _norm(request_message):
             record["grounding"] = Refusal.UNSUPPORTED
@@ -824,6 +831,15 @@ def validate_factual_changes(
                 "value": change.value,
                 "target": change.label or change.field,
                 "detail": record["named_requirement"],
+            })
+            continue
+        if origin in (Provenance.USER, "") and \
+                _value_in_text(change.value, request_message):
+            record["grounding"] = Provenance.USER
+            verdict["changes"].append(record)
+            verdict["provenance"].append({
+                "value": change.value, "target": change.label or change.field,
+                "class": Provenance.USER, "source": None,
             })
             continue
         # 3) A VERIFIED OBSERVATION the contract binds to this field and a
