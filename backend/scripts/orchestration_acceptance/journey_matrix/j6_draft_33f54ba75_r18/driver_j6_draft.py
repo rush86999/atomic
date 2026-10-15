@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """J6 DRAFT (canvas lane): authorized edit, read-only comparison, unmet
-requirement — on the frozen 422308016 candidate (measured compact
-prompt construction; the drafting workflow itself is UNCHANGED).
+requirement — on the frozen f7416c4a6 candidate (paired stage spans +
+the accepted-request evidence gate + the measured compact prompt; the
+drafting workflow itself is UNCHANGED). --t1-only runs the diagnostic
+T1 turn alone (stage attribution), never the counted campaign.
 
 This is a DRAFT acceptance journey, run to produce evidence, not a gate
 already passed. Subject and mode match the J4/J5 round-18 campaign:
@@ -53,7 +55,12 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "28406c357"
+SUBJECT = "f7416c4a6"
+
+
+class _T1OnlyComplete(Exception):
+    """Diagnostic T1 finished (--t1-only): skip T2/T3 and the reload.
+    The default three-turn campaign is unchanged."""
 
 QUOTE_TITLE = "Quotation Q-2026-114 (J6 draft)"
 QUOTE_CONTENT = (
@@ -426,9 +433,10 @@ def history_rows(db_path: Path, sid: str) -> list:
 # ---------------------------------------------------------------------------
 # The journey
 # ---------------------------------------------------------------------------
-def run_j6() -> dict:
+def run_j6(t1_only: bool = False) -> dict:
     ev: dict = {"journey": "J6-draft", "subject": SUBJECT,
                 "mode": "worktree_configuration_parity",
+                "t1_only": t1_only,
                 "sha_guard": _GUARD,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
@@ -544,6 +552,18 @@ def run_j6() -> dict:
         t1["checks"] = t1_checks
         turns["T1_authorized_edit"] = t1
         post_t1_content = after_t1["content"]
+
+        if t1_only:
+            # DIAGNOSTIC T1 (owner work order, 2026-10-14): one turn,
+            # exact stage attribution — no full three-turn campaign.
+            ev["turns"] = turns
+            ev["failed_request_count"] = failed_requests
+            ev["assertions"] = {
+                "J6.T1_authorized_edit": all(t1_checks.values()),
+                "J6.preservation": bool(t1["audit_delta"] == 1),
+            }
+            ev["pass"] = all(ev["assertions"].values())
+            raise _T1OnlyComplete()
 
         # T2 — read-only comparison; must not write.
         t2 = chat_turn(
@@ -673,6 +693,8 @@ def run_j6() -> dict:
             "J6.no-failed-requests": failed_requests == 0,
         }
         ev["pass"] = all(ev["assertions"].values())
+    except _T1OnlyComplete:
+        pass
     except Exception as exc:  # noqa: BLE001
         ev["pass"] = False
         ev["error"] = f"{type(exc).__name__}: {exc}"
@@ -688,7 +710,7 @@ def run_j6() -> dict:
 
 
 def main() -> int:
-    ev = run_j6()
+    ev = run_j6(t1_only="--t1-only" in sys.argv[1:])
     print(json.dumps({
         "journey": ev.get("journey"),
         "pass": ev.get("pass"),
