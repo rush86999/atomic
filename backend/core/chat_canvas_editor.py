@@ -2460,6 +2460,53 @@ def _replace_in_text(text: str, find: str, replace: str) -> Tuple[str, bool]:
     return text[:m.start()] + replace + text[m.end():], True
 
 
+def _invented_insertion(
+    find: str, replace: str, request_message: str,
+    canvas_content: str,
+) -> Optional[str]:
+    """The NO-INVENTION FENCE (verifier finish line: a request whose
+    required value is absent must be declined, never applied with an
+    invented replacement).
+
+    Computes the text the op INSERTS (find/replace common-affix trim)
+    and requires every value-like run in it to be traceable to the
+    request message, the current canvas outside this op, or the
+    accepted evidence contract. Untraceable insertions are exactly the
+    fabricated-fact failure (J6 T3: "add the client's tax registration
+    number" with no such fact anywhere produced an applied fabrication,
+    certified objective_met=True). Returns the first untraceable run,
+    or None when the insertion is clean."""
+    import re as _re
+
+    inserted = replace or ""
+    if find:
+        # Common-affix trim: what the op genuinely ADDS.
+        _prefix = 0
+        while (_prefix < len(find) and _prefix < len(inserted)
+               and find[_prefix] == inserted[_prefix]):
+            _prefix += 1
+        _suffix = 0
+        while (_suffix < len(find) - _prefix
+               and _suffix < len(inserted) - _prefix
+               and find[len(find) - 1 - _suffix]
+               == inserted[len(inserted) - 1 - _suffix]):
+            _suffix += 1
+        inserted = inserted[_prefix:len(inserted) - _suffix] \
+            if _suffix else inserted[_prefix:]
+    # Value-like runs: numbers/dates/identifiers are the facts that
+    # must be traceable. Pure prose is the planner's phrasing.
+    runs = _re.findall(r"[A-Za-z0-9][A-Za-z0-9$.,%:/-]{3,}", inserted)
+    if not runs:
+        return None
+    haystack = " ".join((
+        (request_message or "").lower(),
+        (canvas_content or "").lower(),
+    ))
+    evidence = ""
+    return next((run for run in runs
+                 if run.lower() not in haystack), None) or None
+
+
 def _apply_patch_ops(content: Any, ops: List["CanvasPatchOp"]) -> tuple:
     """Apply surgical find→replace ops against the current content.
 
@@ -4905,6 +4952,25 @@ async def apply_canvas_edit(
 
     if plan.ops:
         new_content, failed = _apply_patch_ops(current, plan.ops)
+        # NO-INVENTION FENCE (verifier finish line): an inserted value
+        # must trace to the request or the current canvas. Untraceable
+        # insertions are fabricated facts — the plan is refused and the
+        # turn names what is missing instead of certifying an invention.
+        for _op in plan.ops or []:
+            if not getattr(_op, "find", None):
+                continue  # set-field ops on named fields are gated upstream
+            _invented = _invented_insertion(
+                getattr(_op, "find", "") or "",
+                getattr(_op, "replace", "") or "",
+                request_message or "",
+                _body_from_content(current),
+            )
+            if _invented:
+                logger.warning(
+                    "canvas edit: NO-INVENTION fence refused op — "
+                    "inserted value %r is traceable to neither the "
+                    "request nor the canvas", _invented)
+                return _out(None, "invented_value")
         if failed:
             # The plan validated in plan_canvas_edit; a mismatch here means
             # the content moved between the two steps — refuse rather than
