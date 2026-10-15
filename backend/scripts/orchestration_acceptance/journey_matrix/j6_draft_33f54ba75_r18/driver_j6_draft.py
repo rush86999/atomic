@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """J6 DRAFT (canvas lane): authorized edit, read-only comparison, unmet
-requirement — on the frozen f7416c4a6 candidate (paired stage spans +
+requirement — on the frozen dacaf24be candidate (paired stage spans +
 the accepted-request evidence gate + the measured compact prompt; the
 drafting workflow itself is UNCHANGED). --t1-only runs the diagnostic
 T1 turn alone (stage attribution), never the counted campaign.
@@ -55,7 +55,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "f7416c4a6"
+SUBJECT = "dacaf24be"
 
 
 class _T1OnlyComplete(Exception):
