@@ -66,7 +66,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "ddd300dbf"
+SUBJECT = "02568191b"
 # AUTHORIZED PLANNING RUNG (owner directive 2026-10-15): the measured
 # arm B of benchmark_t1_rung_20261015_110851 (6/6 effective edits, mean
 # 12.49s, ~$0.00565/attempt). The pin rides ATOM_ASYNC_EDIT_PLAN_MODEL
@@ -591,11 +591,27 @@ def run_j6(t1_only: bool = False, t2_only: bool = False,
         "turn_budget_derivation_s": TURN_BUDGET_DERIVATION_S,
         "turn_budget_env_override": os.environ.get(
             "ATOM_CHAT_TURN_BUDGET_SECONDS"),
-        "local_only": "true",
+        # HYBRID, EXPLICITLY AUTHORIZED AND LABELED (owner directive
+        # 2026-10-15): the local-only policy is NOT in force for this
+        # configuration — the owner authorized cloud planning for the
+        # measured rung. Local-only mode is separately pinned to produce
+        # ZERO cloud dispatches (tests/test_local_only_llm_guard.py).
+        "provider_mode": "hybrid (cloud edit-plan rung + local reply lane)",
+        "local_only": "false",
+        "authorization": (
+            "owner directive 2026-10-15: use the measured planning rung; "
+            "do not repeat the unchanged 8B campaign"),
         "reply_lane": "product-registered local ollama llama3.1:8b",
         "planning_lane_cloud_backed": True,
     }
-    _extra_env = {"ATOM_LOCAL_ONLY": "true",
+    # EXPLICITLY AUTHORIZED HYBRID CONFIGURATION (owner directive
+    # 2026-10-15): cloud planning (the pinned rung) + the local reply
+    # lane. NOT local-only — the product now ENFORCES local-only mode as
+    # blocking every cloud dispatch, including pins (see
+    # test_local_only_llm_guard.py), so running the pin under
+    # ATOM_LOCAL_ONLY=true would silently route locally and misattribute
+    # the campaign. The hybrid mode is labeled in runtime_config.
+    _extra_env = {"ATOM_LOCAL_ONLY": "false",
                   "OLLAMA_BASE_URL": "http://localhost:11434/v1",
                   "OLLAMA_MODEL": "llama3.1:8b",
                   "ATOM_ASYNC_EDIT_PLAN_MODEL": PIN_SPEC,
