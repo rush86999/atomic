@@ -45,6 +45,13 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+# Reference detector: ONE shared constant with the validator — the
+# round-2 independent review (2026-10-15) found the two hand-mirrored
+# phrase sets had drifted and certified reference text as supplied.
+from core.factual_change_validation import (
+    REFERENCE_PHRASE as _SOURCE_REF_PHRASE,
+)
+
 logger = logging.getLogger(__name__)
 
 SCHEMA = "turn-decision-1"
@@ -707,48 +714,17 @@ def extract_request_assignments(
     assignments: List[Dict[str, Any]] = []
     unresolved: List[Dict[str, Any]] = []
     source_refs: List[str] = []
-    _SOURCE_REF_NOUNS = (
-        r"(?:records|systems?|files?|docs?|crm|workbook|database|"
-        r"hr\s+system|personnel\s+record\w*|source\w*|"
-        r"quotes?|quotations?|invoices?|schedules?|attachments?|"
-        r"annex(?:es)?|appendi(?:x|ces)|tables?|spreadsheets?|"
-        r"minutes|contracts?|agreements?|emails?|documents?|notes?)")
-    # Independent review of 5abf89c0e (2026-10-15): reference phrasings
-    # the original from/in/per+records family missed — verb-headed
-    # pointers ("see the attached schedule", "refer to the schedule")
-    # and possessive-source participials ("the supplier's quoted date")
-    # — were recorded as supplied assignments. The family now mirrors
-    # the validator's reference detector (factual_change_validation
-    # ._REFERENCE_PHRASE); keep the two phrase sets in sync, and keep
-    # the widest-over-refusal direction: citing a source in the VALUE
-    # position is an obligation to resolve/verify, never a certification
-    # of the literal ("2026-12-31 per the quote" resolves or is asked).
-    _SOURCE_REF_PHRASE = _re.compile(
-        r"\b(?:from|in|on|at|per|according\s+to|based\s+on|"
-        r"taken\s+from|stated\s+in|shown\s+in|listed\s+in|"
-        r"recorded\s+in|found\s+in|as\s+per)\s+"
-        r"(?:our\s+|the\s+|your\s+|my\s+|his\s+|her\s+|its\s+|"
-        r"their\s+|this\s+|that\s+|these\s+|those\s+)?"
-        + _SOURCE_REF_NOUNS +
-        r"\b"
-        r"|\b(?:see|refer\s+to|consult|check|look\s+(?:at|in)|"
-        r"read\s+(?:from|in))\s+"
-        r"(?:our\s+|the\s+|your\s+|my\s+|his\s+|her\s+|its\s+|"
-        r"their\s+|this\s+|that\s+|these\s+|those\s+)?"
-        r"(?:attached\s+|enclosed\s+)?"
-        + _SOURCE_REF_NOUNS +
-        r"\b"
-        r"|[A-Za-z]+['’]s\s+(?:quoted|stated|listed|recorded|shown|"
-        r"specified|given|provided|supplied|documented|captured|"
-        r"filed)\b",
-        _re.IGNORECASE)
 
     def _is_source_reference(value: str) -> bool:
         """The value span POINTS at where a fact lives instead of stating
-        the fact ("the exact number from our records", "the department in
-        the personnel record"). Such a span is an unresolved source
-        reference — recording it as an explicit assignment would let the
-        plan certify its own echo as a supplied value."""
+        the fact ("the exact number from our records", "see the attached
+        schedule", "the supplier's quoted date"). Such a span is an
+        unresolved source reference — recording it as an explicit
+        assignment would let the plan certify its own echo as a supplied
+        value. Detection uses the SHARED REFERENCE_PHRASE constant
+        (factual_change_validation, imported at module level), so the
+        extractor and the validator can never drift apart on what counts
+        as a reference."""
         return bool(_SOURCE_REF_PHRASE.search(value))
 
     for m in _re.finditer(

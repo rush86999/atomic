@@ -262,26 +262,55 @@ def test_project_unrelated_owner_refused():
     assert _unsupported(r)
 
 
-# --------------------------- reference phrasings (review of 5abf89c0e)
-# Independent review (2026-10-15) counterexamples: natural verb-headed
-# and possessive source references were certified as supplied values.
-# A reference phrased as "see the attached schedule" / "refer to the
-# schedule" / "the supplier's quoted date" must be an UNRESOLVED
-# obligation in BOTH detectors (extractor AND validator), the same as
-# the "from our records" family. Keep in sync with
-# factual_change_validation._REFERENCE_PHRASE and
-# turn_decision._SOURCE_REF_PHRASE.
+# -------------- reference phrasings (reviews of 5abf89c0e / dfaf62c09)
+# Independent review rounds 1+2 (2026-10-15) counterexamples: natural
+# verb-headed, possessive, and pointer-verb source references were
+# certified as supplied values. A reference must stay an UNRESOLVED
+# obligation in BOTH detectors (extractor AND validator). Since the
+# round-2 repair there is ONE shared detector
+# (factual_change_validation.REFERENCE_PHRASE, imported by
+# turn_decision._SOURCE_REF_PHRASE) — the phrasing families below are
+# the contract it must honor: source-preposition+determiner,
+# source-preposition+noun, pointer-verb+noun, bare attached/enclosed,
+# possessive/attributive participial, relative-clause pointer.
+# Unbounded paraphrase coverage is NOT claimed; refusing a source-citing
+# phrase is always the safe direction.
 
 REF_CURRENT = "Valid until: 2026-11-30\n"
 REF_MSG = "Update the valid until date to {value}."
 REFERENCE_PHRASINGS = [
+    # round 1 (5abf89c0e reject)
     "see the attached schedule",
     "see attached schedule",
     "refer to the schedule",
     "the supplier's quoted date",
     "the value shown in the table",
     "the exact date from our records",
+    # round 2 (dfaf62c09 reject) adversarial variants
+    "use the attached schedule",
+    "attached schedule",
+    "consult the log",
+    "check the dashboard",
+    "the suppliers quoted date",
+    "see the system",
+    "see the personnel record",
+    "the date on the portal",
+    "per the attached spreadsheet",
+    "the amount that you sent",
+    "the materials provided",
 ]
+
+
+def test_reference_detector_is_a_single_shared_constant():
+    """Round-2 repair: the extractor and the validator must share ONE
+    detector object — hand-mirrored phrase sets drifted and certified
+    reference text as supplied."""
+    from core import factual_change_validation as fcv
+    from core import turn_decision as td
+
+    assert getattr(td, "_SOURCE_REF_PHRASE", None) is fcv.REFERENCE_PHRASE, (
+        "turn_decision._SOURCE_REF_PHRASE must BE "
+        "factual_change_validation.REFERENCE_PHRASE (single source)")
 
 
 def test_verb_headed_and_possessive_references_are_unresolved():

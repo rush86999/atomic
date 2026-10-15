@@ -176,29 +176,59 @@ _ASSIGNMENT_CONNECTIVE = re.compile(
 _ASSIGNMENT_AFTER = re.compile(
     r"\s*(?:as|to|into)\s+(?:the\s+|a\s+|an\s+)?")
 
-#: A prepositional phrase headed by a determiner names WHERE a value
-#: lives, not what it is. Independent review of 5abf89c0e (2026-10-15):
-#: verb-headed pointers ("see the attached schedule", "refer to the
-#: schedule") and possessive-source participials ("the supplier's quoted
-#: date") are references too, and were being certified. Keep this phrase
-#: set in sync with core/turn_decision.py::_SOURCE_REF_PHRASE, and keep
-#: the widest-over-refusal direction: a value that cites a source is an
-#: obligation to resolve/verify, never a certification of the literal.
-_REFERENCE_PHRASE = re.compile(
+#: A value expression that POINTS at where a fact lives instead of
+#: stating the fact is a reference to be resolved, never a supplied
+#: literal. Round-2 independent review (2026-10-15) found the extractor
+#: and validator phrase sets had drifted; this constant is now the ONE
+#: shared detector — core/turn_decision.py imports it. The phrasing
+#: families are a CONTRACT, regression-pinned in
+#: tests/test_factual_change_domains.py:
+#:   A  source preposition + determiner: "from the records", "on the
+#:      portal", "per the quote", "as per the annex", "shown in the table"
+#:   B  source preposition + optional attached/enclosed + source noun
+#:      without a determiner: "from records", "per attached spreadsheet"
+#:   C  pointer verb + optional determiner/attached/enclosed + noun:
+#:      "see the attached schedule", "refer to the schedule", "consult
+#:      the log", "check the dashboard", "use the attached schedule",
+#:      "see the system", "see the personnel record"
+#:   D  bare "attached/enclosed <noun>": "attached schedule"
+#:   E  possessive/attributive participial: "the supplier's quoted date",
+#:      "the suppliers quoted date", "requirements stated"
+#:   F  relative-clause pointer: "the amount that you sent", "as we
+#:      discussed"
+#: Direction of error: refusing a phrase that cites a source is always
+#: the safe direction — "2026-12-31 per the quote" resolves or is asked,
+#: never blindly certified. Unbounded paraphrase coverage is NOT claimed.
+REFERENCE_PHRASE = re.compile(
     r"\b(?:from|in|on|at|per|according\s+to|based\s+on|taken\s+from|"
     r"stated\s+in|shown\s+in|listed\s+in|recorded\s+in|found\s+in|"
     r"as\s+per)\s+"
     r"(?:the|our|your|my|his|her|its|their|this|that|these|those)\b"
-    r"|\b(?:see|refer\s+to|consult|check|look\s+(?:at|in)|"
-    r"read\s+(?:from|in))\s+"
-    r"(?:the|our|your|my|his|her|its|their|this|that|these|those)?\s*"
+    r"|\b(?:from|in|on|at|per|according\s+to|based\s+on|taken\s+from|"
+    r"stated\s+in|shown\s+in|listed\s+in|recorded\s+in|found\s+in|"
+    r"as\s+per)\s+"
+    r"(?:the|our|your|my|his|her|its|their|this|that|these|those\s+)?"
     r"(?:attached\s+|enclosed\s+)?"
-    r"(?:schedules?|attachments?|documents?|files?|docs?|quotes?|"
-    r"quotations?|invoices?|annex(?:es)?|appendi(?:x|ces)|tables?|"
-    r"spreadsheets?|workbook|records?|minutes|contracts?|"
-    r"agreements?|emails?|crm|database|notes?)\b"
-    r"|[A-Za-z]+['’]s\s+(?:quoted|stated|listed|recorded|shown|"
-    r"specified|given|provided|supplied|documented|captured|filed)\b")
+    r"(?:records|systems?|files?|docs?|crm|workbook|spreadsheets?|"
+    r"database|hr\s+system|personnel\s+record\w*|source\w*|"
+    r"quotes?|quotations?|invoices?|schedules?|attachments?|"
+    r"annex(?:es)?|appendi(?:x|ces)|tables?|minutes|contracts?|"
+    r"agreements?|emails?|documents?|notes?|logs?|ledgers?|"
+    r"dashboards?|portals?|registers?|reports?)\b"
+    r"|\b(?:see|refer\s+to|consult|check|look\s+(?:at|in)|"
+    r"read\s+(?:from|in)|use)\s+"
+    r"(?:the|our|your|my|his|her|its|their|this|that|these|those)?\s*"
+    r"(?:attached\s+|enclosed\s+)?\w+"
+    r"|\b(?:attached|enclosed)\s+\w+"
+    r"|[A-Za-z]+(?:['’]s|s)?\s+(?:quoted|stated|listed|recorded|shown|"
+    r"specified|given|provided|supplied|documented|captured|filed|"
+    r"mentioned|discussed)\b"
+    r"|\b(?:that|which)\s+(?:you|we|they|he|she|i)\s+"
+    r"(?:sent|provided|quoted|discussed|mentioned|gave)\b"
+    r"|\bas\s+(?:we|you|they)\s+(?:discussed|agreed|mentioned)\b")
+
+#: Internal alias (pre-existing call sites keep working).
+_REFERENCE_PHRASE = REFERENCE_PHRASE
 
 _FIELDISH_CONTEXT = re.compile(
     r"\s*(?:[:=]|\b(?:field|line|row|column|header|cell)\b)")
