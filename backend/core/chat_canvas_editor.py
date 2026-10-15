@@ -2460,37 +2460,6 @@ def _replace_in_text(text: str, find: str, replace: str) -> Tuple[str, bool]:
     return text[:m.start()] + replace + text[m.end():], True
 
 
-def _invented_insertion(
-    inserted: str, request_message: str, evidence_text: str,
-) -> Optional[str]:
-    """The NO-INVENTION FENCE — obligation-level grounding (the measured
-    token-presence fence was probed around: single-digit residue after
-    common-affix trim, sub-minimum short values, and numbers copied from
-    elsewhere in the canvas all slipped through).
-
-    Rule: every DIGIT-BEARING run in the inserted text must be supported
-    by the user's explicit instruction or the applicable evidence — an
-    unrelated number elsewhere in the canvas is not support, because
-    substring presence cannot establish that a fact belongs to the
-    requested subject and field. Pure-letter runs are ordinary wording
-    and pass unconditionally ("Hello" → "Greetings" stays possible).
-
-    Returns the first unsupported run, or None when every inserted
-    value is grounded."""
-    import re as _re
-
-    inserted = inserted or ""
-    if not inserted.strip():
-        return None
-    unsupported = [
-        run for run in _re.findall(r"[A-Za-z0-9$.,%:/-]+", inserted)
-        if any(ch.isdigit() for ch in run)
-        and run.lower() not in (request_message or "").lower()
-        and run.lower() not in (evidence_text or "").lower()
-    ]
-    return unsupported[0] if unsupported else None
-
-
 def _apply_patch_ops(content: Any, ops: List["CanvasPatchOp"]) -> tuple:
     """Apply surgical find→replace ops against the current content.
 
@@ -4647,6 +4616,25 @@ def _verify_intended_change(plan: Any, readback_content: Any,
             "scope": "field" if isinstance(readback_content, dict) else "document"}
 
 
+def _factual_change_refusal_reason(refusals: List[Dict[str, Any]]) -> str:
+    """The bounded apply reason for a factual-change refusal, carrying what
+    the user must supply so the reply can ask for it specifically.
+
+    unsupported/stale/unauthorized → ``invented_value:<value>|<target>``
+    an open requirement in the record → ``unresolved_requirement:<named>``
+    Both are verified pre-write refusals (nothing reached the store)."""
+    first = refusals[0] if refusals else {}
+    reason = str(first.get("reason") or "")
+    if reason == "unresolved_requirement":
+        named = " ".join(str(first.get("named_requirement") or "").split())
+        return f"unresolved_requirement:{named[:160]}" if named \
+            else "unresolved_requirement"
+    value = " ".join(str(first.get("value") or "").split())[:60]
+    target = " ".join(str(first.get("target") or "").split())[:60]
+    detail = "|".join(part for part in (value, target) if part)
+    return f"invented_value:{detail}" if detail else "invented_value"
+
+
 async def apply_canvas_edit(
     plan: CanvasEditPlan,
     user_id: str,
@@ -4660,6 +4648,7 @@ async def apply_canvas_edit(
     pending_review: bool = False,
     evidence_contract: Optional[Dict[str, Any]] = None,
     require_evidence_postconditions: bool = False,
+    calculations: Optional[List[Dict[str, Any]]] = None,
 ):
     """Persist the planned edit through the general canvas CRUD layer
     (CanvasAudit append + WS broadcast). Patch ops are re-applied
@@ -4933,46 +4922,52 @@ async def apply_canvas_edit(
 
     new_content: Any = None
     reason: Optional[str] = None
+    factual_provenance: List[Dict[str, Any]] = []
 
     if plan.ops:
         new_content, failed = _apply_patch_ops(current, plan.ops)
-        # NO-INVENTION FENCE (verifier finish line): inserted values are
-        # grounded at the OBLIGATION level — the user's explicit
-        # instruction or the accepted evidence. Canvas presence alone is
-        # not support: substring matching cannot establish that a fact
-        # belongs to the requested subject and field.
-        _evidence_text = " ".join((
-            json.dumps(evidence_contract or {}, default=str)[:4000],
-        ))
-        for _op in plan.ops or []:
-            # EMPTY-FIELD (set-field) ops are NOT exempt: the set value
-            # is the insertion and carries the same grounding duty. The
-            # find is empty, so the whole replace is the insertion.
-            # The text the op genuinely ADDS (common-affix trim) — the
-            # insertion whose values must be obligation-grounded.
-            _find_text = getattr(_op, "find", "") or ""
-            _repl_text = getattr(_op, "replace", "") or ""
-            _prefix = 0
-            while (_prefix < len(_find_text) and _prefix < len(_repl_text)
-                   and _find_text[_prefix] == _repl_text[_prefix]):
-                _prefix += 1
-            _suffix = 0
-            while (_suffix < len(_find_text) - _prefix
-                   and _suffix < len(_repl_text) - _prefix
-                   and _find_text[len(_find_text) - 1 - _suffix]
-                   == _repl_text[len(_repl_text) - 1 - _suffix]):
-                _suffix += 1
-            _inserted = _repl_text[_prefix:len(_repl_text) - _suffix] \
-                if _suffix else _repl_text[_prefix:]
-            _invented = _invented_insertion(
-                _inserted, request_message or "", _evidence_text)
-            if _invented:
+        # DOMAIN-INDEPENDENT FACTUAL-CHANGE VALIDATION (apply boundary).
+        # Every factual change an op makes must be grounded by the accepted
+        # record: the user's explicit instruction, a ready+authorized
+        # evidence-contract action, a verified observation bound to the
+        # requested subject/field, or a recorded calculation. Canvas
+        # presence alone is not support — an unrelated value elsewhere in
+        # the artifact never grounds assigning it to another subject or
+        # field. The validator carries no business vocabulary; subjects,
+        # fields, values, sources, and authorization all arrive as data.
+        # With no request message and no contract there is no record to
+        # validate against (a direct programmatic apply) and the caller
+        # owns authorization.
+        if request_message or evidence_contract:
+            from core.factual_change_validation import (
+                validate_factual_changes as _validate_factual,
+            )
+            verdict = _validate_factual(
+                ops=list(plan.ops or []),
+                current_text=_serialize_content(current, max_chars=None),
+                request_message=request_message or "",
+                evidence_contract=evidence_contract,
+                calculations=calculations,
+                content=current,
+                artifact_id=canvas_id,
+                expected_revision=expected_prior_audit_id,
+            )
+            if verdict.get("refusals"):
+                reason = _factual_change_refusal_reason(verdict["refusals"])
                 logger.warning(
-                    "canvas edit: NO-INVENTION fence refused op — "
-                    "inserted value %r is supported by neither the "
-                    "user's instruction nor the accepted evidence",
-                    _invented)
-                return _out(None, "invented_value")
+                    "canvas edit: factual-change validation refused %d "
+                    "change(s) — first: %s (%s)",
+                    len(verdict["refusals"]),
+                    verdict["refusals"][0].get("detail")
+                    or verdict["refusals"][0].get("named_requirement"),
+                    verdict["refusals"][0].get("reason"))
+                return _out(None, reason)
+            if verdict.get("provenance"):
+                # The grounding classes ride the result so the durable
+                # outcome can state them truthfully (user-supplied is not
+                # independently verified; a calculation is not a source
+                # observation).
+                factual_provenance = verdict["provenance"]
         if failed:
             # The plan validated in plan_canvas_edit; a mismatch here means
             # the content moved between the two steps — refuse rather than
@@ -5010,27 +5005,39 @@ async def apply_canvas_edit(
     if scope_reason:
         return _out(None, scope_reason)
 
-    # NO-INVENTION FENCE — REPLACE MODE (same duty as patch ops): the
-    # ADDED values are the digit-bearing runs in the merged content that
-    # appear NOWHERE in the current content (reordering and reformatting
-    # of existing values are not insertions). Added runs must be
-    # grounded in the request or the accepted evidence.
-    import re as _re_f
-    _old_text = _serialize_content(current, max_chars=None).lower()
-    _new_text = _serialize_content(new_content, max_chars=None)
-    _added_runs = [
-        run for run in _re_f.findall(r"[A-Za-z0-9$.,%:/-]+", _new_text)
-        if any(ch.isdigit() for ch in run)
-        and run.lower() not in _old_text
-        and run.lower() not in (request_message or "").lower()
-        and run.lower() not in _evidence_text.lower()
-    ]
-    if _added_runs:
-        logger.warning(
-            "canvas edit: NO-INVENTION fence refused replace-mode plan — "
-            "added value %r is supported by neither the user's "
-            "instruction nor the accepted evidence", _added_runs[0])
-        return _out(None, "invented_value")
+    # DOMAIN-INDEPENDENT FACTUAL-CHANGE VALIDATION — REPLACE MODE (the same
+    # validator and contract as patch ops; only the extraction differs).
+    # Added values, tracked-value changes, and labeled field changes must be
+    # grounded by the accepted record; reordering/reformatting existing
+    # values is not an insertion. With no record there is nothing to
+    # validate against (a direct programmatic apply) and the caller owns
+    # authorization.
+    if request_message or evidence_contract:
+        from core.factual_change_validation import (
+            validate_factual_changes as _validate_factual,
+        )
+        verdict = _validate_factual(
+            current_text=_serialize_content(current, max_chars=None),
+            new_text_for_replace=_serialize_content(new_content,
+                                                    max_chars=None),
+            request_message=request_message or "",
+            evidence_contract=evidence_contract,
+            calculations=calculations,
+            content=current,
+            artifact_id=canvas_id,
+            expected_revision=expected_prior_audit_id,
+        )
+        if verdict.get("refusals"):
+            logger.warning(
+                "canvas edit: factual-change validation refused replace-"
+                "mode change — %s (%s)",
+                verdict["refusals"][0].get("detail")
+                or verdict["refusals"][0].get("named_requirement"),
+                verdict["refusals"][0].get("reason"))
+            return _out(
+                None, _factual_change_refusal_reason(verdict["refusals"]))
+        if verdict.get("provenance"):
+            factual_provenance = verdict["provenance"]
 
     missing_ready_actions = [
         action
@@ -5219,7 +5226,14 @@ async def apply_canvas_edit(
         # OK. `write_recorded` preserves the distinction for reconciliation.
         result["success"] = False
         result["write_recorded"] = True
+        if factual_provenance:
+            result["factual_change_provenance"] = factual_provenance
         return _out(result, "postcondition_readback_failed")
+    if factual_provenance:
+        # The grounding classes the validator reported: user-supplied is
+        # not independently verified; a calculation is not a source
+        # observation. The durable outcome can state them truthfully.
+        result["factual_change_provenance"] = factual_provenance
     return _out(result, None)
 
 
@@ -5355,6 +5369,8 @@ VERIFIED_PRE_WRITE_REFUSALS = (
     "store_rejected",
     "dead_link",
     "postcondition_missing",
+    "invented_value",
+    "unresolved_requirement",
     "scope_",
     "footer_",
 )
@@ -5432,6 +5448,33 @@ def describe_apply_failure(
             "unchanged rather than put a broken link in it. If you know the "
             "correct address, paste it and I'll add it; otherwise I can "
             "search the site again."
+        )
+    if reason and reason.startswith("invented_value"):
+        # The factual-change validator refused BEFORE any write: the new
+        # value is grounded nowhere in the instruction or the accepted
+        # record. Name what it was so the user can supply it or correct it
+        # — never a generic "try rephrasing", and never a doubt claim.
+        detail = reason.split(":", 1)[1].strip() if ":" in reason else ""
+        value, _, target = detail.partition("|")
+        what = f" ({value} for {target})" if value and target else (
+            f" ({detail})" if detail else "")
+        return (
+            "I didn't write that change: the new value"
+            f"{what} isn't supported by anything you told me or by the "
+            "accepted evidence, so I left the draft unchanged rather than "
+            "put an unbacked value in it. Tell me the value to use (or the "
+            "source it should come from) and I'll apply it."
+        )
+    if reason and reason.startswith("unresolved_requirement"):
+        # The accepted record itself names what is still awaited (a stale
+        # revision, missing evidence): ask for exactly that instead of
+        # manufacturing support or retrying blindly.
+        named = reason.split(":", 1)[1].strip() if ":" in reason else ""
+        ask = f" I still need: {named}." if named else ""
+        return (
+            "I didn't make that change because the record says it is still "
+            f"awaiting evidence.{ask} Give me that and I'll apply it — the "
+            "draft is unchanged."
         )
     if reason and reason.startswith("store_rejected"):
         # Only reachable when the store reported the append was never attempted

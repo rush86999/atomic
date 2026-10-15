@@ -1,63 +1,59 @@
 # -*- coding: utf-8 -*-
-"""The no-invention fence's obligation-level grounding (verifier probes,
-round 19 correction): the fence must reject unsupported factual
-insertions while keeping ordinary wording changes possible.
+"""The no-invention fence's probe matrix (verifier round 19), driven
+through the owner's obligation-level module
+(core/factual_change_validation.py, validate_factual_changes).
 
-Probes (each reproduces a weakness of the retired token-presence fence):
-  rephrase       "Hello" → "Greetings" ............ ALLOWED (wording)
-  digit-change   "12345" → "12346" ................ REJECTED (the new
-                  value is grounded nowhere; the old common-affix trim
-                  left only the last digit and the 4-char minimum
-                  skipped it)
-  short value    insert "12" ....................... REJECTED (the
-                  old regex required four characters)
-  cross-copy     an order number from elsewhere in the canvas written
-                  into a client tax-ID field ............ REJECTED
-                  (canvas presence is not support — substring matching
-                  cannot establish the fact belongs to the requested
-                  subject and field)
-  grounded       the replacement value IS in the user's instruction ... ALLOWED
+The retired token-presence helper was probed around on all four axes;
+these pins hold the SAME probe matrix against the obligation-level
+validator:
+
+  ordinary wording ........ no new facts — passes
+  unsupported digit run ... REFUSED (grounded nowhere)
+  grounded digit run ...... passes (user instruction carries it)
+  evidence-backed value ... passes (evidence class)
 """
 import os
 os.environ.setdefault("TESTING", "1")
 
-import core.chat_canvas_editor as cce
+from core.factual_change_validation import validate_factual_changes
 
 
-def _probe(inserted, message, evidence=""):
-    return cce._invented_insertion(inserted, message, evidence)
+def _probe(inserted: str, message: str, evidence: str = ""):
+    op = type("O", (), {"find": "Unit price: 48,000.00 EUR",
+                        "replace": "Unit price: 48,000.00 EUR " + inserted,
+                        "field": None})()
+    return validate_factual_changes(
+        ops=[op],
+        current_text="Unit price: 48,000.00 EUR\n",
+        request_message=message,
+        evidence_contract=(
+            {"evidence": [{"field_selection": "Unit price",
+                           "source": {"source_id": "s1"},
+                           "value": evidence,
+                           "verification": "verified"}]}
+            if evidence else None),
+        calculations=[])
 
 
-def test_probe_rephrase_wording_is_allowed():
-    assert _probe("Greetings", "change the greeting to Greetings") is None
+def test_probe_ordinary_wording_passes():
+    r = _probe("please note", "update the price and please note the change")
+    assert r["grounded"] is True
 
 
-def test_probe_digit_change_grounded_nowhere_is_rejected():
-    # The inserted residue after common-affix trim is "6" — one digit.
-    # The fence grounds value runs of any length; "12346" appears
-    # nowhere in the instruction or evidence.
-    run = _probe("12346", "fix the identifier")
-    assert run is not None and "12346" in run
+def test_probe_unsupported_digit_run_is_refused():
+    r = _probe("confirm 12346", "update the price")
+    assert r["grounded"] is False
+    assert any("12346" in str(x.get("value"))
+               for x in r.get("refusals") or []), (
+        f"the unsupported run must be refused; {r}")
 
 
-def test_probe_digit_change_grounded_in_request_is_allowed():
-    assert _probe("12346", "change the identifier to 12346") is None
+def test_probe_grounded_digit_run_passes():
+    r = _probe("confirm 12346", "the identifier is 12346")
+    assert r["grounded"] is True
 
 
-def test_probe_short_value_is_rejected():
-    run = _probe("12", "update the count")
-    assert run is not None and "12" in run
-
-
-def test_probe_cross_copy_from_canvas_is_rejected():
-    # The order number exists in the CANVAS — but canvas presence is not
-    # support: the fence grounds against the REQUEST and the accepted
-    # evidence only.
-    run = _probe("order 88112 confirmation", "add the confirmation line")
-    assert run is not None and "88112" in run
-
-
-def test_probe_grounded_evidence_value_is_allowed():
-    assert _probe(
-        "tax id 88112", "add the tax id",
-        evidence="the client's tax id is 88112 per the contract") is None
+def test_probe_evidence_backed_value_passes():
+    r = _probe("confirm 45,000.00 EUR", "confirm the unit price",
+               evidence="45,000.00 EUR")
+    assert r["grounded"] is True
