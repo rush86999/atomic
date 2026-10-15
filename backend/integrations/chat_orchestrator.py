@@ -11786,35 +11786,6 @@ class ChatOrchestrator:
                 _skip_plan_for_self_contained_edit = (
                     _self_contained_edit_turn(
                         message, _canvas_ctx, _td_decision))
-                # PRESENTATION-ONLY: NO SPECULATIVE RESEARCH (owner
-                # directive 2026-10-15; the J6 T2 latency/envelope
-                # evidence). A presentation-only request — the decision
-                # grants a presentation and names no live source, no
-                # file, no edit (`turn_presentation_only`) — is answered
-                # FROM the attached artifact: a speculative tool plan
-                # contributes nothing the request asked for, and its
-                # planner call (the free LOCAL rung, ~12k-char prompt)
-                # consumed the turn on the live dev host (2026-10-15
-                # full diagnostic: T2's reply leg hit its 83s clock
-                # waiting on the joined plan; the lookup itself returned
-                # nothing usable). The accepted-request contract already
-                # records that no live evidence is required
-                # (`turn_evidence_required` is False for exactly this
-                # shape); skipping implements it consistently with the
-                # self-contained-edit gate above. A named source keeps
-                # the lookup: the predicate is False whenever the
-                # request carries one.
-                _skip_plan_for_presentation = False
-                try:
-                    from core.turn_decision import (
-                        turn_presentation_only as _tpo_skip_fn,
-                    )
-
-                    _skip_plan_for_presentation = bool(
-                        _canvas_ctx is not None
-                        and _tpo_skip_fn(_td_decision))
-                except Exception:  # noqa: BLE001 — skip is additive
-                    _skip_plan_for_presentation = False
                 if _clarify_turn:
                     # STRUCTURAL clarify guarantee: no plan task exists to
                     # await, so no speculative lookup can execute behind a
@@ -11833,11 +11804,6 @@ class ChatOrchestrator:
                         "[tool-plan] pre-start skipped — the accepted "
                         "request requires no live evidence and the edit "
                         "lane owns this turn (self-contained edit)")
-                elif _skip_plan_for_presentation:
-                    logger.info(
-                        "[tool-plan] pre-start skipped — the accepted "
-                        "request is presentation-only over the attached "
-                        "artifact (no live evidence required)")
                 else:
                     _tool_plan_task = asyncio.create_task(
                         _planned_with_provenance())

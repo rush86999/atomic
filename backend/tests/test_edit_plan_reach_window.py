@@ -241,33 +241,3 @@ def test_stage_spans_identify_the_active_prerequisite(caplog):
         assert any("[lane-stage-end]" in msg and stage in msg
                    for msg in records), (
             f"stage {stage} must close")
-
-
-def test_presentation_only_gate_uses_the_accepted_decision_not_wording():
-    """The presentation-only pre-start skip (owner directive 2026-10-15)
-    consumes the ACCEPTED decision: a presentation action with no live
-    source and no edit skips the speculative tool plan; a presentation
-    that names a live source keeps its lookup; explicit edits and
-    absent decisions never take this gate."""
-    from core.turn_decision import (
-        build_turn_decision, turn_presentation_only,
-    )
-
-    ctx = {"canvas_id": "cv-reach"}
-
-    def _decision(msg):
-        return build_turn_decision(msg, {}, [], ctx)
-
-    compare = ("Compare the Unit price and the Subtotal lines on this "
-               "quotation and tell me whether they are consistent. Do NOT "
-               "change anything on the quote.")
-    assert turn_presentation_only(_decision(compare)) is True
-    # a presentation that names a live source keeps its lookup
-    assert turn_presentation_only(_decision(
-        "show me the tax number from our records")) is False
-    # an explicit edit never takes this gate
-    assert turn_presentation_only(_decision(
-        "update the Valid Until date to 2026-12-31. Change nothing else."
-    )) is False
-    # absent decision: today's behavior (no skip)
-    assert turn_presentation_only(None) is False
