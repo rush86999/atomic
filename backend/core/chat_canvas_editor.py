@@ -64,15 +64,19 @@ logger = logging.getLogger(__name__)
 # concurrent load, full canvas preserved, in the production lane
 # (diagnostic_benchmark_20261014_195019.json / _195755.json) and
 # independently in the W3 A/B (prompt_ab_20261014_195814.json: compact
-# 3/3 vs heavyweight 0/3, identical payload). The compact set carries
-# the edit-safety contract; it REPLACES ONLY the verbose explanations —
-# evidence, teaching, and user constraints travel unchanged (they are
-# never "scaffolding").
+# 3/3 vs heavyweight 0/3, identical payload). The reply example now
+# names the change (the T1 run's plan.reply was empty, so the user-
+# facing answer fell back to the generic line); re-measured 3/3 at
+# 2.2–4.8s (diagnostic_benchmark_20261014_211300.json). The compact
+# set carries the edit-safety contract; it REPLACES ONLY the verbose
+# explanations — evidence, teaching, and user constraints travel
+# unchanged (they are never "scaffolding").
 _COMPACT_EDITOR_SYSTEM = (
     "You return only the CanvasEditPlan JSON object: "
     '{"wants_edit": bool, "edit_mode": "patch", '
     '"ops": [{"find": "<exact current text>", '
-    '"replace": "<new text>"}], "reply": str}. '
+    '"replace": "<new text>"}], "reply": "<one sentence naming what '
+    'changed, with the new value>"}. '
     "Rules: ops.find MUST copy the current canvas text verbatim "
     "(first occurrence); add \"field\": \"<field name>\" to an op "
     "when the canvas has named fields. Change ONLY the authorized "

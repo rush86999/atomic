@@ -1,0 +1,70 @@
+{
+ "diagnostic": "j6 planning benchmark (isolated; NOT acceptance)",
+ "model": "llama3.1:8b",
+ "started_at": "2026-10-15T01:12:48+00:00",
+ "ollama_ps_before": {
+  "error": "Extra data: line 1 column 5 (char 4)"
+ },
+ "production_auto": [
+  {
+   "label": "production-auto-1",
+   "completed": true,
+   "plan_returned": true,
+   "time_to_valid_plan_s": 4.75,
+   "bound_s": 180.0,
+   "wants_edit": true,
+   "contract_violation": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0,
+   "prompt_chars": 1463,
+   "cap": 2000,
+   "dispatches": 1,
+   "instruction_variant": "compact"
+  },
+  {
+   "label": "production-auto-2",
+   "completed": true,
+   "plan_returned": true,
+   "time_to_valid_plan_s": 2.19,
+   "bound_s": 180.0,
+   "wants_edit": true,
+   "contract_violation": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0,
+   "prompt_chars": 1463,
+   "cap": 2000,
+   "dispatches": 1,
+   "instruction_variant": "compact"
+  },
+  {
+   "label": "production-auto-3",
+   "completed": true,
+   "plan_returned": true,
+   "time_to_valid_plan_s": 2.18,
+   "bound_s": 180.0,
+   "wants_edit": true,
+   "contract_violation": null,
+   "ops_match_current_content": true,
+   "failed_ops": 0,
+   "prompt_chars": 1463,
+   "cap": 2000,
+   "dispatches": 1,
+   "instruction_variant": "compact"
+  }
+ ],
+ "production_auto_summary": {
+  "completions": 3,
+  "attempts": 3,
+  "times_s": [
+   4.75,
+   2.19,
+   2.18
+  ],
+  "instruction_variants": [
+   "compact"
+  ]
+ },
+ "ollama_ps_after": {
+  "error": "Extra data: line 1 column 5 (char 4)"
+ }
+}
