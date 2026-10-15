@@ -688,6 +688,36 @@ def build_turn_decision(
     }
 
 
+def turn_evidence_required(
+    decision: Optional[Dict[str, Any]],
+) -> Optional[bool]:
+    """Does the ACCEPTED request require live evidence for this turn?
+
+    The decision already records this: a research action (source_ask,
+    continuation, direct ask, approval resume, evidence back-reference)
+    or named references (``references.sources`` / ``references.file``).
+    A SELF-CONTAINED edit — the replacement value is supplied in the
+    instruction — carries none of those, and its lane must not pay a
+    general lookup's latency before its own plan can run.
+
+    Returns True (required), False (not required), or None when the
+    decision is absent/unreadable — callers must treat None as "keep
+    the existing behavior", never as "not required".
+    """
+    if not isinstance(decision, dict):
+        return None
+    for action in decision.get("requested_actions") or []:
+        if isinstance(action, dict) and action.get("kind") == _KIND_RESEARCH:
+            return True
+    refs = decision.get("references")
+    if isinstance(refs, dict):
+        if refs.get("sources"):
+            return True
+        if refs.get("file"):
+            return True
+    return False
+
+
 def _looks_seek_shaped(text: str) -> bool:
     # Mirrors the live _FILE_READ_SHAPE_RE read-shape vocabulary
     # (scenario-eval gaps: 'compare the workbook values', 'what does
