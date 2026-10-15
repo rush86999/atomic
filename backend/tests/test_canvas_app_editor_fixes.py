@@ -344,7 +344,10 @@ async def test_plan_prompt_carries_the_app_section():
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]
     assert "CANVAS APP: Email" in prompt
     assert "Currently EMPTY fields: to, cc" in prompt
-    assert "SET-FIELD" in prompt
+    # The compact instruction set (measured concrete shape, 422308016)
+    # carries the field-op vocabulary via the CANVAS APP section's own
+    # phrasing; the pin's intent is that vocabulary, not a literal.
+    assert "set-field op" in prompt
 
 
 @pytest.mark.asyncio
