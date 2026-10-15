@@ -5034,6 +5034,46 @@ def _receipts_carry_verified_complete_search(receipts) -> bool:
     return False
 
 
+def record_canvas_context_source(
+    session: Any,
+    execution_id: Any,
+    canvas_context: Any,
+    *,
+    no_live_evidence: bool,
+) -> None:
+    """Record the ATTACHED ARTIFACT as this execution's context source.
+
+    Owner R4 attribution + the 2026-10-15 J6 T2 evidence: a turn whose
+    ACCEPTED request requires no live evidence (presentation-only /
+    self-contained — the decision's own record) is answered FROM the
+    attached artifact, so the durable outcome must be able to say what
+    the answer was assembled from. The artifact rides the SAME
+    execution-keyed carrier the memory-context assembler publishes
+    (``_retrieval_source_observations_{eid}``) and the outcome builder
+    settles as ``context_source`` refs. Gated to the no-live-evidence
+    shape (evidence-required turns keep their lookup receipts as the
+    recorded basis); never replaces the assembler's own observations;
+    a no-op without a session/execution or without artifact content."""
+    try:
+        if not no_live_evidence or not isinstance(session, dict)                 or not execution_id:
+            return
+        canvas = canvas_context if isinstance(canvas_context, dict) else {}
+        if canvas.get("content") is None:
+            return
+        key = f"_retrieval_source_observations_{execution_id}"
+        if session.get(key):
+            return  # the assembler's observations are already the basis
+        session[key] = [{
+            "source_id": str(
+                canvas.get("canvas_id") or canvas.get("id") or ""),
+            "source_type": "artifact",
+            "service": "canvas",
+            "title": str(canvas.get("title") or "")[:200],
+        }]
+    except Exception:  # noqa: BLE001 — attribution is additive
+        pass
+
+
 def _fallback_turn_outcome(
     session: Any,
     execution_id: Any,
@@ -15773,6 +15813,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     )})
                 except Exception as canvas_ctx_err:
                     logger.debug(f"canvas context block skipped: {canvas_ctx_err}")
+                # CANVAS AS AN ATTRIBUTABLE CONTEXT SOURCE (owner R4
+                # attribution; the 2026-10-15 J6 T2 evidence): a turn
+                # whose ACCEPTED request requires no live evidence
+                # (presentation-only / self-contained — the decision's
+                # own record) is answered FROM the attached artifact,
+                # and the durable outcome must be able to say what the
+                # answer was assembled from. It rides the SAME carrier
+                # the memory-context assembler publishes (`context_source`
+                # refs for the outcome builder and the resolver); gated
+                # to this shape so evidence-required turns keep their
+                # lookup receipts as the recorded basis.
+                try:
+                    _no_live_evidence = bool(
+                        isinstance(shared_tool_state, dict)
+                        and shared_tool_state.get("evidence_required")
+                        is False)
+                    record_canvas_context_source(
+                        session, execution_id, canvas_context,
+                        no_live_evidence=_no_live_evidence)
+                except Exception:  # noqa: BLE001 — additive attribution
+                    pass
 
             # Typed canvas-evidence status (2026-09-22): ONE note per outcome,
             # worded by canvas_evidence_note — a withheld/rejected block is

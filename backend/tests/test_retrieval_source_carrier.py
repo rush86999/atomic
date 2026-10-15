@@ -291,3 +291,53 @@ def test_fallback_resolver_resolves_through_the_users_workspace(
     assert state["state"] in (
         "unconfirmed", "partial", "completed", "failed",
         "continuation_queued")
+
+
+def test_canvas_context_source_is_recorded_for_no_live_evidence_turns():
+    """The attached artifact as the basis of a no-live-evidence turn
+    (owner R4 attribution; the 2026-10-15 J6 T2 evidence): presentation/
+    self-contained turns record the canvas revision they were answered
+    from on the SAME execution-keyed carrier the builder settles."""
+    canvas = {"canvas_id": "cv-77", "canvas_type": "document",
+              "title": "Quotation Q-2026-114", "content": "# Quotation ..."}
+    session = {}
+    chat.record_canvas_context_source(
+        session, "exec-cv", canvas, no_live_evidence=True)
+    key = "_retrieval_source_observations_exec-cv"
+    assert key in session and len(session[key]) == 1
+    ref = session[key][0]
+    assert ref["source_id"] == "cv-77"
+    assert ref["service"] == "canvas"
+    assert ref["source_type"] == "artifact"
+    assert ref["title"] == "Quotation Q-2026-114"
+
+
+def test_canvas_context_source_never_replaces_the_assembler():
+    """The assembler's own observations are the basis when present — the
+    canvas is recorded only when no other source identity did."""
+    session = {"_retrieval_source_observations_e2": [
+        {"source_id": "file-1", "service": "documents"}]}
+    chat.record_canvas_context_source(
+        session, "e2", {"canvas_id": "cv-1", "content": "x"},
+        no_live_evidence=True)
+    assert session["_retrieval_source_observations_e2"] == [
+        {"source_id": "file-1", "service": "documents"}]
+
+
+def test_canvas_context_source_gates():
+    """Evidence-required turns keep their lookup receipts; absent
+    session/execution or content records nothing."""
+    canvas = {"canvas_id": "cv-9", "content": "x"}
+    s1 = {}
+    chat.record_canvas_context_source(
+        s1, "e3", canvas, no_live_evidence=False)
+    assert s1 == {}
+    s2 = {}
+    chat.record_canvas_context_source(
+        s2, None, canvas, no_live_evidence=True)
+    assert s2 == {}
+    s3 = {}
+    chat.record_canvas_context_source(
+        s3, "e4", {"canvas_id": "cv", "content": None},
+        no_live_evidence=True)
+    assert s3 == {}
