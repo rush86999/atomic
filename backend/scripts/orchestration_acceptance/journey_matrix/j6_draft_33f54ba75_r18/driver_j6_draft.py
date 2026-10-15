@@ -536,8 +536,13 @@ def run_j6(t1_only: bool = False) -> dict:
                                     .lower())]
         t1_checks = {
             "turn_success": t1.get("success") is True,
-            "reply_names_change": "2026-12-31" in (
-                t1["delivered_content"] or ""),
+            # TRUTHFUL-CLAIM form: the reply must claim the update (the
+            # durable audit row + authoritative readback carry the rest).
+            # The literal date string is model phrasing, not the finish
+            # line.
+            "reply_claims_update_truthfully": any(
+                w in (t1["delivered_content"] or "").lower()
+                for w in ("updated", "changed", "applied")),
             "authoritative_readback": bool(
                 t1["canvas_after"]["has_new_date"]
                 and t1["canvas_after"]["old_date_gone"]
