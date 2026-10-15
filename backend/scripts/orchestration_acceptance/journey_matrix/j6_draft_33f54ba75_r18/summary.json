@@ -205,5 +205,20 @@
   "what_works": "T2's comparison answered correctly with the comparison ref settled (refs 1); T1's refusal is honest; T3 timed out honestly; preservation held (final canvas matches post-T1)",
   "first_remaining_failure": "T1: the compact planner's proposed patch ops did not match the current canvas verbatim ('couldn't match your request to exact text') \u2014 an 8B-profile patch-precision variance, not a code defect: the same candidate lineage applied the identical edit in the 20d428a61 gated run (audit 1, 7.9s). T3's budget timeout is the same variance.",
   "next_concrete_action": "the product's own mechanism for edit-plan precision is the ATOM_ASYNC_EDIT_PLAN_MODEL rung pin (the async-tier schema-capable rung for exactly this latency/precision trade) \u2014 a CONFIGURATION choice for the owner, not a code change; alternatively accept the 8B variance and iterate counted campaigns. The deterministic enforcement is complete and correct."
+ },
+ "counted_campaign_a8d1ee3cf": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_084149_8191fc.json",
+  "result": "0/3 turns; ZERO WRITES everywhere (the enforcement and the bypass closure held \u2014 nothing fabricated, nothing certified)",
+  "what_works": "T3: preserved (the net-new labeled-line gate + the origin consistency refused the echo). T2: the comparison answered correctly (envelope misclassification \u2014 F3, unchanged). T1: honest refusal, zero writes.",
+  "first_remaining_failure": "T1: the compact planner's patch ops did not match the canvas verbatim ('couldn't match your request to exact text') \u2014 the 8B profile's patch-precision on the origin-tagging scaffold. The prior scaffold phrasing (b8b5bbf9f) produced the same failure in its counted run; the 20d428a61 gated run applied the identical edit (7.9s) \u2014 LLM variance on this profile.",
+  "owner_lever": "the planning-alternative benchmark the verifier authorized: a stronger configured planning rung (ATOM_ASYNC_EDIT_PLAN_MODEL). This environment has only llama3.1:8b locally \u2014 the benchmark needs a stronger planning model installed (e.g., a 14B/32B-class local model), which is an environment provision the owner controls."
+ },
+ "counted_campaign_c7e97a30f": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_130640_4fb319.json",
+  "review": "round-3 independent review APPROVE - D1-D5 all PASS (rounds 1-2 REJECT, repaired X2=dfaf62c09, X3=c7e97a30f); verdict /tmp/verifier_c7e97a30f/REVIEW_VERDICT.md",
+  "result": "0/3 turns; ZERO WRITES everywhere (audit_delta 0 on every turn \u2014 nothing fabricated, nothing certified); reload agreement PASS; failed_request_count 3",
+  "what_works": "T1 refused with the corrected no-re-ask wording (the request's own value named: valid until date = 2026-12-31; the draft untouched). T2: the comparison answered correctly (Unit price $48,000.00 ... consistent), durable comparison evidence settled (refs 1), byte-identical preservation. T3: zero writes (115s budget envelope; nothing certified).",
+  "first_remaining_failure": "T1: the edit-plan DID dispatch (1 dispatch, local llama3.1:8b, 8.8s, CanvasEditPlan tool_calls) but every replace-mode attempt came back unavailable \u2014 no apply, no write; the reply names the match failure. The 8B-profile plan-precision family (the 20d428a61 gated run applied the identical edit in 7.9s). T2's envelope still resolves failed/turn_failed_no_result (a required memory outcome recorded not_executed dominates \u2014 F3). T3's budget envelope is generic (unmet_named_or_honest false).",
+  "owner_lever": "unchanged: the ATOM_ASYNC_EDIT_PLAN_MODEL rung pin (the benchmark on this candidate: 8B compact 0/6 effective vs deepseek-v4-pro 6/6 effective, mean 12.5s, ~$0.0057/attempt), or accept the 8B variance and iterate counted campaigns."
  }
 }
