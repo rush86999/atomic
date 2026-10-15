@@ -176,5 +176,12 @@
   "T2": "comparison answered correctly; envelope resolves failed (delivered answer misclassified) \u2014 unchanged from the prior run",
   "T3": "the fence's grounding rule has a residual vector: the model's insertion echoed the request's own words ('client's tax registration number...') with NO factual value. The fence grounds digit-bearing VALUE runs; a request-echo insertion without any value run passes. The canvas was written (audit 1) and the durable outcome certified it. The audit row's content is not captured by the current driver (T1 only) \u2014 the next driver revision must capture every turn's write content.",
   "next_concrete_action": "extend the fence: an insertion that adds a content unit naming a MISSING FACT (the evidence gate skipped the lookup because the accepted request carries no evidence requirement, yet the plan asserts new factual content) must carry a grounded VALUE run \u2014 or the plan must decline naming the gap. Deterministic signal: the evidence gate's own skip decision + the absence of a grounded value run in the insertion."
+ },
+ "counted_campaign_20d428a61": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_231418_138157.json",
+  "T1": "GREEN (7.9s) \u2014 the authorized-edit milestone HOLDS across campaigns: dispatch 1, contract valid, applied once, preserved, readback, evidence.",
+  "T2": "comparison answered correctly, zero writes; envelope success=False (delivered-honest-answer classification \u2014 unchanged, F3)",
+  "T3": "STILL WROTE (audit 1, 'Added client's tax registration number to quotation') \u2014 the gate's value-grounding check passed because the inserted value ECHOED THE REQUEST's own words ('the exact number from our records' appears in the message). The request-echo is the remaining vector: the inserted 'value' is composed of the request's words, not a fact from the world.",
+  "next_concrete_action": "anti-echo rule at the net-new labeled-line gate: the value must not be composed of the request message's own words \u2014 strip request-word spans; an empty remainder means no supplied value \u2192 refuse with the named requirement. The evidence gate's skip decision (no accepted evidence requirement) supplies the other half: net-new factual lines on such turns need the value from the user, period."
  }
 }
