@@ -586,6 +586,37 @@ def _op_text_source(op: Any, content: Any, fallback: str) -> str:
     return fallback
 
 
+def _artifact_line_label(text: Any, needle: Any) -> str:
+    """The label of the artifact LINE the needle sits on — "Valid until"
+    for ``Valid until: 2026-11-30``. Empty when the matched line carries
+    no label.
+
+    An unlabeled patch still edits a NAMED line: the plan's op carries
+    only the changed span (find "2026-11-30" → replace "2026-12-31"),
+    but the artifact the op edits says which field that span belongs
+    to. Reading the target from the artifact keeps EQUIVALENT patch
+    shapes equivalent through validation (the labeled and unlabeled
+    forms of the same change must ground identically — without this,
+    the unlabeled form reached the refusal as "unlabelled" with no
+    target for the request's own assignment to bind: live J6 T1
+    2026-10-15, value "2026-12-31" plainly assigned by "update the
+    Valid Until date to 2026-12-31" yet refused). Patch semantics
+    replace the FIRST match, so the label comes from the first
+    occurrence."""
+    full = str(text or "")
+    value = str(needle or "")
+    if not full or not value:
+        return ""
+    idx = full.find(value)
+    if idx < 0:
+        return ""
+    start = full.rfind("\n", 0, idx) + 1
+    end = full.find("\n", idx)
+    line = full[start:end if end != -1 else len(full)]
+    label, _value = _label_value(line)
+    return label or ""
+
+
 def _changes_from_ops(
     ops: Sequence[Any],
     content: Any,
@@ -647,6 +678,15 @@ def _changes_from_ops(
         # NEW digit-bearing values introduced by an unlabeled or
         # value-only patch: unchanged runs ride along and carry no duty.
         find_runs = {_norm(run) for run in _value_runs(find)}
+        if not fact_field and find:
+            # AN UNLABELED PATCH STILL EDITS A NAMED LINE: recover the
+            # target from the artifact the op edits, so the grounding
+            # routes below receive the field the change actually touches
+            # (see _artifact_line_label). Without it, an equivalent
+            # bare-value patch reached validation as "(unlabelled)" and
+            # the request's own plain assignment had no target to bind —
+            # refused despite naming the value (live J6 T1 2026-10-15).
+            fact_field = _artifact_line_label(text, find)
         for run in _value_runs(replace):
             if _norm(run) in find_runs:
                 continue

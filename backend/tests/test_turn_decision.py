@@ -20,6 +20,8 @@ from core.turn_decision import (
     AUTH_NEEDS_GRANT,
     _user_grounded_edit_instruction,
     build_turn_decision,
+    turn_evidence_required,
+    turn_presentation_only,
 )
 
 ASK = ("find the prices of these 8 machines in Consolidated Price List "
@@ -297,3 +299,44 @@ def test_research_backstop_routes_ask_lane(monkeypatch):
         asyncio.run(orch.process_chat_message(
             "u1", "run the lookup again on that price sheet please",
             "s-bs", context={}))
+
+
+def test_presentation_only_predicate_over_an_attached_canvas():
+    """The J6 T2 shape (owner directive 2026-10-15): a read-only
+    comparison over the attached canvas is presentation-only — the
+    recorded-outcome resolver classifies its DELIVERY as such, without
+    blessing any answer wording."""
+    d = build_turn_decision(
+        "Compare the Unit price and the Subtotal lines on this quotation "
+        "and tell me whether they are consistent. Do NOT change anything "
+        "on the quote.",
+        {"id": "s-dec"}, session_id="s-dec", context={"canvas_id": "c-1"})
+    assert turn_presentation_only(d) is True
+    assert turn_evidence_required(d) is False
+
+
+def test_explicit_edit_is_never_presentation_only():
+    d = build_turn_decision(
+        "On this quotation, update the Valid Until date to 2026-12-31. "
+        "Change nothing else.",
+        {"id": "s-dec"}, session_id="s-dec", context={"canvas_id": "c-1"})
+    assert turn_presentation_only(d) is False
+
+
+def test_presentation_naming_a_live_source_is_not_presentation_only():
+    """The guard's teeth: a presentation whose request names a live
+    source ('from our records') carries an evidence requirement — the
+    predicate must be False so its delivery is validated by evidence,
+    never by the presentation classification."""
+    d = {
+        "requested_actions": [
+            {"kind": "presentation", "field": "tax", "style": "default"}],
+        "references": {"sources": [], "file": None},
+        "message": "show me the tax number from our records",
+    }
+    assert turn_evidence_required(d) is True
+    assert turn_presentation_only(d) is False
+
+
+def test_absent_decision_is_never_presentation_only():
+    assert turn_presentation_only(None) is False

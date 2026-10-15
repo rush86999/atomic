@@ -2991,13 +2991,24 @@ def _search_execution_receipt(
     }
 
 
-def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
+def _planner_receipt_rows(plan: Any,
+                          block: Optional[str] = None) -> List[Dict[str, Any]]:
     """Attributable tool_outcome rows for the planner lane's execution
     (pristine-J2 false-search finding, 2026-10-12): a search the tool
     planner dispatched must settle the turn's durable outcome with the
     SAME attributable rows the file lane writes — a turn with zero
     executed lookups can never read as served. Facts come from the plan's
-    stamped execution meta, never from returned prose."""
+    stamped execution meta, never from returned prose.
+
+    ``block`` is the block the dispatch RETURNED (when the caller has
+    it): the same dispatch fact the settle arm reads
+    (``_search_execution_receipt`` counts returned text as dispatch
+    evidence). Without it, a text-only execution — e.g. a memory search
+    over an empty store — computed dispatched=False and its row read
+    ``not_executed`` for a lookup that HAD run (live J6 T2 2026-10-15:
+    the settle recorded invoked=true while the companion row said
+    not_executed). Callers without the block keep the previous
+    behavior."""
     meta = getattr(plan, "_result_meta", None) or {}
     if not isinstance(meta, dict):
         meta = {}
@@ -3055,7 +3066,7 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
         # of 02ec1c57e: a failed or empty-shaped response must not look
         # executed and verified; executed / evidence / satisfaction are
         # distinct facts).
-        receipt = _search_execution_receipt(plan, None)
+        receipt = _search_execution_receipt(plan, block)
         invoked = bool(receipt["dispatched"])
         rc = receipt.get("receipt") or {}
         evidence_items = (
@@ -5032,6 +5043,7 @@ def _fallback_turn_outcome(
     canvas_was_read: bool = False,
     noop_receipt: bool = False,
     extra_execution_ids: Any = None,
+    presentation_only_turn: bool = False,
 ) -> Dict[str, Any]:
     """Resolve the turn's outcome from DURABLE, IDENTITY-BOUND records.
 
@@ -5229,6 +5241,25 @@ def _fallback_turn_outcome(
                     # partially-covered comparison is not a delivered
                     # result.
                     validated = True
+        # PRESENTATION DELIVERY (owner directive 2026-10-15, the J6 T2
+        # outcome defect): a turn whose ACCEPTED request is
+        # presentation-only — the decision grants a presentation and
+        # names no live source, no file, no edit (turn_decision
+        # ``turn_presentation_only``) — and which READ the attached
+        # artifact this turn (``canvas_was_read``: the durable canvas
+        # revision was in this turn's context and the reply presented
+        # it) delivered the requested result: the presentation itself,
+        # over the artifact revision the read resolved. This validates
+        # the TURN's delivery, never the reply's wording — narration
+        # agreement stays with the fabrication layer — and a recorded
+        # failure or an open obligation still resolves failed/partial
+        # first (the state map below). Prior shape (every recorded J6
+        # run): a delivered, correct canvas comparison resolved
+        # success=false / outcome_unconfirmed because no recorded
+        # delivery fact existed for a presentation.
+        if (not validated and presentation_only_turn
+                and canvas_was_read):
+            validated = True
         # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the memory-context
         # assembler publishes the source identities it actually
         # retrieved from — these become attributable evidence refs for
@@ -13651,6 +13682,21 @@ class ChatOrchestrator:
                     _noop_receipt = bool(
                         isinstance(locals().get("_shared_tool"), dict)
                         and _shared_tool.get("canvas_edit_decline_noop"))
+                    # PRESENTATION-ONLY ACCEPTED REQUEST (owner directive
+                    # 2026-10-15): the decision for THIS turn classifies
+                    # the delivery of a presentation over the attached
+                    # artifact — the resolver consumes it so a delivered
+                    # presentation no longer resolves unconfirmed.
+                    _fb_presentation = False
+                    try:
+                        from core.turn_decision import (
+                            turn_presentation_only as _tpo_fn,
+                        )
+
+                        _fb_presentation = bool(
+                            _tpo_fn(locals().get("_td_decision")))
+                    except Exception:  # noqa: BLE001 — carry is additive
+                        _fb_presentation = False
                     # the calc lane runs on the reply leg's own inner
                     # execution id — carried on the blackboard so the
                     # identity-bound resolver matches its operations
@@ -13664,7 +13710,8 @@ class ChatOrchestrator:
                         canvas_was_read=_fb_read,
                         noop_receipt=_noop_receipt,
                         extra_execution_ids=(
-                            [_extra_exec] if _extra_exec else None))
+                            [_extra_exec] if _extra_exec else None),
+                        presentation_only_turn=_fb_presentation)
                 except Exception:  # noqa: BLE001 — additive
                     _fb_outcome = None
             if not _fb_from_gate and not (_fb_outcome or {}).get(
@@ -17382,7 +17429,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             if isinstance(session, dict) and execution_id:
                                 session[
                                     f"_planner_tool_receipts_{execution_id}"
-                                ] = _planner_receipt_rows(_plan)
+                                ] = _planner_receipt_rows(
+                                    _plan, block=_live_block)
                                 session[
                                     f"_planner_receipt_facts_{execution_id}"
                                 ] = _planner_receipt_facts(_plan)
