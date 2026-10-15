@@ -156,5 +156,12 @@
   "first_broken_transition": "the edit-plan structured call NEVER DISPATCHES: zero route=canvas_edit_plan:<eid> dispatch lines, zero [plan-stage] events, zero [plan-prompt] manifests across both counted runs \u2014 the 30s plan wait_for expired at the 74s leg bound after a ~44s pre-dispatch phase inside the edit leg (between the fresh_data marker and the first dispatch). The three structured-<hex> dispatches visible in the turn (11.8-12.2k prompt chars) belong to OTHER legs \u2014 the edit plan is not among them. The isolated harness dispatches the same route natively in 15.9s, so the defect is in the LANE's pre-dispatch/window path, not the model or the transport.",
   "regression": "the counted run's T1 gate (J6.T1_authorized_edit) IS the failing regression \u2014 its stage ladder shows edit_plan_dispatches=0, plan_validated=not_reached, edit_applied=false on both counted runs",
   "surgical_target": "instrument between the fresh_data marker and the first edit-plan dispatch in _try_canvas_edit (the authorization evaluation, plan_canvas_edit entry, and the 30s wait_for) \u2014 the next owner's single probe"
+ },
+ "counted_campaign_4186a2137": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_212328_c110a2.json",
+  "milestone": "T1 authorized edit PASSES the full gate: dispatch 1, contract=valid, ops match current content, applied EXACTLY ONCE (audit delta 1, the write row recorded), protected content intact (rest_intact, old date gone), authoritative readback TRUE, durable mutation evidence TRUE, objective_met TRUE \u2014 in 8.3s",
+  "fence_verified": "T3 (unmet requirement: tax number exists nowhere) NO LONGER WRITES OR CERTIFIES: preserved=True, delta=0, objective_met=None. The no-invention fence refused the plan and the lane answered honestly.",
+  "reload": "agreement TRUE (t1_value_in_history, final_canvas_matches_t1, t3_still_unmet)",
+  "first_remaining_failure": "ENVELOPE CLASSIFICATION: T2 answered the comparison correctly (preserved, 1 comparison ref settled) and T3 declined honestly \u2014 both deliver truthful answers but the envelope resolves success=False/failed. A delivered honest answer must not resolve failed. Narrow outcome-classification repair in the decline fall-through; nothing else remains."
  }
 }
