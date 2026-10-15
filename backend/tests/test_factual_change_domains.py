@@ -118,6 +118,72 @@ def test_hr_source_reference_is_refused():
         f"nowhere); refusals={r.get('refusals')}")
 
 
+HR_MSG_REFERENCE_VALUE = (
+    "Set the department to the department from our records.")
+
+
+def test_hr_reference_valued_assignment_never_enters_the_contract():
+    """Owner reproduction (2026-10-15): the extractor recorded BOTH an
+    assignment to the reference's own words AND a source reference — the
+    contradiction certified the lookup phrase as user-supplied. The
+    contract now carries the distinction; the change refuses, named."""
+    from core.turn_decision import extract_request_assignments
+
+    accepted = extract_request_assignments(HR_MSG_REFERENCE_VALUE)
+    assert accepted["source_references"], (
+        "the request names a source and the obligation must stand")
+    assert not any(
+        "department" in str(e.get("target") or "")
+        for e in accepted["assignments"]), (
+        "a reference-bearing value is never a supplied assignment; "
+        f"got {accepted['assignments']!r}")
+    assert any(
+        "department" in str(e.get("target") or "")
+        for e in accepted["unresolved_additions"]), (
+        "the target stays named as an unresolved obligation; "
+        f"got {accepted['unresolved_additions']!r}")
+
+    op = _Op("Department: Logistics",
+             "Department: the department from our records",
+             origin="user_supplied")
+    r = _run([op], HR_CURRENT, HR_MSG_REFERENCE_VALUE, accepted)
+    assert r["grounded"] is False
+    assert any(x.get("reason") == Refusal.UNRESOLVED
+               for x in r.get("refusals") or []), (
+        f"the lookup phrase must not certify; refusals={r.get('refusals')}")
+
+
+def test_hr_reference_valued_contract_entry_never_certifies():
+    """Defense through the contract: a hand-built accepted entry whose
+    own value is a reference cannot certify the change either — no
+    producer's table may bless the reference's words."""
+    accepted = {"assignments": [
+        {"target": "department",
+         "value": "the department from our records"},
+    ]}
+    op = _Op("Department: Logistics",
+             "Department: the department from our records",
+             origin="user_supplied")
+    r = _run([op], HR_CURRENT, HR_MSG_REFERENCE_VALUE, accepted)
+    assert r["grounded"] is False
+
+
+def test_hr_explicit_department_assignment_grounds_from_the_extractor():
+    """The genuine explicit assignment, committed alongside the bypass:
+    the real extractor's table grounds the change as user_supplied."""
+    from core.turn_decision import extract_request_assignments
+
+    msg = "Set the department to Operations."
+    accepted = extract_request_assignments(msg)
+    assert accepted["assignments"], "the explicit assignment must bind"
+    op = _Op("Department: Logistics", "Department: Operations",
+             origin="user_supplied")
+    r = _run([op], HR_CURRENT, msg, accepted)
+    assert r["grounded"] is True
+    assert any(p.get("class") == Provenance.USER
+               for p in r.get("provenance") or [])
+
+
 # ------------------------------------------------------------ operations
 OPS_CURRENT = "Asset: Forklift L-7\nInspection interval: 6 months\n"
 

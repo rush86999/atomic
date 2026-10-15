@@ -991,6 +991,14 @@ def validate_factual_changes(
             entry_target = str(entry.get("target") or "")
             if not entry_target or not target_name:
                 continue
+            # A CONTRACT ENTRY WHOSE VALUE IS A REFERENCE IS AN
+            # OBLIGATION, NOT A LICENCE (owner reproduction 2026-10-15:
+            # "set the department to the department from our records").
+            # The extractor demotes such values to unresolved; a
+            # contract assembled by any other producer must not certify
+            # the reference's own words either.
+            if _is_reference_span(entry.get("value"), ""):
+                continue
             if not (_norm(entry_target) in _norm(target_name)
                     or _norm(target_name) in _norm(entry_target)):
                 continue
