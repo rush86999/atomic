@@ -4974,6 +4974,57 @@ async def apply_canvas_edit(
             # write a partial edit on top of a state nobody saw.
             logger.warning("canvas edit: patch ops no longer match — refusing partial write")
             return _out(None, "ops_no_longer_match")
+        # NET-NEW LABELED LINE (verifier round 19 correction): an
+        # insertion that adds a "Label: ..." line for a field the canvas
+        # does not have is a factual claim about the world. When the
+        # label's VALUE is not grounded — supplied by the user or carried
+        # by accepted evidence — the line manufactures support for a fact
+        # nobody provided (counted campaign 20261014_230725: "Added
+        # client's tax registration number" — the number exists nowhere).
+        # Refuse and name the requirement: ask for the value.
+        import re as _re_l
+
+        def _inserted_span(find_text: str, replace_text: str) -> str:
+            # What the op genuinely ADDS: replace minus the common
+            # affixes shared with find (same trim as the validation
+            # module's inserted-text computation).
+            _prefix = 0
+            while (_prefix < len(find_text) and _prefix < len(replace_text)
+                   and find_text[_prefix] == replace_text[_prefix]):
+                _prefix += 1
+            _suffix = 0
+            while (_suffix < len(find_text) - _prefix
+                   and _suffix < len(replace_text) - _prefix
+                   and find_text[len(find_text) - 1 - _suffix]
+                   == replace_text[len(replace_text) - 1 - _suffix]):
+                _suffix += 1
+            return replace_text[_prefix:len(replace_text) - _suffix] \
+                if _suffix else replace_text[_prefix:]
+
+        for _op in plan.ops or []:
+            _inserted = _inserted_span(
+                str(getattr(_op, "find", "") or ""),
+                str(getattr(_op, "replace", "") or ""))
+            for _line in _inserted.splitlines():
+                _m = _re_l.match(r"^\s*([A-Za-z][A-Za-z0-9 /_-]{1,48}?):\s*(\S.*)$",
+                                 _line)
+                if not _m:
+                    continue
+                _label, _value = _m.group(1).strip(), _m.group(2).strip()
+                if _label.lower() in _norm(current).lower():
+                    continue
+                _value_grounded = (
+                    _value.lower() in _norm(request_message or "").lower()
+                    or _value.lower() in _norm(current).lower())
+                if _value_grounded:
+                    continue
+                logger.warning(
+                    "canvas edit: NET-NEW labeled line %r has an "
+                    "ungrounded value — refusing; ask for the value",
+                    _label)
+                return _out(None,
+                            "ungrounded_value: the value for "
+                            f"'{_label}' is not available; provide it")
     else:
         parsed, decode_reason = _decode_replace_content(plan, current)
         if parsed is None:
