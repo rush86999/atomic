@@ -352,6 +352,62 @@ def apply_failed_pin_exclusion(
     return filtered or [tuple(exclude_provider_model)]
 
 
+#: LOCAL-ONLY PROVIDER BOUNDARY (owner directive 2026-10-15): the
+#: documented local-only policy (core.privsec.local_only_guard) blocks
+#: cloud services — DeepSeek included — but the LLM layer never consulted
+#: the guard, so a mounted cloud key or an operator env pin dispatched
+#: cloud calls under ATOM_LOCAL_ONLY=true. These helpers close that gap at
+#: every dispatch seam: the ranked candidate pools (primary routing AND
+#: the static fallback rotation), the pin gate
+#: (pinned_planning.build_provider_model_pin), and the handler's own
+#: provider_model consumption (a pin arriving by any other path).
+_LOCAL_PROVIDER_IDS = frozenset((
+    "ollama", "lmstudio", "lm-studio", "vllm", "llamacpp", "llama.cpp",
+    "localai", "text-generation-webui", "koboldcpp"))
+
+
+def _provider_is_cloud(provider_id: Any, local_routes: Any = None) -> bool:
+    """Whether a provider's calls leave this machine.
+
+    Known local runtimes and REGISTERED local routes are local; every
+    other provider is cloud — the SAFE direction (an unknown provider is
+    not trusted to be local, and callers use this only to BLOCK under
+    local-only mode)."""
+    pid = str(provider_id or "").strip().lower()
+    if not pid:
+        return False
+    if pid in _LOCAL_PROVIDER_IDS or pid.startswith("local"):
+        return False
+    try:
+        if isinstance(local_routes, dict):
+            for route in local_routes.values():
+                if not isinstance(route, dict):
+                    continue
+                for key in ("provider_id", "provider_key"):
+                    if str(route.get(key) or "").strip().lower() == pid:
+                        return False
+    except Exception:  # noqa: BLE001 — the classification stays conservative
+        pass
+    return True
+
+
+def _local_only_blocks_provider(provider_id: Any,
+                                local_routes: Any = None) -> bool:
+    """True when local-only mode is enabled AND the provider is cloud.
+
+    A guard read failure never blocks (routing must not depend on the
+    guard being importable); the env is the guard's own source of truth
+    via its singleton."""
+    try:
+        from core.privsec.local_only_guard import get_local_only_guard
+
+        if not get_local_only_guard().is_local_only_enabled():
+            return False
+    except Exception:  # noqa: BLE001 — never block on a guard read failure
+        return False
+    return _provider_is_cloud(provider_id, local_routes)
+
+
 def _interactive_structured_max_seconds() -> float:
     raw = os.getenv("ATOM_INTERACTIVE_STRUCTURED_MAX_SECONDS")
     if raw is not None and str(raw).strip() != "":
@@ -4204,6 +4260,25 @@ class BYOKHandler:
                     "BPC executable-routes gate: %d provider(s) on "
                     "provider-level cooldown — excluded before ranking: %s",
                     len(_benched), ", ".join(sorted(_benched)))
+            # LOCAL-ONLY PROVIDER BOUNDARY (owner directive 2026-10-15):
+            # under ATOM_LOCAL_ONLY=true the documented policy blocks
+            # cloud providers — this layer previously never consulted the
+            # guard, so a mounted cloud key (or a pin, or the static
+            # fallback below) dispatched cloud calls anyway. Excluded
+            # HERE, before any candidate is scored or attempted; the pin
+            # gate and the provider_model consumption below close the
+            # remaining seams.
+            _cloud_blocked = [
+                p for p in available_providers
+                if _local_only_blocks_provider(p, self._local_routes)]
+            if _cloud_blocked:
+                available_providers = [
+                    p for p in available_providers
+                    if p not in _cloud_blocked]
+                logger.info(
+                    "LOCAL-ONLY: %d cloud provider(s) excluded from "
+                    "ranking before dispatch: %s",
+                    len(_cloud_blocked), ", ".join(sorted(_cloud_blocked)))
             candidates = []
             # 2026-09-23 route-exclusion trace: ranking-stage skips (latency
             # cap, rate budgets) shrink the candidate pool BEFORE the
@@ -4904,6 +4979,14 @@ class BYOKHandler:
             provider_priority = ["gemini", "deepseek", "anthropic", "qwen", "minimax", "opencode-go", "openai", "moonshot", "openrouter"]
         else: # ADVANCED
             provider_priority = ["openai", "deepseek", "opencode-go", "anthropic", "qwen", "gemini", "moonshot", "minimax", "openrouter"]
+        # LOCAL-ONLY PROVIDER BOUNDARY (owner directive 2026-10-15): the
+        # STATIC fallback rotation is a fallback route — it must not
+        # re-admit cloud providers the movement above excluded (the same
+        # "fallback must not override the gates" contract the hard-gate
+        # parity below already enforces for rate/context skips).
+        provider_priority = [
+            p for p in provider_priority
+            if not _local_only_blocks_provider(p, self._local_routes)]
         
         capability_blocked_options: List[tuple] = []
 
@@ -7206,7 +7289,22 @@ class BYOKHandler:
             # used to bypass every context check, and a learning-heavy prompt
             # overflowed it where the ranker would have chosen a bigger model.
             if provider_model is not None:
-                if self._provider_cooldown_active(provider_model[0]) or self._model_cooldown_active(
+                if _local_only_blocks_provider(
+                        provider_model[0], self._local_routes):
+                    # LOCAL-ONLY PROVIDER BOUNDARY (owner directive
+                    # 2026-10-15): the pin arrived by some path that did
+                    # not pass the pin gate (build_provider_model_pin) —
+                    # the handler refuses it here, last before dispatch.
+                    # The request re-ranks through the local-only pool
+                    # (or fails locally); NO cloud call is made.
+                    logger.warning(
+                        "LOCAL-ONLY: refusing pin %s/%s — cloud dispatch "
+                        "is blocked; re-ranking across local providers",
+                        provider_model[0], provider_model[1])
+                    provider_model = None
+                if provider_model is None:
+                    pass  # refused above; the ranked options below govern
+                elif self._provider_cooldown_active(provider_model[0]) or self._model_cooldown_active(
                     provider_model[0], provider_model[1]
                 ):
                     # A pinned provider on cooldown (rejected credential,
