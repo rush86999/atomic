@@ -15,7 +15,8 @@ validator:
 import os
 os.environ.setdefault("TESTING", "1")
 
-from core.factual_change_validation import validate_factual_changes
+from core.factual_change_validation import (
+    Provenance, Refusal, validate_factual_changes)
 
 
 def _probe(inserted: str, message: str, evidence: str = ""):
@@ -49,8 +50,24 @@ def test_probe_unsupported_digit_run_is_refused():
 
 
 def test_probe_grounded_digit_run_passes():
-    r = _probe("confirm 12346", "the identifier is 12346")
+    # Grounded: the planner tags origin=user_supplied AND the value span
+    # appears in the instruction (both required by the corrected rule).
+    op = type("O", (), {"find": "Unit price: 48,000.00 EUR",
+                        "replace": "Unit price: 45,000.00 EUR",
+                        "field": None, "origin": "user_supplied"})()
+    r = validate_factual_changes(
+        ops=[op],
+        current_text="Unit price: 48,000.00 EUR\n",
+        request_message="the identifier is 12346; set the unit price to "
+                        "45,000.00 EUR",
+        evidence_contract=None, calculations=[])
     assert r["grounded"] is True
+    # UNGROUNDED: the same run without the span or the tag is an
+    # unresolved requirement — named, never certified.
+    r2 = _probe("confirm 12346", "update the price")
+    assert r2["grounded"] is False
+    assert any(x.get("reason") == Refusal.UNRESOLVED
+               for x in r2.get("refusals") or [])
 
 
 def test_probe_evidence_backed_value_passes():

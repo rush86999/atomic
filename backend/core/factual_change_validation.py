@@ -336,16 +336,17 @@ def _calculation_is_recorded(calc: Dict[str, Any]) -> bool:
 
 class _Change:
     __slots__ = ("value", "previous", "field", "field_kind", "raw",
-                 "context", "label")
+                 "context", "label", "origin")
 
     def __init__(self, *, value: str, previous: str = "", field: str = "",
                  field_kind: str = "field", raw: str = "", context: str = "",
-                 label: str = ""):
+                 label: str = "", origin: str = ""):
         self.value = value
         self.previous = previous
         self.field = _norm(field)
         self.field_kind = field_kind
         self.raw = raw or value
+        self.origin = origin
         self.context = context
         self.label = label or field
 
@@ -453,7 +454,8 @@ def _changes_from_ops(
                 continue
             changes.append(_Change(
                 value=value_replace, previous=value_find,
-                field=fact_field or label_name, field_kind=field_kind,
+                origin=str(getattr(op, 'origin', '') or ''),
+                field_kind=field_kind,
                 raw=replace, context=context, label=label_name))
             covered_values.append(value_replace)
         # NEW digit-bearing values introduced by an unlabeled or
@@ -465,7 +467,8 @@ def _changes_from_ops(
             if any(_value_in_text(run, covered) for covered in covered_values):
                 continue
             changes.append(_Change(
-                value=run, field=fact_field, field_kind=field_kind,
+                value=run, origin=str(getattr(op, 'origin', '') or ''),
+                field_kind=field_kind,
                 raw=replace, context=context, label=fact_field))
         # Text facts the contract TRACKS that entered this op (an entity
         # identity swap carries no digits): changing a tracked value is a
@@ -481,8 +484,7 @@ def _changes_from_ops(
                    for change in changes):
                 continue
             changes.append(_Change(
-                value=tracked_value, field=fact_field,
-                field_kind=field_kind, raw=replace, context=context,
+                value=tracked_value, origin=str(getattr(op, 'origin', '') or ''),
                 label=fact_field))
     return _dedupe_changes(changes)
 
@@ -517,7 +519,7 @@ def _changes_from_replace(
         previous_entry = old_labels.get(_norm(label))
         if previous_entry and not _value_pair_match(previous_entry[1], value):
             changes.append(_Change(
-                value=value, previous=previous_entry[1], field=label,
+                value=line,
                 raw=line, context=current_text[-400:], label=label))
     for value in tracked:
         if _value_in_text(value, new_text) \
@@ -718,6 +720,12 @@ def validate_factual_changes(
             ops or [], content, current_text, tracked)
 
     for change in changes:
+        # THE PLANNER'S RECORDED ORIGIN (verifier corrected work order
+        # 1-2): the interpretation contract tags each proposed
+        # assignment — user_supplied, source_reference, calculation,
+        # unresolved. The tag decides the duty; deterministic checks
+        # verify consistency (an LLM's assertion is not its evidence).
+        origin = (change.origin or "").strip().lower()
         record: Dict[str, Any] = {
             "field": change.label or change.field,
             "subject_context": change.field_kind,
@@ -738,10 +746,16 @@ def validate_factual_changes(
                        f"({requirement['status']})".strip()),
             })
             continue
-        # 1) EXPLICIT USER-SUPPLIED VALUE: authorizes that edit; it is
-        # reported as such and never as independently verified.
-        if _value_in_text(change.value, request_message):
+        # 1) EXPLICIT USER-SUPPLIED VALUE: the PLANNER must have tagged
+        # the op user_supplied AND the value span must appear in the
+        # instruction. Request-wide substring presence alone is not an
+        # explicit assignment — a phrase describing where a value lives
+        # ("the exact number from our records") also appears in the
+        # request and is an unresolved reference, not a supplied value.
+        if origin == "user_supplied" and _value_in_text(
+                change.value, request_message):
             record["grounding"] = Provenance.USER
+            record["provenance_span"] = True
             verdict["changes"].append(record)
             verdict["provenance"].append({
                 "value": change.value, "target": change.label or change.field,
@@ -771,6 +785,45 @@ def validate_factual_changes(
                 "value": change.value, "target": change.label or change.field,
                 "class": action_class, "source": None,
                 "recorded_previous": record.get("action", {}).get("previous"),
+            })
+            continue
+        # ORIGIN CONSISTENCY (corrected work order 1-2): a recorded
+        # source_reference or unresolved origin means the value must be
+        # RESOLVED — it is refused as an unresolved requirement unless
+        # the accepted evidence carries the value bound to the requested
+        # subject/field. A user_supplied origin requires the value span
+        # in the instruction (necessary, not sufficient — the span
+        # establishes provenance, not the semantic classification).
+        if origin in ("source_reference", "unresolved"):
+            resolved = any(
+                _value_pair_match(e["value"], change.value)
+                or (e["value"] and _norm(e["value"]) in _norm(change.value))
+                for e in observations)
+            if not resolved:
+                record["grounding"] = Refusal.UNRESOLVED
+                record["named_requirement"] = (
+                    f"the value for '{change.label or change.field}' "
+                    "must come from records or the user")
+                verdict["changes"].append(record)
+                verdict["refusals"].append({
+                    "reason": Refusal.UNRESOLVED,
+                    "value": change.value,
+                    "target": change.label or change.field,
+                    "detail": record["named_requirement"],
+                })
+                continue
+        if origin == Provenance.USER and \
+                _norm(change.value) not in _norm(request_message):
+            record["grounding"] = Refusal.UNSUPPORTED
+            record["named_requirement"] = (
+                "the planner tagged user_supplied but the value does not "
+                "appear in the instruction")
+            verdict["changes"].append(record)
+            verdict["refusals"].append({
+                "reason": Refusal.UNSUPPORTED,
+                "value": change.value,
+                "target": change.label or change.field,
+                "detail": record["named_requirement"],
             })
             continue
         # 3) A VERIFIED OBSERVATION the contract binds to this field and a
@@ -822,7 +875,24 @@ def validate_factual_changes(
             continue
         # Nothing grounds it: the value is refused, named, and never
         # certified. An unauthorized action for this target is named as
-        # such instead of the generic unsupported refusal.
+        # such instead of the generic unsupported refusal. A digit-bearing
+        # or reference-tagged value grounds NOWHERE is an UNRESOLVED
+        # factual requirement — named for the user, never manufactured.
+        _digit_bearing = any(ch.isdigit() for ch in change.value)
+        if _digit_bearing or origin in ("source_reference", "unresolved"):
+            named = (
+                f"the value for '{change.label or change.field}' is not "
+                "available from the instruction, records, or a calculation")
+            record["grounding"] = Refusal.UNRESOLVED
+            record["named_requirement"] = named
+            verdict["changes"].append(record)
+            verdict["refusals"].append({
+                "reason": Refusal.UNRESOLVED,
+                "value": change.value,
+                "target": change.label or change.field,
+                "named_requirement": named,
+            })
+            continue
         reason = observation_refusal or action_refusal or Refusal.UNSUPPORTED
         record["grounding"] = reason
         verdict["changes"].append(record)

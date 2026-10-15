@@ -93,7 +93,8 @@ def _valid_plan() -> cce.CanvasEditPlan:
         wants_edit=True,
         edit_mode="patch",
         ops=[cce.CanvasPatchOp(find="Valid until: 2026-11-30",
-                               replace="Valid until: 2026-12-31")],
+                               replace="Valid until: 2026-12-31",
+                               origin="user_supplied")],
     )
 
 
