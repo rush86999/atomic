@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """J6 DRAFT (canvas lane): authorized edit, read-only comparison, unmet
-requirement — on the FROZEN round-18 candidate 33f54ba75.
+requirement — on the frozen 422308016 candidate (measured compact
+prompt construction; the drafting workflow itself is UNCHANGED).
 
 This is a DRAFT acceptance journey, run to produce evidence, not a gate
 already passed. Subject and mode match the J4/J5 round-18 campaign:
@@ -52,7 +53,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "454616578"
+SUBJECT = "422308016"
 
 QUOTE_TITLE = "Quotation Q-2026-114 (J6 draft)"
 QUOTE_CONTENT = (
