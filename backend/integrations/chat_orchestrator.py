@@ -16270,7 +16270,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             from core.hallucination_config import get_verify_panel_mode
 
             try:
-                from core.chat_tool_planner import execute_tool_plan, plan_tool_use
+                from core.chat_tool_planner import (
+                    exec_canvas_context,
+                    execute_tool_plan,
+                    plan_tool_use,
+                )
                 from core.verify_panel import verify_reply
 
                 if prefetched_tool_block and _evidence_rejected(
@@ -17239,11 +17243,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             # session (2026-09-22).
                                             "known_mail_handles":
                                                 self._load_conversation_mail_handles(session_id)[0],
-                                            "canvas": {
-                                                "title": canvas_context.get("title"),
-                                                **((canvas_context.get("content") or {})
-                                                   if isinstance(canvas_context, dict) else {}),
-                                            } if isinstance(canvas_context, dict) else None,
+                                            "canvas": exec_canvas_context(canvas_context),
                                         },
                                         llm_service=self.llm_service,
                                     ),

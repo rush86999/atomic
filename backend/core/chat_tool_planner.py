@@ -8985,6 +8985,37 @@ def _calc_lessons_fingerprint(
         return ""
 
 
+def exec_canvas_context(canvas: Any) -> Optional[Dict[str, Any]]:
+    """The ``canvas`` mapping tool executors receive in their context.
+
+    Canvas content is SHAPE-VARIANT: the store resolves a STRING for
+    document canvases and a MAPPING for structured ones (the shape
+    ``chat_orchestrator._resolve_canvas_ctx`` returns). Mapping content
+    spreads its keys so executors (the intelligent query rewrite, history
+    entry text) see the canvas's fields; string content has no fields to
+    spread and contributes none — it already reaches the model through
+    the dedicated canvas context block.
+
+    The chat path's previous inline guard tested the WRONG object —
+    ``isinstance(canvas_context, dict)``, always true at that site — so a
+    string content was ``**``-unpacked: ``TypeError: 'str' object is not
+    a mapping`` on every planned lookup of a string-content canvas turn.
+    The lookup never dispatched, its retrieve operation settled
+    ``search_failed``, and the turn's envelope resolved
+    ``turn_failed_no_result`` although the answer (a canvas comparison)
+    was delivered correctly (live J6 draft campaign 2026-10-15, T2).
+    Returns None for a missing/non-mapping canvas so the caller can omit
+    the key entirely.
+    """
+    if not isinstance(canvas, dict):
+        return None
+    out: Dict[str, Any] = {"title": canvas.get("title")}
+    content = canvas.get("content")
+    if isinstance(content, dict):
+        out.update(content)
+    return out
+
+
 async def execute_tool_plan(
     plan: ToolPlan,
     user_id: Optional[str],

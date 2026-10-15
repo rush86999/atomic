@@ -3100,7 +3100,11 @@ async def fetch_fresh_data_section(
         return FreshDataResult("", False, True)
 
     try:
-        from core.chat_tool_planner import execute_tool_plan, plan_tool_use
+        from core.chat_tool_planner import (
+            exec_canvas_context,
+            execute_tool_plan,
+            plan_tool_use,
+        )
 
         # REUSE: an earlier leg on this turn already planned AND executed
         # — reformat its block instead of hitting providers a second
@@ -3321,11 +3325,13 @@ async def fetch_fresh_data_section(
                     # the job required the workbook).
                     **({"request_scope": request_scope}
                        if isinstance(request_scope, dict) else {}),
-                    **({"canvas": {
-                        "title": canvas.get("title"),
-                        **((canvas.get("content") or {})
-                           if isinstance(canvas.get("content"), dict) else {}),
-                    }} if canvas else {}),
+                    # THE SHARED CANVAS SHAPE (exec_canvas_context, in
+                    # chat_tool_planner): one construction for both
+                    # dispatch sites, so a string-content canvas can
+                    # never be ``**``-unpacked by a mistyped guard here
+                    # again (the chat path's 2026-10-15 T2 crash).
+                    **({"canvas": exec_canvas_context(canvas)}
+                       if canvas else {}),
                 },
             )
             result_meta = getattr(plan, "_result_meta", None) or {}
