@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """J6 DRAFT (canvas lane): authorized edit, read-only comparison, unmet
-requirement — on the frozen dacaf24be candidate (paired stage spans +
+requirement — on the frozen 8ffedfaaa candidate (paired stage spans +
 the accepted-request evidence gate + the measured compact prompt; the
 drafting workflow itself is UNCHANGED). --t1-only runs the diagnostic
 T1 turn alone (stage attribution), never the counted campaign.
