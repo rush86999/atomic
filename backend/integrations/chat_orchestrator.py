@@ -24286,9 +24286,14 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 },
             }
 
+        _pre_t0 = time.monotonic()
         corrections = self._recent_canvas_corrections(user_id, canvas.get("canvas_id"))
         versions = self._recent_canvas_versions(user_id, canvas.get("canvas_id"))
         lessons = self._agent_lessons(agent_id, message)
+        logger.info(
+            "[lane-stage] eid=%s stage=pre_corrections_versions_lessons "
+            "elapsed=%.1fs", execution_id or "-",
+            time.monotonic() - _pre_t0)
         # JOB FINDINGS (round 62, authorized drafting): the durable
         # research record for THIS canvas's job — verified findings with
         # sources, approved manual values, open business decisions and
@@ -24297,12 +24302,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         # the open choices.
         job_findings = self._canvas_job_findings(
             user_id, canvas, session, message, agent_id=agent_id)
+        _pre_t1 = time.monotonic()
         similar_corrections, correction_patterns = await self._cross_canvas_learnings(
             user_id, canvas, agent_id
         )
         user_identity = await self._sender_identity(user_id, canvas.get("canvas_type"))
         playbooks = await asyncio.to_thread(
             self._relevant_playbooks, user_id, message, canvas.get("canvas_type"))
+        logger.info(
+            "[lane-stage] eid=%s stage=pre_learning_identity_playbooks "
+            "elapsed=%.1fs", execution_id or "-",
+            time.monotonic() - _pre_t1)
 
         # Live evidence when the edit hinges on data the editor cannot see
         # (a price "from the consolidated price list"). Same read-only tool
