@@ -298,6 +298,8 @@ BACKED_REASONS = [
     ("store_rejected: Canvas cv-1 not found", True),
     ("dead_link: https://dead.ca/x", True),  # "I left your draft unchanged"
     ("postcondition_missing:ent-1", True),
+    ("invented_value:12 months|Inspection interval", True),
+    ("unresolved_requirement:matching currency and unit for L-7", True),
     ("scope_row_count", True),
     ("scope_missing_price", True),
     ("footer_missing_contact", True),

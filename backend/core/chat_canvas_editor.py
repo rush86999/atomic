@@ -79,12 +79,9 @@ _COMPACT_EDITOR_SYSTEM = (
     '"origin": "<user_supplied|source_reference|calculation|unresolved>"}], '
     '"reply": "<one sentence naming what '
     'changed, with the new value>"}. '
-    'Tag every op with "origin". For an edit whose replacement value is '
-    'written in the request itself, origin MUST be "user_supplied" '
-    '(example: request "update the date to 2026-12-31" → op '
-    '{"origin": "user_supplied"}). Use "source_reference" only when the '
-    'value must be looked up in records or systems and is not in the '
-    'request; "unresolved" when no source can provide it. '
+    'State each op\'s "origin": "user_supplied" when the replacement '
+    'value comes from the request; "source_reference" when it must come '
+    'from records or systems; "unresolved" when unavailable. '
     "Rules: ops.find MUST copy the current canvas text verbatim "
     "(first occurrence); add \"field\": \"<field name>\" to an op "
     "when the canvas has named fields. Change ONLY the authorized "
@@ -4951,12 +4948,18 @@ async def apply_canvas_edit(
             from core.factual_change_validation import (
                 validate_factual_changes as _validate_factual,
             )
+            # THE ACCEPTED ASSIGNMENTS (corrected work order): the
+            # request's own recorded assignments are the authority for
+            # user-supplied values.
+            from core.turn_decision import extract_request_assignments
+            accepted = extract_request_assignments(request_message or "")
             verdict = _validate_factual(
                 ops=list(plan.ops or []),
                 current_text=_serialize_content(current, max_chars=None),
                 request_message=request_message or "",
                 evidence_contract=evidence_contract,
                 calculations=calculations,
+                accepted_assignments=accepted,
                 content=current,
                 artifact_id=canvas_id,
                 expected_revision=expected_prior_audit_id,
@@ -4983,57 +4986,12 @@ async def apply_canvas_edit(
             # write a partial edit on top of a state nobody saw.
             logger.warning("canvas edit: patch ops no longer match — refusing partial write")
             return _out(None, "ops_no_longer_match")
-        # NET-NEW LABELED LINE (verifier round 19 correction): an
-        # insertion that adds a "Label: ..." line for a field the canvas
-        # does not have is a factual claim about the world. When the
-        # label's VALUE is not grounded — supplied by the user or carried
-        # by accepted evidence — the line manufactures support for a fact
-        # nobody provided (counted campaign 20261014_230725: "Added
-        # client's tax registration number" — the number exists nowhere).
-        # Refuse and name the requirement: ask for the value.
-        import re as _re_l
-
-        def _inserted_span(find_text: str, replace_text: str) -> str:
-            # What the op genuinely ADDS: replace minus the common
-            # affixes shared with find (same trim as the validation
-            # module's inserted-text computation).
-            _prefix = 0
-            while (_prefix < len(find_text) and _prefix < len(replace_text)
-                   and find_text[_prefix] == replace_text[_prefix]):
-                _prefix += 1
-            _suffix = 0
-            while (_suffix < len(find_text) - _prefix
-                   and _suffix < len(replace_text) - _prefix
-                   and find_text[len(find_text) - 1 - _suffix]
-                   == replace_text[len(replace_text) - 1 - _suffix]):
-                _suffix += 1
-            return replace_text[_prefix:len(replace_text) - _suffix] \
-                if _suffix else replace_text[_prefix:]
-
-        for _op in plan.ops or []:
-            _inserted = _inserted_span(
-                str(getattr(_op, "find", "") or ""),
-                str(getattr(_op, "replace", "") or ""))
-            for _line in _inserted.splitlines():
-                _m = _re_l.match(r"^\s*([A-Za-z][A-Za-z0-9 /_-]{1,48}?):\s*(\S.*)$",
-                                 _line)
-                if not _m:
-                    continue
-                _label, _value = _m.group(1).strip(), _m.group(2).strip()
-                if _label.lower() in _norm(current).lower():
-                    continue
-                _value_grounded = (
-                    _value.lower() in _norm(request_message or "").lower()
-                    or _value.lower() in _norm(current).lower())
-                if _value_grounded:
-                    continue
-                logger.warning(
-                    "canvas edit: NET-NEW labeled line %r has an "
-                    "ungrounded value — refusing; ask for the value",
-                    _label)
-                return _out(None,
-                            "ungrounded_value: the value for "
-                            f"'{_label}' is not available; provide it")
+        # (The net-new labeled-line value gate that lived here is
+        # retired: the factual-change validator above extracts the new
+        # labeled field — alphabetic or numeric — in EVERY edit mode and
+        # refuses it with the named requirement unless the accepted
+        # request assignment, bound evidence, or a calculation grounds
+        # it. One mechanism, no regex workaround.)
     else:
         parsed, decode_reason = _decode_replace_content(plan, current)
         if parsed is None:
@@ -5076,6 +5034,10 @@ async def apply_canvas_edit(
         from core.factual_change_validation import (
             validate_factual_changes as _validate_factual,
         )
+        # THE REQUEST'S OWN ASSIGNMENTS (same table as the patch path):
+        # replace-mode extraction differs, the authority does not.
+        from core.turn_decision import extract_request_assignments
+        accepted = extract_request_assignments(request_message or "")
         verdict = _validate_factual(
             current_text=_serialize_content(current, max_chars=None),
             new_text_for_replace=_serialize_content(new_content,
@@ -5083,6 +5045,7 @@ async def apply_canvas_edit(
             request_message=request_message or "",
             evidence_contract=evidence_contract,
             calculations=calculations,
+            accepted_assignments=accepted,
             content=current,
             artifact_id=canvas_id,
             expected_revision=expected_prior_audit_id,

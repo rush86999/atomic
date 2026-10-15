@@ -156,6 +156,124 @@ def _unit_tokens_near_numbers(text: Any) -> Set[str]:
 
 
 # ---------------------------------------------------------------------------
+# request assignments: the accepted request's OWN assignment of a value to
+# a target. This — not the planner's origin tag — is what makes a value
+# user_supplied. An occurrence of the value somewhere in the request is
+# not an assignment: it must sit in an assignment position bound to the
+# change's target. A value that is itself a reference to where a value
+# lives ("the department in the personnel record") is a lookup, not a
+# supplied literal, even in an assignment position.
+# ---------------------------------------------------------------------------
+
+#: The connective that binds an assigned value to its target. The value
+#: must follow it immediately ("... to V", "... = V").
+_ASSIGNMENT_CONNECTIVE = re.compile(
+    r"(?:\b(?:to|as|into|with|is|are|becomes?|set\s+at)\b|[:=])"
+    r"\s*[\"'“”]?\s*(?:the\s+|a\s+|an\s+)?$")
+
+#: The mirror construction: the value first, then the target ("V as the
+#: owner"). Only the connective+target immediately after the value counts.
+_ASSIGNMENT_AFTER = re.compile(
+    r"\s*(?:as|to|into)\s+(?:the\s+|a\s+|an\s+)?")
+
+#: A prepositional phrase headed by a determiner names WHERE a value
+#: lives, not what it is.
+_REFERENCE_PHRASE = re.compile(
+    r"\b(?:from|in|on|at|per|according\s+to|based\s+on|taken\s+from|"
+    r"stated\s+in|shown\s+in|listed\s+in|recorded\s+in|found\s+in|"
+    r"as\s+per)\s+"
+    r"(?:the|our|your|my|his|her|its|their|this|that|these|those)\b")
+
+_FIELDISH_CONTEXT = re.compile(
+    r"\s*(?:[:=]|\b(?:field|line|row|column|header|cell)\b)")
+
+_STOPWORDS = {"the", "a", "an", "of", "and", "for", "in", "on", "at",
+              "to", "is", "are", "be", "it", "its", "this", "that",
+              "with", "as"}
+
+
+def _value_spans_in_text(value: Any, text: str) -> List[Tuple[int, int]]:
+    """Every occurrence of ``value`` in normalized ``text``: numeric runs
+    compare by decimal equality, text compares word-bounded."""
+    spans: List[Tuple[int, int]] = []
+    number = _decimal(value)
+    if number is not None:
+        for match in _RUN.finditer(text):
+            if _decimal(match.group(0)) == number:
+                spans.append(match.span())
+        return spans
+    needle = _norm(value)
+    if not needle:
+        return spans
+    for match in re.finditer(
+            rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", text):
+        spans.append(match.span())
+    return spans
+
+
+def _target_mentioned(target: str, window: str) -> bool:
+    """Whether the clause window names the change's target field. The
+    full label counts, or any distinctive word of it; a very short name
+    ("To", "CC") must sit against its field context to count."""
+    joined = _norm(target)
+    if not joined:
+        return False
+    if _value_pair_match(joined, window):
+        return True
+    for token in _words(target):
+        if token in _STOPWORDS:
+            continue
+        token_re = rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])"
+        if len(token) >= 4:
+            if re.search(token_re, window):
+                return True
+        elif re.search(token_re, window) and _FIELDISH_CONTEXT.search(
+                window[re.search(token_re, window).end():]):
+            return True
+    return False
+
+
+def _is_reference_span(value: Any, tail: str) -> bool:
+    """A value whose own words — or the words immediately after it —
+    point at a source is a reference to be resolved, never a supplied
+    literal."""
+    return bool(_REFERENCE_PHRASE.search(_norm(value))
+                or _REFERENCE_PHRASE.search(tail))
+
+
+def _request_assigns_value(
+    value: Any, target: str, request_message: str,
+) -> bool:
+    """Whether the request itself explicitly assigns ``value`` to
+    ``target``. Presence elsewhere in the request is not an assignment:
+    the value must follow an assignment connective whose window names
+    the target, or precede "as/to ... the target". References to sources
+    are not supplied values."""
+    text = _norm(request_message)
+    if not text or not str(value or "").strip():
+        return False
+    for start, end in _value_spans_in_text(value, text):
+        left = text[max(0, start - 120):start]
+        connective = _ASSIGNMENT_CONNECTIVE.search(left)
+        if connective and _target_mentioned(
+                target, left[:connective.start()]):
+            if not _is_reference_span(value, text[end:end + 120]):
+                return True
+        right = text[end:end + 120]
+        after = _ASSIGNMENT_AFTER.match(right)
+        if after and _target_mentioned(target, right[after.end():]):
+            if not _is_reference_span(value, right):
+                return True
+    return False
+
+
+def _value_present_in_request(value: Any, request_message: str) -> bool:
+    """Whether the request carries the value's text at all — the
+    reference-echo shape (present, but assigned to nothing)."""
+    return _value_in_text(value, request_message)
+
+
+# ---------------------------------------------------------------------------
 # accepted-record indexes (every key is data; missing keys are tolerated)
 # ---------------------------------------------------------------------------
 
@@ -350,8 +468,13 @@ class _Change:
         self.context = context
         self.label = label or field
 
-    def identity(self) -> Tuple[str, str, str]:
-        return (self.field_kind, self.field, _norm(self.value))
+    def identity(self) -> Tuple[str, str, str, str]:
+        # The SUBJECT context participates in identity: two milestones can
+        # both carry "Owner: unassigned" and change to the same name —
+        # those are two changes, never one (a shared field label must not
+        # collapse different subjects).
+        return (self.field_kind, self.field, _norm(self.value),
+                _norm(self.context))
 
 
 def _label_values(text: Any) -> List[Tuple[str, str]]:
@@ -402,6 +525,12 @@ def _op_text(op: Any, attr: str) -> str:
     return str(getattr(op, attr, "") or "")
 
 
+def _op_origin(op: Any) -> str:
+    if isinstance(op, dict):
+        return str(op.get("origin") or "")
+    return str(getattr(op, "origin", "") or "")
+
+
 def _op_text_source(op: Any, content: Any, fallback: str) -> str:
     """The op's own container text: the named field's text for dict-shaped
     content, else the serialized artifact."""
@@ -444,6 +573,7 @@ def _changes_from_ops(
             text, find,
             default_label or (op_field if field_kind == "field" else ""))
         covered_values: List[str] = []
+        origin = _op_origin(op)
         # A named field's VALUE changed: the field change is the factual
         # change (its digit runs are part of it, not separate changes).
         for label_name, value_replace in label_replace_values:
@@ -454,10 +584,20 @@ def _changes_from_ops(
                 continue
             changes.append(_Change(
                 value=value_replace, previous=value_find,
-                origin=str(getattr(op, 'origin', '') or ''),
-                field_kind=field_kind,
+                origin=origin, field_kind=field_kind,
                 raw=replace, context=context, label=label_name))
             covered_values.append(value_replace)
+        # EMPTY-FIELD (set-field) ops: find is empty; the set value IS the
+        # assignment. Same representation as a labeled line — target
+        # field, no previous value, proposed value — so every edit mode
+        # reaches validation with equivalent subject/field/value data.
+        if not find and str(replace or "").strip() \
+                and not label_replace_values:
+            changes.append(_Change(
+                value=replace, previous="", origin=origin,
+                field_kind="field", raw=replace, context=context,
+                label=op_field or default_label))
+            covered_values.append(replace)
         # NEW digit-bearing values introduced by an unlabeled or
         # value-only patch: unchanged runs ride along and carry no duty.
         find_runs = {_norm(run) for run in _value_runs(find)}
@@ -467,8 +607,7 @@ def _changes_from_ops(
             if any(_value_in_text(run, covered) for covered in covered_values):
                 continue
             changes.append(_Change(
-                value=run, origin=str(getattr(op, 'origin', '') or ''),
-                field_kind=field_kind,
+                value=run, origin=origin, field_kind=field_kind,
                 raw=replace, context=context, label=fact_field))
         # Text facts the contract TRACKS that entered this op (an entity
         # identity swap carries no digits): changing a tracked value is a
@@ -484,14 +623,13 @@ def _changes_from_ops(
                    for change in changes):
                 continue
             changes.append(_Change(
-                value=tracked_value, origin=str(getattr(op, 'origin', '') or ''),
-                label=fact_field))
+                value=tracked_value, origin=origin, label=fact_field))
     return _dedupe_changes(changes)
 
 
 def _dedupe_changes(changes: List[_Change]) -> List[_Change]:
     deduped: List[_Change] = []
-    seen: Set[Tuple[str, str, str]] = set()
+    seen: Set[Tuple[str, ...]] = set()
     for change in changes:
         key = change.identity()
         if key in seen:
@@ -501,33 +639,120 @@ def _dedupe_changes(changes: List[_Change]) -> List[_Change]:
     return deduped
 
 
+def _labeled_lines_with_context(
+    text: Any,
+) -> List[Tuple[str, str, str, str]]:
+    """[(label, value, context, line)] per "Label: value" line, in order.
+    The context is the block since the previous occurrence of the SAME
+    label (bounded 400 chars): two subjects that share a field label stay
+    distinguishable, and a neighbouring item's subject never leaks in."""
+    full = str(text or "")
+    out: List[Tuple[str, str, str, str]] = []
+    anchor: Dict[str, int] = {}
+    offset = 0
+    for line in full.splitlines(keepends=True):
+        label, value = _label_value(line)
+        if label:
+            key = _norm(label)
+            start = anchor.get(key, max(0, offset - 400))
+            out.append((label, value,
+                        full[max(start, offset - 400):offset],
+                        line.rstrip("\n")))
+            anchor[key] = offset + len(line)
+        offset += len(line)
+    return out
+
+
 def _changes_from_replace(
     current_text: str,
     new_text: str,
     tracked: Sequence[str],
 ) -> List[_Change]:
-    """Replace-mode changes: labeled field values that moved, tracked
-    values that entered, and new digit-bearing runs."""
+    """Replace-mode changes in the SAME canonical representation as patch
+    ops: one assignment per moved or new labeled field (target label,
+    actual previous value, actual proposed value — never the whole line),
+    tracked values that entered, and new digit-bearing runs not already
+    represented by an assignment. Reordering or reformatting an existing
+    value is not a change; a NEW labeled field is, alphabetic or not.
+    Occurrences pair per label in order, so different subjects sharing a
+    field label stay separate changes."""
     changes: List[_Change] = []
-    old_labels = {_norm(label): (label, value)
-                  for line in str(current_text or "").splitlines()
-                  for label, value in [_label_value(line)] if label}
-    for line in str(new_text or "").splitlines():
-        label, value = _label_value(line)
-        if not label:
+    covered: List[str] = []
+    old_by_label: Dict[str, List[str]] = {}
+    for label, value, _context, _line in _labeled_lines_with_context(
+            current_text):
+        old_by_label.setdefault(_norm(label), []).append(value)
+    new_lines = _labeled_lines_with_context(new_text)
+    new_counts: Dict[str, int] = {}
+    for label, _value, _context, _line in new_lines:
+        key = _norm(label)
+        new_counts[key] = new_counts.get(key, 0) + 1
+    old_counts: Dict[str, int] = {}
+    for label, _values in old_by_label.items():
+        old_counts[label] = len(_values)
+    used: Dict[str, Set[int]] = {}
+    # LINES INSERTED/REMOVED for a label: consume the UNCHANGED
+    # occurrences first, so a shifted existing value is never misread as
+    # a change and a new occurrence is never paired with the wrong
+    # subject's previous value.
+    mismatch_labels = {
+        key for key in new_counts
+        if new_counts.get(key, 0) != old_counts.get(key, 0)}
+    skip: Set[int] = set()
+    for index, (label, value, _context, _line) in enumerate(new_lines):
+        key = _norm(label)
+        if key not in mismatch_labels or not str(value or "").strip():
             continue
-        previous_entry = old_labels.get(_norm(label))
-        if previous_entry and not _value_pair_match(previous_entry[1], value):
-            changes.append(_Change(
-                value=line,
-                raw=line, context=current_text[-400:], label=label))
+        pool = old_by_label.get(key, [])
+        used_indexes = used.setdefault(key, set())
+        unchanged_at = next(
+            (old_index for old_index in range(len(pool))
+             if old_index not in used_indexes
+             and _value_pair_match(pool[old_index], value)), None)
+        if unchanged_at is not None:
+            used_indexes.add(unchanged_at)
+            skip.add(index)
+    for index, (label, value, context, line) in enumerate(new_lines):
+        if index in skip or not str(value or "").strip():
+            continue
+        key = _norm(label)
+        pool = old_by_label.get(key, [])
+        used_indexes = used.setdefault(key, set())
+        previous = ""
+        if new_counts.get(key, 0) == old_counts.get(key, 0):
+            # SAME OCCURRENCE COUNT: pair positionally. A value swapped
+            # from another subject's field changes THIS subject's fact —
+            # never "unchanged" just because the text exists elsewhere.
+            position = min(len(used_indexes), max(0, len(pool) - 1))
+            previous = pool[position] if pool else ""
+            used_indexes.add(position)
+            if pool and _value_pair_match(previous, value):
+                continue
+        else:
+            for old_index in range(len(pool)):
+                if old_index not in used_indexes:
+                    previous = pool[old_index]
+                    used_indexes.add(old_index)
+                    break
+            if pool and _value_pair_match(previous, value):
+                continue
+        changes.append(_Change(
+            value=value, previous=previous, raw=line,
+            context=context, label=label))
+        covered.append(value)
     for value in tracked:
-        if _value_in_text(value, new_text) \
-                and not _value_in_text(value, current_text):
-            changes.append(_Change(
-                value=value, raw=new_text, context=current_text[-400:]))
+        if not _value_in_text(value, new_text) \
+                or _value_in_text(value, current_text):
+            continue
+        if any(_value_in_text(value, done)
+               or _value_pair_match(value, done) for done in covered):
+            continue
+        changes.append(_Change(
+            value=value, raw=new_text, context=current_text[-400:]))
     for run in _value_runs(new_text):
         if _value_in_text(run, current_text):
+            continue
+        if any(_value_in_text(run, done) for done in covered):
             continue
         changes.append(_Change(
             value=run, raw=new_text, context=current_text[-400:]))
@@ -672,6 +897,7 @@ def validate_factual_changes(
     request_message: str = "",
     evidence_contract: Optional[Dict[str, Any]] = None,
     calculations: Optional[Sequence[Dict[str, Any]]] = None,
+    accepted_assignments: Optional[Dict[str, Any]] = None,
     content: Any = None,
     artifact_id: Optional[str] = None,
     expected_revision: Optional[str] = None,
@@ -718,6 +944,10 @@ def validate_factual_changes(
     else:
         changes = _changes_from_ops(
             ops or [], content, current_text, tracked)
+    accepted_assignments_entries = [
+        entry for entry in (accepted_assignments or {}).get("assignments") or []
+        if isinstance(entry, dict) and str(entry.get("value") or "")
+    ]
 
     for change in changes:
         # THE PLANNER'S RECORDED ORIGIN (verifier corrected work order
@@ -746,19 +976,45 @@ def validate_factual_changes(
                        f"({requirement['status']})".strip()),
             })
             continue
-        # 1) EXPLICIT USER-SUPPLIED VALUE: the PLANNER must have tagged
-        # the op user_supplied AND the value span must appear in the
-        # instruction. Request-wide substring presence alone is not an
-        # explicit assignment — a phrase describing where a value lives
-        # ("the exact number from our records") also appears in the
-        # request and is an unresolved reference, not a supplied value.
-        if origin == "user_supplied" and _value_in_text(
-                change.value, request_message):
+        # 1) THE ACCEPTED REQUEST ASSIGNMENT: the request's own recorded
+        # assignments — or, when the record says nothing about this
+        # target, the request text's own assignment window — are the
+        # authority for user-supplied values. The planner's origin tag is
+        # a proposal to check, never a substitute: request-wide text
+        # presence blesses an unresolved reference ("the exact number
+        # from our records" appears in the request and is not a supplied
+        # value). Evidence/calculation elsewhere in the record may still
+        # ground the change below.
+        target_name = change.label or change.field
+        bound_entry = None  # the accepted assignment about this target
+        for entry in accepted_assignments_entries:
+            entry_target = str(entry.get("target") or "")
+            if not entry_target or not target_name:
+                continue
+            if not (_norm(entry_target) in _norm(target_name)
+                    or _norm(target_name) in _norm(entry_target)):
+                continue
+            bound_entry = entry
+            if _value_pair_match(entry["value"], change.value):
+                break
+        matched = (bound_entry is not None
+                   and _value_pair_match(bound_entry["value"], change.value))
+        present = _value_present_in_request(change.value, request_message)
+        # When the record says nothing about this target, the request
+        # text's own assignment still grounds (a phrasing the extractor
+        # does not capture must not refuse what the user plainly wrote).
+        # A reference phrase is a lookup, not a supplied literal — the
+        # text fallback never blesses one.
+        text_assigned = (
+            bound_entry is None
+            and _request_assigns_value(
+                change.value, target_name, request_message))
+        if matched or text_assigned:
             record["grounding"] = Provenance.USER
-            record["provenance_span"] = True
+            record["request_assignment"] = True
             verdict["changes"].append(record)
             verdict["provenance"].append({
-                "value": change.value, "target": change.label or change.field,
+                "value": change.value, "target": target_name,
                 "class": Provenance.USER, "source": None,
             })
             continue
@@ -785,61 +1041,6 @@ def validate_factual_changes(
                 "value": change.value, "target": change.label or change.field,
                 "class": action_class, "source": None,
                 "recorded_previous": record.get("action", {}).get("previous"),
-            })
-            continue
-        # ORIGIN CONSISTENCY (corrected work order 1-2): a recorded
-        # source_reference or unresolved origin means the value must be
-        # RESOLVED — it is refused as an unresolved requirement unless
-        # the accepted evidence carries the value bound to the requested
-        # subject/field. A user_supplied origin requires the value span
-        # in the instruction (necessary, not sufficient — the span
-        # establishes provenance, not the semantic classification).
-        if origin in ("source_reference", "unresolved"):
-            resolved = any(
-                _value_pair_match(e["value"], change.value)
-                or (e["value"] and _norm(e["value"]) in _norm(change.value))
-                for e in observations)
-            if not resolved:
-                record["grounding"] = Refusal.UNRESOLVED
-                record["named_requirement"] = (
-                    f"the value for '{change.label or change.field}' "
-                    "must come from records or the user")
-                verdict["changes"].append(record)
-                verdict["refusals"].append({
-                    "reason": Refusal.UNRESOLVED,
-                    "value": change.value,
-                    "target": change.label or change.field,
-                    "detail": record["named_requirement"],
-                })
-                continue
-        # USER-SUPPLIED (both forms): a planner-tagged user_supplied op
-        # whose value span appears in the instruction, OR an untagged op
-        # whose replacement value appears in the instruction (the
-        # instruction is the user's authorship of a replacement to an
-        # existing field's value — the T1 class). An op the planner tags
-        # user_supplied whose value appears NOWHERE in the instruction is
-        # a miscategorization: refused, not certified.
-        if origin == Provenance.USER and \
-                _norm(change.value) not in _norm(request_message):
-            record["grounding"] = Refusal.UNSUPPORTED
-            record["named_requirement"] = (
-                "the planner tagged user_supplied but the value does not "
-                "appear in the instruction")
-            verdict["changes"].append(record)
-            verdict["refusals"].append({
-                "reason": Refusal.UNSUPPORTED,
-                "value": change.value,
-                "target": change.label or change.field,
-                "detail": record["named_requirement"],
-            })
-            continue
-        if origin in (Provenance.USER, "") and \
-                _value_in_text(change.value, request_message):
-            record["grounding"] = Provenance.USER
-            verdict["changes"].append(record)
-            verdict["provenance"].append({
-                "value": change.value, "target": change.label or change.field,
-                "class": Provenance.USER, "source": None,
             })
             continue
         # 3) A VERIFIED OBSERVATION the contract binds to this field and a
@@ -890,26 +1091,41 @@ def validate_factual_changes(
             })
             continue
         # Nothing grounds it: the value is refused, named, and never
-        # certified. An unauthorized action for this target is named as
-        # such instead of the generic unsupported refusal. A digit-bearing
-        # or reference-tagged value grounds NOWHERE is an UNRESOLVED
-        # factual requirement — named for the user, never manufactured.
-        _digit_bearing = any(ch.isdigit() for ch in change.value)
-        if _digit_bearing or origin in ("source_reference", "unresolved"):
-            named = (
+        # certified. A value that contradicts the accepted assignment for
+        # this target is not groundable by raw text presence — the
+        # record's own assignment, not the message's incidental words, is
+        # the authority (UNSUPPORTED). A reference-tagged or digit-bearing
+        # value grounded NOWHERE is an UNRESOLVED factual requirement —
+        # named for the user, never manufactured. An explicitly tagged
+        # user_supplied value absent from the instruction is a
+        # miscategorization (UNSUPPORTED); a bare echo of the request's
+        # words assigned to nothing is UNRESOLVED.
+        if bound_entry is not None and not matched:
+            reason = Refusal.UNSUPPORTED
+            record["named_requirement"] = (
+                f"the accepted record assigns "
+                f"{str(bound_entry['value'])!r} to "
+                f"'{str(bound_entry.get('target') or target_name)}'; "
+                f"{change.value!r} is not the supplied value")
+        elif origin in ("source_reference", "unresolved") \
+                or any(ch.isdigit() for ch in change.value):
+            reason = Refusal.UNRESOLVED
+            record["named_requirement"] = (
                 f"the value for '{change.label or change.field}' is not "
                 "available from the instruction, records, or a calculation")
-            record["grounding"] = Refusal.UNRESOLVED
-            record["named_requirement"] = named
-            verdict["changes"].append(record)
-            verdict["refusals"].append({
-                "reason": Refusal.UNRESOLVED,
-                "value": change.value,
-                "target": change.label or change.field,
-                "named_requirement": named,
-            })
-            continue
-        reason = observation_refusal or action_refusal or Refusal.UNSUPPORTED
+        elif origin == Provenance.USER and not present:
+            reason = Refusal.UNSUPPORTED
+            record["named_requirement"] = (
+                "the planner tagged user_supplied but the value does not "
+                "appear in the instruction")
+        elif present:
+            reason = Refusal.UNRESOLVED
+            record["named_requirement"] = (
+                f"the value for '{change.label or change.field}' is not "
+                "available from the instruction, records, or a calculation")
+        else:
+            reason = observation_refusal or action_refusal \
+                or Refusal.UNSUPPORTED
         record["grounding"] = reason
         verdict["changes"].append(record)
         verdict["refusals"].append({
@@ -917,6 +1133,7 @@ def validate_factual_changes(
             "value": change.value,
             "target": change.label or change.field,
             "detail": _unsupported_detail(change),
+            "named_requirement": record.get("named_requirement", ""),
         })
 
     verdict["grounded"] = not verdict["refusals"]
