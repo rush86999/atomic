@@ -7652,12 +7652,27 @@ class BYOKHandler:
                             # structured round trip (same starvation as
                             # generate_response).
                             _attempt_t0 = time.time()
-                            if not self._claim_model_attempt(
+                            # BOUNDED CLAIM WAIT (J6 round 19): the
+                            # turn's OWN sibling legs (chat-leg tool plan,
+                            # edit plan) target the same local route; an
+                            # instant refusal made the second leg fail
+                            # before any dispatch (counted campaign
+                            # 20261014_201654: model_inflight, 0.4s
+                            # CanvasPlanUnavailable). Wait — bounded well
+                            # inside the caller's own wait_for deadline —
+                            # for the current holder to finish, instead
+                            # of failing the sibling leg.
+                            _claim_wait_deadline = time.time() + 20.0
+                            while not self._claim_model_attempt(
                                     provider_id, model,
                                     holder="completion2:" + str(
                                         task_type or "general")):
-                                raise _ModelAttemptInFlight(
-                                    f"{provider_id}/{model} is already in flight")
+                                if time.time() >= _claim_wait_deadline:
+                                    raise _ModelAttemptInFlight(
+                                        f"{provider_id}/{model} claim "
+                                        "still held after the bounded "
+                                        "wait")
+                                await asyncio.sleep(0.25)
                             _attempted_any = True
                             _attempt_count += 1
                             # PLAN-ATTEMPT ATTRIBUTION, BEFORE THE
