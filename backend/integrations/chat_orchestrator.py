@@ -25278,13 +25278,34 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     apply_reason, canvas.get("canvas_type"), canvas
                 ),
                 "session_id": session_id,
+                # D3 (every outcome carries the execution it belongs to):
+                # WITHOUT this the route cannot bind the turn to its
+                # execution row, the finalizer falls to the unknown-status
+                # branch and ships success=false with NO error code and NO
+                # durable attribution (live 2026-10-15 diagnostic: a
+                # declined T1 lost its identity and its honest reply
+                # shipped as an anonymous failure). Same identity/outcome
+                # envelope as the sibling `_no_apply` response.
+                "execution_id": execution_id,
                 "intent": "canvas_edit",
                 "confidence": 0.9,
+                # F3 partial: the honest reply was delivered, the
+                # requested edit did not happen and must not be
+                # certified — a delivered clarification, never
+                # unconfirmed-by-construction.
+                "outcome": "partial",
+                "error_code": None,
+                "_recorded_outcome": {
+                    "state": "partial",
+                    "work_turn": True,
+                    "declined": True,
+                },
                 "data": {
                     "canvas_edit": {
                         "canvas_id": canvas.get("canvas_id"),
                         "updated": False,
                         "reason": apply_reason,
+                        "execution_id": execution_id,
                     },
                     **({"objective_evidence": fresh.evidence_contract}
                        if fresh.evidence_contract else {}),
