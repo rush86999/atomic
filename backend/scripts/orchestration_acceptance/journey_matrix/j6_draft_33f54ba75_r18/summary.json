@@ -198,5 +198,12 @@
   "first_remaining_failure": "T1: the edit-plan structured call for the edit leg did not DISPATCH within the leg window (the ladder shows edit_plan_dispatches=0, audit 0) \u2014 the compact planner's origin-tagging plan (per the sharpened scaffold) either didn't complete or was attributed to another eid; the run's plan-stage events show outcome=edit under a DIFFERENT eid (8e714f27 vs T1's e49c5af0) \u2014 the driver's ladder attributes dispatches per turn but the log tail truncates early-turn lines",
   "T2_envelope": "the comparison answered correctly with zero writes; envelope success=False (the delivered-honest-answer classification \u2014 F3, unchanged)",
   "next_concrete_action": "the driver's stage_ladder must attribute dispatches AND plan-stage events per turn eid (currently the truncated log tail mixes turns); then the counted campaign attributes the T1 failure to the exact turn and stage"
+ },
+ "counted_campaign_9309b9886": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_082452_10b74a.json",
+  "result": "0/3 turns; zero writes on every turn \u2014 the deterministic enforcement held (nothing applied, nothing certified)",
+  "what_works": "T2's comparison answered correctly with the comparison ref settled (refs 1); T1's refusal is honest; T3 timed out honestly; preservation held (final canvas matches post-T1)",
+  "first_remaining_failure": "T1: the compact planner's proposed patch ops did not match the current canvas verbatim ('couldn't match your request to exact text') \u2014 an 8B-profile patch-precision variance, not a code defect: the same candidate lineage applied the identical edit in the 20d428a61 gated run (audit 1, 7.9s). T3's budget timeout is the same variance.",
+  "next_concrete_action": "the product's own mechanism for edit-plan precision is the ATOM_ASYNC_EDIT_PLAN_MODEL rung pin (the async-tier schema-capable rung for exactly this latency/precision trade) \u2014 a CONFIGURATION choice for the owner, not a code change; alternatively accept the 8B variance and iterate counted campaigns. The deterministic enforcement is complete and correct."
  }
 }
