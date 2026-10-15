@@ -5156,6 +5156,33 @@ def _fallback_turn_outcome(
                             "unverified", "evidence_missing", "unresolved",
                             "partially_comparable", "field_missing")
                         for o in _outs):
+                    validated = True
+        # EDIT-DECLINE CARRIER (verifier round 19, F3): the lane
+        # declined with a NAMED reason and delivered the honest reply —
+        # partial (delivered clarification; the requested edit did not
+        # happen and must not be certified). Never completed: the
+        # decline is not the requested change.
+        _decline_named = False
+        _decline = (session or {}).get("canvas_edit_decline") \
+            if isinstance(session, dict) else None
+        if (isinstance(_decline, dict)
+                and str(_decline.get("execution_id") or "")
+                == str(execution_id or "")):
+            _decline_named = True
+            if not validated:
+                work_turn = True
+                validated = True
+        if not validated and isinstance(session, dict) and execution_id:
+            _cmp = session.get(f"_objective_evidence_{execution_id}")
+            if isinstance(_cmp, dict):
+                _cov = _cmp.get("coverage") or {}
+                _outs = [o for o in (_cov.get("outcomes") or [])
+                         if isinstance(o, dict)]
+                if _outs and all(
+                        str(o.get("status") or "") not in (
+                            "unverified", "evidence_missing", "unresolved",
+                            "partially_comparable", "field_missing")
+                        for o in _outs):
                     # SAME covered-set the outcome builder uses — a
                     # partially-covered comparison is not a delivered
                     # result.
@@ -5384,8 +5411,15 @@ def _fallback_turn_outcome(
         if record is not None and not work_turn:
             work_turn = True
 
-        # Map to the state.
-        if recorded_failure:
+        # Map to the state. THE EDIT-DECLINE CARRIER (F3) maps BEFORE
+        # the generic branches: a named decline with a delivered reply
+        # is PARTIAL — the honest answer was delivered; the requested
+        # edit did not happen and is never certified complete. Without
+        # a delivered reply it stays with the generic mapping below.
+        if _decline_named and validated and not open_work:
+            state["state"] = "partial"
+            state["open_work"] = [state.get("unmet_obligation")]
+        elif recorded_failure:
             state["state"] = "failed"
         elif _pending_calc_delivery and not _ops_carry_values(this_ops):
             # The clarification named the missing input — a delivered
@@ -25142,6 +25176,16 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 f"({apply_reason}) — replying honestly instead of falling "
                 f"through to conversation"
             )
+            # DECLINE CARRIER (verifier round 19, F3): the recorded fact
+            # that the lane declined with a named reason — the outcome
+            # resolver classifies the turn from THIS record (partial:
+            # honest answer delivered, the edit did not happen).
+            if isinstance(session, dict):
+                session["canvas_edit_decline"] = {
+                    "execution_id": execution_id,
+                    "reason": apply_reason,
+                    "canvas_id": canvas.get("canvas_id"),
+                }
             return {
                 "success": True,
                 "message": describe_apply_failure(
