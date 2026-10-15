@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Plus, GitFork } from "lucide-react";
+import { Search, Plus, GitFork, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AGENT_CHAT } from "@/src/lib/testIds";
 import { getCurrentUserId } from "@/lib/identity";
@@ -26,6 +26,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSession
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [forkingId, setForkingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchChatHistory();
@@ -137,6 +138,32 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSession
         }
     };
 
+    // Delete a session: confirm, DELETE on the backend, drop it from the list.
+    // If the deleted chat was the one open in the middle pane, fall back to a
+    // fresh chat so the pane isn't left pointing at a dead session.
+    const handleDeleteChat = async (e: React.MouseEvent, sessionId: string) => {
+        e.stopPropagation(); // don't trigger the row's session select
+        if (deletingId) return;
+        if (!window.confirm("Delete this chat? This cannot be undone.")) return;
+        setDeletingId(sessionId);
+        try {
+            const { apiClient } = await import('../../lib/api-client');
+            await apiClient.delete(`/api/chat/sessions/${sessionId}`, {
+                timeout: 10000,
+                // @ts-ignore
+                retry: false
+            });
+            if (selectedSessionId === sessionId) {
+                onSelectSession("new");
+            }
+            await fetchChatHistory();
+        } catch (error) {
+            console.error("Error deleting chat session:", error);
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const filteredHistory = history.filter(session =>
         session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         session.preview.toLowerCase().includes(searchQuery.toLowerCase())
@@ -193,6 +220,16 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSession
                                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-slate-400 hover:text-indigo-300 hover:bg-slate-700/60 disabled:opacity-50 disabled:cursor-wait"
                                         >
                                             <GitFork className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleDeleteChat(e, session.id)}
+                                            disabled={deletingId === session.id}
+                                            title={deletingId === session.id ? "Deleting..." : "Delete this chat"}
+                                            aria-label="Delete this chat"
+                                            data-testid={`${AGENT_CHAT.DELETE_BUTTON}-${index}`}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-slate-700/60 disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
                                 </div>
