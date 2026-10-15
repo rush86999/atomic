@@ -11735,10 +11735,27 @@ class ChatOrchestrator:
                         "authorization could not be EVALUATED (%s); "
                         "read-only research access retained",
                         _edit_lane_auth_error)
+            # EVIDENCE REQUIREMENT (owner work order, 2026-10-14): the
+            # accepted turn decision records whether THIS request needs
+            # live evidence. The edit lane consumes it so a
+            # self-contained edit never pays the tool planner's latency.
+            # None = decision absent → the lane keeps its existing
+            # behavior (never treat an absent decision as "no evidence").
+            _evidence_required: Optional[bool] = None
+            if isinstance(_td_decision, dict):
+                try:
+                    from core.turn_decision import (
+                        turn_evidence_required as _ter_fn,
+                    )
+
+                    _evidence_required = _ter_fn(_td_decision)
+                except Exception:  # noqa: BLE001 — carry is additive
+                    _evidence_required = None
             _shared_tool: Dict[str, Any] = {
                 "plan_task": _tool_plan_task,
                 "block": None,
                 "request_scope": _edit_request_scope,
+                "evidence_required": _evidence_required,
             }
             # SUBJECT ADMISSION carry-over: the admission facts recorded
             # on `_ask_task` (before this blackboard existed) ride the
@@ -11867,7 +11884,8 @@ class ChatOrchestrator:
                         # one logical operation per turn is also the
                         # correct idempotency key.
                         operation_id=_execution_id, \
-                        session=session) \
+                        session=session, \
+                        lane_budget_s=_canvas_leg_cap(_deadline)) \
                         if _edit_task_reserved["status"] in (
                             "reserved", "legacy") else None
                     # D1: a reservation is a CLAIM, and a claim with no verified
@@ -24239,6 +24257,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         expected_prior_audit_id: Optional[str] = None,
         edit_plan_timeout: float = 30.0,
         session: Optional[Dict[str, Any]] = None,
+        lane_budget_s: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         # When the schema-capable edit-plan rung is pinned
         # (ATOM_ASYNC_EDIT_PLAN_MODEL), the plan needs its full latency —
@@ -24323,14 +24342,49 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         with _stage_span("job_findings"):
             job_findings = self._canvas_job_findings(
                 user_id, canvas, session, message, agent_id=agent_id)
+        # OPTIONAL-ENRICHMENT BUDGET (owner work order, 2026-10-14): the
+        # learning/history enrichment below is advisory — it must not
+        # starve the mandatory stages (authorization, authoritative
+        # canvas, relevant teaching, required evidence) inside the SAME
+        # lane budget. One shared cap derived from the caller's leg
+        # budget; a stage that exceeds it is skipped with its own
+        # marker, and no fresh budget is granted afterwards (the
+        # caller's outer bound is unchanged).
+        _optional_budget = max(
+            4.0, min(12.0, (lane_budget_s or 74.0) * 0.15))
+        _optional_left = {"s": _optional_budget}
+
+        async def _optional_bounded(stage: str, coro: Any) -> Any:
+            _t = max(0.5, _optional_left["s"])
+            _t0 = time.monotonic()
+            try:
+                return await asyncio.wait_for(coro, timeout=_t)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "[lane-stage-timeout] eid=%s stage=%s cap=%.1fs — "
+                    "proceeding without this optional enrichment",
+                    execution_id or "-", stage, _t)
+                return None
+            finally:
+                _optional_left["s"] -= (time.monotonic() - _t0)
+
         with _stage_span("cross_canvas_learning"):
-            similar_corrections, correction_patterns = await self._cross_canvas_learnings(
-                user_id, canvas, agent_id
-            )
+            _cross_result = await _optional_bounded(
+                "cross_canvas_learning",
+                self._cross_canvas_learnings(user_id, canvas, agent_id))
+            if _cross_result is None:
+                similar_corrections, correction_patterns = None, None
+            else:
+                similar_corrections, correction_patterns = _cross_result
         with _stage_span("identity_playbooks"):
-            user_identity = await self._sender_identity(user_id, canvas.get("canvas_type"))
-            playbooks = await asyncio.to_thread(
-                self._relevant_playbooks, user_id, message, canvas.get("canvas_type"))
+            user_identity = await _optional_bounded(
+                "identity",
+                self._sender_identity(user_id, canvas.get("canvas_type")))
+            playbooks = await _optional_bounded(
+                "playbooks",
+                asyncio.to_thread(
+                    self._relevant_playbooks, user_id, message,
+                    canvas.get("canvas_type")))
 
         # Live evidence when the edit hinges on data the editor cannot see
         # (a price "from the consolidated price list"). Same read-only tool
@@ -24355,7 +24409,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 step_number=_step_counter["n"],
                 step_type=step_type, action=action, observation=observation)
 
-        from core.chat_canvas_editor import fetch_fresh_data_section
+        from core.chat_canvas_editor import (
+            FreshDataResult,
+            fetch_fresh_data_section,
+        )
         _edit_requested = _canvas_edit_shaped(message, {"canvas": canvas})
         # LANE-STAGE MARKER (verifier step 1): fresh-data work is a
         # SEPARATE stage from edit planning — its model calls (the
@@ -24423,8 +24480,28 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 "could not be EVALUATED (%s) — read-only research "
                 "access retained", str(_lane_auth_err)[:160])
             return None
-        with _stage_span("fresh_data_lookup"):
-            fresh = await fetch_fresh_data_section(
+        # ACCEPTED-REQUEST EVIDENCE REQUIREMENT (owner work order,
+        # 2026-10-14): the turn decision already records whether THIS
+        # request needs live evidence — a research action, named sources
+        # ("the workbook", "the email"), or a file reference. A
+        # SELF-CONTAINED edit (the replacement value is supplied in the
+        # instruction) carries none of those, and must not pay the
+        # general tool planner's latency before its own plan can run.
+        # Only an EXPLICIT False skips the lookup: a missing decision
+        # (routing off, other callers) keeps the existing behavior, and
+        # any required-evidence request keeps the full lookup path.
+        _evidence_required = None
+        if shared_tool_state is not None:
+            _evidence_required = shared_tool_state.get("evidence_required")
+        if _evidence_required is False:
+            logger.info(
+                "[lane-stage] eid=%s stage=fresh_data_skipped "
+                "reason=no_evidence_required_by_accepted_request",
+                execution_id or "-")
+            fresh = FreshDataResult("", False, True)
+        else:
+            with _stage_span("fresh_data_lookup"):
+                fresh = await fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),
             step_recorder=_record_fresh_data_step,
@@ -24527,7 +24604,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         # the confirmed item→value table rides the fresh-data section so
         # the edit plan works from data, not history prose.
         if _edit_requested:
-            _outcome_section = self._outcome_values_section(session, session_id)
+            with _stage_span("outcome_values"):
+                _outcome_section = self._outcome_values_section(
+                    session, session_id)
             if _outcome_section:
                 fresh_data = f"{fresh_data}\n\n{_outcome_section}".strip()
         # VALUE-EDIT TBC PROBE (2026-10-03, reliability run A): an edit
@@ -24544,30 +24623,31 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             bool(_edit_requested),
             bool((shared_tool_state or {}).get("block")))
         if _edit_requested and not (shared_tool_state or {}).get("block"):
-            try:
-                # workspace_id=None: the catalog is a per-deployment
-                # derived cache; user_id scopes the probe (this leg has no
-                # request context in scope — NameError caught live).
-                _tbc_section = await self._tbc_items_catalog_probe(
-                    canvas, user_id, None, message=message)
-                if _tbc_section:
-                    fresh_data = (
-                        f"{fresh_data}\n\n{_tbc_section}".strip())
-                    # The decline message needs the probe's findings even
-                    # when the blackboard block stays empty (no tool plan
-                    # ran) — the probe IS this turn's lookup.
-                    if shared_tool_state is not None:
-                        shared_tool_state["tbc_probe"] = _tbc_section
+            with _stage_span("catalog_probe"):
+                try:
+                    # workspace_id=None: the catalog is a per-deployment
+                    # derived cache; user_id scopes the probe (this leg has no
+                    # request context in scope — NameError caught live).
+                    _tbc_section = await self._tbc_items_catalog_probe(
+                        canvas, user_id, None, message=message)
+                    if _tbc_section:
+                        fresh_data = (
+                            f"{fresh_data}\n\n{_tbc_section}".strip())
+                        # The decline message needs the probe's findings even
+                        # when the blackboard block stays empty (no tool plan
+                        # ran) — the probe IS this turn's lookup.
+                        if shared_tool_state is not None:
+                            shared_tool_state["tbc_probe"] = _tbc_section
+                            logger.info(
+                                "[tbc-probe] stashed %d chars on the turn "
+                                "blackboard", len(_tbc_section))
+                    else:
                         logger.info(
-                            "[tbc-probe] stashed %d chars on the turn "
-                            "blackboard", len(_tbc_section))
-                else:
-                    logger.info(
-                        "[tbc-probe] probe produced no section (no "
-                        "unpriced rows or empty body)")
-            except Exception as _tbc_err:  # noqa: BLE001 — probe is additive
-                logger.warning(
-                    "[tbc-probe] probe failed: %r", _tbc_err)
+                            "[tbc-probe] probe produced no section (no "
+                            "unpriced rows or empty body)")
+                except Exception as _tbc_err:  # noqa: BLE001 — probe additive
+                    logger.warning(
+                        "[tbc-probe] probe failed: %r", _tbc_err)
 
         # Overlap the ACTION planner with this edit plan. Both are independent
         # structured LLM calls over the same turn inputs (message, history,
@@ -24599,7 +24679,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     f"canvas action plan task not started: {action_task_err}")
 
         try:
-            plan = await asyncio.wait_for(
+            with _stage_span("edit_plan"):
+                plan = await asyncio.wait_for(
                 plan_canvas_edit(
                     message, history, canvas, self.llm_service,
                     # THE TURN'S OWN SCOPE (J6 draft finding, same as the
