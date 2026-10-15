@@ -137,5 +137,17 @@
   ],
   "accepted_residuals": "execution_id is not whitelisted on canvas_mutation refs (the operation_id IS the turn's execution linkage); the decline pin is a baseline pin protected by the unresolved-carrier control",
   "acceptance_status": "OPEN \u2014 unchanged: attributable usable plan \u2192 one verified write; counted campaign awaits the owner's stabilization choice (native-json candidate measured, recorded in round19_instrumented_diagnosis)."
+ },
+ "w_round": {
+  "work_order": "W1 explicit prompt assembly + manifest; W2 compact through the helper; W3 comparable benchmark; W4 discriminative regressions; W5 cancellation isolation; freeze \u2192 review \u2192 counted campaign",
+  "landed": {
+   "W1": "_build_edit_plan_prompt with the section manifest; findings interpolation fixed; identity/playbooks budgeted; canvas serialized in full (the 6,000-char silent cap removed from the edit-plan path)",
+   "W2": "the implementation owner's MEASURED concrete compact shape (422308016); _small_edit_shape stays a prompt-shape heuristic, never authorization; heavyweight-content pins force compact=False explicitly",
+   "W3": "the comparable A/B (fa9d16b59): compact 3/3 effective (2.3-20.8s, 1,410 chars) vs heavyweight 0/3 (bound/cancel) \u2014 identical payload through the REAL plan_canvas_edit; the native-json adapter measured 0/3 (degenerate ops) and was NOT adopted (6688fe995)",
+   "W4": "8 discriminative regressions in tests/test_edit_prompt_assembly.py",
+   "W5": "test_structured_cancellation.py self-contained (test-owned fetcher patched at consumers, workers released in finally); BOTH test orders pass"
+  },
+  "handoff": "the frozen candidate is 422308016 (the implementation owner's measured compact shape; driver subject already moved); the counted J6 campaign belongs to the implementation owner per the one-owner directive",
+  "acceptance_status": "OPEN \u2014 milestone: an attributable usable plan ([plan-stage] contract=valid), then one verified write, then the negative controls; the counted campaign decides."
  }
 }
