@@ -149,5 +149,12 @@
   },
   "handoff": "the frozen candidate is 422308016 (the implementation owner's measured compact shape; driver subject already moved); the counted J6 campaign belongs to the implementation owner per the one-owner directive",
   "acceptance_status": "OPEN \u2014 milestone: an attributable usable plan ([plan-stage] contract=valid), then one verified write, then the negative controls; the counted campaign decides."
+ },
+ "counted_campaign_f79c40218": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_202810_89d6e0.json (+ the prior counted run j6_draft_20261014_201654_b85085.json on the same SHA)",
+  "result": "0/3 turns. T1/T3 bounded at 115s, T2 at 95s. FAILS the finish line: no authorized write, no preservation evidence, no readback.",
+  "first_broken_transition": "the edit-plan structured call NEVER DISPATCHES: zero route=canvas_edit_plan:<eid> dispatch lines, zero [plan-stage] events, zero [plan-prompt] manifests across both counted runs \u2014 the 30s plan wait_for expired at the 74s leg bound after a ~44s pre-dispatch phase inside the edit leg (between the fresh_data marker and the first dispatch). The three structured-<hex> dispatches visible in the turn (11.8-12.2k prompt chars) belong to OTHER legs \u2014 the edit plan is not among them. The isolated harness dispatches the same route natively in 15.9s, so the defect is in the LANE's pre-dispatch/window path, not the model or the transport.",
+  "regression": "the counted run's T1 gate (J6.T1_authorized_edit) IS the failing regression \u2014 its stage ladder shows edit_plan_dispatches=0, plan_validated=not_reached, edit_applied=false on both counted runs",
+  "surgical_target": "instrument between the fresh_data marker and the first edit-plan dispatch in _try_canvas_edit (the authorization evaluation, plan_canvas_edit entry, and the 30s wait_for) \u2014 the next owner's single probe"
  }
 }
