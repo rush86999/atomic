@@ -380,6 +380,32 @@ def _log_plan_stage(execution_id: Optional[str], stage: str,
         execution_id or "-", stage, outcome, attempts, contract,
         str(detail)[:160])
 
+
+def _capture_plan_debug(event: str, **fields: Any) -> None:
+    """Env-gated planning capture (ATOM_PLAN_CAPTURE_DIR): append one JSON
+    line per event to plan_capture.jsonl. Read-only observer — never
+    raises, never alters planning."""
+    import os as _os
+
+    _dir = (_os.getenv("ATOM_PLAN_CAPTURE_DIR") or "").strip()
+    if not _dir:
+        return
+    try:
+        import time as _time
+        from pathlib import Path as _Path
+
+        target = _Path(_dir)
+        target.mkdir(parents=True, exist_ok=True)
+        record: Dict[str, Any] = {
+            "ts": _time.strftime("%Y-%m-%dT%H:%M:%S"), "event": event}
+        record.update(fields)
+        with (target / "plan_capture.jsonl").open(
+                "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, default=str) + "\n")
+    except Exception:  # noqa: BLE001 — capture is strictly additive
+        pass
+
+
 async def _plan_structured(
     llm_service: Any,
     *,
@@ -3779,6 +3805,16 @@ async def plan_canvas_edit(
         json.dumps([{k: m.get(k) for k in
                      ("section", "size", "included", "truncated")}
                     for m in prompt_manifest], default=str)[:800])
+    _capture_plan_debug(
+        "edit_plan_prompt", eid=execution_id, attempt=1, message=message,
+        history_len=len(list(history or [])),
+        canvas_id=canvas.get("canvas_id"),
+        canvas_content=canvas.get("content"), fresh_data=fresh_data,
+        user_identity=user_identity, provenance=provenance,
+        corrections_len=len(list(corrections or [])),
+        versions_len=len(list(versions or [])),
+        lessons_len=len(list(lessons or [])),
+        prompt=prompt, manifest=prompt_manifest)
 
     try:
         from core.llm import pinned_planning as _pp
@@ -3797,6 +3833,11 @@ async def plan_canvas_edit(
         execution_id=execution_id,
         stage="canvas_edit_plan",
     )
+    _capture_plan_debug(
+        "edit_plan_result", eid=execution_id, attempt=1,
+        plan=(plan.model_dump()
+              if plan is not None and hasattr(plan, "model_dump")
+              else repr(plan)))
     if plan is None:
         _log_plan_stage(execution_id, "canvas_edit_plan", "unavailable",
                         detail="structured call returned None")
@@ -4041,6 +4082,13 @@ async def plan_canvas_edit(
             workspace_id=workspace_id,
             tenant_id=tenant_id,
         )
+        _capture_plan_debug(
+            "edit_plan_result", eid=execution_id, attempt=2,
+            reask_reason=reask_reason, prompt_chars=len(
+                f"{prompt}\n\n{_REPLACE_FALLBACK_SUFFIX}"),
+            plan=(replan.model_dump()
+                  if replan is not None and hasattr(replan, "model_dump")
+                  else repr(replan)))
         if replan is None:
             # First call proved this IS an edit; the re-ask dying is an
             # infrastructure failure — same honest-failure treatment.
@@ -4081,6 +4129,11 @@ async def plan_canvas_edit(
         raw_plan = await _raw_json_replace_plan(
             llm_service, f"{prompt}\n\n{_REPLACE_FALLBACK_SUFFIX}", {}
         )
+        _capture_plan_debug(
+            "edit_plan_result", eid=execution_id, attempt=3, kind="raw_json",
+            plan=(raw_plan.model_dump()
+                  if raw_plan is not None and hasattr(raw_plan, "model_dump")
+                  else repr(raw_plan)))
         # The raw leg is the SAME bounded repair, so the same fence applies to
         # it: being reached through a different parser changes nothing about
         # what the answer is allowed to say.

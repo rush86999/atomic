@@ -1,0 +1,913 @@
+{
+ "benchmark": "T1 op-capture + planning-rung (isolated; NOT acceptance)",
+ "started_at": "2026-10-15T13:58:43+00:00",
+ "workload": {
+  "title": "Quotation Q-2026-114 (J6 draft)",
+  "content": "# Quotation Q-2026-114\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-11-30\n",
+  "ask": "On this quotation, update the Valid Until date to 2026-12-31. Change nothing else.",
+  "intended": "# Quotation Q-2026-114\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-12-31\n"
+ },
+ "attempt_bound_s": 75.0,
+ "pricing_cache": {
+  "path": "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json",
+  "md5": "33d8234790aa36426f2f082183c45499",
+  "seeded_models": [
+   "deepseek-flash",
+   "deepseek-v4-pro",
+   "deepseek-v4.1-flash",
+   "deepseek/deepseek-v4-pro",
+   "glm-5.3-flash",
+   "llama3.1:8b"
+  ]
+ },
+ "providers_available": [
+  "deepseek",
+  "ollama",
+  "opencode-go",
+  "openrouter"
+ ],
+ "git_head": "ab97a78c0",
+ "arm_A_compact_baseline": [
+  {
+   "label": "A-baseline-1",
+   "timed_out": false,
+   "elapsed_s": 11.28,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-1",
+     "t0": 394606.395484541,
+     "elapsed_s": 11.28,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 942,
+      "completion_tokens": 85,
+      "total_tokens": 1027
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": "Valid until",
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 942,
+    "completion_tokens": 85
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-2",
+   "timed_out": false,
+   "elapsed_s": 2.15,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-2",
+     "t0": 394617.7349805,
+     "elapsed_s": 2.15,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 942,
+      "completion_tokens": 85,
+      "total_tokens": 1027
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": "Valid until",
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 942,
+    "completion_tokens": 85
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-3",
+   "timed_out": false,
+   "elapsed_s": 2.13,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-3",
+     "t0": 394619.923731791,
+     "elapsed_s": 2.13,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 942,
+      "completion_tokens": 85,
+      "total_tokens": 1027
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": "Valid until",
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 942,
+    "completion_tokens": 85
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-4",
+   "timed_out": false,
+   "elapsed_s": 2.09,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-4",
+     "t0": 394622.101349666,
+     "elapsed_s": 2.09,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 942,
+      "completion_tokens": 85,
+      "total_tokens": 1027
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": "Valid until",
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 942,
+    "completion_tokens": 85
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-5",
+   "timed_out": false,
+   "elapsed_s": 2.1,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-5",
+     "t0": 394624.239710916,
+     "elapsed_s": 2.1,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 942,
+      "completion_tokens": 85,
+      "total_tokens": 1027
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": "Valid until",
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 942,
+    "completion_tokens": 85
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-6",
+   "timed_out": false,
+   "elapsed_s": 2.27,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-6",
+     "t0": 394626.384441041,
+     "elapsed_s": 2.26,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 942,
+      "completion_tokens": 85,
+      "total_tokens": 1027
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": "Valid until",
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 942,
+    "completion_tokens": 85
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  }
+ ],
+ "arm_A_summary": {
+  "attempts": 6,
+  "effective_edits": 6,
+  "refusals": 0,
+  "unavailable": 0,
+  "ineffective_or_invalid": 0,
+  "results": [
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit"
+  ],
+  "latency_s": [
+   11.28,
+   2.15,
+   2.13,
+   2.09,
+   2.1,
+   2.27
+  ],
+  "latency_mean_s": 3.67,
+  "cost_usd_total": 0.0,
+  "failed_op_whys": [],
+  "pin_mismatches": [],
+  "first_plan_classifications": [
+   {
+    "ops": [
+     {
+      "index": 0,
+      "field": "Valid until",
+      "cell": null,
+      "find": "2026-11-30",
+      "replace": "2026-12-31",
+      "find_len": 10,
+      "targets_requested_change": true,
+      "match": "matched"
+     }
+    ],
+    "failed_ops": 0,
+    "failed": [],
+    "apply_clean": true,
+    "extra_ops_touching_other_text": 0
+   }
+  ]
+ },
+ "arm_B_pin": {
+  "provider": "deepseek",
+  "model": "deepseek-v4-pro",
+  "mechanism": "ATOM_ASYNC_EDIT_PLAN_MODEL"
+ },
+ "arm_B_planning_rung": [
+  {
+   "label": "B-deepseek-1",
+   "timed_out": false,
+   "elapsed_s": 18.4,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-1",
+     "t0": 394628.694696083,
+     "elapsed_s": 18.4,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1358,
+      "completion_tokens": 1204,
+      "total_tokens": 2562
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1358,
+    "completion_tokens": 1204
+   },
+   "cost_usd": 0.0065604,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-2",
+   "timed_out": false,
+   "elapsed_s": 21.97,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-2",
+     "t0": 394647.134015166,
+     "elapsed_s": 21.97,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1358,
+      "completion_tokens": 1489,
+      "total_tokens": 2847
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated the Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1358,
+    "completion_tokens": 1489
+   },
+   "cost_usd": 0.007689,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-3",
+   "timed_out": false,
+   "elapsed_s": 12.52,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-3",
+     "t0": 394669.16142075,
+     "elapsed_s": 12.52,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1358,
+      "completion_tokens": 834,
+      "total_tokens": 2192
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated the Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1358,
+    "completion_tokens": 834
+   },
+   "cost_usd": 0.0050952,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-4",
+   "timed_out": false,
+   "elapsed_s": 22.6,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-4",
+     "t0": 394681.728331083,
+     "elapsed_s": 22.6,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1358,
+      "completion_tokens": 1389,
+      "total_tokens": 2747
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1358,
+    "completion_tokens": 1389
+   },
+   "cost_usd": 0.007293,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-5",
+   "timed_out": false,
+   "elapsed_s": 6.51,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-5",
+     "t0": 394704.389565083,
+     "elapsed_s": 6.51,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1358,
+      "completion_tokens": 458,
+      "total_tokens": 1816
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1358,
+    "completion_tokens": 458
+   },
+   "cost_usd": 0.00360624,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-6",
+   "timed_out": false,
+   "elapsed_s": 10.39,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 1718,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-6",
+     "t0": 394710.953261541,
+     "elapsed_s": 10.39,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1358,
+      "completion_tokens": 680,
+      "total_tokens": 2038
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1358,
+    "completion_tokens": 680
+   },
+   "cost_usd": 0.00448536,
+   "cost_note": null
+  }
+ ],
+ "arm_B_summary": {
+  "attempts": 6,
+  "effective_edits": 6,
+  "refusals": 0,
+  "unavailable": 0,
+  "ineffective_or_invalid": 0,
+  "results": [
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit"
+  ],
+  "latency_s": [
+   18.4,
+   21.97,
+   12.52,
+   22.6,
+   6.51,
+   10.39
+  ],
+  "latency_mean_s": 15.4,
+  "cost_usd_total": 0.0347292,
+  "failed_op_whys": [],
+  "pin_mismatches": [],
+  "first_plan_classifications": [
+   {
+    "ops": [
+     {
+      "index": 0,
+      "field": null,
+      "cell": null,
+      "find": "Valid until: 2026-11-30",
+      "replace": "Valid until: 2026-12-31",
+      "find_len": 23,
+      "targets_requested_change": true,
+      "match": "matched"
+     }
+    ],
+    "failed_ops": 0,
+    "failed": [],
+    "apply_clean": true,
+    "extra_ops_touching_other_text": 0
+   }
+  ]
+ }
+}

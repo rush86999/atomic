@@ -1104,6 +1104,34 @@ async def test_canvas_edit_none_marks_retryable_no_apply():
     assert shared["canvas_edit_no_apply_reason"] == "planner_returned_none"
 
 
+def test_no_apply_message_does_not_reask_an_explicit_assignment():
+    """Owner work order 2026-10-15, item 4: when the request already named
+    the value ("update X to Y") and the planner still could not match it,
+    the recovery wording must explain the mismatch and leave the draft
+    untouched — never send the user back to restate the value they gave
+    (observed: J6 T1 "update the Valid Until date to 2026-12-31")."""
+    from integrations.chat_orchestrator import (
+        _planner_returned_none_message)
+
+    msg = _planner_returned_none_message(
+        "On this quotation, update the Valid Until date to 2026-12-31. "
+        "Change nothing else.")
+    assert "nothing was changed" in msg
+    assert "already names the value to set" in msg
+    assert "valid until date = 2026-12-31" in msg
+    assert "Naming the exact text" not in msg
+    assert "draft is untouched" in msg
+
+
+def test_no_apply_message_keeps_naming_advice_without_an_assignment():
+    from integrations.chat_orchestrator import (
+        _planner_returned_none_message)
+
+    msg = _planner_returned_none_message("tighten the second paragraph")
+    assert "nothing was changed" in msg
+    assert "Naming the exact text to change" in msg
+
+
 @pytest.mark.asyncio
 async def test_process_edit_no_apply_stops_before_conversation():
     orch = _orch()

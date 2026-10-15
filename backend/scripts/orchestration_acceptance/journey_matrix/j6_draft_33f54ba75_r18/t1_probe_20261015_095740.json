@@ -1,0 +1,87 @@
+{
+ "benchmark": "T1 op-capture + planning-rung (isolated; NOT acceptance)",
+ "started_at": "2026-10-15T13:57:25+00:00",
+ "workload": {
+  "title": "Quotation Q-2026-114 (J6 draft)",
+  "content": "# Quotation Q-2026-114\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-11-30\n",
+  "ask": "On this quotation, update the Valid Until date to 2026-12-31. Change nothing else.",
+  "intended": "# Quotation Q-2026-114\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-12-31\n"
+ },
+ "attempt_bound_s": 75.0,
+ "pricing_cache": {
+  "path": "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json",
+  "md5": "33d8234790aa36426f2f082183c45499",
+  "seeded_models": [
+   "deepseek-flash",
+   "deepseek-v4-pro",
+   "deepseek-v4.1-flash",
+   "deepseek/deepseek-v4-pro",
+   "glm-5.3-flash",
+   "llama3.1:8b"
+  ]
+ },
+ "providers_available": [
+  "deepseek",
+  "ollama",
+  "opencode-go",
+  "openrouter"
+ ],
+ "git_head": "ab97a78c0",
+ "probe": [
+  {
+   "provider": "deepseek",
+   "model": "deepseek-v4-pro",
+   "latency_s": 6.48,
+   "ok": true,
+   "tokens": {
+    "prompt": 245,
+    "completion": 59
+   },
+   "model_echo": "deepseek-v4-pro"
+  },
+  {
+   "provider": "openrouter",
+   "model": "deepseek/deepseek-v4-pro",
+   "latency_s": 3.13,
+   "ok": true,
+   "tokens": {
+    "prompt": 194,
+    "completion": 33
+   },
+   "model_echo": "deepseek-flash"
+  },
+  {
+   "provider": "opencode-go",
+   "model": "deepseek-v4.1-flash",
+   "latency_s": 2.68,
+   "ok": true,
+   "tokens": {
+    "prompt": 335,
+    "completion": 69
+   },
+   "model_echo": "deepseek-v4.1-flash"
+  },
+  {
+   "provider": "opencode-go",
+   "model": "glm-5.3-flash",
+   "latency_s": 1.94,
+   "ok": true,
+   "tokens": {
+    "prompt": 199,
+    "completion": 16
+   },
+   "model_echo": "glm-5.3-flash"
+  },
+  {
+   "provider": "deepseek",
+   "model": "deepseek-flash",
+   "latency_s": 1.17,
+   "ok": true,
+   "tokens": {
+    "prompt": 194,
+    "completion": 34
+   },
+   "model_echo": "deepseek-flash"
+  }
+ ]
+}

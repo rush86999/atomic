@@ -2401,6 +2401,48 @@ def _canvas_edit_shaped(
     )
 
 
+def _planner_returned_none_message(message: str) -> str:
+    """No-apply wording when no APPLICABLE plan was produced.
+
+    Distinct from `planner_declined`: the planner did read the request as an
+    edit but its ops did not match, and the bounded repairs failed. When the
+    request itself carried an assignment ("update X to Y"), the user already
+    did the naming — sending them back to restate exact canvas text puts a
+    system-side precision failure on the user and re-asks for a value they
+    already gave (owner work order 2026-10-15, item 4; measured: the 8B
+    planner appended an empty-find extra op to a correct match and the
+    bounded re-ask repeated it). Explain the mismatch, leave the draft
+    untouched, do not re-ask.
+    """
+    try:
+        from core.turn_decision import extract_request_assignments
+
+        assignments = (extract_request_assignments(message or "")
+                       .get("assignments") or [])
+    except Exception:  # noqa: BLE001 — wording only
+        assignments = []
+    if assignments:
+        named = "; ".join(
+            f"{a.get('target')} = {str(a.get('value'))[:40]}"
+            for a in assignments[:2]
+            if isinstance(a, dict) and a.get("target") and a.get("value"))
+        return (
+            "I didn't apply that canvas change, so nothing was changed. "
+            "Your request already names the value to set"
+            + (f" ({named})" if named else "")
+            + " — the failure is on my side: I couldn't match it to the "
+            "exact text on this canvas, and I won't substitute a different "
+            "edit for it. The draft is untouched."
+        )
+    return (
+        "I didn't apply that canvas change, so nothing was changed. I "
+        "couldn't match your request to exact text on this canvas, and I "
+        "won't substitute a different edit for it. Naming the exact text "
+        "to change (for example 'change \"Quote validity: 15 days\" to "
+        "\"30 days\"') gets it applied."
+    )
+
+
 # CANVAS DEIXIS (round 34, Milestone A live finding): a research message
 # may reference the open canvas without any edit verb — "Don't change the
 # draft yet", "check the other machinery", "verify the pricing on this
@@ -12549,16 +12591,12 @@ class ChatOrchestrator:
                         # targets did not match, and the bounded repairs either
                         # failed or were rejected for widening the edit past the
                         # fields the request named (F02). Saying it "declined"
-                        # would name a cause we did not observe; saying nothing
-                        # actionable would hide the one thing that does help.
-                        _no_apply_message = (
-                            "I didn't apply that canvas change, so nothing was "
-                            "changed. I couldn't match your request to exact "
-                            "text on this canvas, and I won't substitute a "
-                            "different edit for it. Naming the exact text to "
-                            "change (for example 'change \"Quote validity: 15 "
-                            "days\" to \"30 days\"') gets it applied."
-                        )
+                        # would name a cause we did not observe; the wording
+                        # helper keeps the one thing that does help — but only
+                        # when the user still NEEDS it (an assignment the user
+                        # already gave is not re-asked; owner item 4).
+                        _no_apply_message = _planner_returned_none_message(
+                            message or "")
                     elif _no_apply_reason in (
                         "evidence_declined", "evidence_unavailable"
                     ):
