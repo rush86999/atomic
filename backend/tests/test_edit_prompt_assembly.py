@@ -151,6 +151,28 @@ def test_compact_assembly_keeps_canvas_teaching_and_constraints():
     assert "FRESH-EVIDENCE-MARKER" in prompt
 
 
+def test_compact_instructions_are_the_measured_concrete_shape():
+    """The compact set is the MEASURED artifact — a concrete
+    single-shape contract, not prose rules and not the 10k-char verbose
+    set. Measured through the real lane: v1 prose failed shape
+    validation (1/3, diagnostic_benchmark_20261014_194812.json); this
+    concrete shape completed 3/3 with the full canvas preserved
+    (…_195019.json idle, …_195755.json under load) and 3/3 effective in
+    the independent W3 A/B (prompt_ab_20261014_195814.json). A rewrite
+    that changes this shape must re-run the benchmark before it ships.
+    """
+    prompt, manifest = _build(compact=True)
+    instr = next(m for m in manifest if m["section"] == "instructions")
+    assert instr.get("compact") is True
+    # The concrete CanvasEditPlan shape the model must return.
+    assert '{"wants_edit": bool' in prompt
+    assert '"ops": [{"find"' in prompt
+    assert "No markdown fences" in prompt
+    # The verbose instruction set is NOT in the compact prompt.
+    assert "AI co-editing panel" not in prompt
+    assert len(cce._COMPACT_EDITOR_SYSTEM) < 1500
+
+
 def test_compact_is_not_an_authorization():
     """W2 guard: compact is a prompt-shape choice. An unauthorized
     request takes the compact assembly and still gets NO plan — the

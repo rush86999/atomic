@@ -54,32 +54,35 @@ logger = logging.getLogger(__name__)
 
 # The current canvas content rides in the prompt; bound it so a huge sheet
 # can't blow the structured-call budget.
-# COMPACT EDIT INSTRUCTIONS (round-19 diagnostic: the 10k-char
-# instruction set dominated the planning prompt — 10.8k chars around a
-# ~330-char canvas — and the accepted 8B profile failed every planning
-# attempt inside the leg bound; the minimal instruction set with the
-# IDENTICAL full canvas completed 3/3 at 2.3-11.9s). The compact set
-# carries the edit-safety contract; it REPLACES ONLY the verbose
-# explanations — evidence, teaching, and user constraints travel
-# unchanged (they are never "scaffolding").
+# COMPACT EDIT INSTRUCTIONS (measured, 2026-10-14): the verbose 10.8k
+# instruction set around a ~330-char canvas made the accepted 8B profile
+# fail every structured attempt inside the leg bound (0/3;
+# diagnostic_benchmark_20261014_194812.json). A compact PROSE rule set
+# still failed shape validation (1/3; same file). The stable form is a
+# CONCRETE SINGLE-SHAPE CONTRACT — the literal CanvasEditPlan JSON the
+# model must return — which measured 3/3 at 3.7–6.6s idle and 3/3 under
+# concurrent load, full canvas preserved, in the production lane
+# (diagnostic_benchmark_20261014_195019.json / _195755.json) and
+# independently in the W3 A/B (prompt_ab_20261014_195814.json: compact
+# 3/3 vs heavyweight 0/3, identical payload). The compact set carries
+# the edit-safety contract; it REPLACES ONLY the verbose explanations —
+# evidence, teaching, and user constraints travel unchanged (they are
+# never "scaffolding").
 _COMPACT_EDITOR_SYSTEM = (
-    "You are the canvas editor. Edit the canvas per the request.\n"
-    "Rules:\n"
-    "- Change ONLY the authorized targets; everything else is preserved "
-    "byte-for-byte (identities, fields, unrelated content).\n"
-    "- ops[].find MUST copy the current canvas text verbatim (first "
-    "occurrence); use the canvas's actual field names.\n"
-    "- For app canvases, the CANVAS APP section below defines the real "
-    "field names and op forms — SET-FIELD ops fill EMPTY fields "
-    "(field=<name>); patch ops carry find/replace for text.\n"
-    "- The user's own MANUAL EDITS on the canvas outrank recalled "
-    "memory (lessons, corrections, origin context).\n"
-    "- Restore requests: return edit_mode=\"restore\" with the exact "
-    "restore_audit_id shown in RECENT VERSIONS; never invent a "
-    "version_id or text for a version that isn't shown.\n"
-    "- Do not invent missing facts and do not resolve open evidence "
-    "decisions — name what is missing instead.\n"
-    "- Return the CanvasEditPlan JSON object only."
+    "You return only the CanvasEditPlan JSON object: "
+    '{"wants_edit": bool, "edit_mode": "patch", '
+    '"ops": [{"find": "<exact current text>", '
+    '"replace": "<new text>"}], "reply": str}. '
+    "Rules: ops.find MUST copy the current canvas text verbatim "
+    "(first occurrence); add \"field\": \"<field name>\" to an op "
+    "when the canvas has named fields. Change ONLY the authorized "
+    "target — everything the ops do not touch is preserved "
+    "byte-for-byte. Do not invent missing facts: if the request "
+    "needs a value that appears nowhere, set wants_edit=false and "
+    "name what is missing. To restore an earlier version return "
+    '{"wants_edit": true, "edit_mode": "restore", '
+    '"restore_audit_id": "<exact id from RECENT VERSIONS>"}. '
+    "No markdown fences."
 )
 
 _MAX_CONTENT_CHARS = 6000

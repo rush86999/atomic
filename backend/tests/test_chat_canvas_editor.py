@@ -203,7 +203,8 @@ async def test_editor_prompt_demands_preservation_and_excludes_sends():
     llm = MagicMock()
     llm._get_handler.return_value.clients = {}
     llm.generate_structured_response = AsyncMock(return_value=CanvasEditPlan(wants_edit=False))
-    await plan_canvas_edit("try sending it again", [], _canvas(), llm)
+    await plan_canvas_edit(
+        "try sending it again", [], _canvas(), llm, compact=False)
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]
     assert "MANUAL EDITS" in prompt                 # user edits outrank memory
     assert 'edit_mode="patch"' in prompt            # surgical by default
@@ -223,7 +224,8 @@ async def test_editor_prompt_excludes_teaching_points_and_pure_lookups():
     llm = MagicMock()
     llm._get_handler.return_value.clients = {}
     llm.generate_structured_response = AsyncMock(return_value=CanvasEditPlan(wants_edit=False))
-    await plan_canvas_edit("this will be the norm", [], _canvas(), llm)
+    await plan_canvas_edit(
+        "this will be the norm", [], _canvas(), llm, compact=False)
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]
     assert "TEACHING POINTS" in prompt              # norms are wants_edit=false
     assert "do not change my writing" in prompt     # named as guidance, not edits
@@ -2143,7 +2145,8 @@ async def test_plan_prompt_includes_recent_versions_with_restore_rule():
         "actor": "supervisor", "content": "the ORIGINAL draft",
     }]
     await plan_canvas_edit(
-        "go back to my original draft", [], _canvas(content="overwritten"), llm,
+        "go back to my original draft",
+        [], _canvas(content="overwritten"), llm, compact=False,
         versions=versions,
     )
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]
