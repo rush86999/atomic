@@ -9,6 +9,7 @@ This module provides a unified chat interface that connects all ATOM capabilitie
 - Cross-platform workflow execution
 """
 import asyncio
+import contextlib
 import time
 from core.turn_learning import get_turn_learning
 from core import log_redaction
@@ -24246,6 +24247,32 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         _pin_spec = (os.getenv("ATOM_ASYNC_EDIT_PLAN_MODEL") or "").strip()
         if _pin_spec:
             edit_plan_timeout = max(edit_plan_timeout, 75.0)
+        # PAIRED STAGE MARKERS (verifier round 19, W-step 2): every
+        # pre-planning boundary logs [lane-stage-begin]/[lane-stage-end]
+        # with the execution id; cancellation inside any stage logs the
+        # ACTIVE stage name — a bounded leg is attributed to the exact
+        # prerequisite that consumed it.
+
+        @contextlib.contextmanager
+        def _stage_span(name: str):
+            logger.info("[lane-stage-begin] eid=%s stage=%s",
+                        execution_id or "-", name)
+            _t = time.monotonic()
+            try:
+                yield
+            except asyncio.CancelledError:
+                logger.warning(
+                    "[lane-stage-cancelled] eid=%s stage=%s waited=%.1fs",
+                    execution_id or "-", name, time.monotonic() - _t)
+                raise
+            finally:
+                logger.info("[lane-stage-end] eid=%s stage=%s elapsed=%.1fs",
+                            execution_id or "-", name,
+                            time.monotonic() - _t)
+
+        with _stage_span("canvas_refresh_heal"):
+            canvas = await self._refresh_canvas_from_store(user_id, canvas)
+            canvas = await self._heal_degenerate_canvas(user_id, canvas)
         """Canvas co-editor edit step: plan the edit via the canvas editor
         module, persist it through canvas_crud_tool, and return the chat
         response. Returns None when the turn is NOT a canvas edit (or
@@ -24261,9 +24288,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             describe_apply_failure,
             plan_canvas_edit,
         )
-
-        canvas = await self._refresh_canvas_from_store(user_id, canvas)
-        canvas = await self._heal_degenerate_canvas(user_id, canvas)
 
         # PDF canvases are byte-backed: their pages/forms/signatures change
         # only through the maturity-gated pdf_canvas tools — a text patch on
@@ -24286,33 +24310,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 },
             }
 
-        _pre_t0 = time.monotonic()
-        corrections = self._recent_canvas_corrections(user_id, canvas.get("canvas_id"))
-        versions = self._recent_canvas_versions(user_id, canvas.get("canvas_id"))
-        lessons = self._agent_lessons(agent_id, message)
-        logger.info(
-            "[lane-stage] eid=%s stage=pre_corrections_versions_lessons "
-            "elapsed=%.1fs", execution_id or "-",
-            time.monotonic() - _pre_t0)
+        with _stage_span("corrections_versions_lessons"):
+            corrections = self._recent_canvas_corrections(user_id, canvas.get("canvas_id"))
+            versions = self._recent_canvas_versions(user_id, canvas.get("canvas_id"))
+            lessons = self._agent_lessons(agent_id, message)
         # JOB FINDINGS (round 62, authorized drafting): the durable
         # research record for THIS canvas's job — verified findings with
         # sources, approved manual values, open business decisions and
         # freshness limits — so the edit applies what was verified,
         # preserves what the owner set, and annotates (never resolves)
         # the open choices.
-        job_findings = self._canvas_job_findings(
-            user_id, canvas, session, message, agent_id=agent_id)
-        _pre_t1 = time.monotonic()
-        similar_corrections, correction_patterns = await self._cross_canvas_learnings(
-            user_id, canvas, agent_id
-        )
-        user_identity = await self._sender_identity(user_id, canvas.get("canvas_type"))
-        playbooks = await asyncio.to_thread(
-            self._relevant_playbooks, user_id, message, canvas.get("canvas_type"))
-        logger.info(
-            "[lane-stage] eid=%s stage=pre_learning_identity_playbooks "
-            "elapsed=%.1fs", execution_id or "-",
-            time.monotonic() - _pre_t1)
+        with _stage_span("job_findings"):
+            job_findings = self._canvas_job_findings(
+                user_id, canvas, session, message, agent_id=agent_id)
+        with _stage_span("cross_canvas_learning"):
+            similar_corrections, correction_patterns = await self._cross_canvas_learnings(
+                user_id, canvas, agent_id
+            )
+        with _stage_span("identity_playbooks"):
+            user_identity = await self._sender_identity(user_id, canvas.get("canvas_type"))
+            playbooks = await asyncio.to_thread(
+                self._relevant_playbooks, user_id, message, canvas.get("canvas_type"))
 
         # Live evidence when the edit hinges on data the editor cannot see
         # (a price "from the consolidated price list"). Same read-only tool
@@ -24405,7 +24423,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 "could not be EVALUATED (%s) — read-only research "
                 "access retained", str(_lane_auth_err)[:160])
             return None
-        fresh = await fetch_fresh_data_section(
+        with _stage_span("fresh_data_lookup"):
+            fresh = await fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),
             step_recorder=_record_fresh_data_step,
