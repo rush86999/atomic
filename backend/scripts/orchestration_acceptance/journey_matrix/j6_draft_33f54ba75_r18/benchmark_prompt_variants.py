@@ -105,8 +105,11 @@ async def run_side(label: str, compact: bool, http_counts: list) -> dict:
     runs = []
     for i in range(1, ATTEMPTS + 1):
         captured = {}
-
-
+        # Per-attempt HTTP accounting: capture the starting count BEFORE
+        # the attempt (the timeout branch previously subtracted the
+        # current count from itself — always zero — and success rows
+        # reported cumulative counts).
+        n0 = len(http_counts)
         t0 = time.monotonic()
         try:
             plan = await asyncio.wait_for(
@@ -119,14 +122,14 @@ async def run_side(label: str, compact: bool, http_counts: list) -> dict:
             runs.append({"attempt": f"{label}-{i}", "completed": False,
                          "reason": "bound expired",
                          "elapsed_s": round(time.monotonic() - t0, 2),
-                         "http": len(http_counts) - n0 if
-                         (n0 := len(http_counts)) is not None else 0})
+                         "http_requests": len(http_counts) - n0})
             continue
         except Exception as exc:  # noqa: BLE001
             runs.append({"attempt": f"{label}-{i}", "completed": False,
                          "reason": f"{type(exc).__name__}: "
                                    f"{str(exc)[:140]}",
-                         "elapsed_s": round(time.monotonic() - t0, 2)})
+                         "elapsed_s": round(time.monotonic() - t0, 2),
+                         "http_requests": len(http_counts) - n0})
             continue
         effective = False
         detail = "no plan"
@@ -151,7 +154,7 @@ async def run_side(label: str, compact: bool, http_counts: list) -> dict:
             "detail": detail,
             "prompt_chars": len(captured.get("prompt") or ""),
             "cap": captured.get("cap"),
-            "http": len(http_counts),
+            "http_requests": len(http_counts) - n0,
         })
     return runs
 
@@ -205,7 +208,7 @@ def main() -> int:
             "time_to_valid_plan_s": [r.get("time_to_valid_plan_s")
                                      for r in completions],
             "prompt_chars": [r.get("prompt_chars") for r in runs],
-            "http_requests_total": counts and len(counts),
+            "http_requests_total": len(counts),
         }
     out_path = Path(__file__).parent / (
         "prompt_ab_" + time.strftime("%Y%m%d_%H%M%S") + ".json")
