@@ -1,16 +1,25 @@
 #!/usr/bin/env python3
 """J6 DRAFT (canvas lane): authorized edit, read-only comparison, unmet
-requirement — on the frozen candidate pinned by SUBJECT below (paired
-stage spans + the accepted-request evidence gate + the self-contained-
-edit pre-start gate + the measured compact prompt; the drafting
-workflow itself is UNCHANGED). --t1-only runs the diagnostic T1 turn
-alone (stage attribution), never the counted campaign.
+requirement — on the frozen candidate pinned by SUBJECT below (the
+reviewed runtime + the shared exec-context canvas construction; the
+drafting workflow itself is UNCHANGED). --t1-only runs the diagnostic T1
+turn alone; --t2-only runs T1+T2 (the T2 outcome-defect fix evidence) —
+both diagnostic, never the counted campaign.
+
+Measured planning rung (owner directive 2026-10-15): the edit-plan
+structured call is pinned to deepseek/deepseek-v4-pro
+(ATOM_ASYNC_EDIT_PLAN_MODEL; benchmark arm B: 6/6 effective edits, mean
+12.49s, ~$0.00565/attempt) through a credential mounted via the PRODUCT
+store call (Settings>AI shape), with the deployment's local-only
+preference retained — the reply lane stays the product-registered local
+Ollama llama3.1:8b. The pin raises the edit-plan dispatch window to 75s
+(recorded); the turn budget is NOT changed. This is a CLOUD-BACKED
+planning validation, labeled as such.
 
 This is a DRAFT acceptance journey, run to produce evidence, not a gate
 already passed. Subject and mode match the J4/J5 round-18 campaign:
 detached worktree /tmp/j45-r18 (configuration-parity boot; dev .env copy
-with credentials scrubbed; venv symlinked), product-registered local
-Ollama llama3.1:8b as the only chat provider, fresh scratch world per
+with credentials scrubbed; venv symlinked), fresh scratch world per
 run, SHA guard verified BEFORE anything runs.
 
 The journey seeds its own canvas through the product API (never the
@@ -52,17 +61,43 @@ from pathlib import Path
 
 WORKTREE = Path("/tmp/j45-r18")
 WORKTREE_BACKEND = WORKTREE / "backend"
-EVIDENCE_DIR = Path("/tmp/j6_r18_draft_evidence")
+EVIDENCE_DIR = Path("/tmp/j6_r19_evidence")
 MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "c7e97a30f"
+SUBJECT = "ddd300dbf"
+# AUTHORIZED PLANNING RUNG (owner directive 2026-10-15): the measured
+# arm B of benchmark_t1_rung_20261015_110851 (6/6 effective edits, mean
+# 12.49s, ~$0.00565/attempt). The pin rides ATOM_ASYNC_EDIT_PLAN_MODEL
+# into the EDIT-PLAN structured call only; the reply lane stays the
+# product-registered LOCAL ollama model. The provider credential is
+# mounted into THIS world through the product store call the Settings>AI
+# page sends (j2 world B precedent) — never an inherited env key.
+PIN_PROVIDER = "deepseek"
+PIN_MODEL = "deepseek-v4-pro"
+PIN_SPEC = f"{PIN_PROVIDER}/{PIN_MODEL}"
+DEV_VAULT = Path(
+    "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json")
+DEV_VAULT_KEY = Path(
+    "/Users/rushiparikh/projects/atom/backend/data/byok_encryption_key")
+DEV_VAULT_ENTRY = f"tenant_default_{PIN_PROVIDER}_default_production"
+# Pin side effect, RECORDED (owner instruction 3): setting the pin env
+# raises the edit-plan dispatch window to max(30, 75) = 75s
+# (chat_orchestrator, `_try_canvas_edit`). The turn budget is unchanged.
+EDIT_PLAN_TIMEOUT_S_PINNED = 75.0
+TURN_BUDGET_DEFAULT_S = 95.0
+TURN_BUDGET_DERIVATION_S = 115.0
 
 
 class _T1OnlyComplete(Exception):
     """Diagnostic T1 finished (--t1-only): skip T2/T3 and the reload.
     The default three-turn campaign is unchanged."""
+
+
+class _T2OnlyComplete(Exception):
+    """Diagnostic T1+T2 finished (--t2-only): skip T3 and the reload.
+    Focused-review evidence, never the counted campaign."""
 
 QUOTE_TITLE = "Quotation Q-2026-114 (J6 draft)"
 QUOTE_CONTENT = (
@@ -432,21 +467,139 @@ def history_rows(db_path: Path, sid: str) -> list:
     return [{"role": r[0], "content": r[1] or ""} for r in rows]
 
 
+def _dev_pin_key() -> str:
+    """The owner's stored deepseek credential, READ (not moved) from the
+    dev BYOK vault. Returned for the product store call; the value never
+    enters evidence."""
+    from cryptography.fernet import Fernet
+
+    store = json.loads(DEV_VAULT.read_text())
+    entry = (store.get("keys") or {}).get(DEV_VAULT_ENTRY) or {}
+    enc = entry.get("encrypted_key")
+    if not enc:
+        raise RuntimeError(f"vault entry {DEV_VAULT_ENTRY!r} missing")
+    fernet = Fernet(DEV_VAULT_KEY.read_text().strip().encode())
+    return fernet.decrypt(enc.encode()).decode()
+
+
+def _mask_matches(plain: str, masked: str) -> bool:
+    """j2 world-B mask check: the product masks with the plaintext's
+    first4/last4 only when decryption succeeds."""
+    masked = str(masked or "")
+    if not masked or len(plain) < 8:
+        return False
+    return plain[:4] in masked and plain[-4:] in masked
+
+
+def mount_pin_provider(base: str, token: str) -> dict:
+    """Store the pin's provider key through the PRODUCT (the exact call
+    the Settings>AI page sends) and verify it decrypts. Recorded facts
+    only — never key material."""
+    out: dict = {
+        "pin_spec": PIN_SPEC,
+        "cloud_backed": True,
+        "credential_source": (
+            f"dev BYOK vault entry {DEV_VAULT_ENTRY!r} (read-only), "
+            "stored via POST /api/ai/providers/<id>/keys"),
+    }
+    try:
+        plain = _dev_pin_key()
+    except Exception as exc:  # noqa: BLE001 — recorded; the run refuses later
+        out["error"] = f"pin key unavailable: {type(exc).__name__}: {exc}"
+        return out
+    stored = JR.auth_post(
+        base, token, f"/api/ai/providers/{PIN_PROVIDER}/keys",
+        {"api_key": plain, "key_name": "default",
+         "environment": "production"})
+    out["store_http"] = stored.get("http")
+    out["stored"] = bool((stored.get("json") or {}).get("success"))
+    keys = JR.auth_get(base, token, "/api/ai/keys")
+    entries = [k for k in (
+        ((keys.get("json") or {}).get("data") or {}).get("keys") or [])
+        if str((k or {}).get("provider")) == PIN_PROVIDER]
+    out["keys_visible"] = len(entries)
+    out["decrypts"] = any(
+        _mask_matches(plain, (k or {}).get("masked_key") or "")
+        for k in entries)
+    return out
+
+
+def lookup_ops(db_path: Path, eid: str) -> list:
+    """The turn's lifecycle operations — what ran and what it SETTLED —
+    read from the durable record (goal_runs), never from log text."""
+    import sqlite3
+
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        rows = con.execute(
+            "SELECT parameters FROM goal_runs ORDER BY created_at"
+        ).fetchall()
+        con.close()
+    except Exception:  # noqa: BLE001 — attribution is additive
+        return []
+    ops: list = []
+    for (params,) in rows:
+        try:
+            tl = (json.loads(params or "{}").get("task_lifecycle") or {})
+        except Exception:  # noqa: BLE001
+            continue
+        for op in tl.get("operations") or []:
+            op = op or {}
+            if str(op.get("execution_id") or "") != str(eid or ""):
+                continue
+            ex = op.get("execution") or {}
+            ops.append({
+                "operation_type": op.get("operation_type"),
+                "status": op.get("status"),
+                "invoked": ex.get("invoked"),
+                "outcome": ex.get("outcome"),
+                "failure_stage": ex.get("failure_stage"),
+                "requested_change": str(
+                    op.get("requested_change") or "")[:120],
+            })
+    return ops
+
+
 # ---------------------------------------------------------------------------
 # The journey
 # ---------------------------------------------------------------------------
-def run_j6(t1_only: bool = False) -> dict:
+def run_j6(t1_only: bool = False, t2_only: bool = False,
+           diag: bool = False) -> dict:
     ev: dict = {"journey": "J6-draft", "subject": SUBJECT,
                 "mode": "worktree_configuration_parity",
                 "t1_only": t1_only,
+                "t2_only": t2_only,
+                # diagnostic_only runs are pre-campaign evidence; the
+                # counted campaign is exactly ONE run recorded with
+                # counted=True (owner directive 2026-10-15).
+                "diagnostic_only": bool(diag),
+                "counted": not bool(diag or t1_only or t2_only),
                 "sha_guard": _GUARD,
                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                             time.gmtime())}
     ev["pricing_cache"] = cold_pricing_cache()
     ev["main_dev_cache_before"] = main_dev_cache_md5()
+    ev["runtime_config"] = {
+        "edit_plan_pin": PIN_SPEC,
+        "edit_plan_pin_scope": "canvas-edit-plan structured call only",
+        "edit_plan_timeout_s_effective": EDIT_PLAN_TIMEOUT_S_PINNED,
+        "edit_plan_timeout_side_effect": (
+            "setting the pin env raises the edit-plan window to "
+            "max(30, 75)=75s (chat_orchestrator `_try_canvas_edit`); the "
+            "turn budget is NOT changed"),
+        "turn_budget_default_s": TURN_BUDGET_DEFAULT_S,
+        "turn_budget_derivation_s": TURN_BUDGET_DERIVATION_S,
+        "turn_budget_env_override": os.environ.get(
+            "ATOM_CHAT_TURN_BUDGET_SECONDS"),
+        "local_only": "true",
+        "reply_lane": "product-registered local ollama llama3.1:8b",
+        "planning_lane_cloud_backed": True,
+    }
     _extra_env = {"ATOM_LOCAL_ONLY": "true",
                   "OLLAMA_BASE_URL": "http://localhost:11434/v1",
-                  "OLLAMA_MODEL": "llama3.1:8b", **CRED_SCRUB}
+                  "OLLAMA_MODEL": "llama3.1:8b",
+                  "ATOM_ASYNC_EDIT_PLAN_MODEL": PIN_SPEC,
+                  **CRED_SCRUB}
     _capture_dir = os.environ.get("ATOM_PLAN_CAPTURE_DIR")
     if _capture_dir:
         _extra_env["ATOM_PLAN_CAPTURE_DIR"] = _capture_dir
@@ -491,6 +644,26 @@ def run_j6(t1_only: bool = False) -> dict:
             "context_window": int(_caps.get("context_length") or 8192),
             "source": "ollama /api/show capabilities+context_length"}
 
+        # AUTHORIZED PLANNING RUNG (owner directive 2026-10-15): mount
+        # the measured rung's provider credential through the product,
+        # then a REAL restart so the handler builds its client at boot
+        # (j2 world B pattern). The world's local-only preference is
+        # retained; the rung is explicitly cloud-backed and labeled so.
+        ev["pin_provider_setup"] = mount_pin_provider(server.base, token)
+        if not ev["pin_provider_setup"].get("decrypts"):
+            raise RuntimeError(
+                f"pin provider mount failed: {ev['pin_provider_setup']}")
+        ev["restart_after_pin_store"] = {
+            k: v for k, v in server.restart().items()
+            if k in ("booted", "seconds", "restart_number", "git_commit")}
+        if not ev["restart_after_pin_store"].get("booted"):
+            raise RuntimeError("restart after pin store failed")
+        _loc = JR.auth_get(server.base, token, "/api/local-models")
+        _loc_doc = _loc.get("json")
+        ev["local_providers_after_restart"] = len(
+            _loc_doc if isinstance(_loc_doc, list)
+            else (_loc_doc or {}).get("data") or [])
+
         ev["setup"] = canvas_setup(server.base, token)
         canvas_id = ev["setup"].get("canvas_id")
         if not canvas_id or not ev["setup"].get("seeded_content_matches"):
@@ -529,6 +702,7 @@ def run_j6(t1_only: bool = False) -> dict:
         t1["audit_delta"] = len(a1) - len(baseline_audit)
         t1["audit_new_rows"] = a1[len(baseline_audit):]
         _log1 = server.log_tail()
+        ev.setdefault("log_tails", {})["T1"] = "\n".join((_log1 or "").splitlines()[-500:])
         import re as _re
         _st = _re.findall(r"canvas-edit plan: ([0-9.]+)s", _log1)
         t1["plan_stage_s"] = float(_st[-1]) if _st else None
@@ -593,6 +767,7 @@ def run_j6(t1_only: bool = False) -> dict:
         a2 = audit_rows(server.db_path, canvas_id)
         t2["audit_delta"] = len(a2) - len(a1)
         _log2 = server.log_tail()
+        ev.setdefault("log_tails", {})["T2"] = "\n".join((_log2 or "").splitlines()[-500:])
         import re as _re
         _st2 = _re.findall(r"canvas-edit plan: ([0-9.]+)s", _log2)
         t2["plan_stage_s"] = float(_st2[-1]) if _st2 else None
@@ -609,6 +784,18 @@ def run_j6(t1_only: bool = False) -> dict:
                             "context_source", "search_scope"):
                         comparison_refs += 1
         low2 = (t2["delivered_content"] or "").lower()
+        t2["lookup_ops"] = lookup_ops(
+            server.db_path, t2.get("execution_id") or "")
+        # OPERATION ATTRIBUTION (this cycle's defect class): a required
+        # lookup that SETTLED failed (read_failed / search_failed /
+        # not_dispatched — the envelope's own failure set) is exactly the
+        # T2 outcome defect; a correct reply over a failed required
+        # lookup must not pass.
+        _failed_lookup_ops = [o for o in t2["lookup_ops"]
+                              if str(o.get("outcome") or "") in (
+                                  "read_failed", "search_failed",
+                                  "not_dispatched")]
+        t2["failed_lookup_ops"] = _failed_lookup_ops
         t2_checks = {
             "turn_success": t2.get("success") is True,
             "comparison_answered": ("48,000" in low2
@@ -621,9 +808,31 @@ def run_j6(t1_only: bool = False) -> dict:
                      or comparison_refs > 0)),
             "preserved_byte_identical": bool(t2["canvas_preserved"]),
             "zero_audit_writes": t2["audit_delta"] == 0,
+            "no_failed_required_lookup": not _failed_lookup_ops,
         }
         t2["checks"] = t2_checks
         turns["T2_readonly_comparison"] = t2
+
+        if t2_only:
+            # DIAGNOSTIC T1+T2 (focused-review evidence, never counted):
+            # the T2 outcome-defect fix + the pin/credential smoke.
+            ev["turns"] = turns
+            ev["assertions"] = {
+                "diag.T1_rung_edit": all(t1_checks.values()),
+                "diag.T2_outcome": all(t2_checks.values()),
+                "diag.pin_mounted": bool(
+                    ev.get("pin_provider_setup", {}).get("decrypts")),
+                "diag.pin_dispatch_model": any(
+                    "deepseek-v4-pro" in d for d in (
+                        ((t1.get("stage_ladder") or {})
+                         .get("plan_attempts", {}).get("detail") or [])
+                        + ((t2.get("stage_ladder") or {})
+                           .get("plan_attempts", {}).get("detail") or []))),
+                "diag.reply_lane_local": str(
+                    t2.get("provider") or "").startswith("local"),
+            }
+            ev["pass"] = all(ev["assertions"].values())
+            raise _T2OnlyComplete()
 
         # T3 — unmet requirement: the tax number exists NOWHERE.
         t3 = chat_turn(
@@ -641,6 +850,7 @@ def run_j6(t1_only: bool = False) -> dict:
         a3 = audit_rows(server.db_path, canvas_id)
         t3["audit_delta"] = len(a3) - len(a2)
         _log3 = server.log_tail()
+        ev.setdefault("log_tails", {})["T3"] = "\n".join((_log3 or "").splitlines()[-500:])
         import re as _re
         _st3 = _re.findall(r"canvas-edit plan: ([0-9.]+)s", _log3)
         t3["plan_stage_s"] = float(_st3[-1]) if _st3 else None
@@ -648,6 +858,11 @@ def run_j6(t1_only: bool = False) -> dict:
             _log3, t3, {"has_new_date": False}, t3["audit_delta"])
         de3 = t3["durable_execution"]
         low3 = (t3["delivered_content"] or "").lower()
+        # OPERATION ATTRIBUTION (recorded, not gated): what T3's turn
+        # actually attempted — the missing-information path must show
+        # the lookup obligation honestly, never a fabricated completion.
+        t3["lookup_ops"] = lookup_ops(
+            server.db_path, t3.get("execution_id") or "")
         certified = any(w in low3 for w in (
             "i've added", "have added", "i added", "added the",
             "updated the quote with the tax", "done — the tax",
@@ -706,6 +921,8 @@ def run_j6(t1_only: bool = False) -> dict:
         ev["pass"] = all(ev["assertions"].values())
     except _T1OnlyComplete:
         pass
+    except _T2OnlyComplete:
+        pass
     except Exception as exc:  # noqa: BLE001
         ev["pass"] = False
         ev["error"] = f"{type(exc).__name__}: {exc}"
@@ -721,7 +938,9 @@ def run_j6(t1_only: bool = False) -> dict:
 
 
 def main() -> int:
-    ev = run_j6(t1_only="--t1-only" in sys.argv[1:])
+    ev = run_j6(t1_only="--t1-only" in sys.argv[1:],
+               t2_only="--t2-only" in sys.argv[1:],
+               diag="--diag" in sys.argv[1:])
     print(json.dumps({
         "journey": ev.get("journey"),
         "pass": ev.get("pass"),
