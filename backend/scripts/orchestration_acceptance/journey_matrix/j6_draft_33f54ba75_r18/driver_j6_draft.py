@@ -57,7 +57,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "5abf89c0e"
+SUBJECT = "dfaf62c09"
 
 
 class _T1OnlyComplete(Exception):
