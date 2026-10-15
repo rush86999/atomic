@@ -260,3 +260,78 @@ def test_project_unrelated_owner_refused():
              None, contract)
     assert r["grounded"] is False
     assert _unsupported(r)
+
+
+# --------------------------- reference phrasings (review of 5abf89c0e)
+# Independent review (2026-10-15) counterexamples: natural verb-headed
+# and possessive source references were certified as supplied values.
+# A reference phrased as "see the attached schedule" / "refer to the
+# schedule" / "the supplier's quoted date" must be an UNRESOLVED
+# obligation in BOTH detectors (extractor AND validator), the same as
+# the "from our records" family. Keep in sync with
+# factual_change_validation._REFERENCE_PHRASE and
+# turn_decision._SOURCE_REF_PHRASE.
+
+REF_CURRENT = "Valid until: 2026-11-30\n"
+REF_MSG = "Update the valid until date to {value}."
+REFERENCE_PHRASINGS = [
+    "see the attached schedule",
+    "see attached schedule",
+    "refer to the schedule",
+    "the supplier's quoted date",
+    "the value shown in the table",
+    "the exact date from our records",
+]
+
+
+def test_verb_headed_and_possessive_references_are_unresolved():
+    from core.turn_decision import extract_request_assignments
+
+    for phrasing in REFERENCE_PHRASINGS:
+        msg = REF_MSG.format(value=phrasing)
+        accepted = extract_request_assignments(msg)
+        assert not any(
+            str(a.get("value") or "") == phrasing
+            for a in accepted["assignments"]), (
+            f"reference {phrasing!r} must not become a supplied value; "
+            f"assignments={accepted['assignments']!r}")
+        assert any(
+            "valid until" in str(u.get("target") or "")
+            for u in accepted["unresolved_additions"]), (
+            f"the target must stay an unresolved obligation for "
+            f"{phrasing!r}; got {accepted['unresolved_additions']!r}")
+
+
+def test_reference_phrasings_never_certify_a_matching_op():
+    from core.turn_decision import extract_request_assignments
+
+    for phrasing in REFERENCE_PHRASINGS:
+        msg = REF_MSG.format(value=phrasing)
+        accepted = extract_request_assignments(msg)
+        op = _Op("Valid until: 2026-11-30",
+                 f"Valid until: {phrasing}", origin="user_supplied")
+        r = _run([op], REF_CURRENT, msg, accepted)
+        assert r["grounded"] is False, (
+            f"the reference's own words must not certify for {phrasing!r}")
+
+
+def test_explicit_value_with_a_source_citation_is_an_obligation():
+    """Policy pin (review of 5abf89c0e): "2026-12-31 per the quote"
+    cites a source for the value — the obligation to resolve/verify
+    stands and the literal is never blindly certified. The prior split
+    (extractor accepted it, validator refused it) is closed in the safe
+    direction: both detectors agree."""
+    from core.turn_decision import extract_request_assignments
+
+    msg = "Update the valid until date to 2026-12-31 per the quote."
+    accepted = extract_request_assignments(msg)
+    assert not any("2026-12-31" in str(a.get("value") or "")
+                   for a in accepted["assignments"]), (
+        f"citation-bearing values are obligations; got "
+        f"{accepted['assignments']!r}")
+    assert any("valid until" in str(u.get("target") or "")
+               for u in accepted["unresolved_additions"])
+    op = _Op("Valid until: 2026-11-30", "Valid until: 2026-12-31",
+             origin="user_supplied")
+    r = _run([op], REF_CURRENT, msg, accepted)
+    assert r["grounded"] is False, "the cited literal must not certify"

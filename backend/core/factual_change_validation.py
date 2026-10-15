@@ -177,12 +177,28 @@ _ASSIGNMENT_AFTER = re.compile(
     r"\s*(?:as|to|into)\s+(?:the\s+|a\s+|an\s+)?")
 
 #: A prepositional phrase headed by a determiner names WHERE a value
-#: lives, not what it is.
+#: lives, not what it is. Independent review of 5abf89c0e (2026-10-15):
+#: verb-headed pointers ("see the attached schedule", "refer to the
+#: schedule") and possessive-source participials ("the supplier's quoted
+#: date") are references too, and were being certified. Keep this phrase
+#: set in sync with core/turn_decision.py::_SOURCE_REF_PHRASE, and keep
+#: the widest-over-refusal direction: a value that cites a source is an
+#: obligation to resolve/verify, never a certification of the literal.
 _REFERENCE_PHRASE = re.compile(
     r"\b(?:from|in|on|at|per|according\s+to|based\s+on|taken\s+from|"
     r"stated\s+in|shown\s+in|listed\s+in|recorded\s+in|found\s+in|"
     r"as\s+per)\s+"
-    r"(?:the|our|your|my|his|her|its|their|this|that|these|those)\b")
+    r"(?:the|our|your|my|his|her|its|their|this|that|these|those)\b"
+    r"|\b(?:see|refer\s+to|consult|check|look\s+(?:at|in)|"
+    r"read\s+(?:from|in))\s+"
+    r"(?:the|our|your|my|his|her|its|their|this|that|these|those)?\s*"
+    r"(?:attached\s+|enclosed\s+)?"
+    r"(?:schedules?|attachments?|documents?|files?|docs?|quotes?|"
+    r"quotations?|invoices?|annex(?:es)?|appendi(?:x|ces)|tables?|"
+    r"spreadsheets?|workbook|records?|minutes|contracts?|"
+    r"agreements?|emails?|crm|database|notes?)\b"
+    r"|[A-Za-z]+['’]s\s+(?:quoted|stated|listed|recorded|shown|"
+    r"specified|given|provided|supplied|documented|captured|filed)\b")
 
 _FIELDISH_CONTEXT = re.compile(
     r"\s*(?:[:=]|\b(?:field|line|row|column|header|cell)\b)")
