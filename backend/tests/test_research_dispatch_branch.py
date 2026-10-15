@@ -329,3 +329,113 @@ class TestResearchDispatchBranch:
             assert out_of_range not in subjects, (
                 f"{out_of_range} is preservation context, not a "
                 "research obligation")
+
+
+def _ops_of(tl):
+    out = []
+    for run in tl.runs.list_runs(include_terminal=True, limit=20):
+        for o in tl.get_task(run["id"]).get("operations") or []:
+            out.append(o)
+    return out
+
+
+def _retrieve_outcomes(tl):
+    return [(o.get("execution") or {}).get("outcome")
+            for o in _ops_of(tl) if o.get("operation_type") == "retrieve"]
+
+
+class TestResearchDispatchSettlement:
+    """Owner directive 2026-10-15, items 1-2: execution failure and
+    evidence absence are DIFFERENT settlements; zero findings alone
+    proves neither, and per-scan errors are preserved."""
+
+    def test_zero_match_over_an_explicit_scope_is_a_bounded_absence(self):
+        def _empty_catalog(item, user_id, workspace_id, file_name=None,
+                           max_matches=8):
+            return {"matches": [], "per_file": {}, "total_matches": 0,
+                    "files_scanned": 4, "sheets_scanned": 6,
+                    "incomplete": False, "error": ""}
+        result, spy, orch, tl, factory = _run_turn(T1, _empty_catalog)
+        outcomes = _retrieve_outcomes(tl)
+        assert outcomes, "the retrieval operation executed"
+        assert all(o == "read_succeeded_empty" for o in outcomes), outcomes
+
+    def test_unscoped_zero_match_is_open_not_absent(self):
+        def _no_catalog(item, user_id, workspace_id, file_name=None,
+                        max_matches=8):
+            return {"matches": [], "per_file": {}, "total_matches": 0,
+                    "files_scanned": 0, "sheets_scanned": 0,
+                    "incomplete": False, "error": ""}
+        result, spy, orch, tl, factory = _run_turn(T1, _no_catalog)
+        outcomes = _retrieve_outcomes(tl)
+        assert outcomes, "the retrieval operation executed"
+        assert all(o == "read_returned_no_receipt" for o in outcomes), (
+            outcomes)
+
+    def test_a_scan_error_is_failed_with_its_reason(self):
+        def _broken(item, user_id, workspace_id, file_name=None,
+                    max_matches=8):
+            raise RuntimeError("catalog unavailable")
+        result, spy, orch, tl, factory = _run_turn(T1, _broken)
+        ops = [o for o in _ops_of(tl)
+               if o.get("operation_type") == "retrieve"]
+        assert ops, "the operation was begun before dispatch"
+        ex = ops[0].get("execution") or {}
+        assert ex.get("outcome") == "read_failed", ex
+        assert "catalog unavailable" in str(
+            ex.get("failure_stage") or ""), ex
+
+    def test_incomplete_scan_is_open_not_absent(self):
+        def _truncated(item, user_id, workspace_id, file_name=None,
+                       max_matches=8):
+            return {"matches": [], "per_file": {}, "total_matches": 0,
+                    "files_scanned": 2, "incomplete": True, "error": ""}
+        result, spy, orch, tl, factory = _run_turn(T1, _truncated)
+        outcomes = _retrieve_outcomes(tl)
+        assert outcomes, "the retrieval operation executed"
+        assert all(o == "read_returned_no_receipt" for o in outcomes), (
+            outcomes)
+
+    def test_junk_match_keeps_the_read_open_not_absent(self):
+        result, spy, orch, tl, factory = _run_turn(T1, _scan(False))
+        outcomes = _retrieve_outcomes(tl)
+        assert outcomes, "the retrieval operation executed"
+        assert all(o == "read_returned_no_receipt" for o in outcomes), (
+            outcomes)
+
+
+COMPARE_INTERNAL = (
+    "Compare the Unit price and the Subtotal lines on this quotation and "
+    "tell me whether they are consistent. Do NOT change anything on the "
+    "quote.")
+COMPARE_EXTERNAL = (
+    "Compare the Unit price on this quotation against the workbook and "
+    "tell me whether they match.")
+
+
+class TestRequestBoundRequirements:
+    """Owner directive 2026-10-15, item 3: the read requirement belongs
+    to the REQUEST. An artifact-internal comparison is satisfied by the
+    authoritative content; a source-referencing comparison and the
+    row-range retrieval regression keep their reads."""
+
+    def test_canvas_internal_comparison_begins_no_read(self):
+        result, spy, orch, tl, factory = _run_turn(COMPARE_INTERNAL,
+                                                   _scan(True))
+        assert not [o for o in _ops_of(tl)
+                    if o.get("operation_type") == "retrieve"], (
+            "an artifact-internal comparison must not begin an external "
+            "read — its content is authoritative")
+
+    def test_source_referencing_comparison_keeps_its_read(self):
+        result, spy, orch, tl, factory = _run_turn(COMPARE_EXTERNAL,
+                                                   _scan(True))
+        assert [o for o in _ops_of(tl)
+                if o.get("operation_type") == "retrieve"], (
+            "a comparison bound to an external source keeps its read")
+
+    def test_row_range_regression_still_dispatches(self):
+        result, spy, orch, tl, factory = _run_turn(T1, _scan(True))
+        assert [o for o in _ops_of(tl)
+                if o.get("operation_type") == "retrieve"], (
+            "the row-range retrieval regression this branch exists for")

@@ -527,3 +527,94 @@ async def test_teaching_phrase_with_planner_down_mutates_nothing():
     assert data.get("plan_unavailable") is True, (
         "the honest limitation: an edit was nominated, the reasoning step "
         "could not run, and the reply reports exactly that")
+
+
+# ---------------------------------------------------------------------------
+# 5. THE REQUIREMENT-FIRST ASK (owner directive 2026-10-15, item 4)
+# ---------------------------------------------------------------------------
+async def _requirement_first_turn(message, session_id):
+    """The turn runs the REAL lane; the fresh-data lookup stalls; the
+    accepted request names the value's source by reference. The specific
+    ask must ship deterministically — no model call, no timeout."""
+    import core.chat_canvas_editor as cce
+    from integrations import chat_orchestrator as chat
+
+    orchestrator = chat.ChatOrchestrator()
+    canvas = {"canvas_id": "cv1", "canvas_type": "document",
+              "title": "Quotation Q-2026-114",
+              "content": "# Quotation Q-2026-114\n\n"
+                         "Valid until: 2026-11-30\n"}
+    writes = []
+    reply_calls = []
+
+    async def _update(user_id, canvas_id, content, *a, **k):
+        writes.append(content)
+        return {"success": True, "audit_id": "a1"}
+
+    async def _read(user_id, canvas_id, **k):
+        return {"success": True, "canvas_id": canvas_id,
+                "canvas_type": "document", "title": "Q",
+                "content": canvas["content"]}
+
+    import asyncio as _aio
+
+    async def _slow_fresh(*a, **k):
+        await _aio.sleep(30)
+        return cce.FreshDataResult("", True, True)
+
+    async def _reply(*a, **k):
+        reply_calls.append(1)
+        return {"content": "the reply leg must not run", "success": True}
+
+    with (
+        patch.object(orchestrator, "_get_or_create_session",
+                     return_value={"id": session_id, "history": []}),
+        patch.object(orchestrator, "_resolve_canvas_ctx",
+                     new=AsyncMock(return_value=canvas)),
+        patch.object(orchestrator, "_start_chat_execution", return_value="e1"),
+        patch.object(orchestrator, "_record_chat_step", new=AsyncMock()),
+        patch.object(orchestrator, "_emit_agent_status", new=AsyncMock()),
+        patch.object(orchestrator, "_finish_chat_execution"),
+        patch.object(orchestrator, "_update_session"),
+        patch.object(chat, "_begin_task_edit",
+                     return_value={"status": "reserved", "run_id": "run-z",
+                                   "operation_id": "op-z", "reason": None}),
+        patch.object(orchestrator, "_try_canvas_action", new=AsyncMock()),
+        patch.object(orchestrator, "_get_qwen_response",
+                     new=AsyncMock(side_effect=_reply)),
+        patch("core.chat_tool_planner.plan_tool_use",
+              new=AsyncMock(return_value=None)),
+        patch("core.chat_tool_planner._provenance_menu",
+              new=AsyncMock(return_value="")),
+        patch.object(cce, "fetch_fresh_data_section",
+                     new=AsyncMock(side_effect=_slow_fresh)),
+        patch.object(chat, "_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS", 0.3),
+        patch("tools.canvas_crud_tool.update_canvas_content",
+              new=AsyncMock(side_effect=_update)),
+        patch("tools.canvas_crud_tool.read_canvas",
+              new=AsyncMock(side_effect=_read)),
+    ):
+        result = await orchestrator.process_chat_message(
+            "u1", message, session_id, context={"canvas_id": "cv1"})
+    return result, writes, reply_calls
+
+
+@pytest.mark.asyncio
+async def test_reference_requirement_ships_the_specific_ask_deterministically():
+    """Owner directive 2026-10-15, item 4: the specific missing-value ask
+    reaches the user without a model call and without a timeout — the
+    requested edit did not happen, nothing was written, and the envelope
+    is the F3 partial (a delivered clarification, never certified)."""
+    msg = ("Add the client's tax registration number to this quotation. "
+           "Use the exact number from our records.")
+    result, writes, reply_calls = await _requirement_first_turn(
+        msg, "sess-req-1")
+    said = (result.get("message") or "")
+    assert "could not be retrieved this turn" in said, result
+    assert "'from our records'" in said, said
+    assert "Give me the exact value" in said, said
+    assert writes == [], "nothing was written"
+    assert reply_calls == [], (
+        "the clarification ships without the reply leg (no model call)")
+    assert result.get("success") is True, result
+    assert result.get("outcome") == "partial", result

@@ -435,6 +435,39 @@ def _canvas_leg_cap(deadline: "TurnDeadline") -> float:
 _REPLY_LEG_MIN_SECONDS = float(
     os.getenv("ATOM_REPLY_LEG_MIN_SECONDS", "40") or 40)
 
+#: REQUIREMENT-FIRST WAIT (owner directive 2026-10-15, item 4): when the
+#: accepted request names the value's SOURCE by reference ("use the exact
+#: number from our records") and supplies no value, the source lookup gets
+#: this bounded window; if it does not settle, the requirement is declared
+#: UNRESOLVED and the lane ASKS for the value — the specific missing-value
+#: clarification — instead of spending the rest of the turn on planning
+#: the plan cannot ground either (the referenced value grounds nowhere, so
+#: any op it emits is refused). Narrow on purpose: only reference-valued
+#: requests take this window; every other evidence-required edit keeps the
+#: existing generous planner bound.
+_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS = float(
+    os.getenv("ATOM_REFERENCE_REQUIREMENT_WAIT_SECONDS", "30") or 30)
+
+
+def _unresolved_requirement_message(references: List[str]) -> str:
+    """The SPECIFIC missing-value ask for a reference-valued requirement.
+
+    Names the reference the request already gave and asks for the value —
+    the "ask specifically for the missing value" contract (owner directive
+    2026-10-15, item 4). Deterministic; never a generic timeout sentence,
+    never a fabricated value."""
+    named = ", ".join(repr(str(r)[:80]) for r in (references or [])[:2]
+                      if str(r).strip())
+    if named:
+        return (
+            "I couldn't make that canvas change because the value it needs "
+            f"— {named} — could not be retrieved this turn, so nothing was "
+            "changed. Give me the exact value and I'll apply it.")
+    return (
+        "I couldn't make that canvas change because the value it needs "
+        "could not be retrieved this turn, so nothing was changed. Give me "
+        "the exact value and I'll apply it.")
+
 
 def _pre_reply_leg_timeout(deadline, want: float) -> float:
     """Seconds a pre-reply leg may wait, leaving the reply leg its share.
@@ -2474,6 +2507,42 @@ def _canvas_referencing_message(message: str) -> bool:
     than an edit verb. Only meaningful when a canvas is actually attached —
     callers gate on that themselves."""
     return bool(_CANVAS_DEIXIS_RE.search(message or ""))
+
+
+# COMPARISON-SHAPED REQUESTS (owner directive 2026-10-15, item 3): the
+# verb set that marks a "tell me whether these agree" ask. Deliberately
+# narrow (compare/consistency/match family); a retrieval ask ("what are
+# the prices...") never matches.
+_CANVAS_COMPARISON_RE = re.compile(
+    r"\b(?:compare|comparison|consistent|consistency|matches?|matching|"
+    r"reconcile|identical|the same)\b", re.IGNORECASE)
+
+
+def _canvas_internal_comparison(message: str, shared_tool_state: Any) -> bool:
+    """Whether the request is a comparison OF the attached artifact's own
+    content — satisfied by the artifact's authoritative content, so no
+    external read obligation exists (owner directive 2026-10-15, item 3).
+
+    Guards (all required, conservative):
+      - the accepted request records NO live-evidence requirement
+        (``evidence_required`` explicitly False — a named source makes it
+        True and keeps the lookup);
+      - the message is comparison-shaped;
+      - the message references the attached artifact (canvas deixis).
+    Everything else — retrieval asks, row-range asks, source-referencing
+    comparisons — keeps the existing read path.
+    """
+    try:
+        if not isinstance(shared_tool_state, dict):
+            return False
+        if shared_tool_state.get("evidence_required") is not False:
+            return False
+        msg = str(message or "")
+        if not _CANVAS_COMPARISON_RE.search(msg):
+            return False
+        return bool(_canvas_referencing_message(msg))
+    except Exception:  # noqa: BLE001 — the gate never blocks the turn
+        return False
 
 
 _TABLE_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
@@ -4793,6 +4862,10 @@ _UNMET_OBLIGATION_TOKENS: Tuple[Tuple[str, str], ...] = (
     ("ambiguous", "multiple_bases"),
     ("search_returned_no_receipt", "no_source_returned_in_scope"),
     ("search_succeeded_empty", "no_source_returned_in_scope"),
+    # A canvas-scoped read that completed over its explicit scope with
+    # zero matches (owner directive 2026-10-15, item 1) — a bounded
+    # absence, named as such when it leaves work open.
+    ("read_succeeded_empty", "no_source_returned_in_scope"),
     ("read_returned_no_receipt", "read_without_receipt"),
 )
 
@@ -12671,11 +12744,24 @@ class ChatOrchestrator:
                     elif _no_apply_reason in (
                         "evidence_declined", "evidence_unavailable"
                     ):
+                        # SPECIFIC MISSING-VALUE ASK (owner directive
+                        # 2026-10-15, item 4): when the accepted request
+                        # named the value's source by reference and the
+                        # lookup could not settle, the reply asks for THE
+                        # VALUE — never a generic "information wasn't
+                        # available" sentence, never a timeout.
+                        _unresolved_refs = [
+                            str(r) for r in (
+                                (_shared_tool.get(
+                                    "canvas_requirement_unresolved") or {})
+                                .get("references") or [])
+                            if str(r).strip()]
                         _no_apply_message = (
-                            "I couldn't make that canvas change because the "
-                            "required information wasn't available, so nothing "
-                            "was changed."
-                        )
+                            _unresolved_requirement_message(_unresolved_refs)
+                            if _unresolved_refs else (
+                                "I couldn't make that canvas change because "
+                                "the required information wasn't available, "
+                                "so nothing was changed."))
                     else:
                         _no_apply_message = (
                             "I couldn't complete the canvas edit, so nothing "
@@ -12760,8 +12846,21 @@ class ChatOrchestrator:
                         _shared_tool.get("canvas_edit_decline_noop"))
                     _noop_check = _shared_tool.get(
                         "canvas_decline_requirement_check")
+                    # REQUIREMENT-FIRST DECLINE = F3 PARTIAL (owner
+                    # directive 2026-10-15, item 4): the lane declined
+                    # with a NAMED reason — the value's named source could
+                    # not supply it — and delivered the SPECIFIC ask. The
+                    # honest reply was delivered; the requested edit did
+                    # not happen and must not be certified; this is the
+                    # same partial contract the apply-failure decline
+                    # carries (success true, outcome partial).
+                    _requirement_declined = bool(
+                        isinstance(_shared_tool, dict)
+                        and _shared_tool.get(
+                            "canvas_requirement_unresolved"))
                     response = {
-                        "success": bool(_noop_satisfied),
+                        "success": bool(_noop_satisfied
+                                        or _requirement_declined),
                         "message": _no_apply_message,
                         "session_id": session_id,
                         # D3: every outcome carries the execution it belongs to.
@@ -12772,15 +12871,20 @@ class ChatOrchestrator:
                         # agrees with the confirmation text.
                         "outcome": (
                             "completed" if _noop_satisfied
+                            else "partial" if _requirement_declined
                             else "unconfirmed"),
                         "error_code": (
-                            None if _noop_satisfied
+                            None if (_noop_satisfied or _requirement_declined)
                             else "outcome_unconfirmed"),
                         "_recorded_outcome": {
                             "state": ("completed" if _noop_satisfied
+                                      else "partial"
+                                      if _requirement_declined
                                       else "unconfirmed"),
                             "work_turn": True,
                             "noop": _noop_satisfied,
+                            **({"declined": True}
+                               if _requirement_declined else {}),
                         },
                         "data": {"canvas_edit": _canvas_edit_data},
                         "suggested_actions": [],
@@ -23335,6 +23439,20 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 shared_tool_state["job_scope_items"] = list(scope_items)
         if not scope_items or not canvas_context:
             return None
+        # REQUEST-BOUND REQUIREMENT (owner directive 2026-10-15, item 3):
+        # a comparison of the attached artifact's OWN content is satisfied
+        # by the artifact's authoritative content — the accepted request
+        # records no live-evidence requirement, so NO external read
+        # obligation exists and no operation is begun here. A request that
+        # names a source keeps the full path, and so does every
+        # non-comparison ask (the row-range retrieval regression this
+        # branch exists for).
+        if _canvas_internal_comparison(message, shared_tool_state):
+            logger.info(
+                "[research-dispatch] canvas-internal comparison — the "
+                "artifact's authoritative content satisfies the request; "
+                "no external read requirement, dispatch skipped")
+            return None
         # THE REQUESTED-FIELD CONTRACT (owner correction 2026-10-11):
         # the request's own field asks through the EXISTING contract
         # derivation — never a local noun scan. An empty contract
@@ -23472,18 +23590,47 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         receipts: List[Dict[str, Any]] = []
         evidence_lines: List[str] = []
         _dispatch_error: Optional[str] = None
+        # SETTLEMENT FACTS (owner directive 2026-10-15, items 1-2): every
+        # scan's own outcome record — an ACTUAL error, an incomplete
+        # (deadline-farked) scan, the scope it covered, and whether a
+        # source identity receipt existed. Zero findings alone proves
+        # none of "failed" / "bounded absence" / "no receipt"; the settle
+        # below reads THESE.
+        _scan_meta: List[Dict[str, Any]] = []
 
         async def _scan(value: str, file_name: Optional[str] = None):
-            scan = await asyncio.wait_for(
-                asyncio.to_thread(
-                    _scan_fn, value, user_id, workspace_id,
-                    file_name=file_name, max_matches=6),
-                timeout=30)
-            receipt = (scan or {}).get("source_identity") or {}
+            try:
+                scan = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        _scan_fn, value, user_id, workspace_id,
+                        file_name=file_name, max_matches=6),
+                    timeout=30)
+            except Exception as _scan_exc:
+                # PRESERVED PER-SCAN ERROR (owner item 2): recorded on the
+                # meta BEFORE re-raising — a swallowed error must never
+                # read as a completed empty search.
+                _scan_meta.append({
+                    "value": str(value or ""),
+                    "file": str(file_name or ""),
+                    "error": f"{type(_scan_exc).__name__}: "
+                             f"{str(_scan_exc)[:120]}",
+                })
+                raise
+            scan = scan or {}
+            receipt = scan.get("source_identity") or {}
+            _scan_meta.append({
+                "value": str(value or ""),
+                "file": str(file_name or ""),
+                "error": str(scan.get("error") or "")[:160],
+                "incomplete": bool(scan.get("incomplete")),
+                "files_scanned": int(scan.get("files_scanned") or 0),
+                "total_matches": int(scan.get("total_matches") or 0),
+                "receipt": bool(receipt.get("content_hash")),
+            })
             if receipt.get("content_hash"):
                 receipts.append({"source_identity": dict(receipt),
                                  "targets": []})
-            return (scan or {}).get("matches") or []
+            return scan.get("matches") or []
 
         def _candidates_from(matches: List[Dict[str, Any]],
                              file_hint: Optional[str]):
@@ -23706,15 +23853,43 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             if f.get("source_version")}
         if len(_finding_versions) == 1 and _finding_versions:
             _read_version = next(iter(_finding_versions))
+        # SETTLEMENT CLASSIFICATION (owner directive 2026-10-15, item 1):
+        # an actual lookup/read ERROR is failed-with-its-reason; a search
+        # that completed over an EXPLICIT SCOPE with zero matches is a
+        # bounded absence (a delivered empty result, verified=None — never
+        # a fabricated one); anything else (no usable receipt, incomplete
+        # coverage) is unconfirmed/open work — never failed, never a
+        # completed absence. Zero findings alone proves none of these.
+        _scan_error_reasons = [
+            str(m.get("error") or "") for m in _scan_meta
+            if str(m.get("error") or "")]
+        # BOUNDED ABSENCE requires a COMPLETED, SCOPED search with ZERO
+        # matches: every scan ran without error and without truncation,
+        # covered a non-empty scope (files scanned or a source receipt),
+        # and found nothing. A junk match that failed to bind is NOT an
+        # established absence (the scope was not empty) — the read stays
+        # receipt-less/open instead.
+        _scans_are_scoped_complete = bool(_scan_meta) and all(
+            not m.get("error") and not m.get("incomplete")
+            and int(m.get("total_matches") or 0) == 0
+            and (int(m.get("files_scanned") or 0) > 0
+                 or bool(m.get("receipt")))
+            for m in _scan_meta)
+        _bounded_absence = (not findings and not _dispatch_error
+                            and not _scan_error_reasons
+                            and _scans_are_scoped_complete)
         execution = {
             "invoked": True,
             "outcome": ("read_succeeded" if findings and not
                         _dispatch_error else "read_failed"
-                        if _dispatch_error or any(
-                            v == "" for v in statuses.values())
+                        if (_dispatch_error or _scan_error_reasons)
+                        else "read_succeeded_empty"
+                        if _bounded_absence
                         else "read_returned_no_receipt"),
             "served_basis": "live",
-            "failure_stage": _dispatch_error,
+            "failure_stage": (
+                _dispatch_error
+                or (_scan_error_reasons[0] if _scan_error_reasons else None)),
             "items": statuses,
             "requested_fields": fields,
         }
@@ -24486,6 +24661,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         session: Optional[Dict[str, Any]] = None,
         lane_budget_s: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
+        # The lane's own start: the requirement-first bounded wait (owner
+        # directive 2026-10-15, item 4) sizes itself from the lane budget
+        # minus what this leg has already spent.
+        _lane_t0 = time.monotonic()
         # When the schema-capable edit-plan rung is pinned
         # (ATOM_ASYNC_EDIT_PLAN_MODEL), the plan needs its full latency —
         # the default 30 s starves a deepseek-v4-pro-class rung that needs
@@ -24727,8 +24906,36 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 execution_id or "-")
             fresh = FreshDataResult("", False, True)
         else:
-            with _stage_span("fresh_data_lookup"):
-                fresh = await fetch_fresh_data_section(
+            # REQUIREMENT-FIRST WINDOW (owner directive 2026-10-15, item
+            # 4): a reference-valued requirement ("use the exact number
+            # from our records") is ALREADY NAMED by the accepted
+            # request — the value must come from the named source, so
+            # the lookup is genuine, but a lookup that cannot settle
+            # inside its bounded window leaves the requirement
+            # UNRESOLVED and the specific missing-value ask must ship
+            # instead of a budget timeout.
+            _requirement_refs: List[str] = []
+            try:
+                from core.turn_decision import (
+                    extract_request_assignments as _era_lane_fn,
+                )
+
+                _requirement_refs = [
+                    str(s) for s in (
+                        _era_lane_fn(message).get("source_references") or [])
+                    if str(s).strip()]
+            except Exception:  # noqa: BLE001 — the window is additive
+                _requirement_refs = []
+            _fd_wait: Optional[float] = None
+            if _requirement_refs:
+                _fd_wait = _REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS
+                if lane_budget_s:
+                    _lane_spent = time.monotonic() - _lane_t0
+                    _fd_wait = min(_fd_wait, max(
+                        5.0, lane_budget_s - _lane_spent - 3.0))
+            try:
+                with _stage_span("fresh_data_lookup"):
+                    _fd_call = fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),
             step_recorder=_record_fresh_data_step,
@@ -24780,7 +24987,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 == "retrieved"
                 else None
             ),
-        )
+                    )
+                    fresh = (
+                        await asyncio.wait_for(_fd_call, timeout=_fd_wait)
+                        if _fd_wait else await _fd_call)
+            except asyncio.TimeoutError:
+                # REQUIREMENT-FIRST DECISION (owner directive 2026-10-15,
+                # item 4): the named source did not settle inside its
+                # bounded window, so the requirement stands UNRESOLVED.
+                # Decline with the SPECIFIC ask — never a silent budget
+                # timeout, never a fabricated value. The plan could not
+                # ground the referenced value either (it grounds
+                # nowhere), so planning it would only spend the turn.
+                logger.warning(
+                    "[canvas-edit] reference requirement unresolved — the "
+                    "source lookup did not settle in %.1fs; declining "
+                    "with the named ask", float(_fd_wait or 0.0))
+                fresh = FreshDataResult("", True, False)
+                if shared_tool_state is not None:
+                    shared_tool_state["canvas_requirement_unresolved"] = {
+                        "references": list(_requirement_refs[:2]),
+                    }
         if shared_tool_state is not None:
             if isinstance(fresh.evidence_contract, dict):
                 shared_tool_state["objective_evidence"] = (
