@@ -75,8 +75,16 @@ _COMPACT_EDITOR_SYSTEM = (
     "You return only the CanvasEditPlan JSON object: "
     '{"wants_edit": bool, "edit_mode": "patch", '
     '"ops": [{"find": "<exact current text>", '
-    '"replace": "<new text>"}], "reply": "<one sentence naming what '
+    '"replace": "<new text>", '
+    '"origin": "<user_supplied|source_reference|calculation|unresolved>"}], '
+    '"reply": "<one sentence naming what '
     'changed, with the new value>"}. '
+    'Tag every op with "origin". For an edit whose replacement value is '
+    'written in the request itself, origin MUST be "user_supplied" '
+    '(example: request "update the date to 2026-12-31" → op '
+    '{"origin": "user_supplied"}). Use "source_reference" only when the '
+    'value must be looked up in records or systems and is not in the '
+    'request; "unresolved" when no source can provide it. '
     "Rules: ops.find MUST copy the current canvas text verbatim "
     "(first occurrence); add \"field\": \"<field name>\" to an op "
     "when the canvas has named fields. Change ONLY the authorized "
@@ -114,6 +122,7 @@ class CanvasPatchOp(BaseModel):
     cell: Optional[str] = None
     find: str = ""
     replace: str = ""
+    origin: Optional[str] = None  # user_supplied | source_reference | calculation | unresolved
 
 
 class CanvasEditPlan(BaseModel):
