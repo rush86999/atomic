@@ -169,5 +169,12 @@
   "what_works": "T1 authorized edit: FULL GATE PASS \u2014 dispatch, contract=valid, ops match, applied exactly once, protected content intact, authoritative readback, durable mutation evidence, objective_met TRUE, 8.3s. Preservation TRUE. Reload agreement TRUE. T3: the no-invention fence refused the fabricated op (zero writes, objective_met=None \u2014 never certified) and the lane answered honestly. T2: the comparison answered correctly with the comparison ref settled (1 ref).",
   "first_remaining_failure": "ENVELOPE CLASSIFICATION OF HONEST ANSWERS: T2 (delivered comparison, zero writes) and T3 (fence refusal + honest ask) both resolve success=False/failed. The recorded outcome treats the edit-request turn as failed even though a truthful answer was delivered and no unauthorized change occurred. This is an outcome-resolution classification repair in the decline fall-through \u2014 nothing in the edit path remains.",
   "next_concrete_action": "the decline fall-through envelope: a turn whose edit leg declined and whose reply delivered a truthful answer resolves success=True with outcome=unconfirmed/partial (never certified completion); then the counted campaign closes J6 or names the next failure."
+ },
+ "counted_campaign_cb3dd76ed": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_221627_b027d9.json",
+  "T1": "GREEN again \u2014 full gate (apply-once, readback, evidence, 12.0s)",
+  "T2": "comparison answered correctly; envelope resolves failed (delivered answer misclassified) \u2014 unchanged from the prior run",
+  "T3": "the fence's grounding rule has a residual vector: the model's insertion echoed the request's own words ('client's tax registration number...') with NO factual value. The fence grounds digit-bearing VALUE runs; a request-echo insertion without any value run passes. The canvas was written (audit 1) and the durable outcome certified it. The audit row's content is not captured by the current driver (T1 only) \u2014 the next driver revision must capture every turn's write content.",
+  "next_concrete_action": "extend the fence: an insertion that adds a content unit naming a MISSING FACT (the evidence gate skipped the lookup because the accepted request carries no evidence requirement, yet the plan asserts new factual content) must carry a grounded VALUE run \u2014 or the plan must decline naming the gap. Deterministic signal: the evidence gate's own skip decision + the absence of a grounded value run in the insertion."
  }
 }
