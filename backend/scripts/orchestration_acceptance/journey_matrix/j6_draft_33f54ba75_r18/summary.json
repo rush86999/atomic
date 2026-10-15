@@ -190,5 +190,13 @@
   "open_t1_regression": "the REPLACE-MODE branch refuses the T1 date update as unresolved_requirement \u2014 the added-runs probe shows 2026-12-31 IS in the request, so the refusal comes from elsewhere in the replace branch (the next single probe: the replace branch's added-runs extraction on the actual T1 payload)",
   "open_t3_vector": "the request-echo insertion (alpha-only, net-new labeled line) passes the labeled-line gate and applies \u2014 the anti-echo rule (the value must add content beyond the request's words, or be evidence-grounded) is designed but not implemented; it over-refuses pure-echo prose notes (the user rephrases), per 'never manufacture support'",
   "handoff": "the implementation owner's next pass: (1) the replace-branch probe \u2192 the T1 repair; (2) the anti-echo rule \u2192 the T3 repair; then freeze, review, counted campaign"
+ },
+ "counted_campaign_2cba1b52d": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_081415_0c6b61.json",
+  "result": "0/3 turns pass; zero writes on every turn (preservation held); failed_request_count 3",
+  "what_works": "the enforcement held: T3's honest refusal, zero fabricated writes anywhere, T2's comparison answered with zero writes",
+  "first_remaining_failure": "T1: the edit-plan structured call for the edit leg did not DISPATCH within the leg window (the ladder shows edit_plan_dispatches=0, audit 0) \u2014 the compact planner's origin-tagging plan (per the sharpened scaffold) either didn't complete or was attributed to another eid; the run's plan-stage events show outcome=edit under a DIFFERENT eid (8e714f27 vs T1's e49c5af0) \u2014 the driver's ladder attributes dispatches per turn but the log tail truncates early-turn lines",
+  "T2_envelope": "the comparison answered correctly with zero writes; envelope success=False (the delivered-honest-answer classification \u2014 F3, unchanged)",
+  "next_concrete_action": "the driver's stage_ladder must attribute dispatches AND plan-stage events per turn eid (currently the truncated log tail mixes turns); then the counted campaign attributes the T1 failure to the exact turn and stage"
  }
 }
