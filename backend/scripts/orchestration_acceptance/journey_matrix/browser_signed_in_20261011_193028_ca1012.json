@@ -1,0 +1,52 @@
+{
+  "journey": "browser-signed-in-path",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "started_at": "2026-10-11T23:30:14+00:00",
+  "backend_boot": {
+    "booted": true,
+    "seconds": 5.2,
+    "status": "healthy",
+    "pid": 33734,
+    "git_commit": "618125225c9b"
+  },
+  "user": {
+    "workspace_id": "47260346-b649-48fc-957d-9a0fa64847f1"
+  },
+  "cors_probe": {
+    "origin": "http://localhost:52731",
+    "status": 200,
+    "aca": "http://localhost:52731",
+    "backend_base": "http://127.0.0.1:52733"
+  },
+  "frontend_port": 52751,
+  "frontend_origin_allowed": true,
+  "login_page_title": "",
+  "after_login": {
+    "url": "http://localhost:52751/login",
+    "signed_in": false,
+    "auth_token_cookie": false,
+    "login_responses": [],
+    "body_error_head": "ATOM Platform\n\nWelcome back!\n\nUnable to connect to the server. Please check your internet connection and try again.\nEmail\nPassword\nSign In\nor\nSign in with SSO (OIDC)\nDon't have an account? Sign up",
+    "backend_requests_seen": 6,
+    "console_errors": [
+      "Access to fetch at 'http://127.0.0.1:52733/api/meta/version' from origin 'http://localhost:52751' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to fetch at 'http://127.0.0.1:52733/api/notifications?limit=10' from origin 'http://localhost:52751' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to fetch at 'http://127.0.0.1:52733/api/notifications?unread_only=true&type=agent_graduated&limit=5' from origin 'http://localhost:52751' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Access to fetch at 'http://127.0.0.1:52733/api/notifications?limit=10' from origin 'http://localhost:52751' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "Failed to load resource: net::ERR_FAILED",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Access to fetch at 'http://127.0.0.1:52733/api/notifications?unread_only=true&type=agent_graduated&limit=5' from origin 'http://localhost:52751' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource."
+    ]
+  },
+  "signed_in_url": null,
+  "assertions": {
+    "browser.login-form-real": true,
+    "browser.signed-in": false,
+    "browser.talked-to-scratch-backend": true
+  },
+  "pass": false,
+  "backend_log_tail": " /api/notifications -> 401\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 401\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/notifications\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/notifications\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 401\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 401\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 401\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/v1/preferences\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 401\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] OPTIONS /api/auth/login\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] OPTIONS /api/auth/login -> 400\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

@@ -1018,6 +1018,24 @@ def test_search_receipt_separates_dispatch_from_retrieval():
     r0 = _search_execution_receipt(
         types.SimpleNamespace(_result_meta={}), None)
     assert not r0["dispatched"] and not r0["retrieved"]
+    # COVERAGE IS NOT RETRIEVAL (2026-10-11, the live T1 boundary): a
+    # coverage-only trace names carrying documents but reads no rows —
+    # it must neither satisfy the obligation nor establish absence
+    # (its pending reads stay open downstream).
+    cov = types.SimpleNamespace(_result_meta={
+        "value_trace": {"SLE24-16": ["Consolidated Price List 2019.xlsx"]}})
+    r_cov = _search_execution_receipt(
+        cov, "LIVE TOOL RESULTS (datasets.value_trace) — which other "
+             "cataloged documents carry the requested items:\n"
+             "- SLE24-16: Consolidated Price List 2019.xlsx")
+    assert r_cov["dispatched"] is True, "the trace did run"
+    assert r_cov["retrieved"] is False, (
+        "coverage names documents; no row was read")
+    assert r_cov["bounded_absence"] is False, (
+        "located documents are open leads, not established absence")
+    assert r_cov["receipt"]["value_trace_coverage"] == {
+        "SLE24-16": ["Consolidated Price List 2019.xlsx"]}, (
+        "the coverage itself still rides the receipt for chaining")
 
 
 def test_chain_uses_unresolved_work_and_records_its_own_operation():

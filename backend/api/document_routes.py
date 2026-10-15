@@ -364,9 +364,15 @@ async def search_documents(
 ):
     """Search ingested documents"""
     try:
-        # Dynamic workspace resolution
+        # Dynamic workspace resolution — ISOLATION (journey J3): the
+        # users.workspace_id FK first. The workspaces RELATIONSHIP was empty
+        # for product-registered users (user_workspaces never populated), so
+        # ws_id stayed None and the search hit the SHARED "default_shared"
+        # store: any registered user could read any other's documents.
         ws_id = None
-        if current_user and current_user.workspaces:
+        if current_user and getattr(current_user, "workspace_id", None):
+             ws_id = current_user.workspace_id
+        elif current_user and current_user.workspaces:
              ws_id = current_user.workspaces[0].id
 
         lancedb_handler = get_lancedb_handler(ws_id)

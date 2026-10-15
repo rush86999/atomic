@@ -1,0 +1,45 @@
+{
+  "journey": "browser-j2-chain",
+  "model": "llama3.1:8b",
+  "started_at": "2026-10-12T14:57:42+00:00",
+  "ports": {
+    "backend_chosen": 53836,
+    "frontend": 3000
+  },
+  "backend_boot": {
+    "booted": true,
+    "seconds": 7.2,
+    "status": "healthy",
+    "pid": 7836,
+    "git_commit": "d6fbcd846d03"
+  },
+  "leg1_signin": {
+    "url": "http://localhost:3000/dashboard",
+    "signed_in": false,
+    "auth_cookie": true
+  },
+  "leg2_configure_connect": {
+    "ok": false,
+    "error": "TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for get_by_role(\"button\", name=\"Add Provider\")\n    - locator resolved to <button class=\"inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary-600 text-white hover:bg-primary-700 h-10 py-2 px-4\">\u2026</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div aria-hidden=\"true\" class=\"fixed inset-0 bg-black/50\"></div> from <div class=\"fixed inset-0 z-50 flex items-center justify-center p-4\">\u2026</div> subtree intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div aria-hidden=\"true\" class=\"fixed inset-0 bg-black/50\"></div> from <div class=\"fixed inset-0 z-50 flex items-center justify-center p-4\">\u2026</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    58 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div aria-hidden=\"true\" class=\"fixed inset-0 bg-black/50\"></div> from <div class=\"fixed inset-0 z-50 flex items-center justify-center p-4\">\u2026</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n",
+    "body_head": "A\nATOM\nCORE\nDashboard\nChat\nCanvases\nSearch\nDocuments\nTasks\nKanban\nAutomations\nAgents\nGoal Runs\nMarketplace\nCOMMAND CENTERS\nProjects\nSales & CRM\nSupport\nKnowledge\nCommunication\nBUSINESS\nSales\nMarketing\nFinance\nAnalytics\nPRODUCTIVITY\nCalendar\nHealth\nVoice\nGOVERNANCE\nSelf-Healing Harness\nPLATFORM\nInteg"
+  },
+  "leg3_4_request_result": {
+    "observed": "error",
+    "error": "TimeoutError: Locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator(\"[data-testid=\\\"send-message-button\\\"]\")\n    - locator resolved to <button data-testid=\"send-message-button\" class=\"inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background bg-primary-600 text-white hover:bg-primary-700 h-12 w-12\">\u2026</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <nextjs-portal></nextjs-portal> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <nextjs-portal></nextjs-portal> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    57 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <nextjs-portal></nextjs-portal> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n"
+  },
+  "leg5_reload": {
+    "error": "TimeoutError: Page.reload: Timeout 120000ms exceeded.\nCall log:\n  - waiting for navigation until \"networkidle\"\n    - navigated to \"http://localhost:3000/chat\"\n"
+  },
+  "assertions": {
+    "browser.signin": false,
+    "browser.configure-connect": false,
+    "browser.request-result": false,
+    "browser.reload": false
+  },
+  "observed_outcome": {
+    "configure_connect": "failed",
+    "request_result": "failed"
+  },
+  "pass": false,
+  "backend_log_tail": " LOUD] GET /api/meta/version -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/auth/me -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1791817074725_3kpgiko68 -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/maturity/proposals -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/onboarding/status -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/users/me -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1791817074725_3kpgiko68 -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1791817074725_3kpgiko68 -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1791817074725_3kpgiko68 -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/agents/approvals/pending -> 403\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/agents/approvals/pending -> 403\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

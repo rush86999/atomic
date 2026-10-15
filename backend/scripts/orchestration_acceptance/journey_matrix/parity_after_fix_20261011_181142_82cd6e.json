@@ -1,0 +1,75 @@
+{
+  "label": "after_fix",
+  "timestamp": "2026-10-11T22:11:34+00:00",
+  "generator": "/Users/rushiparikh/projects/atom/scripts/quickstart.sh",
+  "generator_sha256": "9fe71c32cafcd2e5db46bd55a0b9227c3a40cb2f3a291a4bea7a2fbe2b12f947",
+  "static_audit": {
+    "ok": true,
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "durable task lifecycle \u2014 _task_lifecycle_for returns None otherwise (task correction, scope-guarded edits absent)"
+      },
+      "CHAT_FINALIZATION_M1": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "exact-execution failure reporting (fallback honesty)"
+      },
+      "CHAT_FINALIZATION_M2": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "finalized-outcome persistence per execution"
+      }
+    }
+  },
+  "gate_source_check": {
+    "ok": true,
+    "sites": [
+      {
+        "gate": "ATOM_TASK_LIFECYCLE_ENABLED",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M2",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      }
+    ]
+  },
+  "dynamic_probe": {
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": true,
+      "CHAT_FINALIZATION_M1": true,
+      "CHAT_FINALIZATION_M2": true
+    },
+    "lifecycle": {
+      "constructed": true,
+      "type": "TaskLifecycle"
+    }
+  },
+  "boot": {
+    "port": 49893,
+    "booted": true,
+    "seconds": 7.4,
+    "status": "healthy",
+    "pid": 18695,
+    "git_commit": "f95854412e34",
+    "uvicorn_log_tail": "legramPollingWorker: deleted registered webhook (polling mode)\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence_transformers not available (error: No module named 'sentence_transformers'), embeddings will be disabled\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence-transformers unavailable \u2014 trying FastEmbed\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/health\nINFO:integrations.atom_communication_ingestion_pipeline:Using FastEmbed (bge-small, 384-dim) for communication embeddings\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing atom_communications table\nINFO:core.lancedb_index_selfheal:Dropped stale FTS index 'content_idx'\nINFO:core.runtime_identity:runtime identity: source_id=f95854412e34-dirty.60edb8761107 revision=f95854412e34 dirty=True (85 modified, 16 untracked)\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/health -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "parity_ok": true
+}

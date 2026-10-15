@@ -8,6 +8,33 @@ on:
 
 jobs:
   # -------------------------------------------------------------------
+  # Syntax gate (fast, dependency-free): every shipped backend module
+  # must COMPILE under Python 3.11 — the published floor
+  # (pyproject requires-python ">=3.11"; CI and both Dockerfiles run
+  # 3.11 images). 2026-10-10 incident: a 3.12+-only multiline f-string
+  # (PEP 701) shipped and left every planner-importing suite unrunnable
+  # under 3.11 while the 3.14 serving venv masked it. The exclusions
+  # below are the genuinely archived trees ONLY (core/archive,
+  # .archive, test_archives_*, scripts/dev one-offs) plus environments
+  # and build output — anything else that fails to compile under 3.11
+  # fails this gate.
+  # -------------------------------------------------------------------
+  syntax-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile all shipped backend modules under 3.11
+        run: |
+          python -m compileall -q -f -x '(^|/)(venv314|venv|node_modules|data|logs|__pycache__|coverage_html_batch|coverage_reports|htmlcov|\.pytest_cache|\.archive|archive|test_archives_[0-9]+_[0-9]+|scripts/dev)(/|$)' .
+          echo "3.11 compile gate passed"
+
+  # -------------------------------------------------------------------
   # Fast: does the full app even import + boot? (guards against the
   # historical "main_api_app is broken" regression)
   # -------------------------------------------------------------------

@@ -31,6 +31,7 @@ their own paths (Letta sleep-time principle).
 
 import asyncio
 import json
+import contextvars
 import logging
 import os
 import re
@@ -123,8 +124,22 @@ async def _graph_leg(message: str, workspace_id: str, tenant_id: str) -> str:
     return context
 
 
+# RETRIEVAL SOURCE OBSERVATIONS (owner directive R4): the context
+# assembler publishes the identities of the sources it actually
+# retrieved from, so the finalizer can produce attributable evidence
+# refs without manufacturing them from reply text or re-running a
+# planner search. A contextvar (not a module attribute) keeps this
+# safe under concurrency — each request's observations travel with
+# its own execution context.
+# RETRIEVAL SOURCE OBSERVATIONS (owner directive R4): the knowledge leg
+# publishes source identities via an explicit out-parameter (not a
+# contextvar — child tasks don't propagate back). The caller carries
+# them to the durable outcome.
+
+
 async def _knowledge_leg(
-    message: str, workspace_id: str, owner_user_id: Optional[str] = None
+    message: str, workspace_id: str, owner_user_id: Optional[str] = None,
+    source_observations_out: Optional[List[Dict[str, Any]]] = None,
 ) -> List[str]:
     """Unified hybrid knowledge leg (P1.3) — documents + conversations fused
     by RRF via DocumentsHybridSearch (BM25 FTS5/tsvector + LanceDB vector,
@@ -145,6 +160,20 @@ async def _knowledge_leg(
         return []
     if not (result or {}).get("results"):
         return []
+    # STRUCTURED SOURCE OBSERVATIONS (owner directive R4): the actual
+    # retrieval records carry the source identities — file names,
+    # titles — captured before they're formatted into display text.
+    if source_observations_out is not None:
+        for hit in (result or {}).get("results", []) or []:
+            if isinstance(hit, dict):
+                source_observations_out.append({
+                    "source": str(hit.get("source") or "")[:100],
+                    "title": str(hit.get("title") or "")[:200],
+                    "file_name": str(hit.get("file_name")
+                                     or hit.get("title")
+                                     or hit.get("source") or "")[:200],
+                    "content_hash": str(hit.get("content_hash") or "")[:100],
+                })
     lines: List[str] = [
         # Provenance spotlighting (core/provenance.py lattice): ingested
         # email/drive/app content is attacker-influenceable RETRIEVED data —
@@ -907,6 +936,7 @@ async def assemble_memory_context(
     agent_id: str = "atom_main",
     user_id: Optional[str] = None,
     canvas_type: Optional[str] = None,
+    source_observations_out: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[str]:
     """Return a bounded `RELEVANT MEMORY` prompt block, or None if nothing
     relevant (or the flag is off). Never raises.
@@ -928,7 +958,7 @@ async def assemble_memory_context(
         agent_role = await asyncio.to_thread(_resolve_agent_role, agent_id)
         graph_ctx, knowledge_lines, integration_lines, episode_lines, fact_lines, lessons_block, exchange_lines, playbook_block = await asyncio.gather(
             _safe(_graph_leg(message, workspace_id, tenant_id), "graph"),
-            _safe(_knowledge_leg(message, workspace_id, owner_user_id=user_id), "knowledge"),
+            _safe(_knowledge_leg(message, workspace_id, owner_user_id=user_id, source_observations_out=source_observations_out), "knowledge"),
             _safe(_integration_records_leg(message, workspace_id, agent_role), "integration_records"),
             _safe(_episodes_leg(message, agent_id), "episodes"),
             _safe(_facts_leg(message, workspace_id), "facts"),

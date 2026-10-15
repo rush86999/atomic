@@ -6,8 +6,8 @@ reply, and what keeps each decision honest. Shaped by the canvas
 ("$ 5,350.00 - 10 % in stock") was routed to the inventory app, its
 lookup 400-aborted on a value-length cap, the reply narrated a timeout
 that never happened, and five follow-up turns each exposed the next
-layer. Full incident history: `AGENT_COORDINATION.md` (root), commits
-`924b70792` → `1dafa9b5c`.
+layer. Full incident history: `notes/AGENT_COORDINATION.md` (+ its
+2026-10-12 full-history archive), commits `924b70792` → `1dafa9b5c`.
 
 Design rule (repo standard): **deterministic layers extract and gate;
 the LLM decides.** Extractors (`_distinctive_figure_phrases`,

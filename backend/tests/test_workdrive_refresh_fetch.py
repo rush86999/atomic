@@ -192,10 +192,13 @@ class TestMissHandoffThreading:
         assert "_live_file_lookup_ran = bool(miss_handoff)" in src
         assert "_file_lookup_attempted = bool(miss_handoff)" in src
         assert "if miss_handoff and miss_handoff_block:" in src  # evidence
-        # the caller passes the state explicitly
+        # the caller passes the state explicitly — hoisted before the
+        # nested reply-leg coroutine (round-5 F2: locals() inside the
+        # nested frame silently returned None and disabled the lane)
         caller = inspect.getsource(orch.ChatOrchestrator.process_chat_message)
-        assert "miss_handoff=bool(locals().get(\"_ask_miss_handoff\"))" in caller
-        assert "miss_handoff_block=(" in caller
+        assert "_hoisted_miss_handoff = bool(" in caller
+        assert "miss_handoff=_hoisted_miss_handoff" in caller
+        assert "miss_handoff_block=_hoisted_miss_handoff_block" in caller
 
 
 class TestFreshnessNoteIdempotence:

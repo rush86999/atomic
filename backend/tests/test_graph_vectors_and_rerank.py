@@ -11,6 +11,19 @@ from unittest.mock import MagicMock, patch
 import core.memory_context_assembler as mca
 
 
+@pytest.fixture(autouse=True)
+def _stub_hermetic_legs():
+    """Keep the legs that open their own DB sessions hermetic by default
+    (same contract as test_memory_context_assembler.py — an unstubbed
+    leg that raises turns the whole assembly into a clean None)."""
+    from unittest.mock import AsyncMock
+
+    with patch.object(mca, "_lessons_leg", AsyncMock(return_value="")), \
+         patch.object(mca, "_exchange_examples_leg",
+                      AsyncMock(return_value=[])):
+        yield
+
+
 # --------------------------------------------------------------------------- #
 # P1.5 — graph node vector index
 # --------------------------------------------------------------------------- #
@@ -69,16 +82,16 @@ class TestAssemblerRerank:
         monkeypatch.setenv("MEMORY_CONTEXT_ASSEMBLY", "true")
         monkeypatch.setenv("MEMORY_CONTEXT_RERANK", "false")
 
-        async def fake_graph(message, ws, tn):
+        async def fake_graph(*args, **kwargs):
             return None
 
-        async def fake_comms(message, ws):
+        async def fake_comms(*args, source_observations_out=None, **kwargs):
             return ["[slack] a line"]
 
-        async def empty2(message, ws):
+        async def empty2(*args, **kwargs):
             return []
 
-        async def empty1(message, agent):
+        async def empty1(*args, **kwargs):
             return []
 
         with patch.object(mca, "_graph_leg", fake_graph), \

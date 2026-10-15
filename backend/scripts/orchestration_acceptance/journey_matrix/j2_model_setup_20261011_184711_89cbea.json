@@ -1,0 +1,107 @@
+{
+  "journey": "J2",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "provider": "openrouter",
+  "local_model": "llama3.1",
+  "started_at": "2026-10-11T22:46:46+00:00",
+  "world_a": {
+    "world": "A_local_inference",
+    "boot": {
+      "booted": true,
+      "seconds": 5.2,
+      "status": "healthy",
+      "pid": 25281,
+      "git_commit": "618125225c9b"
+    },
+    "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j2_world_a_local_j1dnhnn3/run/atom.db",
+    "real_reply": {
+      "http": 422,
+      "success": null,
+      "provider": null,
+      "model": null,
+      "content_len": 0,
+      "error_code": null,
+      "outcome": null,
+      "looks_mock": false,
+      "content_head": ""
+    },
+    "tool_shaped": {
+      "http": 422,
+      "success": null,
+      "provider": null,
+      "model": null,
+      "content_head": "",
+      "metadata_keys": [],
+      "tool_evidence": false
+    },
+    "restart": {
+      "booted": true,
+      "seconds": 5.2,
+      "restart_number": 1
+    },
+    "second_reply": {
+      "http": 422,
+      "success": null,
+      "provider": null,
+      "model": null,
+      "content_len": 0,
+      "error_code": null,
+      "outcome": null,
+      "looks_mock": false,
+      "content_head": ""
+    },
+    "assertions": {
+      "J2.real-reply": false,
+      "J2.tool-planning": false,
+      "J2.survive-restart": false
+    },
+    "uvicorn_log_tail": "tion_pipeline:sentence-transformers unavailable \u2014 trying FastEmbed\nINFO:integrations.atom_communication_ingestion_pipeline:Using FastEmbed (bge-small, 384-dim) for communication embeddings\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing atom_communications table\nINFO:integrations.atom_communication_ingestion_pipeline:FTS index enabled on 'content' column\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing ingestion_metadata table\nINFO:integrations.atom_communication_ingestion_pipeline:LanceDB memory manager initialized successfully\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/health\nINFO:core.runtime_identity:runtime identity: source_id=618125225c9b-dirty.f4931f69efa4 revision=618125225c9b dirty=True (87 modified, 22 untracked)\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/health -> 200\nINFO:main_api_app:\ud83d\udd04 Auto-loading integration on-demand: chat\nINFO:core.lazy_integration_registry:Loading integration: chat (integrations.chat_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded chat\nINFO:main_api_app:\u2713 Auto-loaded: chat\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/chat/message\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 422\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "world_b": {
+    "world": "B_byok_product_path",
+    "boot": {
+      "booted": true,
+      "seconds": 5.2,
+      "status": "healthy",
+      "pid": 25327,
+      "git_commit": "618125225c9b"
+    },
+    "store_key": {
+      "http": 200,
+      "success": true,
+      "key_id_present": true
+    },
+    "before_restart": {
+      "keys_http": 200,
+      "openrouter_keys": 4,
+      "decrypts": true
+    },
+    "tenant_key_status_inconsistency": {
+      "http": 404
+    },
+    "restart": {
+      "booted": true,
+      "seconds": 5.2,
+      "restart_number": 1
+    },
+    "after_restart": {
+      "keys_http": 200,
+      "openrouter_keys": 4,
+      "decrypts": true
+    },
+    "assertions": {
+      "J2.byok-add-product-path": true,
+      "J2.byok-survive-restart": true
+    },
+    "uvicorn_log_tail": " key file \u2014 keeping the env override. Credentials stored under the file's key will not decrypt.\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence_transformers not available (error: No module named 'sentence_transformers'), embeddings will be disabled\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence-transformers unavailable \u2014 trying FastEmbed\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/ai/keys -> 200\nINFO:integrations.atom_communication_ingestion_pipeline:Using FastEmbed (bge-small, 384-dim) for communication embeddings\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing atom_communications table\nINFO:integrations.atom_communication_ingestion_pipeline:FTS index enabled on 'content' column\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing ingestion_metadata table\nINFO:integrations.atom_communication_ingestion_pipeline:LanceDB memory manager initialized successfully\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "assertions": {
+    "J2.real-reply": false,
+    "J2.tool-planning": false,
+    "J2.survive-restart": false,
+    "J2.byok-add-product-path": true,
+    "J2.byok-survive-restart": true
+  },
+  "pass": false,
+  "uvicorn_log_tail": null
+}

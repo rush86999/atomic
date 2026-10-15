@@ -1,0 +1,114 @@
+{
+  "label": "pristine",
+  "timestamp": "2026-10-11T23:58:33+00:00",
+  "generator": "/Users/rushiparikh/projects/atom/scripts/quickstart.sh",
+  "generator_sha256": "864d7a0d019cd7c54f0884a8249f606d75b4100f973a49d204c49b8cefbd922a",
+  "static_audit": {
+    "ok": true,
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "durable task lifecycle \u2014 _task_lifecycle_for returns None otherwise (task correction, scope-guarded edits absent)"
+      },
+      "CHAT_FINALIZATION_M1": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "exact-execution failure reporting (fallback honesty)"
+      },
+      "CHAT_FINALIZATION_M2": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "finalized-outcome persistence per execution"
+      }
+    },
+    "secrets": {
+      "ok": true,
+      "keys": {
+        "BYOK_ENCRYPTION_KEY": "valid_fernet"
+      }
+    }
+  },
+  "gate_source_check": {
+    "ok": true,
+    "sites": [
+      {
+        "gate": "ATOM_TASK_LIFECYCLE_ENABLED",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M2",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      }
+    ]
+  },
+  "mode": "pristine_code_export",
+  "code_export": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_pristine_export_4htwflnf/backend",
+  "dynamic_probe": {
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": true,
+      "CHAT_FINALIZATION_M1": true,
+      "CHAT_FINALIZATION_M2": true
+    },
+    "lifecycle": {
+      "constructed": true,
+      "type": "TaskLifecycle"
+    },
+    "operation": {
+      "begin": true,
+      "settle": true,
+      "fresh_reload": true,
+      "idempotent_replay": true,
+      "run_id": "775739de-42f4-4f57-991f-e9ce3b12b714"
+    },
+    "db_env": "sqlite:////var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_parity_probe_dovijcvf/probe.db",
+    "resolved_db": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_parity_probe_dovijcvf/probe.db",
+    "child_db_inside_scratch": true
+  },
+  "boot": {
+    "booted": true,
+    "seconds": 6.1,
+    "status": "healthy",
+    "pid": 38872,
+    "git_commit": "unknown",
+    "mode": "pristine_code_export",
+    "journey_j1": {
+      "register": {
+        "http": 200,
+        "token": true
+      },
+      "signin": {
+        "http": 200,
+        "token": true
+      },
+      "workspace": {
+        "http": 200,
+        "workspace_id": "3a082e6e-731c-4642-9360-cd12f7e4c033",
+        "bound": true
+      },
+      "workspace_usable": {
+        "http": 200
+      },
+      "admin_signin": {
+        "http": 200
+      }
+    }
+  },
+  "parity_ok": true,
+  "journey_j1_pass": true
+}

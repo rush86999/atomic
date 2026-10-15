@@ -1,0 +1,65 @@
+{
+  "label": "before_fix",
+  "timestamp": "2026-10-11T22:11:12+00:00",
+  "generator": "/Users/rushiparikh/projects/atom/scripts/quickstart.sh",
+  "generator_sha256": "af238cb8132a882a442aa52c07b2f537fdd5c1bf58910e28f4363db354c1ef42",
+  "static_audit": {
+    "ok": false,
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": {
+        "raw": null,
+        "verdict": "MISSING",
+        "required": "1",
+        "why": "durable task lifecycle \u2014 _task_lifecycle_for returns None otherwise (task correction, scope-guarded edits absent)"
+      },
+      "CHAT_FINALIZATION_M1": {
+        "raw": null,
+        "verdict": "MISSING",
+        "required": "1",
+        "why": "exact-execution failure reporting (fallback honesty)"
+      },
+      "CHAT_FINALIZATION_M2": {
+        "raw": null,
+        "verdict": "MISSING",
+        "required": "1",
+        "why": "finalized-outcome persistence per execution"
+      }
+    }
+  },
+  "gate_source_check": {
+    "ok": true,
+    "sites": [
+      {
+        "gate": "ATOM_TASK_LIFECYCLE_ENABLED",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M2",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      }
+    ]
+  },
+  "dynamic_probe": {
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": false,
+      "CHAT_FINALIZATION_M1": false,
+      "CHAT_FINALIZATION_M2": false
+    },
+    "lifecycle": {
+      "constructed": false
+    }
+  },
+  "parity_ok": false
+}

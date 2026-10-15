@@ -1,0 +1,92 @@
+{
+  "journey": "J2",
+  "mode": "pristine_code_export",
+  "provider": "openrouter",
+  "local_model": "llama3.1:8b",
+  "started_at": "2026-10-12T16:37:29+00:00",
+  "world_a": {
+    "world": "A_local_inference",
+    "model": "llama3.1:8b",
+    "boot": {
+      "booted": true,
+      "seconds": 9.6,
+      "status": "healthy",
+      "pid": 19511,
+      "git_commit": "unknown"
+    },
+    "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j2_world_a_local_nj1eq73z/run/atom.db",
+    "register_provider": {
+      "http": 200,
+      "registered": true
+    },
+    "discover_models": {
+      "http": 200,
+      "count": 5,
+      "raw_head": "{\"models\": [\"atom-preview:latest\", \"o4-mini:latest\", \"llama3.1:8b\", \"llama3:8b\", \"qwen2.5vl:3b\"], \"count\": 5}"
+    },
+    "set_capabilities": {
+      "http": 200
+    },
+    "test_connection": {
+      "http": 200,
+      "ok": null
+    },
+    "real_reply": {
+      "http": 200,
+      "success": false,
+      "provider": null,
+      "model": null,
+      "content_len": 79,
+      "error_code": "no_llm_provider",
+      "outcome": null,
+      "looks_mock": false,
+      "content_head": "You need an AI provider to use chat. Add an API key in Settings to get started."
+    },
+    "error": "ReadTimeout: timed out",
+    "uvicorn_log_tail": "cast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:core.exchange_memory_maintenance:\u2713 exchange memory maintenance: {'backfilled': 0, 'distilled': {'lessons': 0, 'topics': [], 'rows_marked': 0}, 'promoted': {'promoted': False, 'reason': 'corpus_too_small', 'counts': {'positive': 0, 'negative': 0}}, 'promoted_panel': {'promoted': False, 'reason': 'not_enough_runs', 'stats': {'total': 0, 'ran': 0, 'ran_rate': 0.0, 'mean_agreement': 0.0}}, 'playbook_drafts': {'drafted': 0, 'updated': 0, 'unchanged': 0, 'retired_legacy': 0}, 'playbook_auto_approved': {'latched': 0, 'replayed': 0, 'autonomy_blocked': 0, 'reason': 'latch_off (default)'}, 'patterns': {'tenants': 0, 'created': 0, 'bumped': 0}, 'import_validation': [], 'goal_run_timer_wakes': {'woke': []}, 'goal_run_stale_sweep': {'interrupted': []}, 'db_safety': {'snapshot': '/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_pristine_export_bpsvkrrt/backend/data/backups/atom-cycle-20261012-124254.db.gz', 'fingerprint': True, 'protected': True}, 'lance_cleanup': {'tables': 0, 'cleaned': 0, 'errors': 0, 'reason': 'no_atom_memory_dir'}}\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "world_b": {
+    "world": "B_byok_product_path",
+    "boot": {
+      "booted": true,
+      "seconds": 9.3,
+      "status": "healthy",
+      "pid": 20223,
+      "git_commit": "unknown"
+    },
+    "store_key": {
+      "http": 200,
+      "success": true,
+      "key_id_present": true
+    },
+    "before_restart": {
+      "keys_http": 200,
+      "openrouter_keys": 1,
+      "decrypts": true
+    },
+    "tenant_key_status_inconsistency": {
+      "http": 404
+    },
+    "restart": {
+      "booted": true,
+      "seconds": 9.2,
+      "restart_number": 1
+    },
+    "after_restart": {
+      "keys_http": 200,
+      "openrouter_keys": 1,
+      "decrypts": true
+    },
+    "assertions": {
+      "J2.byok-add-product-path": true,
+      "J2.byok-survive-restart": true
+    },
+    "uvicorn_log_tail": "AI/bge-small-en-v1.5, workspace=default\nINFO:core.embedding_service:Generated 4 embeddings in batch\nINFO:main_api_app:\u2713 Memory assembler warmed\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/health\nINFO:core.runtime_identity:runtime identity: source_id=unknown revision=unknown dirty=False (0 modified, 0 untracked)\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/health -> 200\nINFO:main_api_app:\ud83d\udd04 Auto-loading integration on-demand: ai\nINFO:core.lazy_integration_registry:Loading integration: ai (integrations.ai_routes)\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Initialized openrouter client using BYOK credential\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:ai.nlp_engine:NaturalLanguageEngine initialized with LLMService for tenant: default\nINFO:integrations.slack_enhanced_service:Slack Enhanced Service initialized\nINFO:core.lazy_integration_registry:\u2713 Loaded ai\nINFO:main_api_app:\u2713 Auto-loaded: ai\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/ai/keys\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/ai/keys -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "assertions": {
+    "J2.byok-add-product-path": true,
+    "J2.byok-survive-restart": true
+  },
+  "pass": true,
+  "uvicorn_log_tail": null
+}

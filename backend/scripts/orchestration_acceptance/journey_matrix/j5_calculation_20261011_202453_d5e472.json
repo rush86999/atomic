@@ -1,0 +1,19 @@
+{
+  "journey": "J5",
+  "mode": "pristine_code_export",
+  "provider_mode": "env-key (separately-labeled evidence)",
+  "started_at": "2026-10-12T00:23:13+00:00",
+  "boot": {
+    "booted": true,
+    "seconds": 6.1,
+    "status": "healthy",
+    "pid": 42110,
+    "git_commit": "unknown"
+  },
+  "upload": {
+    "http": 200
+  },
+  "pass": false,
+  "error": "ReadTimeout: timed out",
+  "uvicorn_log_tail": "00 OK\"\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.byok_handler:BPC executable-routes gate: 1 provider(s) on provider-level cooldown \u2014 excluded before ranking: openrouter\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/cohere/command-a-plus/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/openai/gpt-6-luna/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/upstage/solar-mini4/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/openai/gpt-6-sol/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/openai/gpt-6-sol-pro/endpoints \"HTTP/1.1 200 OK\"\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models/anthropic/claude-opus-5.5/endpoints \"HTTP/1.1 200 OK\"\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

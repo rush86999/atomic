@@ -1,0 +1,108 @@
+{
+  "label": "hardened2",
+  "timestamp": "2026-10-11T22:28:20+00:00",
+  "generator": "/Users/rushiparikh/projects/atom/scripts/quickstart.sh",
+  "generator_sha256": "9fe71c32cafcd2e5db46bd55a0b9227c3a40cb2f3a291a4bea7a2fbe2b12f947",
+  "static_audit": {
+    "ok": true,
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "durable task lifecycle \u2014 _task_lifecycle_for returns None otherwise (task correction, scope-guarded edits absent)"
+      },
+      "CHAT_FINALIZATION_M1": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "exact-execution failure reporting (fallback honesty)"
+      },
+      "CHAT_FINALIZATION_M2": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "finalized-outcome persistence per execution"
+      }
+    }
+  },
+  "gate_source_check": {
+    "ok": true,
+    "sites": [
+      {
+        "gate": "ATOM_TASK_LIFECYCLE_ENABLED",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M2",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      }
+    ]
+  },
+  "dynamic_probe": {
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": true,
+      "CHAT_FINALIZATION_M1": true,
+      "CHAT_FINALIZATION_M2": true
+    },
+    "lifecycle": {
+      "constructed": true,
+      "type": "TaskLifecycle"
+    },
+    "operation": {
+      "begin": true,
+      "settle": true,
+      "fresh_reload": true,
+      "idempotent_replay": true,
+      "run_id": "fa359bbf-4a86-4e6d-abbf-f459805f2899"
+    },
+    "db_env": "sqlite:////var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_parity_probe_oi_t2nt8/probe.db",
+    "resolved_db": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_parity_probe_oi_t2nt8/probe.db",
+    "child_db_inside_scratch": true
+  },
+  "boot": {
+    "port": 50443,
+    "mode": "configuration_parity_plus_public_api_smoke",
+    "booted": true,
+    "seconds": 6.3,
+    "status": "healthy",
+    "pid": 21585,
+    "git_commit": "2017c381da54",
+    "journey_j1": {
+      "register": {
+        "http": 200,
+        "token": true
+      },
+      "signin": {
+        "http": 200,
+        "token": true
+      },
+      "workspace": {
+        "http": 200,
+        "workspace_id": "bf96c63c-9233-4932-b3a2-3cb6f5767152",
+        "bound": true
+      },
+      "workspace_usable": {
+        "http": 200
+      },
+      "admin_signin": {
+        "http": 200
+      }
+    },
+    "uvicorn_log_tail": " must be 32 url-safe base64-encoded bytes.\nERROR:core.byok_endpoints:Invalid BYOK encryption key: Fernet key must be 32 url-safe base64-encoded bytes.\nERROR:core.byok_endpoints:Failed to decrypt API key openrouter_default_production: Fernet key must be 32 url-safe base64-encoded bytes.\nINFO:core.llm.byok_handler:Initialized openrouter client using ENV credential\nERROR:core.byok_endpoints:Invalid BYOK encryption key: Fernet key must be 32 url-safe base64-encoded bytes.\nERROR:core.byok_endpoints:Failed to decrypt API key opencode-go_default_production: Fernet key must be 32 url-safe base64-encoded bytes.\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "parity_ok": true,
+  "journey_j1_pass": true
+}

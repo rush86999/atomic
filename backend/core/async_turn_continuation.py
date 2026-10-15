@@ -53,7 +53,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -611,10 +611,11 @@ def _recovered_terminal_continuations(session_ids=None):
         # inert. If a future writer poisons metadata_json the per-row
         # guard below still isolates it to one skipped row.
         rows = (
-            db.query(AgentExecution.id, AgentExecution.metadata_json)
+            db.query(AgentExecution.id, AgentExecution.metadata_json,
+                     AgentExecution.triggered_by)
             .all()
         )
-        for row_id, row_meta in rows:
+        for row_id, row_meta, row_triggered_by in rows:
             try:
                 meta = row_meta if isinstance(row_meta, dict) else (
                     json.loads(row_meta) if isinstance(row_meta, str) else {})
@@ -636,6 +637,16 @@ def _recovered_terminal_continuations(session_ids=None):
             if cm.get("notified") and not outcome:
                 continue
             cid = str(row_id)
+            if (row_triggered_by or "manual") == "chat":
+                # A crashed CHAT turn is not a background edit: the client
+                # already holds the transport's honest resend error, and the
+                # edit-flavored recovery wording ("I couldn't apply your
+                # update") misattributes the failure and orphans the row
+                # (conversation_id=''). Skipped, counted — a chat-worded
+                # redelivery is a separate mechanism if ever wanted.
+                out.append({"continuation_id": cid,
+                            "chat_crash_skip": True})
+                continue
             delivered = db.query(ChatMessageModel).filter(
                 ChatMessageModel.conversation_id == str(
                     cm.get("session_id") or ""),
@@ -690,6 +701,10 @@ async def recover_missing_terminal_deliveries(session_ids=None) -> Dict[str, int
     now = time.time()
     for cand in _recovered_terminal_continuations(session_ids=session_ids):
         stats["candidates"] += 1
+        if cand.get("chat_crash_skip"):
+            stats["chat_crashes_skipped"] = (
+                stats.get("chat_crashes_skipped", 0) + 1)
+            continue
         if cand["claimed"]:
             age = (now - cand["claimed_at"]) if cand["claimed_at"] else None
             if age is not None and age < lease:

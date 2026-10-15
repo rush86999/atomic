@@ -1,0 +1,56 @@
+{
+  "journey": "browser-signed-in-path",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "started_at": "2026-10-11T23:38:29+00:00",
+  "frontend_port": 3000,
+  "backend_port_chosen": 53328,
+  "backend_boot": {
+    "booted": true,
+    "seconds": 5.2,
+    "status": "healthy",
+    "pid": 35987,
+    "git_commit": "618125225c9b"
+  },
+  "user": {
+    "workspace_id": "9f4ed4ef-00ad-4027-bea0-8011e1c893e3"
+  },
+  "cors_probe": {
+    "origin": "http://localhost:3000",
+    "status": 200,
+    "aca": "http://localhost:3000",
+    "backend_base": "http://127.0.0.1:53328"
+  },
+  "frontend_origin_allowed": true,
+  "login_page_title": "",
+  "after_login": {
+    "url": "http://localhost:3000/dashboard",
+    "signed_in": true,
+    "auth_token_cookie": true,
+    "login_ok": true,
+    "login_responses": [
+      "200 http://127.0.0.1:53328/api/auth/login",
+      "200 http://127.0.0.1:53328/api/auth/me",
+      "200 http://127.0.0.1:53328/api/auth/me"
+    ],
+    "body_error_head": "",
+    "backend_requests_seen": 19,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}",
+      "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    ]
+  },
+  "signed_in_url": "http://localhost:3000/dashboard",
+  "assertions": {
+    "browser.login-form-real": true,
+    "browser.signed-in": true,
+    "browser.talked-to-scratch-backend": true
+  },
+  "pass": true,
+  "backend_log_tail": "ing history for session session_1791761918549_clctbel11 and user 1b126878-a1c6-4d5d-a17c-cc902209186c\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/v1/accounting/dashboard/summary\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1791761918549_clctbel11 -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/maturity/proposals -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/sales/dashboard/summary\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/accounting/dashboard/summary -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/sales/dashboard/summary -> 200\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:core.notification_manager:WebSocket disconnected for workspace default\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

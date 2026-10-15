@@ -1,0 +1,114 @@
+{
+  "label": "committed",
+  "timestamp": "2026-10-11T23:52:25+00:00",
+  "generator": "/Users/rushiparikh/projects/atom/scripts/quickstart.sh",
+  "generator_sha256": "864d7a0d019cd7c54f0884a8249f606d75b4100f973a49d204c49b8cefbd922a",
+  "static_audit": {
+    "ok": true,
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "durable task lifecycle \u2014 _task_lifecycle_for returns None otherwise (task correction, scope-guarded edits absent)"
+      },
+      "CHAT_FINALIZATION_M1": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "exact-execution failure reporting (fallback honesty)"
+      },
+      "CHAT_FINALIZATION_M2": {
+        "raw": "1",
+        "verdict": "EFFECTIVE",
+        "required": "1",
+        "why": "finalized-outcome persistence per execution"
+      }
+    },
+    "secrets": {
+      "ok": true,
+      "keys": {
+        "BYOK_ENCRYPTION_KEY": "valid_fernet"
+      }
+    }
+  },
+  "gate_source_check": {
+    "ok": true,
+    "sites": [
+      {
+        "gate": "ATOM_TASK_LIFECYCLE_ENABLED",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_orchestrator.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M1",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      },
+      {
+        "gate": "CHAT_FINALIZATION_M2",
+        "file": "backend/integrations/chat_routes.py",
+        "literal_found": true
+      }
+    ]
+  },
+  "dynamic_probe": {
+    "gates": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": true,
+      "CHAT_FINALIZATION_M1": true,
+      "CHAT_FINALIZATION_M2": true
+    },
+    "lifecycle": {
+      "constructed": true,
+      "type": "TaskLifecycle"
+    },
+    "operation": {
+      "begin": true,
+      "settle": true,
+      "fresh_reload": true,
+      "idempotent_replay": true,
+      "run_id": "41604fdd-ab3f-4ed9-8582-b6a0ecf0d3db"
+    },
+    "db_env": "sqlite:////var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_parity_probe_h4a4mws9/probe.db",
+    "resolved_db": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_parity_probe_h4a4mws9/probe.db",
+    "child_db_inside_scratch": true
+  },
+  "boot": {
+    "port": 53702,
+    "mode": "configuration_parity_plus_public_api_smoke",
+    "booted": true,
+    "seconds": 5.3,
+    "status": "healthy",
+    "pid": 38129,
+    "git_commit": "48164e61c589",
+    "journey_j1": {
+      "register": {
+        "http": 200,
+        "token": true
+      },
+      "signin": {
+        "http": 200,
+        "token": true
+      },
+      "workspace": {
+        "http": 200,
+        "workspace_id": "378d14fa-f0af-48f1-9e43-cf0f426a55e4",
+        "bound": true
+      },
+      "workspace_usable": {
+        "http": 200
+      },
+      "admin_signin": {
+        "http": 200
+      }
+    },
+    "uvicorn_log_tail": "registered webhook (polling mode)\nINFO:integrations.atom_communication_ingestion_pipeline:Using FastEmbed (bge-small, 384-dim) for communication embeddings\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/auth/me\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/auth/me -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/dashboard/feed\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing atom_communications table\nINFO:integrations.atom_communication_ingestion_pipeline:FTS index enabled on 'content' column\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/dashboard/feed -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/auth/login\nINFO:integrations.atom_communication_ingestion_pipeline:Opened existing ingestion_metadata table\nINFO:integrations.atom_communication_ingestion_pipeline:LanceDB memory manager initialized successfully\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/auth/login -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+  },
+  "parity_ok": true,
+  "journey_j1_pass": true
+}

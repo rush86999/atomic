@@ -1,0 +1,50 @@
+{
+  "journey": "J4",
+  "mode": "pristine_code_export",
+  "provider_mode": "local-product",
+  "provider_scope_label": "product-registered local provider (ATOM_LOCAL_ONLY + Settings->local-models registration; the J2-repaired dispatch route)",
+  "local_model": "llama3.1:8b",
+  "started_at": "2026-10-12T14:43:47+00:00",
+  "boot": {
+    "booted": true,
+    "seconds": 6.1,
+    "status": "healthy",
+    "pid": 6056,
+    "git_commit": "unknown"
+  },
+  "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_research_j9nlczpt/run/atom.db",
+  "provider_setup": {
+    "register": {
+      "http": 200,
+      "registered": true
+    },
+    "discover": {
+      "http": 200,
+      "count": 5
+    },
+    "capabilities": {
+      "http": 200
+    },
+    "test": {
+      "http": 200,
+      "ok": null
+    },
+    "provider_id": "670fbc36-95c8-4d0f-b54d-59868a9461cf"
+  },
+  "upload": {
+    "http": 200
+  },
+  "research_turn": {
+    "http": 200,
+    "success": false,
+    "provider": null,
+    "model": null,
+    "error_code": "no_llm_provider",
+    "outcome": null,
+    "content_head": "You need an AI provider to use chat. Add an API key in Settings to get started.",
+    "content_len": 79
+  },
+  "pass": false,
+  "error": "ReadTimeout: timed out",
+  "uvicorn_log_tail": "s.memory_consolidation_worker:MemoryConsolidationWorker: {'default': {'workspace': 'default', 'edges_invalidated': 0, 'facts_superseded': 0, 'facts_expired': 0, 'bpe_notes_consolidated': {'skills': 0, 'task_skills': 0, 'mistakes': 0, 'priors': 0}, 'ran_at': '2026-10-12T14:49:08.930298', 'llm_review': {'workspace': 'default', 'enabled': False, 'subjects_reviewed': 0, 'ops_emitted': 0, 'ops_applied': 0, 'counts': {}, 'skipped': [], 'audit': [], 'ran_at': '2026-10-12T14:49:08.979479'}}}\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.turn_fact_extractor:turn_fact parse failure \u2014 raw output (truncated): No eligible LLM providers found for your current plan.\nWARNING:core.turn_fact_extractor:turn_fact_extraction_failure total={'timeout': 0, 'llm_error': 0, 'parse_error': 1}\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

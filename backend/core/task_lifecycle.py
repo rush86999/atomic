@@ -267,21 +267,24 @@ def _json_safe(value: Any, *, depth: int = 0) -> Any:
     return str(value)[:200]
 
 
-def _bounded_nested(value: Any, *, depth: int = 0) -> Any:
+def _bounded_nested(value: Any, *, depth: int = 0,
+                    max_depth: int = 3) -> Any:
     """Bound a nested diagnostic payload without minting a log dump.
 
     Lists keep at most 12 entries, dicts at most 20 keys, strings 200
-    chars, and nesting stops at depth 3. Anything cut is cut — this
+    chars, and nesting stops at ``max_depth``. Anything cut is cut — this
     helper does not try to summarize, because a summary would be a
     claim the record cannot support."""
-    if depth > 3:
+    if depth > max_depth:
         return "…"
     if isinstance(value, dict):
         return {
-            str(k)[:40]: _bounded_nested(v, depth=depth + 1)
+            str(k)[:40]: _bounded_nested(v, depth=depth + 1,
+                                         max_depth=max_depth)
             for k, v in list(value.items())[:20]}
     if isinstance(value, (list, tuple)):
-        return [_bounded_nested(v, depth=depth + 1) for v in list(value)[:12]]
+        return [_bounded_nested(v, depth=depth + 1, max_depth=max_depth)
+                for v in list(value)[:12]]
     if isinstance(value, str):
         return value[:200]
     if value is None or isinstance(value, (int, float, bool)):
@@ -458,6 +461,13 @@ def apply_transition(
                     merged["exec_claim"] = {
                         "by": _bounded_text(cl.get("by"), 60),
                         "at": str(cl.get("at") or ""),
+                        # LEASE EXPIRY PERSISTED (owner order
+                        # 2026-10-11, F3): the claim's own ttl rides
+                        # the record so acquisition, renewal,
+                        # execution and settlement all read the same
+                        # lease.
+                        "ttl": (float(cl["ttl"])
+                                if cl.get("ttl") is not None else None),
                     }
                     existing[index] = merged
         if transition.get("budget_migration"):
@@ -780,12 +790,59 @@ def normalize_execution_facts(raw: Any) -> Dict[str, Any]:
                 executor[key] = _bounded_nested(v)
             else:
                 executor[key] = str(v)[:200] if v is not None else None
+    # INVENTORY RECEIPT (owner correction 2026-10-11): an authorized
+    # inventory lookup's raw receipt — the stock obligation's
+    # settlement evidence. Bounded: items capped, string fields
+    # capped. A receipt hash identifies the captured payload; it
+    # does NOT prove the inventory remained unchanged (no
+    # workbook-style source_version is manufactured).
+    # TRUNCATION IS RECORDED (assignment 2026-10-12): a bounded
+    # receipt must never masquerade as complete inventory coverage —
+    # the record states how many items the source returned and that
+    # items beyond the cap are omitted (they are never settled as
+    # findings; the stock question stays open instead of claiming
+    # coverage).
+    _inv_raw = raw.get("inventory_receipt")
+    _inv_items_in = ((_inv_raw or {}).get("items") or []
+                     if isinstance(_inv_raw, dict) else [])
+    _inventory_receipt = (
+        {"items": [
+            {k: (str(v)[:80] if v is not None else None)
+             for k, v in (_it or {}).items() if k in
+             ("sku", "item", "availability", "warehouse",
+              "quantity", "record_id", "updated_at")}
+            for _it in _inv_items_in[:8]],
+         "received_count": len(_inv_items_in),
+         "truncated": len(_inv_items_in) > 8}
+        if isinstance(_inv_raw, dict) else None)
+    # STRUCTURED RECORD passthrough (assignment 2026-10-12): the
+    # settle arm's structured retrieval record (workbook_read /
+    # zoho_inventory payloads) rides on the operation's execution
+    # facts, bounded — evidence reconstruction after a fresh reload
+    # reads THIS, not the transient plan meta. max_depth=4: the
+    # receipt's own item fields (structured → source key → items →
+    # item → field) must survive bounding, or the record would state
+    # "…" where the receipt data belongs.
+    _structured_raw = raw.get("structured")
+    _structured_facts = (_bounded_nested(_structured_raw, max_depth=4)
+                         if isinstance(_structured_raw, dict) else None)
     return {
         "invoked": invoked,
         "outcome": outcome,
         "served_basis": basis,
         "failure_stage": str(stage)[:80] if stage else None,
         "freshness_status": str(freshness)[:40] if freshness else None,
+        # SOURCE VERSION (owner work order 2026-10-10): the workbook
+        # revision (content_hash / evidence_revision) this read served
+        # from — the identity finding_reuse_status compares at reuse.
+        # Execution provenance (served_basis) stays separate: reading an
+        # ingested copy today does not make its contents current.
+        "source_version": (str(raw.get("source_version"))[:80]
+                           if raw.get("source_version") else None),
+        "inventory_receipt": _inventory_receipt,
+        "inventory_error": (str(raw.get("inventory_error"))[:200]
+                            if raw.get("inventory_error") else None),
+        "structured": _structured_facts,
         "items": items,
         "planning": planning,
         "raw_outcome": raw_outcome,
@@ -966,6 +1023,72 @@ class TaskLifecycle:
             if str(provenance.get("canvas_id") or "") == canvas:
                 return record
         return None
+
+    def find_canvas_evidence_task(
+        self, canvas_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Evidence-only lookup: the newest COMPLETED canvas-bound task.
+
+        ``find_active_task_for_canvas`` searches non-terminal work only,
+        so completed research vanished from fresh-session evidence
+        resolution (owner direction 2026-10-10). This lookup READS the
+        terminal record for its durable findings — it never reactivates
+        the job, never grants mutation authority (callers use it to
+        build evidence, never to transition), and never falls back to
+        the user's latest conversation. Workspace scoping comes from
+        the runs store; fork lineage is preserved by matching the
+        canvas binding exactly — a fork resolves only a job bound to
+        the fork's own id, never the parent's.
+        """
+        canvas = str(canvas_id or "").strip()
+        if not canvas:
+            return None
+        runs = self.runs.list_runs(
+            status="achieved", include_terminal=True, limit=200)
+        for run in runs:
+            record = self.get_task(run["id"])
+            if record is None:
+                continue
+            provenance = (record.get("task_revision") or {}).get(
+                "provenance") or {}
+            if str(provenance.get("canvas_id") or "") == canvas:
+                return record
+        return None
+
+    def find_applicable_task_for_canvas(
+        self, canvas_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Newest non-terminal canvas-bound run WITH findings, else the
+        newest non-terminal canvas-bound run (owner order 2026-10-11 —
+        continuation binding): a newer empty job must not shadow an
+        older applicable record. Selection only, never merging: the
+        caller executes against the ONE returned record. Exact canvas
+        binding + workspace-scoped runs store are the guards (same as
+        the finders beside it)."""
+        canvas = str(canvas_id or "").strip()
+        if not canvas:
+            return None
+        runs = self.runs.list_runs(include_terminal=False, limit=200)
+        fallback: Optional[Dict[str, Any]] = None
+        for run in runs:
+            record = self.get_task(run["id"])
+            if record is None:
+                continue
+            provenance = (record.get("task_revision") or {}).get(
+                "provenance") or {}
+            if str(provenance.get("canvas_id") or "") != canvas:
+                continue
+            if fallback is None:
+                fallback = record
+            ops = record.get("operations") or []
+            for op in ops:
+                if not isinstance(op, dict):
+                    continue
+                findings = ((op.get("execution") or {}).get("findings")
+                            or [])
+                if any(isinstance(f, dict) for f in findings):
+                    return record
+        return fallback
 
     # ------------------------------------------------- atomic mutation
     # Every state change below goes through _mutate: read the fresh
@@ -1191,6 +1314,21 @@ class TaskLifecycle:
 
         with self._lock:
             return self._mutate(run_id, compute)
+
+    def find_operation_by_key(
+        self, run_id: str, idempotency_key: str,
+    ) -> Optional[Dict[str, Any]]:
+        """READ-ONLY lookup of an operation by its idempotency key —
+        eligibility/idempotency decisions that must run BEFORE any
+        external effect (owner order 2026-10-11, F1). Creates nothing,
+        claims nothing."""
+        if not idempotency_key:
+            return None
+        record = self.get_task(run_id) or {}
+        for existing in record.get("operations") or []:
+            if existing.get("idempotency_key") == idempotency_key:
+                return copy.deepcopy(existing)
+        return None
 
     def create_operation(
         self,
@@ -1920,6 +2058,24 @@ def _resolve_for_turn(lifecycle: "TaskLifecycle",
             record = lifecycle.get_task(stashed)
         except Exception:
             record = None
+    if record is None and isinstance(session, dict):
+        # EXPLICIT RESUME BINDING (owner order 2026-10-11 —
+        # continuation binding): the turn's continuation leg resolved
+        # a job and stashed its run id on the session. An explicitly
+        # resumed job remains the execution target — ahead of the
+        # conversation fallback, which would mint a drifting twin.
+        # Validated (exists, not cancelled) or ignored.
+        try:
+            _seed = session.get("_continuation_seed") or {}
+            _seed_run = str(_seed.get("run_id") or "")
+            if _seed_run:
+                _seeded = lifecycle.get_task(_seed_run)
+                if _seeded is not None and (
+                        (_seeded.get("task_revision") or {}).get(
+                            "authorization") != "cancelled"):
+                    record = _seeded
+        except Exception:
+            record = None
     if record is None:
         record = lifecycle.find_active_task(conversation_id)
     if (record is not None and
@@ -2207,6 +2363,12 @@ def begin_retrieval_turn(
         # A9/A10: read_returned_no_receipt while the isolated drive
         # bound six candidates). Fields are only ever ADDED here, never
         # replaced — existing contracts stand.
+        # ENTITIES ARE NEVER REPLACED (owner order 2026-10-11 —
+        # continuation binding): a resumed job's durable subject set is
+        # the job's scope; a later turn's mined tokens (locator words
+        # like "Tennsmith row 338" mining "338") are NOT new subjects
+        # and must not overwrite it. Only a task with no entities of
+        # its own adopts this turn's items.
         _rev_now = ((record or {}).get("task_revision") or {})
         if requested_fields and not (
                 _rev_now.get("requested_fields") or []):
@@ -2218,8 +2380,8 @@ def begin_retrieval_turn(
                     _rev_now.get("objective_text") or "").strip()
                 else _bounded_text(
                     str(_rev_now.get("objective_text")), 500),
-                "entities": (_entities_from_items(items)
-                             or list(_rev_now.get("entities") or [])),
+                "entities": (list(_rev_now.get("entities") or [])
+                             or _entities_from_items(items)),
                 "requested_fields": list(requested_fields),
             })
         # SHELL BACKFILL (round 39 diagnosis): the objective and entities
@@ -2234,8 +2396,8 @@ def begin_retrieval_turn(
                 "kind": "revise_objective",
                 "requested_change": _bounded_text(message, 500),
                 "objective_text": _bounded_text(message, 500),
-                "entities": (_entities_from_items(items)
-                             or list(_rev.get("entities") or [])),
+                "entities": (list(_rev.get("entities") or [])
+                             or _entities_from_items(items)),
                 "removed_entity_ids": [],
                 "requested_fields": list(requested_fields or []),
             })
@@ -2461,6 +2623,7 @@ def next_unfinished_work(
     *,
     attempt_cap: int = UNRESOLVED_ATTEMPT_CAP,
     max_actions: int = 3,
+    by: str = "planner",
 ) -> Dict[str, Any]:
     """Select the next useful work from the OPEN question set.
 
@@ -2490,18 +2653,45 @@ def next_unfinished_work(
     }
 
 
+#: Lease default for claims written before expiry was persisted, and
+#: the fallback for callers that pass none. A caller's NEW ttl never
+#: reinterprets another worker's existing lease (owner order
+#: 2026-10-11, F3).
+DEFAULT_CLAIM_TTL_S = 120.0
+
+
+def _claim_is_fresh(claim: Dict[str, Any], now: float) -> bool:
+    """A claim is fresh until ITS OWN recorded expiry — the ttl
+    persisted when the lease was acquired. Claims written before
+    expiry was persisted carry no ttl and fall back to
+    DEFAULT_CLAIM_TTL_S; they are never re-interpreted by a caller's
+    ttl."""
+    if not isinstance(claim, dict) or not claim:
+        return False
+    try:
+        at = float(claim.get("at"))
+    except (TypeError, ValueError):
+        return False
+    try:
+        ttl = float(claim.get("ttl"))
+    except (TypeError, ValueError):
+        ttl = DEFAULT_CLAIM_TTL_S
+    return (now - at) < ttl
+
+
 def claim_questions_for_execution(
         lifecycle: "TaskLifecycle",
         run_id: str,
         question_ids: List[str],
         *,
         by: str,
-        ttl_seconds: float = 120.0,
+        ttl_seconds: float = DEFAULT_CLAIM_TTL_S,
 ) -> List[str]:
     """DURABLE EXECUTION CLAIMS (round 53): attempt counters are retry
     bounds, not locks. A claim is written onto the question itself
-    (durable, restart-surviving) with a TTL; a fresh claim by another
-    worker refuses. Returns the ids actually claimed."""
+    (durable, restart-surviving) with its OWN expiry; a fresh claim by
+    another worker refuses. Renewal (same holder) refreshes at+ttl.
+    Returns the ids actually claimed."""
     import time as _time
 
     record = lifecycle.get_task(run_id)
@@ -2514,16 +2704,12 @@ def claim_questions_for_execution(
         if qid not in set(map(str, question_ids or [])):
             continue
         prev = q.get("exec_claim") or {}
-        prev_at = prev.get("at")
-        try:
-            fresh = (now - float(prev_at)) < ttl_seconds
-        except (TypeError, ValueError):
-            fresh = False
-        if prev and fresh and str(prev.get("by")) != by:
+        if prev and _claim_is_fresh(prev, now) \
+                and str(prev.get("by")) != by:
             continue
         claimable.append({
             "question_id": qid, "by": by,
-            "at": now,
+            "at": now, "ttl": float(ttl_seconds),
         })
     if not claimable:
         return []
@@ -2565,10 +2751,19 @@ def resolve_unresolved_questions_fenced(
             if str(q.get("question_id")) in ids \
                     and q.get("status") == "open":
                 claim = q.get("exec_claim") or {}
-                try:
-                    fresh = (now - float(claim.get("at"))) < ttl_seconds
-                except (TypeError, ValueError):
-                    fresh = False
+                # LEASE SEMANTICS (owner order 2026-10-11, F3): the
+                # fence validates THIS claim's own expiry — a caller's
+                # ttl never extends another worker's lease. Claims
+                # without a persisted ttl fall back to the caller's
+                # value (legacy records only).
+                if claim.get("ttl") is not None:
+                    fresh = _claim_is_fresh(claim, now)
+                else:
+                    try:
+                        fresh = (now - float(
+                            claim.get("at"))) < ttl_seconds
+                    except (TypeError, ValueError):
+                        fresh = False
                 if not (claim and str(claim.get("by")) == by and fresh):
                     raise TaskLifecycleConcurrencyError(
                         "settlement fence: question ownership changed "
@@ -2633,11 +2828,10 @@ def verify_question_claims(
         if qid not in set(map(str, question_ids or [])):
             continue
         claim = q.get("exec_claim") or {}
-        try:
-            fresh = (now - float(claim.get("at"))) < ttl_seconds
-        except (TypeError, ValueError):
-            fresh = False
-        if claim and str(claim.get("by")) == by and fresh:
+        # LEASE SEMANTICS (owner order 2026-10-11, F3): ownership is
+        # judged by the claim's own persisted expiry.
+        if claim and str(claim.get("by")) == by and _claim_is_fresh(
+                claim, now):
             owned.append(qid)
     return owned
 

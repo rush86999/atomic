@@ -1,0 +1,73 @@
+{
+ "campaign": "2026-10-14-j45-r18",
+ "subject": "33f54ba75 (round-18 corrected successor; full SHA pinned by the preflight guard)",
+ "lineage": "11c27b3ff (reviewer-APPROVED C-round carrier repair) -> 3a59f55ac (review-driven test pins + stub drift) -> 31bc390bc (C5 title fallback + T3 verifier repair) -> 561227abd (calc-evidence workspace scope + calculation ref identity) -> 33f54ba75 (builder resolves the user from the session)",
+ "independent_review": "APPROVE (agent, pre-campaign): both 29a941faf defects confirmed fixed; coverage gaps found and closed in 3a59f55ac before the campaign",
+ "mode": "worktree_configuration_parity (detached worktree /tmp/j45-r18; dev backend/.env copy with credentials scrubbed; venv symlinked; SHA guard verified worktree HEAD==SUBJECT before each journey; singleflight envelopes count as failed requests \u2014 zero observed)",
+ "model": "llama3.1:8b @ localhost:11434 (product-registered local provider)",
+ "result": {
+  "J4": "PASS",
+  "J5": "PASS"
+ },
+ "j4_pass": {
+  "evidence": null,
+  "assertions": {
+   "J4.T1_exact_ashford": true,
+   "J4.T2_paraphrase_bellhaven": true,
+   "J4.T3_absent_dunmore": true,
+   "J4.indexed": true,
+   "J4.source-identity": true,
+   "J4.durable-findings": true,
+   "J4.reload-agreement": true,
+   "J4.no-failed-requests": true
+  },
+  "latency_per_turn_s": {
+   "T1_exact_ashford": 5.67,
+   "T2_paraphrase_bellhaven": 1.64,
+   "T3_absent_dunmore": 2.59
+  }
+ },
+ "j5_pass": {
+  "evidence": null,
+  "assertions": {
+   "J5.T1_normal": true,
+   "J5.T2_conflict": true,
+   "J5.T3_missing_input": true,
+   "J5.reload-agreement": true,
+   "J5.no-failed-requests": true
+  },
+  "latency_per_turn_s": {
+   "T1_normal": 8.99,
+   "T2_conflict_first": 4.53,
+   "T3_missing_input": 4.55
+  },
+  "settled_quality": "T1/T2 objective_met=true with verified expression_engine rows carrying BOTH identifiers (operation_id=lifecycle attribution, result_id=engine citation, policy_id=expression) surviving _copy_ref settlement; stale datasets not_executed labels absent; T3 honest partial with the incomplete row"
+ },
+ "iterations": [
+  {
+   "run": "j4_r18_20261014_095303_7e5a97",
+   "subject": "3a59f55ac",
+   "result": "J4 FAIL at T3 \u2014 VERIFIER FALSE POSITIVE: the honest absence 'I couldn't confirm information about a Dunmore office' + truthful other-office attributions was failed by (a) ABSENCE_WORDBS lacking \"couldn't confirm\" and (b) the sentence-after-Dunmore fabrication expansion flagging names explicitly bound to OTHER offices. durable-findings TRUE for the first time in the campaign. Verifier repaired harness-side (31bc390bc); production behavior was correct; evidence preserved verbatim."
+  },
+  {
+   "run": "j5_r18_20261014_100038_93cd71",
+   "subject": "31bc390bc",
+   "result": "J5 FAIL T1/T2 \u2014 the builder's calc-evidence lifecycle resolved workspace 'default' (finish lanes pass no workspace) while the run lived in the user's workspace; zero runs visible. Fixed in 561227abd (builder + resolver resolve the turn's own workspace; _copy_ref stops stripping operation_id/result_id/policy_id)."
+  },
+  {
+   "run": "j5_r18_20261014_101710_ee23de",
+   "subject": "561227abd",
+   "result": "J5 FAIL T1/T2 \u2014 same degradation: the finish lanes also pass no user_id, so resolve_user_workspace(None) still hit 'default'. Fixed in 33f54ba75 (builder falls back to the session's user_id)."
+  },
+  {
+   "run": "j4_r18_20261014_102102_636bf9 + j5_r18_20261014_102152_43b835",
+   "subject": "33f54ba75",
+   "result": "J4 PASS (8/8) + J5 PASS (5/5), zero failed requests."
+  }
+ ],
+ "disclosed_pre_existing_failures": [
+  "test_outcome_verification::TestDeriveOutcome::test_all_succeeded (fails identically on the clean pre-r18 tree)",
+  "test_covpush_w41_outcome_verifier::test_heals_legacy_agent_scope (same)",
+  "test_fallback_honesty::TestNoOpAuthorityIsARecord::test_satisfied_requirement_completes (reviewer-verified byte-identical code across the lineage)"
+ ]
+}

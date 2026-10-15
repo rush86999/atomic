@@ -1,0 +1,89 @@
+{
+ "campaign": "2026-10-14-j6-draft (canvas lane, DRAFT status)",
+ "subject_drafted_on": "33f54ba75 (the J4/J5 green candidate, frozen)",
+ "spec": {
+  "setup": "canvas created + seeded via the product API (POST /api/canvas, PUT content, GET verified)",
+  "T1": "authorized edit (chat turn bound via context.canvas): 'update the Valid Until date to 2026-12-31. Change nothing else.'",
+  "T2": "read-only comparison: 'Compare Unit price and Subtotal ... Do NOT change anything.'",
+  "T3": "unmet requirement: 'Add the client's tax registration number' \u2014 the number exists NOWHERE in the world",
+  "gates": [
+   "preservation (audit delta +1 after T1, 0 after T2/T3)",
+   "authoritative readback (GET /api/canvas/{id}, never the reply)",
+   "durable attribution (task_outcome evidence: mutation op, comparison refs, non-certified outcome)",
+   "reload (fresh history + fresh canvas read agree; T3 still unmet)"
+  ]
+ },
+ "runs": [
+  {
+   "evidence": "j6_draft_20261014_110156_6a1a7e.json",
+   "subject": "33f54ba75",
+   "result": "all turns fail: the canvas-edit planner's structured pool was EMPTY ('no plan (provider failure)') \u2014 run 1's capability block declared supports_tools=False (inherited from the J4/J5 setup, never exercised there); the J2 registration gate correctly honored the declaration"
+  },
+  {
+   "evidence": "j6_draft_20261014_110843_ddbec4.json",
+   "subject": "33f54ba75",
+   "result": "supports_tools declared true (from ollama /api/show) \u2014 pool STILL empty"
+  },
+  {
+   "evidence": "j6_draft_20261014_111238_8961ec.json",
+   "subject": "33f54ba75",
+   "result": "context_window also declared from the runtime (131072) \u2014 pool STILL empty; the uvicorn log localizes it: the user-workspace handler ranks the route fine ('cheapest capable model local_b5cf8cd6/llama3.1:8b, quality 90, task_type=planning') while the edit-plan call runs on a handler scoped to workspace 'default'"
+  },
+  {
+   "evidence": "j6_draft_20261014_112804_2c93a4.json",
+   "subject": "510bfda1e",
+   "result": "scope threading WORKS (the ranking now runs on the user-workspace handler and selects the local model) but the structured call then died in 0.2s at the free-tier managed block \u2014 'Managed AI blocked' AFTER BPC had ranked the workspace's local route top"
+  },
+  {
+   "evidence": "j6_draft_20261014_113731_97a77c.json",
+   "subject": "d6bfe85f9",
+   "result": "the planner genuinely reaches the model (turns 63-115s). FINDINGS: (1) capacity boundary \u2014 the 8B planning leg consumes ~75s of the 115s budget; the reply leg is then deadline-enforced honestly ('ran past its time budget'), the edit never applies, audit delta 0. (2) preservation HELD: zero canvas_audit writes across all three turns; T2's comparison answered correctly. (3) T1's unfulfilled edit intent carries into T2 (a PROPOSED-edit in the reply) \u2014 correct employee behavior, but it flips the envelope to failed. (4) T3 is model-correct (asks for the tax number, certifies nothing, objective_met=False) but the envelope resolves failed rather than delivered-honest-decline."
+  }
+ ],
+ "root_cause": "ChatOrchestrator builds ONE LLMService at __init__ with the tenant alone (the known J2 carry-forward); its tenant-to-workspace resolution froze at construction. The chat reply lane passes the request's workspace explicitly at its callsite; the canvas edit/action planning calls passed NOTHING, so the structured call resolved the frozen 'default'-scoped handler whose _local_routes never include the user-workspace registration. T2's comparison answered CORRECTLY via the read-only fallback but resolved unconfirmed for the same reason (no planner -> no comparison evidence).",
+ "also_found": "plan_canvas_edit crashed with UnboundLocalError (function-level re-import of log_redaction) on any decline plan carrying no reply text \u2014 pre-existing on the clean tree (verified by stash), fixed in the same lane.",
+ "repair": "the turn's workspace/tenant are threaded from the orchestrator's planning callsites through plan_canvas_edit/plan_canvas_action/_plan_structured into pinned_structured_call's generate_structured_response call; scope-less callers are byte-identical (pinned by tests/test_canvas_plan_scope.py).",
+ "status": "DRAFT COMPLETE \u2014 spec verified end-to-end; 2 production defects fixed (scope threading, structured free-tier contract) + 1 latent planner crash; remaining boundaries are ACCEPTANCE FINDINGS: (a) 8B planning latency vs the turn budget (authorized edit cannot complete on the accepted hardware profile), (b) honest-decline turns resolve envelope failed instead of a delivered partial, (c) the read-only comparison's durable evidence attribution (same family as J4's original gap) \u2014 all three are the next repair cycle's inputs, NOT harness defects.",
+ "lineage": "33f54ba75 (drafted) -> 510bfda1e (scope threading + UnboundLocalError fix) -> d6bfe85f9 (structured-path free-tier contract)",
+ "j45_repin": {
+  "subject": "d6bfe85f9",
+  "j4": {
+   "pass": true,
+   "evidence": "/tmp/j45_r18_evidence/j4_r18_20261014_114101_cbf88d.json"
+  },
+  "j5": {
+   "pass": true,
+   "evidence": "/tmp/j45_r18_evidence/j5_r18_20261014_114146_c44653.json"
+  },
+  "note": "both green journeys re-pinned after the canvas-scope and structured-path repairs"
+ },
+ "verifier_round": {
+  "order": "owner handoff: (1) dispatch-policy verification, (2) edit-timing diagnosis, (3) comparison attribution at its producer, (4) delivery classification",
+  "step1": {
+   "verifier": "independent agent on the IMMUTABLE snapshot /tmp/j45-r18 @ e460bed15 (clean tree verified)",
+   "verdict": "CONFIRMED \u2014 5/5 controls + 77 regression green; MUTATION-TESTED: deleting _plan_applies either way flips control C exactly as predicted (allowlist, not availability/quality)",
+   "disclosed": "control C exercises the router directly (a re-added blanket block is caught by control A); env_key_providers exemption not separately pinned",
+   "report": "/tmp/verify_dispatch_e460bed15.md"
+  },
+  "step2": {
+   "measured": "plan leg 74.4s (validated: ranked -> model_request_sent -> response_received -> plan_validated) against the canvas-edit LEG BOUND of 74s \u2014 'bounded at 74s ... falling through to the tool path'; apply never reached (audit delta 0). Stage 5 denied by the ladder on every run.",
+   "controlled_reproduction": "tests/test_canvas_edit_stage_regression.py: the REAL _try_canvas_edit with a canned schema-valid plan (llm_service=None): apply ONCE, byte-preservation, postcondition readback verified, mutation evidence carried \u2014 downstream proven sound, model latency isolated",
+   "no_changes": "no model or budget change made; benchmarking any prompt reduction against the same preservation requirements is the next decision's precondition"
+  },
+  "step3": {
+   "edit_lane": "SUCCESS canvas_edit now carries mutation evidence_refs (canvas_id, audit_id, operation_id, execution_id)",
+   "comparison_lane": "the producers' execution-keyed carrier _objective_evidence_{eid} is now consumed by the outcome builder: the compared canvas revision settles as a source_comparison ref plus the observation source refs, through the established normalization",
+   "tests": "tests/test_canvas_comparison_attribution.py (5) + tests/test_canvas_edit_stage_regression.py (3)"
+  },
+  "step4": {
+   "rule": "a covered comparison (the builder's own covered-set) validates delivery; unresolved/field-missing does not; a decline with no recorded result stays unconfirmed",
+   "negative_controls": "another-turn carrier never donates; unresolved carrier not delivered; no-record decline stays unconfirmed"
+  },
+  "counted_run_84143bdd8": {
+   "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_125404_496423.json",
+   "result": "T1 115.5s and T3 115.1s budget envelopes; T2 95.1s budget envelope this round (latency variance \u2014 run 5's T2 comparison answered at 63.8s). No gate moved at the boundary: the producer fixes are committed and lane-proven, but the live completion is dominated by the accepted 8B profile's planning/reply latency against the 74s leg bound and turn budget.",
+   "stage_ladders": "recorded per turn in the evidence file"
+  },
+  "acceptance_status": "OPEN \u2014 gates: (1) authorized edit completes within the turn (awaits the planning-cost decision: prompt-reduction benchmark vs preservation, or a budget call \u2014 owner's), (2) comparison attribution observed at the user boundary (fix landed, lane-proven; boundary observation pending a completing run), (3) decline-outcome envelope at the boundary (classification landed; boundary observation pending). Negative controls committed."
+ }
+}

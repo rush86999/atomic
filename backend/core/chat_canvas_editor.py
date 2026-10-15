@@ -286,6 +286,8 @@ async def _plan_structured(
     response_model: Any,
     system_instruction: str,
     message: str = "",
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Any:
     """Structured canvas-planning call routed by BPC (no model pin).
 
@@ -334,10 +336,18 @@ async def _plan_structured(
         _pin = build_provider_model_pin(llm_service, _prov.strip(),
                                         _mod.strip())
 
+    # THE TURN'S OWN SCOPE (J6 draft finding, j6_draft_*8961ec.json):
+    # without it the structured call resolves the SERVICE's frozen
+    # constructor scope (the orchestrator builds LLMService with the
+    # tenant alone), whose handler never sees the workspace-registered
+    # local provider — the edit planner's pool was empty on a deployment
+    # where the same registration served the reply lane.
     return await pinned_structured_call(
         llm_service,
         prompt=prompt,
         response_model=response_model,
+        workspace_id=workspace_id,
+        tenant_id=tenant_id,
         system_instruction=system_instruction,
         call_kwargs=_pin or None,
         log_label="canvas edit planning",
@@ -601,9 +611,44 @@ def _requested_product_count(messages: List[str]) -> Optional[int]:
                 between = lower[base.end():alternatives.start()]
                 return left + right + (1 if re.search(
                     r"\b(?:sle|tgk|gsl|tk)\w*\d|\b\d{3,}\b", between) else 0)
-        row_range = re.search(r"\brows?\s*(\d+)\s*(?:-|to|through)\s*(\d+)\b", lower)
+    return None
+
+
+_ROW_RANGE_RE = re.compile(
+    r"\brows?\s*(\d+)\s*(?:-|to|through)\s*(\d+)\b")
+
+
+def _requested_row_span(messages: List[str]) -> Optional[tuple]:
+    """(start, end) of an ADDRESSED row range, or None. Shares the
+    range detector with ``_requested_row_range`` — one parser, both
+    consumers (the editor wants the end as 'first N rows'; the job
+    scope wants the span as 'rows start..end')."""
+    for text in messages:
+        m = _ROW_RANGE_RE.search(str(text or "").lower())
+        if m:
+            start, end = int(m.group(1)), int(m.group(2))
+            if end >= start and start >= 1:
+                return (start, end)
+    return None
+
+
+def _requested_row_range(messages: List[str]) -> Optional[int]:
+    """The END row of an ADDRESSED RANGE ("rows 1-5", "rows 3 through 7"),
+    or None when the request names no range.
+
+    A range ADDRESSES rows that must exist and carry the requested
+    values — it never sets the table's TOTAL row count (live S3,
+    2026-10-10: "rows 1-5" over a draft whose rows 6-8 are the protected
+    alternatives block produced scope_row_count:8!=5, an unsatisfied
+    obligation for a draft that was already correct). Totals stay with
+    ``_requested_product_count``; this is the address form.
+    """
+    for text in messages:
+        row_range = _ROW_RANGE_RE.search(str(text or "").lower())
         if row_range:
-            return int(row_range.group(2))
+            start, end = int(row_range.group(1)), int(row_range.group(2))
+            if end >= start:
+                return end
     return None
 
 
@@ -872,6 +917,61 @@ def artifact_observations(
                         r"[^a-z0-9]+", " ", str(header).casefold()
                     )
                 ]
+                exact_headers = [
+                    header for header in matching_headers
+                    if _canonical_field_name(header) == field]
+                # NON-MONETARY EXACT COLUMN READ (owner work order
+                # 2026-10-10): the cell IS the observation. The prose
+                # extractor invents numbers from the surrounding body
+                # for non-price fields (lead_time '10–11 weeks' → 10;
+                # 'In Stock' → a gauge number from the description), so
+                # text-valued columns never go through it. MONETARY
+                # fields keep the extractor: currency/basis live in the
+                # document context around the cell, and the comparison
+                # pipeline (field meanings, numeric normalization)
+                # depends on it.
+                if (len(exact_headers) == 1
+                        and not any(
+                            term in field for term in (
+                                "price", "cost", "amount", "rate",
+                                "value"))):
+                    header = exact_headers[0]
+                    raw_value = str(
+                        row.get(header)
+                        if row.get(header) is not None else ""
+                    ).strip()
+                    verification = (
+                        "field_missing"
+                        if not raw_value or raw_value.casefold() in {
+                            "tbd", "n/a"} else "verified")
+                    observation = {
+                        "entity_id": entity_text,
+                        "field": field,
+                        "raw_value": raw_value,
+                        "source": dict(source_data),
+                        "verification": verification,
+                        "field_meaning": str(header),
+                        "entity_attributes": dict(entity_attributes),
+                        "observation_id": (
+                            f"{source_data['source_id']}:"
+                            f"{source_data.get('version') or 'current'}:"
+                            f"{row_number}:{entity_text}:{field}:{header}"
+                        ),
+                        "locator": {
+                            "row": row_number,
+                            "column": str(header),
+                            "source_id": source_data["source_id"],
+                        },
+                    }
+                    from core.workbook_read_artifact import (
+                        _text_source_currency,
+                    )
+
+                    currency = _text_source_currency(raw_value)
+                    if currency:
+                        observation["currency"] = currency
+                    observations.append(observation)
+                    continue
                 for header in matching_headers:
                     raw_value = str(
                         row.get(header)
@@ -1314,6 +1414,8 @@ def _has_concrete_scope_obligations(scope_text: str) -> bool:
     text = str(scope_text or "")
     if _requested_product_count([text]) is not None:
         return True
+    if _requested_row_range([text]) is not None:
+        return True
     if _scope_requirements([text]):
         return True
     if _scope_codes([text]):
@@ -1325,12 +1427,354 @@ def _has_concrete_scope_obligations(scope_text: str) -> bool:
     return False
 
 
+_VALUE_REQUEST_RE = re.compile(
+    r"\b(prices?|costs?|delivery|deliveries|lead\s+times?|amounts?|"
+    r"rates?|values?)\b", re.IGNORECASE)
+
+
+def _canonical_value_text(value: Any) -> str:
+    text = re.sub(r"[\u2010-\u2015]", "-", str(value if value is not None
+                                                else ""))
+    return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+def _pure_number(value: Any) -> Optional[Decimal]:
+    """A value that is ENTIRELY a number (optionally currency-prefixed),
+    not merely one that starts with a digit — '10-11 weeks' is a text
+    obligation; '$2,902.00' is numeric."""
+    from core.workbook_read_artifact import _comparison_number
+    text = re.sub(r"[\s\u00a0]", "", str(value if value is not None
+                                         else ""))
+    if not re.fullmatch(
+            r"[(]?-?[$€£¥₹₩₽₺]?\d{1,15}(,\d{3})*(\.\d+)?[)]?", text):
+        return None
+    return _comparison_number(text)
+
+
+def _values_match(expected: Any, observed: Any,
+                  expected_meta: Dict[str, Any],
+                  observed_obs: Dict[str, Any]) -> bool:
+    expected_number = _pure_number(expected)
+    observed_number = _pure_number(observed)
+    if expected_number is not None and observed_number is not None:
+        if expected_number != observed_number:
+            return False
+    elif (_canonical_value_text(expected)
+            != _canonical_value_text(observed)):
+        return False
+    for key in ("currency", "unit", "basis"):
+        if (expected_meta.get(key) is not None
+                and observed_obs.get(key) is not None
+                and observed_obs.get(key) != expected_meta.get(key)):
+            return False
+    return True
+
+
+def _value_obligation_dispositions(
+    message: str,
+    canvas: Dict[str, Any],
+    evidence_contract: Dict[str, Any],
+    revision: str,
+    current_source_revision: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Per-obligation value dispositions from the AUTHORIZED evidence
+    contract (owner work order 2026-10-10): for every entity/field the
+    contract's non-artifact, non-historical evidence speaks to, record
+    the expected value WITH its authority, the observed value in the
+    authoritative canvas, the revision checked, and a disposition.
+
+    FRESHNESS IS ENFORCED HERE, NOT MERELY DISPLAYED (owner correction
+    2026-10-10): a workbook-sourced finding whose recorded source
+    version differs from the CURRENT authoritative revision (resolved
+    this turn by the caller) is STALE — the obligation is UNRESOLVED
+    until revalidated; the old record is retained, never erased. A
+    workbook finding with NO version anchor makes no freshness claim
+    and likewise cannot certify. Owner-decision findings (manual
+    quotes) carry independent authority and are exempt. Approval is
+    never inferred from the canvas's existing contents.
+    """
+    evidence = [
+        dict(item) for item in
+        ((evidence_contract or {}).get("evidence") or [])
+        if isinstance(item, dict)]
+    # THE REQUEST DEFINES THE OBLIGATIONS (owner order 2026-10-11, F2):
+    # the requested FIELDS come from the request's own words through
+    # the existing contract path — evidence satisfies obligations, it
+    # never defines them. Price evidence against a price-and-delivery
+    # request leaves the delivery half UNRESOLVED. A request whose
+    # fields cannot be derived carries no field scope and certifies
+    # nothing.
+    try:
+        from core.workbook_read_artifact import extract_field_requests
+
+        requested_fields = [
+            str(f) for f in (extract_field_requests([message]) or [])
+            if str(f).strip()]
+    except Exception:  # noqa: BLE001 — no contract, no obligation
+        requested_fields = []
+    if not requested_fields:
+        return []
+    fields = list(requested_fields)
+    # ADDRESSED ROWS (row-range repair, 2026-10-10): a request naming a
+    # row range obliges the entities LIVING in those rows — alternatives
+    # beyond the range are not requested, even when the contract
+    # carries them. Entities the canvas does not locate stay required
+    # (unresolvable is never silently excused).
+    range_end = _requested_row_range([message])
+    # REQUEST-NAMED SUBJECTS (owner order 2026-10-11, F2): items the
+    # request itself names are required even when no evidence mentions
+    # them — a missing subject is an unresolved obligation, never a
+    # silent omission. Matched to contract/canvas entities by code
+    # containment (the request may name the bare code '381' where the
+    # evidence carries the canvas's fuller identity).
+    required_entities: List[str] = []
+    seen_e = set()
+    for item in evidence:
+        source = item.get("source") or {}
+        if str(source.get("source_type") or "") == "artifact":
+            continue
+        entity = str(item.get("entity_id") or "").strip()
+        if not entity or entity.casefold() in seen_e:
+            continue
+        seen_e.add(entity.casefold())
+        required_entities.append(entity)
+    try:
+        from core.workbook_read_artifact import (
+            extract_targets, identity_shaped_item,
+        )
+
+        def _norm(s: Any) -> str:
+            return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+        for named in extract_targets([message]):
+            named = str(named or "").strip()
+            if not named or named.casefold() in seen_e:
+                continue
+            # IDENTITY-SHAPED ONLY (the shared predicate), and short:
+            # a subject is a NAME (a few words), never a sentence the
+            # miner lifted whole — prose fragments never become
+            # obligations.
+            if not identity_shaped_item(named) or len(
+                    named.split()) > 6:
+                continue
+            _n = _norm(named)
+            if not _n:
+                continue
+            matched = False
+            for entity in list(required_entities):
+                _e = _norm(entity)
+                if _n and _e and (_n in _e or _e in _n):
+                    matched = True
+                    break
+            if not matched:
+                seen_e.add(named.casefold())
+                required_entities.append(named)
+    except Exception:  # noqa: BLE001 — request mining is additive
+        pass
+    if range_end is not None:
+        located: Dict[str, Optional[int]] = {}
+        for entity in required_entities:
+            rows_seen = [
+                ((item.get("locator") or {}).get("row"))
+                for item in artifact_observations(
+                    canvas,
+                    requested_entities=[entity],
+                    requested_fields=fields or None)
+                if isinstance((item.get("locator") or {}).get("row"),
+                              int)]
+            located[entity] = min(rows_seen) if rows_seen else None
+        # RANK, not raw row number: the table's header row offsets the
+        # locator (data row 1 is locator row 2), while the request's
+        # "rows 1-5" counts DATA rows. The Nth distinct located row is
+        # data row N.
+        ranked = sorted(
+            row for row in located.values() if row is not None)
+        rank_of = {row: idx + 1 for idx, row in enumerate(ranked)}
+        required_entities = [
+            e for e in required_entities
+            if located[e] is None
+            or rank_of.get(located[e], range_end + 1) <= range_end]
+    dispositions: List[Dict[str, Any]] = []
+    # THE OBLIGATION GRID IS THE REQUEST'S (owner order 2026-10-11,
+    # F2): every requested subject × every requested field is an
+    # obligation. Evidence may SATISFY a cell; a cell with no
+    # (non-artifact, non-historical) evidence is UNRESOLVED — the
+    # requested field is not certified by another field's value, and a
+    # missing subject is not excused.
+    _req_norm = {
+        re.sub(r"[^a-z0-9]", "", e.lower()): e
+        for e in required_entities}
+
+    def _match_entity(name: str) -> Optional[str]:
+        _n = re.sub(r"[^a-z0-9]", "", str(name or "").lower())
+        if not _n:
+            return None
+        for _k, _v in _req_norm.items():
+            if _k == _n or _n in _k or _k in _n:
+                return _v
+        return None
+
+    entity_fields: List[tuple] = []
+    for entity in required_entities:
+        for field in fields:
+            entity_fields.append((entity, field))
+    for entity, field in entity_fields:
+        candidates = [
+            item for item in evidence
+            if str(item.get("entity_id") or "").casefold()
+            == entity.casefold()
+            and str(item.get("field") or "") == field
+            and str((item.get("source") or {}).get("source_type")
+                    or "") != "artifact"
+            and str((item.get("source") or {}).get("temporal_role")
+                    or "") != "historical"]
+        if not candidates:
+            # NO EVIDENCE FOR A REQUESTED CELL (owner order 2026-10-11,
+            # F2): the obligation exists and stays UNRESOLVED — price
+            # evidence never certifies a requested delivery, and an
+            # owner-approved price never manufactures delivery
+            # authority.
+            dispositions.append({
+                "entity_id": entity,
+                "field": field,
+                "disposition": "unresolved",
+                "detail": (f"no authorized evidence carries {field} for "
+                           f"{entity}")[:200],
+            })
+            continue
+        authority = sorted(
+            candidates,
+            key=lambda c: 0 if str(
+                (c.get("source") or {}).get("source_type")
+                or "") in {"supplier_quote", "decision", "owner"}
+            else 1)[0]
+        expected_raw = authority.get("raw_value")
+        record = {
+            "entity_id": entity,
+            "field": field,
+            "expected": {
+                "raw_value": str(expected_raw),
+                "currency": authority.get("currency"),
+                "unit": authority.get("unit"),
+                "basis": authority.get("basis"),
+                "authority_source_id": str(
+                    (authority.get("source") or {}).get("source_id")
+                    or ""),
+                "authority_source_type": str(
+                    (authority.get("source") or {}).get("source_type")
+                    or ""),
+            },
+            "revision": revision,
+        }
+        # REUSED-FINDING PROVENANCE (owner work order 2026-10-10): the
+        # source version the authorized evidence was observed at rides
+        # the receipt — never relabeled fresh by this turn's reuse.
+        for key in ("source_version", "content_hash"):
+            if authority.get(key):
+                record["expected"][key] = str(authority.get(key))[:80]
+        observed_rows = [
+            item for item in artifact_observations(
+                canvas,
+                requested_entities=[entity],
+                requested_fields=[field])
+            if _comparison_verified_local(item)]
+        # FRESHNESS AT THE REUSE BOUNDARY (owner correction): source
+        # roles have DIFFERENT rules. An OWNER DECISION carries
+        # independent authorization — version- and date-exempt. A
+        # SUPPLIER QUOTE proves what was quoted, not owner approval: it
+        # is DATED evidence and needs its own date anchor. A WORKBOOK
+        # finding is version-bound: it certifies only against its
+        # recorded version compared with the authoritative version of
+        # ITS OWN source — resolved this turn by the fresh leg when it
+        # probed that source, otherwise from the durable catalog
+        # (DatasetEntry active row), never a model call.
+        _src_type = str((authority.get("source") or {}).get(
+            "source_type") or "")
+        _decision_sourced = _src_type in {"decision", "owner"}
+        _supplier_quoted = _src_type == "supplier_quote"
+        record["source_role"] = (
+            "owner_decision" if _decision_sourced else
+            "supplier_quote_dated" if _supplier_quoted else
+            "workbook_version_bound")
+        if _decision_sourced or _supplier_quoted:
+            # owner decision: independent authorization. supplier quote:
+            # DATED evidence — gated below on its own date anchor, never
+            # on a workbook version it does not carry.
+            _reuse = "current"
+        else:
+            from core.workbook_read_artifact import finding_reuse_status
+            _source_id = str((authority.get("source") or {}).get(
+                "source_id") or "")
+            if current_source_revision:
+                _cur = current_source_revision
+            else:
+                try:
+                    from core.sheet_dataset_service import (
+                        current_dataset_version,
+                    )
+
+                    _cur = current_dataset_version(_source_id)
+                except Exception:  # noqa: BLE001 — no catalog answer
+                    _cur = None
+            _reuse = finding_reuse_status(
+                authority.get("source_version"), _cur)
+        if (_supplier_quoted and _reuse == "current"
+                and not (authority.get("effective_date")
+                         or authority.get("observed_at"))):
+            _reuse = "unqualified"
+            record["detail"] = (
+                "supplier quote carries no date anchor — its validity "
+                "cannot be claimed")
+        if expected_raw in (None, "") or len(observed_rows) != 1:
+            record["disposition"] = "unresolved"
+            record["observed"] = None
+            record["detail"] = (
+                "no authorized source value" if expected_raw in (None, "")
+                else f"{len(observed_rows)} canvas observations")
+        elif _reuse == "stale":
+            record["disposition"] = "unresolved"
+            record["observed"] = str(observed_rows[0].get("raw_value")
+                                     or "")
+            record["detail"] = (
+                f"source changed since observation "
+                f"({record['expected'].get('source_version') or 'no version'}"
+                f" recorded, {_cur} authoritative for "
+                f"{_source_id or 'this source'}) — revalidation required")
+        elif _reuse == "unqualified":
+            record["disposition"] = "unresolved"
+            record["observed"] = str(observed_rows[0].get("raw_value")
+                                     or "")
+            record["detail"] = (
+                "workbook finding carries no source version — no "
+                "freshness claim, revalidation required")
+        else:
+            observed = observed_rows[0]
+            record["observed"] = str(observed.get("raw_value") or "")
+            record["disposition"] = (
+                "satisfied" if _values_match(
+                    expected_raw, observed.get("raw_value"),
+                    record["expected"], observed) else "unsatisfied")
+            record["detail"] = (
+                f"expected {record['expected']['raw_value']} "
+                f"({record['expected']['authority_source_id']}); "
+                f"observed {record['observed']}")
+        dispositions.append(record)
+    return dispositions
+
+
+def _comparison_verified_local(observation: Dict[str, Any]) -> bool:
+    return str(observation.get("verification") or "").lower() in {
+        "verified", "stored", "calculated"}
+
+
 def requirement_check(
     *,
     message: str,
     canvas: Optional[Dict[str, Any]],
     authorized: bool,
     expected_prior_audit_id: Optional[str],
+    evidence_contract: Optional[Dict[str, Any]] = None,
+    current_source_revision: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Decide, from RECORDS, whether an authorized edit is already
     satisfied by the authoritative draft — the evidence a served decline
@@ -1348,6 +1792,16 @@ def requirement_check(
       3. AUTHORITATIVE REVISION — the draft the check reads is the one
          the caller expected to edit. A revision the caller did not
          expect (or a concurrent change) cannot certify "already done".
+      4. AUTHORIZED VALUE EVIDENCE (owner work order 2026-10-10) — a
+         value-shaped request ("the approved prices and delivery
+         times") is satisfied only when the evidence CONTRACT supplied
+         to drafting carries an authorized source value for every
+         requested obligation AND the authoritative canvas matches it
+         (``_value_obligation_dispositions``: expected+authority,
+         observed, revision, disposition per obligation). Approval is
+         never inferred from the canvas's existing contents: without
+         the contract the obligation is UNRESOLVED — never satisfied by
+         table preservation.
 
     SATISFACTION vs PRESERVATION (2026-10-10 correction): the scope
     contract (``_validate_scoped_edit``) guards MUTATIONS — it proves a
@@ -1427,9 +1881,46 @@ def requirement_check(
         # Neither a scope-bearing request nor a header obligation: the
         # check cannot parse this into postconditions. Unconfirmed.
         return None
+    # VALUE OBLIGATIONS (owner work order 2026-10-10): a value-shaped
+    # request is satisfied only from the AUTHORIZED evidence contract —
+    # never from table structure. Without a contract the obligation is
+    # UNRESOLVED, which blocks completion exactly like unsatisfied.
+    value_dispositions: List[Dict[str, Any]] = []
+    if _VALUE_REQUEST_RE.search(message):
+        if isinstance(evidence_contract, dict) and (
+                evidence_contract.get("evidence")
+                or evidence_contract.get("actions")):
+            value_dispositions = _value_obligation_dispositions(
+                message, canvas, evidence_contract, observed,
+                current_source_revision=current_source_revision)
+            all_settled = bool(value_dispositions) and all(
+                d["disposition"] == "satisfied"
+                for d in value_dispositions)
+            failing = [d for d in value_dispositions
+                       if d["disposition"] != "satisfied"]
+            obligations.append({
+                "kind": "value_obligations",
+                "disposition": ("satisfied" if all_settled
+                                else (failing[0]["disposition"]
+                                      if failing else "unresolved")),
+                "detail": (
+                    f"{len(value_dispositions)} authorized value "
+                    "obligations hold"
+                    if all_settled else "; ".join(
+                        f"{d['entity_id']} {d['field']}: "
+                        f"{d['disposition']} ({d.get('detail') or ''})"
+                        for d in failing[:4]))[:300],
+            })
+        else:
+            obligations.append({
+                "kind": "value_obligations",
+                "disposition": "unresolved",
+                "detail": ("no authorized evidence contract carried the "
+                           "approved values")[:120],
+            })
     unsatisfied = [o for o in obligations
-                   if o["disposition"] == "unsatisfied"]
-    return {
+                   if o["disposition"] != "satisfied"]
+    receipt = {
         "satisfied": bool(obligations) and not unsatisfied,
         "obligations": obligations,
         "unmet": [o["detail"] for o in unsatisfied],
@@ -1437,6 +1928,65 @@ def requirement_check(
         "revision": (observed or None),
         "authorized": True,
     }
+    if value_dispositions:
+        receipt["value_dispositions"] = value_dispositions
+    return receipt
+
+
+def noop_completion_reply(
+    check: Optional[Dict[str, Any]],
+    model_reply: str = "",
+) -> Optional[str]:
+    """The completion message for a served decline — built ONLY from a
+    VALIDATED requirement-check receipt (owner work order 2026-10-10).
+
+    Validation is structural, not textual: the receipt must certify
+    authorization, canvas identity, and obligation dispositions that
+    are ALL satisfied with at least one obligation present. Anything
+    else returns None — the caller keeps an unconfirmed decline. There
+    is deliberately NO classifier of model wording: a valid receipt
+    renders what the receipt establishes (per-obligation, with the
+    revision and the value authority); an invalid one renders nothing.
+    The planner's prose is diagnostic, not part of the confirmation —
+    it belongs in the evidence artifact (``canvas_decline_requirement_
+    check`` and the lane's planning receipt), never in the claim.
+
+    Returns the deterministic confirmation string, or None.
+    """
+    if not isinstance(check, dict):
+        return None
+    if check.get("authorized") is not True:
+        return None
+    if not str(check.get("canvas_id") or "").strip():
+        return None
+    obligations = [
+        dict(o) for o in (check.get("obligations") or [])
+        if isinstance(o, dict) and o.get("disposition")]
+    if not obligations:
+        return None
+    if any(o.get("disposition") != "satisfied" for o in obligations):
+        return None
+    revision = str(check.get("revision") or "").strip()
+    rev_tag = f" (revision {revision[:24]})" if revision else ""
+    value_rows = [
+        d for d in (check.get("value_dispositions") or [])
+        if isinstance(d, dict) and d.get("disposition") == "satisfied"]
+    if value_rows:
+        listed = "; ".join(
+            f"{d.get('entity_id')} {d.get('field')} = "
+            f"{(d.get('expected') or {}).get('raw_value')} "
+            f"per {(d.get('expected') or {}).get('authority_source_id')}"
+            for d in value_rows[:5])
+        sentence = (
+            f"Verified on the current draft{rev_tag}: {listed}. "
+            "No changes were needed, and nothing was sent.")
+    else:
+        named = [f"{o.get('kind')}" for o in obligations][:4]
+        sentence = (
+            f"Verified on the current draft{rev_tag}: "
+            f"{', '.join(named)} hold. No changes were needed, and "
+            "nothing was sent.")
+    return sentence
 
 
 def _validate_scoped_edit(
@@ -1457,7 +2007,15 @@ def _validate_scoped_edit(
     old_body = _body_from_content(current)
     new_body = _body_from_content(new_content)
     rows = _table_rows(new_body)
+    # ROW-RANGE vs TOTAL (live S3, 2026-10-10): an addressed range
+    # ("rows 1-5") obliges those rows to EXIST — a draft may legitimately
+    # carry more rows beyond the range (the protected alternatives
+    # block). Only an explicit TOTAL ("the 5 machines") demands an exact
+    # row count.
+    range_end = _requested_row_range(request_messages)
     expected = _requested_product_count(request_messages)
+    if range_end is not None and len(rows) < range_end:
+        return f"scope_row_count:{len(rows)}<{range_end}"
     if expected is not None and len(rows) != expected:
         return f"scope_row_count:{len(rows)}!={expected}"
     new_tokens = _scope_tokens(new_body)
@@ -1526,8 +2084,9 @@ def _request_scope_section(
 ) -> str:
     messages = [message] + _scope_user_messages(history)
     count = _requested_product_count(messages)
+    range_end = _requested_row_range(messages)
     requirements = _scope_requirements(messages)
-    if not count and not requirements and not fresh_data:
+    if not count and not range_end and not requirements and not fresh_data:
         return ""
     lines = [
         "SCOPE AND ACCEPTANCE CONTRACT — reconcile the current request with "
@@ -1535,7 +2094,17 @@ def _request_scope_section(
         "The current request and source-backed evidence outrank earlier drafts; "
         "do not preserve a missing or unnamed row from an earlier attempt.",
     ]
-    if count:
+    if range_end is not None:
+        # ADDRESSED RANGE, not a total (live S3, 2026-10-10): the exact-
+        # count line here made the planner destroy the protected rows
+        # beyond the range (or decline when it correctly refused to).
+        lines.append(
+            f"Rows 1 through {range_end} of the product table are "
+            "addressed: each must exist and carry the requested values. "
+            "Do not remove or renumber any row outside that addressed "
+            "range."
+        )
+    elif count:
         lines.append(
             f"The finished product table must contain exactly {count} data "
             "rows, counting only product rows and excluding the header."
@@ -2862,6 +3431,8 @@ async def plan_canvas_edit(
     canvas: Dict[str, Any],
     llm_service: Any,
     corrections: Optional[List[Dict[str, Any]]] = None,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
     versions: Optional[List[Dict[str, Any]]] = None,
     lessons: Optional[List[Dict[str, Any]]] = None,
     similar_corrections: Optional[List[Dict[str, Any]]] = None,
@@ -3001,6 +3572,8 @@ async def plan_canvas_edit(
         response_model=CanvasEditPlan,
         system_instruction="You return only the requested JSON object.",
         message=message,
+        workspace_id=workspace_id,
+        tenant_id=tenant_id,
     )
     if plan is None:
         # The structured call failed outright (all providers/timeout) — a
@@ -3069,7 +3642,10 @@ async def plan_canvas_edit(
         # contention. Bounded + redacted (routine-log rule).
         if str(plan.reply or "").strip():
             try:
-                from core import log_redaction
+                # Module-level import only: a function-level re-import
+                # makes the name LOCAL, and the fingerprint line below
+                # (outside this branch) then raises UnboundLocalError on
+                # every decline plan that carries no reply text.
                 _captured = log_redaction.capture(
                     str(plan.reply)[:400], "canvas_edit_decline_reply")
                 logger.info(
@@ -3120,6 +3696,8 @@ async def plan_canvas_edit(
             prompt=f"{prompt}\n\n{_INCONSISTENT_PLAN_SUFFIX}",
             response_model=CanvasEditPlan,
             system_instruction="You return only the requested JSON object.",
+            workspace_id=workspace_id,
+            tenant_id=tenant_id,
         )
         # CAPTURE (2026-09-28): both answers, so a failure is attributable
         # without re-running. A model answering correctly is a routing fact and
@@ -3212,6 +3790,8 @@ async def plan_canvas_edit(
             prompt=f"{prompt}\n\n{_REPLACE_FALLBACK_SUFFIX}",
             response_model=CanvasEditPlan,
             system_instruction="You return only the requested JSON object.",
+            workspace_id=workspace_id,
+            tenant_id=tenant_id,
         )
         if replan is None:
             # First call proved this IS an edit; the re-ask dying is an
@@ -4710,6 +5290,8 @@ async def plan_canvas_action(
     canvas: Dict[str, Any],
     llm_service: Any,
     fresh_data: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Optional[CanvasActionPlan]:
     """Decide whether this turn asks to DO something with the canvas (send
     email). ``fresh_data`` is the caller-gathered live evidence section
@@ -4741,6 +5323,8 @@ async def plan_canvas_action(
         prompt=prompt,
         response_model=CanvasActionPlan,
         system_instruction="You return only the requested JSON object — raw JSON, no markdown fences.",
+        workspace_id=workspace_id,
+        tenant_id=tenant_id,
     )
     if plan is None:
         # Deterministic fallback: the structured (Instructor/tool-mode) path

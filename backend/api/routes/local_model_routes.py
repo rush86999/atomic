@@ -323,7 +323,14 @@ def _register_in_pricing_cache(
     capabilities: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Inject a local model into the in-memory pricing cache so BPC and
-    capability-detection functions work without changing their logic."""
+    capability-detection functions work without changing their logic.
+
+    The entry carries its ASSOCIATION (J2 provider-scope work order):
+    the owning workspace and the ``local_<id>`` client key that holds
+    the endpoint. Two workspaces registering the same model name keep
+    separate routes — the shared entry only carries public pricing
+    metadata; endpoint selection and registration-specific capabilities
+    are read from the handler's own scoped records."""
     try:
         from core.dynamic_pricing_fetcher import get_pricing_fetcher
         fetcher = get_pricing_fetcher()
@@ -337,6 +344,8 @@ def _register_in_pricing_cache(
             "supports_vision": (capabilities or {}).get("supports_vision", False),
             "supports_reasoning": (capabilities or {}).get("supports_reasoning", False),
             "quality_score": (capabilities or {}).get("quality_score", 0.5),
+            "provider_key": f"local_{provider.id[:8]}",
+            "workspace_id": provider.workspace_id,
         }
         fetcher.pricing_cache[model_id] = entry
     except Exception as e:

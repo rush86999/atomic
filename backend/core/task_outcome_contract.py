@@ -53,7 +53,33 @@ def _copy_ref(value: Any) -> Dict[str, Any]:
         "criterion_ids",
         "source",
     )
-    return {key: value[key] for key in keys if key in value}
+    ref = {key: value[key] for key in keys if key in value}
+    # SCOPE BINDING SURVIVES SETTLEMENT (round-10 verifier findings): the
+    # planner lane stamps what it searched (action/query/paths/
+    # match_count/coverage, service scopes) into its evidence refs, and
+    # this whitelist used to DROP every one of those keys — the durable
+    # receipt settled as an opaque {"kind": "documents"}, so acceptance
+    # could not check evidence or relevance and had to trust a boolean.
+    # Bounded copy: a receipt row is a record, not a store.
+    for key in ("action", "query", "coverage", "service"):
+        if value.get(key) is not None:
+            ref[key] = _bounded_text(value[key], 300)
+    # CALCULATION IDENTITY SURVIVES SETTLEMENT (J5-r18 finding, same
+    # collapse class as the round-10 documents refs): the owner
+    # correction demanded BOTH identifiers on the settled ref — the op
+    # id is the lifecycle's attribution, the result_id the engine's
+    # citation for reply agreement; policy_id names the evaluated
+    # expression. This whitelist silently stripped all three.
+    for key in ("operation_id", "result_id", "policy_id"):
+        if value.get(key) is not None:
+            ref[key] = _bounded_text(value[key], 120)
+    match_count = value.get("match_count")
+    if isinstance(match_count, int) and not isinstance(match_count, bool):
+        ref["match_count"] = match_count
+    paths = value.get("paths")
+    if isinstance(paths, list) and paths:
+        ref["paths"] = [str(p)[:200] for p in paths[:10] if str(p).strip()]
+    return ref
 
 
 def _normalise_tool(value: Any) -> Dict[str, Any]:

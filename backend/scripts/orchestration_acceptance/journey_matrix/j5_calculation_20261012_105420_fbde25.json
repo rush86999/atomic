@@ -1,0 +1,39 @@
+{
+  "journey": "J5",
+  "mode": "pristine_code_export",
+  "provider_mode": "local-product",
+  "provider_scope_label": "product-registered local provider (ATOM_LOCAL_ONLY + Settings->local-models registration)",
+  "local_model": "llama3.1:8b",
+  "started_at": "2026-10-12T14:49:09+00:00",
+  "boot": {
+    "booted": true,
+    "seconds": 6.1,
+    "status": "healthy",
+    "pid": 6828,
+    "git_commit": "unknown"
+  },
+  "provider_setup": {
+    "register": {
+      "http": 200,
+      "registered": true
+    },
+    "discover": {
+      "http": 200,
+      "count": 5
+    },
+    "capabilities": {
+      "http": 200
+    },
+    "test": {
+      "http": 200,
+      "ok": null
+    },
+    "provider_id": "7e96d958-d984-4482-b525-581724626580"
+  },
+  "upload": {
+    "http": 200
+  },
+  "pass": false,
+  "error": "ReadTimeout: timed out",
+  "uvicorn_log_tail": "raction_failure total={'timeout': 0, 'llm_error': 0, 'parse_error': 1}\nINFO:core.exchange_memory_maintenance:\u2713 exchange memory maintenance: {'backfilled': 0, 'distilled': {'lessons': 0, 'topics': [], 'rows_marked': 0}, 'promoted': {'promoted': False, 'reason': 'corpus_too_small', 'counts': {'positive': 0, 'negative': 0}}, 'promoted_panel': {'promoted': False, 'reason': 'not_enough_runs', 'stats': {'total': 0, 'ran': 0, 'ran_rate': 0.0, 'mean_agreement': 0.0}}, 'playbook_drafts': {'drafted': 0, 'updated': 0, 'unchanged': 0, 'retired_legacy': 0}, 'playbook_auto_approved': {'latched': 0, 'replayed': 0, 'autonomy_blocked': 0, 'reason': 'latch_off (default)'}, 'patterns': {'tenants': 0, 'created': 0, 'bumped': 0}, 'import_validation': [], 'goal_run_timer_wakes': {'woke': []}, 'goal_run_stale_sweep': {'interrupted': []}, 'db_safety': {'snapshot': '/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_pristine_export_vob7m8r0/backend/data/backups/atom-cycle-20261012-105419.db.gz', 'fingerprint': True, 'protected': True}, 'lance_cleanup': {'tables': 0, 'cleaned': 0, 'errors': 0, 'reason': 'no_atom_memory_dir'}}\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

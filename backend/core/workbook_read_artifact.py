@@ -208,7 +208,7 @@ def extract_field_requests(texts: Sequence[str]) -> List[str]:
         for canonical in _FIELD_ALIAS_ORDER:
             aliases = _field_aliases(canonical)
             if any(
-                re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", normalized)
+                _alias_matches_request(alias, normalized)
                 for alias in aliases
                 if alias
             ):
@@ -226,6 +226,29 @@ def extract_field_requests(texts: Sequence[str]) -> List[str]:
             for other in values
         )
     ]
+
+
+# Aliases whose +"s" plural is commonly a VERB ("lists the rows",
+# "amounts to") rather than the requested field — plural matching
+# stays off for these; the singular still matches. Verb forms that
+# stay in-domain ("costs", "expires", "quotes") are intentionally
+# allowed: they still signal the field being asked about.
+_PLURAL_VERB_RISK = frozenset({"list", "amount"})
+
+
+def _alias_matches_request(alias: str, normalized: str) -> bool:
+    """An alias names a requested field when it occurs as a whole word —
+    or as its plain +"s" plural (quote asks say "prices", "costs",
+    "dates"; the singular-only rule left those contracts empty, which
+    the live A-series jobs carried as requested_fields: [] and their
+    row reads then bound nothing)."""
+    if re.search(
+            rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", normalized):
+        return True
+    if alias in _PLURAL_VERB_RISK or alias.endswith("s"):
+        return False
+    return bool(re.search(
+        rf"(?<![a-z0-9]){re.escape(alias)}s(?![a-z0-9])", normalized))
 
 
 def _column_descriptors(
@@ -1038,6 +1061,31 @@ _ROW_ASSERTION_RE = re.compile(
 
 def _canonical_item(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(text or "").lower())
+
+
+def finding_reuse_status(carried_version: Any,
+                         current_version: Any) -> str:
+    """Whether a persisted finding may serve claims about the CURRENT
+    source (owner work order 2026-10-10 — reuse the workbook-binding
+    hash mechanism, never a second freshness system).
+
+      - both versions present and equal  -> "current" (reusable)
+      - both present, different          -> "stale" (revalidation
+        required for claims about the newer source; the old record
+        STAYS as historical evidence — never erased)
+      - either missing                   -> "unqualified" (no freshness
+        claim may be made — silence, not "fresh")
+
+    NOT applied to owner-decision findings: a manual quote's authority
+    is the owner's instruction, independent of workbook revisions — a
+    workbook change must never silently replace it. Callers gate
+    workbook-sourced evidence only.
+    """
+    carried = str(carried_version or "").strip()
+    current = str(current_version or "").strip()
+    if not carried or not current:
+        return "unqualified"
+    return "current" if carried == current else "stale"
 
 
 def capture_resolved_bindings(
@@ -3493,6 +3541,14 @@ def _normalise_comparison_observation(observation: Dict[str, Any]) -> Dict[str, 
         "basis": basis,
         "effective_date": str(item.get("effective_date") or "").strip() or None,
         "observed_at": str(item.get("observed_at") or "").strip() or None,
+        # SOURCE VERSION (owner correction 2026-10-10): the workbook
+        # revision the observation was read at — carried THROUGH
+        # normalization so reuse checks compare the same identity the
+        # read recorded (finding_reuse_status).
+        "source_version": (
+            str(item.get("source_version") or "").strip() or None),
+        "source_location": (
+            str(item.get("source_location") or "").strip() or None),
         "field_meaning": str(
             item.get("field_meaning") or item.get("column") or ""
         ).strip() or None,

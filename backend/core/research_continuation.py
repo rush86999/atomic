@@ -197,6 +197,14 @@ def _read_actions(actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                                  or []))),
                     "provenance": dict(
                         inputs.get("provenance") or {}),
+                    # THE CLAIMED VALUE SURVIVES SCHEDULING (owner work
+                    # order 2026-10-11, item 2): direct execution (the
+                    # dispatch's act) and deferred execution (a
+                    # ledger-scheduled row read) must carry the SAME
+                    # availability claim — the scoped-absence record
+                    # needs the claim being checked.
+                    "claimed_delivery": str(
+                        inputs.get("claimed_delivery") or ""),
                     "intent": "row_read",
                     "question_id": a.get("question_id")})
                 continue
@@ -257,6 +265,8 @@ async def _execute_document_read(
     statuses: Dict[str, str] = {}
     evidence: List[str] = []
     any_executed = False
+    _scan_identity = None
+    _item_versions: Dict[str, str] = {}
     for item in items:
         try:
             scan = await asyncio.wait_for(
@@ -265,12 +275,46 @@ async def _execute_document_read(
                     workspace_id, file_name=file_name, max_matches=8),
                 timeout=_READ_TIMEOUT_SECONDS)
             any_executed = True
+            _ident = (scan or {}).get("source_identity") or {}
+            if _ident.get("content_hash"):
+                _scan_identity = str(_ident["content_hash"])[:80]
+                # PER-ITEM VERSION (owner correction 2026-10-11): the
+                # scan receipt that produced THIS item's matches — with
+                # multiple files, one file's hash must never be
+                # attributed to another file's values.
+                _item_versions[item] = _scan_identity
         except Exception as exc:  # noqa: BLE001 — per-item isolation
             statuses[item] = ""
             evidence.append(f"{item}: lookup failed "
                             f"({type(exc).__name__})")
             continue
         matches = (scan or {}).get("matches") or []
+        # CODE-TOKEN RESCAN (owner correction 2026-10-11, worker-side):
+        # the canvas resolves PROSE subjects while catalog rows carry
+        # the code in an identity column — the phrase needle never
+        # matches. The subject's own code tokens (the existing
+        # extractor) re-scan under the SAME file filter; identity is
+        # still decided downstream (classify + binder), so an
+        # incidental number never certifies.
+        if not matches:
+            for _tok in _item_code_tokens(item):
+                try:
+                    scan = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            find_all_occurrences_sync, _tok, user_id,
+                            workspace_id, file_name=file_name,
+                            max_matches=8),
+                        timeout=_READ_TIMEOUT_SECONDS)
+                except Exception:  # noqa: BLE001 — per-token isolation
+                    continue
+                _ident2 = (scan or {}).get("source_identity") or {}
+                if _ident2.get("content_hash"):
+                    _scan_identity = str(
+                        _ident2["content_hash"])[:80]
+                    _item_versions[item] = _scan_identity
+                matches = (scan or {}).get("matches") or []
+                if matches:
+                    break
         _raw_rf = list((action_inputs or {}).get(
             "requested_fields") or [])
         _cls_specs = (_resolve_field_specs(None, _raw_rf)
@@ -357,10 +401,12 @@ async def _execute_document_read(
                 },
             }], source_operation=None)
 
+    _doc_key = f"doc-read:{file_name[:100]}"
     op = lifecycle.create_operation(
         run_id, op_type="retrieve",
         requested_change=(
-            f"research continuation read: {file_name[:120]}"))
+            f"research continuation read: {file_name[:120]}"),
+        idempotency_key=_doc_key)
     _exec_facts = {
         "invoked": any_executed,
         "outcome": ("read_succeeded" if any(
@@ -369,6 +415,12 @@ async def _execute_document_read(
             else "read_failed"),
         "served_basis": ("saved_copy" if any_executed else "none"),
         "failure_stage": None,
+        # SOURCE VERSION (owner correction 2026-10-10): the identity
+        # the READ receipt carried — the content_hash of the entries
+        # actually scanned, captured at read time. Never re-queried
+        # from the catalog here: an ingest between read and settlement
+        # must not stamp version-B identity onto version-A values.
+        "source_version": _scan_identity,
         "items": statuses,
         # Same observability as the row-context read: the per-item
         # evidence was returned to the caller and dropped before the
@@ -641,6 +693,70 @@ async def _execute_row_read(
     item = str(act.get("item") or "")
     fields = list(act.get("requested_fields") or [])
     context = str(act.get("identity_context") or item)
+    # ELIGIBILITY BEFORE EXECUTION (owner order 2026-10-11, F1): the
+    # idempotency decision runs BEFORE ANY source call — the candidate
+    # loop below is the only place the source is touched. When this
+    # read's key (file + item + fields + scope, and the scan's own
+    # version when the dispatcher stamped one) already settled WITH a
+    # usable receipt, the recorded results are reused and ZERO source
+    # calls are made. A FAILED or receipt-less op stays retryable.
+    _read_key = str(act.get("idempotency_key") or
+                    f"row-read:{str(act.get('file'))[:100]}:{item}:"
+                    f"{','.join(sorted(str(f) for f in fields))}")
+    _source_calls = 0
+    # A FRESH FOREIGN CLAIM BLOCKS EXECUTION (owner order 2026-10-11,
+    # F1): the eligibility decision includes the lease — a question
+    # another worker holds with an unexpired lease is not executed
+    # here, and NO source call is made for it. The worker cycle dedupes
+    # at selection; this is the same rule at the execution boundary.
+    if qids:
+        try:
+            import time as _time
+
+            from core.task_lifecycle import _claim_is_fresh
+
+            _rec_now = lifecycle.get_task(run_id) or {}
+            _open_by_id = {
+                str(q.get("question_id")): q
+                for q in ((_rec_now.get("task_revision") or {})
+                          .get("unresolved") or [])}
+            for _qid in [str(q) for q in qids]:
+                _q = _open_by_id.get(_qid)
+                if not _q:
+                    continue
+                _cl = _q.get("exec_claim") or {}
+                _holder = str(_cl.get("by") or "").strip()
+                if _holder and _holder != _WORKER_ID and \
+                        _claim_is_fresh(_cl, _time.time()):
+                    return {
+                        "statuses": {},
+                        "source_calls": 0,
+                        "blocked_by_claim": _holder,
+                        "evidence": [
+                            f"{item}: question held by another worker "
+                            f"({_holder}) under a fresh lease — not "
+                            f"executed here (0 source calls)"]}
+        except Exception:  # noqa: BLE001 — eligibility is best-effort
+            pass
+    try:
+        _prior = lifecycle.find_operation_by_key(run_id, _read_key)
+    except Exception:  # noqa: BLE001 — eligibility is best-effort
+        _prior = None
+    if _prior is not None:
+        _prev = _prior.get("execution") or {}
+        _prev_findings = _prev.get("findings") or []
+        _settled = _prior.get("status") == "applied" or (
+            _prior.get("status") == "running" and _prev_findings)
+        if _settled and _prev_findings and (
+                str(_prev.get("outcome") or "") == "read_succeeded"):
+            return {"file": act.get("file"),
+                    "statuses": dict(_prev.get("items") or {}),
+                    "source_calls": 0,
+                    "evidence": [
+                        f"{item}: already read under this source version "
+                        f"and field contract — recorded results reused "
+                        f"(0 source calls, op "
+                        f"{str(_prior.get('operation_id'))[:8]})"]}
     # FOUR-LAYER CAPTURE — layer 1, STORED (2026-10-09 owner assignment).
     # The question's ``inputs`` dict AS PERSISTED, before the dispatch
     # projection rewrites it. Without this on the record the other three
@@ -721,6 +837,7 @@ async def _execute_row_read(
                 _file = str(_h.get("file_name") or "")
                 if not _file:
                     continue
+                _source_calls += 1
                 row_result = await asyncio.to_thread(
                     read_sheet_row_sync, _file,
                     cand.get("sheet") or "",
@@ -744,6 +861,7 @@ async def _execute_row_read(
                 _exec_reads.append(_read_rec)
                 continue
         else:
+            _source_calls += 1
             row_result = await asyncio.to_thread(
                 read_sheet_row_sync, _file, cand.get("sheet") or "",
                 cand.get("row") or 0, user_id, workspace_id)
@@ -807,7 +925,31 @@ async def _execute_row_read(
         _exec_reads.append(_read_rec)
         supporting.append(
             {"cand": cand, "bound": bound, "_row_result": row_result})
+    # TAUGHT-SOURCE MISMATCH (owner work order 2026-10-11): the
+    # teaching designates a workbook VERSION the catalog may not carry
+    # ('the Consolidated Price List 2019 workbook' vs a materialized
+    # 2015 copy). When the caller supplies the taught name and the
+    # served file does not carry it, every finding from this read is
+    # marked — serving the best-available copy is honest ONLY when the
+    # version gap is on the record.
+    _taught_name = str((act.get("taught_source") or {}).get("name")
+                       or "")
+    _served_file = str(act.get("file") or "")
+    _taught_mismatch = bool(_taught_name) and bool(_served_file) and (
+        not all(tok in _served_file.lower()
+                for tok in re.findall(r"\d{4}|[a-z]{4,}",
+                                      _taught_name.lower())
+                if tok not in ("workbook", "list", "price")))
     _typed_findings: List[Dict[str, Any]] = []
+    # THE SUPPORTED ROW'S OWN READ VERSION (owner correction
+    # 2026-10-11): from the row's four-layer capture — the serving
+    # copy identity the row reader reported, never another scan's.
+    _row_version = None
+    if len(supporting) == 1:
+        _src0 = ((supporting[0].get("_row_result") or {}).get("source")
+                 or {})
+        _row_version = str(_src0.get("content_hash")
+                           or _src0.get("entry_id") or "")[:80] or None
     if len(supporting) == 1:
         bound = supporting[0]["bound"]
         cand = supporting[0]["cand"]
@@ -828,6 +970,26 @@ async def _execute_row_read(
             _policy[field] = pol
             if pol["applied"]:
                 col, val = pol["selected"][0], pol["selected"][1]
+                # THE POLICY-SELECTED VALUE IS A TYPED FINDING (owner
+                # correction 2026-10-11): evidence alone left the
+                # durable record without the value the policy selected
+                # — drafting could never reuse it.
+                _typed_findings.append({
+                    "field": field, "column": col, "raw": str(val),
+                    "item": item,
+                    "source_version": _row_version,
+                    # THE VERSION GAP IS ON THE RECORD IN EVERY BRANCH
+                    # (verifier replay ecf33f8e1): the policy-applied
+                    # branch persisted its finding WITHOUT the mismatch
+                    # keys — under the full captured teaching the gap
+                    # went silent again.
+                    "taught_source_mismatch": _taught_mismatch,
+                    "taught_source": (_taught_name or None),
+                    "parsed": (pol["selected"][2] if len(
+                        pol["selected"]) > 2 else None),
+                    "source": (f"{cand.get('_resolved_file') or act.get('file')}"
+                               f"!{cand.get('sheet')}"
+                               f"!row{cand.get('row')}")})
                 statuses[item] = "matched"
                 evidence.append(
                     f"{item}: {field} = {val} ({col}; policy: "
@@ -844,6 +1006,16 @@ async def _execute_row_read(
                 col, val = cands[0][0], cands[0][1]
                 _typed_findings.append({
                     "field": field, "column": col, "raw": str(val),
+                    # the finding's OWN subject (owner correction
+                    # 2026-10-10): multi-item operations must not have
+                    # every finding attributed to the first sorted item
+                    "item": item,
+                    # the finding's OWN read version (owner correction
+                    # 2026-10-11): the serving-copy identity the row
+                    # reader reported for THIS row
+                    "source_version": _row_version,
+                    "taught_source_mismatch": _taught_mismatch,
+                    "taught_source": (_taught_name or None),
                     "parsed": cands[0][2] if len(cands[0]) > 2 else None,
                     # single-line f-string expression: a multi-line one is
                     # a SyntaxError on Python < 3.12, and the 3.11 test
@@ -880,9 +1052,101 @@ async def _execute_row_read(
                 })
             else:
                 statuses[item] = "matched"
+                # AVAILABILITY-CLASS FIELD (owner work order 2026-10-11,
+                # item 3 — the Zoho trace): a field the DRAFT claims as
+                # an availability term ('In Stock') whose absence in the
+                # workbook is scoped — the verification source is the
+                # TAUGHT inventory source, not a workbook re-read. The
+                # question names it, so the ledger's action selection
+                # can route to the taught tool (Zoho) through the
+                # existing planner — never a dispatcher branch.
+                # NO INVENTED CLAIM (owner correction 2026-10-11): a
+                # missing claimed_delivery stays missing — only an
+                # ACTUAL stock claim or an explicit availability request
+                # creates the successor obligation. The taught source is
+                # derived from the MATCHED lesson only (the matched
+                # lesson's own source naming, not a default).
+                _claimed = str(act.get("claimed_delivery") or "").strip()
+                _row_source_name = str(
+                    ((supporting[0].get("_row_result") or {}).get("source")
+                     or {}).get("file_name")
+                    or act.get("file") or "")
+                _availability_claim = any(
+                    w in _claimed.lower()
+                    for w in ("in stock", "stock"))
+                _inv_teaching = ""
+                _inv_lesson_id = None
+                for _l in agent_lessons or []:
+                    _lt = " ".join(str(_l.get("lesson") or _l.get(
+                        "summary") or "").split()).lower()
+                    if "inventory" in _lt and ("zoho" in _lt
+                                               or "source" in _lt):
+                        _inv_teaching = _lt[:160]
+                        _inv_lesson_id = str(_l.get("id")
+                                             or _l.get("lesson_id") or "?")
+                        break
                 evidence.append(
                     f"{item}: corroborated row has NO monetary {field} "
                     f"column — scoped absence in this source")
+                if _availability_claim and _inv_teaching:
+                    evidence.append(
+                        f"{item}: {field} is an AVAILABILITY claim "
+                        f"('In Stock') — the taught inventory source "
+                        f"governs verification: {_inv_teaching}")
+                    # DURABLE SUCCESSOR ACTION (owner work order
+                    # 2026-10-11): prose explains nothing — the stock
+                    # verification becomes a SELECTABLE question whose
+                    # next_action names the taught source, so the
+                    # ledger's action selection and the planner (the
+                    # same path that executes ledger-seeded integration
+                    # searches) can execute it. The subject, field,
+                    # claimed value, teaching provenance and workspace
+                    # ride `inputs` — never a dispatcher branch, never
+                    # the workbook reader.
+                    try:
+                        from core.task_lifecycle import (
+                            add_unresolved_questions,
+                        )
+
+                        add_unresolved_questions(
+                            lifecycle, run_id,
+                            [{
+                                "item": item,
+                                "kind": "verification",
+                                "question": (
+                                    f"{item}: verify availability "
+                                    f"('{_claimed}') against the taught "
+                                    f"inventory source — the workbook "
+                                    f"carries no {field} column"),
+                                "evidence": (
+                                    f"scoped absence in the designated "
+                                    f"workbook ({_row_source_name}); "
+                                    f"taught (lesson {_inv_lesson_id}): "
+                                    f"{_inv_teaching}"),
+                                "next_action": (
+                                    f"verify {item} availability in the "
+                                    f"taught inventory source (Zoho "
+                                    f"inventory)"),
+                                "inputs": {
+                                    "intent": "inventory_check",
+                                    "item": item,
+                                    "field": field,
+                                    "claimed_value": (
+                                        _claimed.strip()),
+                                    "taught_source": _inv_teaching,
+                                    "workspace_id": workspace_id,
+                                    "provenance": {
+                                        "source": "lesson"},
+                                },
+                            }], source_operation=None)
+                        # THE READ DID NOT CERTIFY THE STOCK FIELD: the
+                        # status stays identity-level (located) — never
+                        # 'matched' while the availability successor is
+                        # open.
+                        statuses[item] = "located"
+                    except Exception:  # noqa: BLE001 — the question is
+                        # bookkeeping; the evidence line stands
+                        pass
     elif len(supporting) > 1:
         # DUPLICATE-LISTING COMPARISON (round 57): two supporting rows
         # may be duplicate listings (same machine, same description in
@@ -1089,10 +1353,20 @@ async def _execute_row_read(
                 }], source_operation=None)
         except Exception:  # noqa: BLE001 — question is bookkeeping
             pass
+    # DUPLICATE-READ GUARD (owner work order 2026-10-11, item 1 — the
+    # t1r7 inspection found TWELVE identical running reads of one
+    # subject/file: continuation reads carry no idempotency key, so
+    # nothing dedups them and the receipt-less budget never binds).
+    # The EXISTING reservation mechanism dedups: the key is the read's
+    # own identity — (file, item, fields) — stable across continuation
+    # passes. The ELIGIBILITY decision for this key already ran before
+    # the candidate loop (see above); this is the same operation this
+    # turn will settle.
     op = lifecycle.create_operation(
         run_id, op_type="retrieve",
         requested_change=(
-            f"row-context read: {act.get('file')} candidates for {item}"))
+            f"row-context read: {act.get('file')} candidates for {item}"),
+        idempotency_key=_read_key)
     _exec_facts = {
         "invoked": bool(act.get("candidates")),
         "outcome": ("read_succeeded" if statuses.get(item) == "matched"
@@ -1100,6 +1374,10 @@ async def _execute_row_read(
         "served_basis": ("saved_copy" if act.get("candidates")
                          else "none"),
         "failure_stage": None,
+        # THE SUPPORTED ROW'S READ VERSION (owner correction 2026-10-11):
+        # the serving-copy identity the row reader reported — the same
+        # identity each finding carries.
+        "source_version": _row_version,
         "items": statuses,
         # DIAGNOSTIC EVIDENCE + THE INPUTS THAT PRODUCED IT (2026-10-09):
         # `evidence` used to be returned to the caller and dropped before
@@ -1156,7 +1434,8 @@ async def _execute_row_read(
         except Exception as _fenced:  # noqa: BLE001 — takeover: skip
             return {"statuses": {}, "evidence": [
                 f"ownership lost during settlement: {_fenced!r}"],
-                "lost_ownership": True}
+                "lost_ownership": True,
+                "source_calls": int(_source_calls)}
     # RECEIPT-LESS BUDGET (owner directive 2026-10-07): a row read that
     # returned NO receipt CONSUMES the question's attempt. Before this,
     # only the locate pass bumped attempts — a receipt-less row read
@@ -1182,13 +1461,15 @@ async def _execute_row_read(
     # findings, values, serving copy identity — attach to the operation
     # here. The previous execution=None dropped them from the durable
     # record: the served value survived only in the reply text.
+    _exec_facts["source_calls"] = int(_source_calls)
     record_read_outcome(
         lifecycle, run_id, op["operation_id"], structured_result=None,
         freshness=None, execution=_exec_facts)
     if decision_questions:
         add_unresolved_questions(
             lifecycle, run_id, decision_questions, source_operation=None)
-    return {"statuses": statuses, "evidence": evidence}
+    return {"statuses": statuses, "evidence": evidence,
+            "source_calls": int(_source_calls)}
 
 
 _TAUGHT_LOCATION_RE = re.compile(
@@ -1476,8 +1757,34 @@ async def research_continuation_cycle(max_reads: int = _CYCLE_MAX_READS
             except Exception as _mig_err:  # noqa: BLE001
                 logger.debug("row-successor migration skipped: %r",
                              _mig_err)
-            work = next_unfinished_work(record)
+            work = next_unfinished_work(record, by=_WORKER_ID)
             acts = _read_actions(work.get("actions") or [])
+            # ANOTHER WORKER'S ACTIVE CLAIM IS NOT DOUBLE-EXECUTED
+            # (owner correction 2026-10-11, item 1): an unexpired claim
+            # held by a DIFFERENT worker skips the question here — the
+            # view above stays complete for assertions and the reply
+            # leg; only THIS worker's execution dedupes.
+            import time as _time
+
+            def _other_active_claim(q):
+                # LEASE SEMANTICS (owner order 2026-10-11, F3): the
+                # OTHER worker's lease is judged by ITS OWN persisted
+                # expiry — never this module's constant.
+                claim = q.get("exec_claim") or {}
+                holder = str(claim.get("by") or "").strip()
+                if not holder or holder == _WORKER_ID:
+                    return False
+                from core.task_lifecycle import _claim_is_fresh
+
+                return _claim_is_fresh(claim, time.time())
+
+            _claimed_elsewhere = {
+                str(q.get("question_id")) for q in
+                open_unresolved_questions(record)
+                if _other_active_claim(q)}
+            acts = [a for a in acts
+                    if str(a.get("question_id"))
+                    not in _claimed_elsewhere]
             if not acts:
                 continue
             conv = record.get("conversation_id") or ""

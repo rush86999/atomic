@@ -229,6 +229,32 @@ def test_requested_fields_keep_multiple_fields_and_units():
     assert [item["unit"] for item in evidence["values"]] == ["kg", "lb", "days"]
 
 
+def test_field_requests_accept_plain_plurals():
+    """Quote asks say "prices", "costs", "dates" — the singular-only
+    rule left those contracts empty (live A-series: requested_fields
+    [] and row reads that bound nothing)."""
+    assert extract_field_requests(
+        ["What are the approved prices for rows 1 through 5?"]) == ["price"]
+    assert extract_field_requests(
+        ["Compare vendor costs against the draft"]) == ["price"]
+    assert extract_field_requests(
+        ["Confirm the delivery dates"]) == ["date", "lead_time"]
+    assert extract_field_requests(
+        ["What are the approved prices and delivery times?"]) == [
+            "price", "lead_time"]
+
+
+def test_field_requests_plural_verbs_do_not_fabricate_price():
+    """"lists the rows" / "amounts to" are listing verbs, not price
+    asks — plural matching stays off for verb-prone aliases."""
+    assert extract_field_requests(["List the rows of the quote draft"]) \
+        == ["price"]  # singular 'list' alias: pre-existing, unchanged
+    assert extract_field_requests(
+        ["Show me the lists"]) == []
+    assert extract_field_requests(
+        ["What amounts to the total on this order?"]) == []
+
+
 def test_duplicate_value_labels_are_reported_as_ambiguous():
     artifact = inspect_workbook_bytes(
         _bytes_for_sheet(["SKU", "Price", "Price"], [["A-1", 10, 12]]),

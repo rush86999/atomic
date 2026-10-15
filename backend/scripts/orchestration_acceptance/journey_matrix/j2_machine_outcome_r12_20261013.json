@@ -1,0 +1,84 @@
+{
+  "probe": "verifier round-12 production-path controls (ordering repair a8d11f902 + receipt cleanup 74a9fbb82)",
+  "candidate": {
+    "commit": "74a9fbb820755699ca00330f6d8b771320c9ada6",
+    "predecessors": {
+      "ordering_fix": "a8d11f9029ea0c9d31b16b714172053186cdc9a7",
+      "receipt_cleanup": "74a9fbb820755699ca00330f6d8b771320c9ada6"
+    }
+  },
+  "warmup": {
+    "note": "PONG turn before the search (the focused-J2 shape; the no-warmup probe shows the same result)"
+  },
+  "public_response": {
+    "success": true,
+    "error_code": null,
+    "outcome": "completed",
+    "provider": "ollama",
+    "model": "llama3.1:8b",
+    "execution_id": "c5f4f55f-41bb-4887-8ff5-5d5df65266cd",
+    "session_id": "026f6103-e418-46a0-ab99-aa03ad84c857"
+  },
+  "history_content_agrees": true,
+  "durable": {
+    "receipt": {
+      "execution_id": "c5f4f55f-41bb-4887-8ff5-5d5df65266cd",
+      "tool": "documents.grep",
+      "verified": true,
+      "outcome": "status=empty_in_scope match_count=0",
+      "required": true,
+      "evidence_refs": 1,
+      "evidence": [
+        {
+          "kind": "documents",
+          "action": "grep",
+          "query": "quarterly revenue",
+          "coverage": "complete",
+          "match_count": 0
+        }
+      ]
+    },
+    "execution_objective_met": null,
+    "execution_delivery": true
+  },
+  "assistant_metadata": {
+    "source": "chat_messages.metadata_json of the focused-J2 tool turn (scratch DB)",
+    "success": true,
+    "error_code": null,
+    "outcome": "completed",
+    "execution_id": "091c7770-77ad-4b79-b056-bbd641593453"
+  },
+  "request_record_note": "chat_request_records.finalized_response stores success=true but no 'outcome' key (pre-alignment snapshot); the assistant metadata carries outcome=completed",
+  "controls": {
+    "1_current_complete_zero_match_resolves_completed": {
+      "result": "PASS",
+      "evidence": "production turn c1 (resolution+finalization) + public response outcome=completed; J2 harness success=true"
+    },
+    "2_prior_turn_receipt_cannot_promote": {
+      "result": "PASS",
+      "evidence": "c2 session-keyed control"
+    },
+    "3_partial_degraded_unverified_unrelated_cannot_certify": {
+      "result": "PASS",
+      "evidence": "c3 predicate controls + owner mechanism pin + harness negative controls"
+    },
+    "4_open_obligation_keeps_partial": {
+      "result": "PASS",
+      "evidence": "c4 staged-record control"
+    },
+    "5_settlement_agreement": {
+      "result": "FAIL (one element)",
+      "detail": "the pre-settlement receipt DOES become the same attributable durable evidence (verified + scope refs); response success=true/outcome=completed; assistant metadata/history agree; the execution task_outcome disagrees: objective_met=null (task_success=null, basis objective_unknown) with delivery.delivered=true",
+      "first_demonstrated_boundary": "_build_turn_task_outcome objective_met derivation (chat_orchestrator.py ~:6953-6964) has no branch for a planner-lane verified complete search, so settlement records objective_met=null while the turn resolved completed"
+    },
+    "6_missing_settlement_not_durable": {
+      "result": "PASS",
+      "evidence": "c6 suppressed-settlement control: no durable task_outcome rows; client envelope claims no persisted receipt"
+    }
+  },
+  "focused_pristine_j2": {
+    "first_attempt": "journey_matrix/j2_model_setup_20261013_102810_111f89.json (a8d11f902; six assertions verified; success=true)",
+    "acceptance_run": "journey_matrix/j2_model_setup_20261013_102959_9496b7.json (74a9fbb82; six assertions verified; success=true; durable receipt verified with coverage=complete match_count=0)"
+  },
+  "verdict": "ordering repair VERIFIED at resolution+finalization; public success/outcome + assistant metadata + history agree. ACCEPTANCE BLOCKED on the durable objective_met agreement (control 5) and on the still-missing committed production-path regression (the owner's new test is a mechanism pin; these controls are verifier-owned)."
+}

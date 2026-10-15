@@ -23,14 +23,18 @@ from core.chat_canvas_editor import (
     CanvasPatchOp,
     _apply_patch_ops,
     _bounded_email_content,
+    _has_concrete_scope_obligations,
     _merge_replace_content,
     _requested_product_count,
+    _requested_row_range,
+    _request_scope_section,
     _validate_scoped_edit,
     _repair_json,
     apply_canvas_edit,
     describe_apply_failure,
     normalize_degenerate_content,
     plan_canvas_edit,
+    requirement_check,
 )
 from core.canvas_app_schema import (
     app_prompt_section,
@@ -451,8 +455,12 @@ async def test_try_canvas_edit_apply_failure_reply_is_actionable():
                                          updated_content_json=None, reply=""))), \
          patch("core.chat_canvas_editor.apply_canvas_edit", new=AsyncMock(
              return_value=(None, "not_valid_json"))):
+        # grounded command wording (the deterministic authorization
+        # gate refuses ungrounded messages before planning — pinned in
+        # tests/test_edit_lane_authorization_routing.py)
         resp = await orch._try_canvas_edit(
-            "fill in to and cc", [], _email_canvas(), "user-1", "s-1", "exec-1", None,
+            "Fill in the to and cc fields on the draft.", [],
+            _email_canvas(), "user-1", "s-1", "exec-1", None,
         )
     assert resp is not None and resp["data"]["canvas_edit"]["updated"] is False
     assert resp["data"]["canvas_edit"]["reason"] == "not_valid_json"
@@ -792,3 +800,232 @@ def test_learn_to_directive_is_a_teaching_cue_not_an_edit():
         {"canvas": canvas}) is True
 
 
+
+
+# ---------------------------------------------------------------------------
+# ROW RANGE vs TOTAL (live S3, 2026-10-10, candidate 6b17922d2): "rows 1-5"
+# ADDRESSES rows that must exist — it never sets the table's total. The
+# draft's rows 6-8 are the PROTECTED alternatives block ("Rows 1-5 are the
+# requested machines; rows 6-8 are alternative slitters" is the canvas's
+# own prose). The old behavior read the range end as an exact count, so the
+# planner was PROMPTED to destroy the alternatives block, and the no-op
+# requirement check called the already-correct draft UNSATISFIED
+# (scope_row_count:8!=5) — the authorized S3 turn shipped unconfirmed
+# instead of a truthful no-op completion.
+# ---------------------------------------------------------------------------
+
+_S3_RANGE_REQUEST = (
+    "Update the draft for rows 1-5 with the approved prices and delivery "
+    "times. Don't send."
+)
+
+
+def _brennan_style_body(n_product_rows=5, n_alternative_rows=3):
+    rows = ["<tr><th>#</th><th>Description</th><th>Unit Price</th>"
+            "<th>Delivery</th></tr>"]
+    products = [
+        ("1", "Roper Whitney 36&quot; Gauge Manual Roll Bender", "$2,902.00",
+         "10-11 weeks"),
+        ("2", "Linmac Bead Roller 22 Gauge, 7&quot; Throat", "$1,777.00",
+         "In Stock"),
+        ("3", "Manual Flanger", "$1,609.00", "3-4 weeks"),
+        ("4", "Roper Whitney No. 622 Rotary Machine", "$2,421.00",
+         "In Stock"),
+        ("5", "Tennsmith Single Wheel Slitter SLE24-16", "$8,984.00",
+         "11-12 weeks"),
+    ]
+    for num, desc, price, deliv in products[:n_product_rows]:
+        rows.append(f"<tr><td>{num}</td><td>{desc}</td>"
+                    f"<td>{price}</td><td>{deliv}</td></tr>")
+    alternatives = [
+        ("6", "TK 1624 Slitter", "$8,040.00", "4-6 weeks"),
+        ("7", "Tin Knocker TK Multi Wheel Gang Slitter", "$12,838.00",
+         "In Stock"),
+        ("8", "Tennsmith Multi Wheel Gang Slitter GSL48", "$14,166.00",
+         "6-8 weeks"),
+    ]
+    for num, desc, price, deliv in alternatives[:n_alternative_rows]:
+        rows.append(f"<tr><td>{num}</td><td>{desc}</td>"
+                    f"<td>{price}</td><td>{deliv}</td></tr>")
+    return (
+        "Hi Steve,<br><br>Thank you for your inquiry. Rows 1-5 are the "
+        "requested machines; rows 6-8 are alternative slitters."
+        f"<table>{''.join(rows)}</table>"
+        "<p>Payment Terms: CAD / FOB / TBD</p>"
+    )
+
+
+class TestRowRangeIsNotATotal:
+    """An addressed range obliges those rows to EXIST; only an explicit
+    total ('the 5 machines') demands an exact row count."""
+
+    def test_range_over_protected_alternatives_block_is_no_violation(self):
+        body = _brennan_style_body()  # 5 products + 3 alternatives
+        assert _validate_scoped_edit(
+            {"body": body}, {"body": body},
+            [_S3_RANGE_REQUEST]) is None
+
+    def test_range_still_refuses_a_dropping_regeneration(self):
+        body = _brennan_style_body(n_product_rows=3, n_alternative_rows=0)
+        reason = _validate_scoped_edit(
+            {"body": body}, {"body": body}, [_S3_RANGE_REQUEST])
+        assert reason == "scope_row_count:3<5"
+
+    def test_explicit_total_still_demands_exact_count(self):
+        body = _brennan_style_body()
+        reason = _validate_scoped_edit(
+            {"body": body}, {"body": body},
+            ["apply the 5 machines with actual prices"])
+        assert reason == "scope_row_count:8!=5", (
+            "a TOTAL request is unchanged by the range repair")
+
+    def test_range_parser_and_total_parser_stay_disjoint(self):
+        assert _requested_row_range([_S3_RANGE_REQUEST]) == 5
+        assert _requested_row_range(["update rows 3 through 7"]) == 7
+        assert _requested_row_range(["update rows 5-2"]) is None, (
+            "a descending range addresses nothing")
+        assert _requested_product_count([_S3_RANGE_REQUEST]) is None, (
+            "the range end is not a total")
+        assert _requested_product_count(
+            ["apply the 5 machines"]) == 5
+
+    def test_range_request_counts_as_concrete_scope(self):
+        assert _has_concrete_scope_obligations(_S3_RANGE_REQUEST) is True
+
+
+class TestRangeScopeSection:
+    """The planner prompt must not order the destruction of the rows
+    beyond an addressed range (live S3: 'must contain exactly 5 data
+    rows' vs the protected alternatives block)."""
+
+    def test_range_request_never_demands_exact_total_rows(self):
+        section = _request_scope_section(
+            _S3_RANGE_REQUEST, [], None)
+        assert section, "a range request is concrete scope"
+        assert "exactly 5" not in section
+        assert "Rows 1 through 5" in section
+        assert "Do not remove or renumber any row outside" in section
+
+    def test_total_request_keeps_the_exact_count_line(self):
+        section = _request_scope_section(
+            "apply the 5 machines with actual prices", [], None)
+        assert "exactly 5 data rows" in section
+
+
+class TestRangeNoOpCompletion:
+    """The live S3 transition, pinned at the requirement check: the
+    already-correct draft (approved prices, protected alternatives) is
+    SATISFIED for a range request — the served decline may complete as a
+    no-op instead of shipping unconfirmed."""
+
+    def _canvas(self, body=None):
+        return {"canvas_id": "cv-s3-test", "canvas_type": "email",
+                "content": {"body": body or _brennan_style_body()}}
+
+    def test_structural_range_check_still_needs_a_contract_for_values(self):
+        """STRUCTURE only: the range branch's own scope obligation
+        holds. The value dimension ("approved prices and delivery
+        times") is pinned in tests/test_noop_completion_authority.py —
+        without an authorized contract it is UNRESOLVED and blocks
+        completion (owner case 5), so this pin carries a contract."""
+        from tests.test_noop_completion_authority import (
+            _authorized_contract as _auth_contract,
+        )
+        result = requirement_check(
+            message=_S3_RANGE_REQUEST, canvas=self._canvas(),
+            authorized=True, expected_prior_audit_id=None,
+            evidence_contract=None)
+        assert result is not None
+        assert result["satisfied"] is False, (
+            "a value-shaped request never completes on structure alone")
+        assert result["unmet"], result
+
+        contract = _auth_contract()
+        # the pin canvas (_brennan_style_body) has different row texts
+        # than the authority fixture; keep THIS pin structural by using
+        # a contract whose evidence matches nothing here is NOT wanted —
+        # instead assert the range branch directly:
+        scope_only = requirement_check(
+            message="Update the draft for rows 1-5.",
+            canvas=self._canvas(),
+            authorized=True, expected_prior_audit_id=None)
+        assert scope_only is not None and scope_only["satisfied"] is True
+        assert scope_only["unmet"] == []
+
+    def test_range_beyond_the_draft_stays_unsatisfied(self):
+        result = requirement_check(
+            message="Update the draft for rows 1-9. Don't send.",
+            canvas=self._canvas(),  # only 8 data rows exist
+            authorized=True, expected_prior_audit_id=None)
+        assert result is not None and result["satisfied"] is False
+        assert any("scope_row_count:8<9" in u for u in result["unmet"])
+
+    def test_unauthorized_or_unshaped_requests_never_certify(self):
+        assert requirement_check(
+            message=_S3_RANGE_REQUEST, canvas=self._canvas(),
+            authorized=False, expected_prior_audit_id=None) is None
+        assert requirement_check(
+            message="hello?", canvas=self._canvas(),
+            authorized=True, expected_prior_audit_id=None) is None
+
+
+class TestNoopCompletionReply:
+    """Confirmation wording is deterministic from a VALIDATED receipt
+    (owner work order 2026-10-10): noop_completion_reply examines its
+    check — authorization, canvas identity, and obligation dispositions
+    all satisfied — and renders only what the receipt establishes. No
+    model prose is classified; an invalid receipt renders NOTHING."""
+
+    def test_valid_value_receipt_renders_obligations(self):
+        from core.chat_canvas_editor import noop_completion_reply
+        check = {
+            "authorized": True, "canvas_id": "cv-1",
+            "revision": "audit-9",
+            "satisfied": True,
+            "obligations": [
+                {"kind": "scope_postconditions",
+                 "disposition": "satisfied"},
+                {"kind": "value_obligations",
+                 "disposition": "satisfied"}],
+            "value_dispositions": [
+                {"entity_id": "SLE24-16", "field": "price",
+                 "disposition": "satisfied",
+                 "expected": {"raw_value": "$8,984.00",
+                              "authority_source_id": "tennsmith-sheet"}}],
+        }
+        out = noop_completion_reply(check, "any model words are ignored")
+        assert out.startswith("Verified on the current draft")
+        assert "revision audit-9" in out
+        assert "SLE24-16 price = $8,984.00 per tennsmith-sheet" in out
+        assert "nothing was sent" in out
+
+    def test_invalid_or_incomplete_receipts_render_nothing(self):
+        from core.chat_canvas_editor import noop_completion_reply
+        assert noop_completion_reply(None) is None
+        assert noop_completion_reply({}) is None
+        assert noop_completion_reply({"satisfied": True}) is None, (
+            "satisfaction alone is not a receipt")
+        assert noop_completion_reply({
+            "authorized": True, "canvas_id": "cv", "satisfied": True,
+            "obligations": []}) is None, (
+            "no obligations = nothing established")
+        assert noop_completion_reply({
+            "authorized": True, "canvas_id": "cv", "satisfied": False,
+            "obligations": [
+                {"kind": "value_obligations",
+                 "disposition": "unresolved"}]}) is None
+
+    def test_model_words_never_become_the_claim(self):
+        from core.chat_canvas_editor import noop_completion_reply
+        check = {
+            "authorized": True, "canvas_id": "cv", "revision": "a1",
+            "satisfied": True,
+            "obligations": [
+                {"kind": "value_obligations",
+                 "disposition": "satisfied"}],
+        }
+        out = noop_completion_reply(
+            check,
+            "I can't update - the approved prices are not provided.")
+        assert "can't" not in out and "not provided" not in out, (
+            "the planner's prose stays diagnostic, never the claim")

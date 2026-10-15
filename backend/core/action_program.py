@@ -136,6 +136,17 @@ _SOURCE_KIND_SINGULARS = {
     "notes": "note", "memos": "memo", "letters": "letter",
     "comments": "comment", "posts": "post", "calendar": "calendar",
     "inbox": "inbox",
+    # DOCUMENT-STORE VOCABULARY (pristine-J2 false-search finding,
+    # 2026-10-12): the decision layer now recognizes document-store
+    # nouns as source asks; without these plurals the compiled program
+    # DROPPED the kind (normalize_source_kind maps unknown nouns to ""
+    # by design) and the source_read op carried source_kinds=[] — the
+    # second transition where the required tool work disappeared.
+    "documents": "document", "docs": "document", "pdfs": "document",
+    "files": "document", "folders": "document", "drives": "document",
+    "knowledgebase": "document", "knowledge base": "document",
+    "workbooks": "spreadsheet", "spreadsheets": "spreadsheet",
+    "sheets": "spreadsheet",
 }
 
 

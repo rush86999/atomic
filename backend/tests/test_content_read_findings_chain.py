@@ -406,3 +406,229 @@ class TestGuardrails:
         receipt = VALUE_TRACE_RECEIPT["receipt"]
         assert _findings_from_structured_result(receipt) == []
         assert _findings_from_datasets_receipt(receipt) == []
+
+
+class TestDirectSettlementsCarryReceiptFacts:
+    """The final work order (owner, 2026-10-10): BOTH direct-read
+    settlements must derive execution facts from the ACTUAL structured
+    read receipt — findings + the content hash the read captured — via
+    the ONE reusable derivation (_apply_read_receipt_facts) the two
+    chat-lane branches call before finish_retrieval_turn /
+    record_read_outcome. Driven at the real settle boundary with the
+    captured receipt shape: a real begun operation on a real lifecycle,
+    never a pre-populated one."""
+
+    def _settle(self, lifecycle, receipt, identity=None, executed=True):
+        from core.task_lifecycle import begin_retrieval_turn
+
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        run_id, op_id = begin_retrieval_turn(
+            lifecycle, {"id": "s1"}, "conv-direct",
+            "chained required-source lookup: datasets (SLE24-16)",
+            "e-direct", items=["SLE24-16"], requested_fields=["price"])
+        execution = {
+            "invoked": executed, "outcome": (
+                "read_succeeded" if executed else "not_dispatched"),
+            "served_basis": "saved_copy" if executed else "none",
+            "failure_stage": None,
+            "items": {
+                str((t or {}).get("item") or ""): str(
+                    ((t or {}).get("identity") or {}).get("status") or "")
+                for t in ((receipt or {}).get("targets") or [])},
+        }
+        _apply_read_receipt_facts(execution, receipt, identity or {})
+        from core.task_lifecycle import (
+            finish_retrieval_turn, record_read_outcome)
+
+        finish_retrieval_turn(
+            lifecycle, run_id, op_id,
+            receipt if isinstance(receipt, dict) else {},
+            "e-direct", executed, execution=execution)
+        record_read_outcome(
+            lifecycle, run_id, op_id,
+            structured_result=receipt if isinstance(receipt, dict) else None,
+            freshness=None, execution=execution)
+        return run_id, op_id, execution
+
+    def test_ask_lane_receipt_settles_findings_and_version(self, lifecycle):
+        """Case 1: captured receipt -> settle -> FRESH lifecycle reload
+        carries typed findings (item, column, raw, parsed, source) and
+        the read's own content hash."""
+        run_id, op_id, execution = self._settle(
+            lifecycle, CONTENT_READ_META["structured_result"],
+            CONTENT_READ_META)
+        assert execution.get("source_version") == (
+            "ce61dd3d40cac83d39bd702e4617b91df061c962"), (
+            "the version the READ captured rides the facts")
+        findings = execution.get("findings") or []
+        assert findings, "the receipt's bound value becomes a finding"
+        f0 = findings[0]
+        assert f0.get("item") == "SLE24-16"
+        assert f0.get("raw") == "8,984"
+        fresh = _fresh(lifecycle).get_task(run_id)
+        ops = [o for o in fresh.get("operations") or []
+               if o.get("operation_id") == op_id]
+        assert ops, "the operation persists"
+        ex = ops[0].get("execution") or {}
+        assert (ex.get("findings") or [None])[0] and (
+            ex.get("source_version") == (
+                "ce61dd3d40cac83d39bd702e4617b91df061c962")), (
+            "the durable record carries findings + version after reload")
+
+    def test_storage_meta_input_shape_same_result(self, lifecycle):
+        """Case 2: the OTHER branch's input — the storage meta whose
+        structured_result is nested — settles the same facts through
+        the same derivation."""
+        run_id, op_id, execution = self._settle(
+            lifecycle, CONTENT_READ_META, CONTENT_READ_META)
+        findings = execution.get("findings") or []
+        assert findings and findings[0].get("item") == "SLE24-16"
+
+    def test_version_race_retains_the_read_identity(self, lifecycle):
+        """Case 3: the receipt captured hash-A; the catalog has since
+        moved to B — the facts retain A (settlement never re-queries)."""
+        run_id, _op, execution = self._settle(
+            lifecycle, CONTENT_READ_META["structured_result"],
+            {"content_hash": "hash-A"})
+        assert execution.get("source_version") == "hash-A"
+
+    def test_retry_settles_once_without_duplication(self, lifecycle):
+        """Case 4: the same operation settled again records no second
+        operation and no duplicated findings."""
+        run_id, op_id, execution = self._settle(
+            lifecycle, CONTENT_READ_META["structured_result"],
+            CONTENT_READ_META)
+        n_findings = len(execution.get("findings") or [])
+        # the branch's retry re-derives onto the SAME facts dict and
+        # re-settles the SAME operation
+        _apply = None
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        _apply_read_receipt_facts(execution,
+                                  CONTENT_READ_META["structured_result"],
+                                  CONTENT_READ_META)
+        from core.task_lifecycle import record_read_outcome
+
+        record_read_outcome(
+            lifecycle, run_id, op_id,
+            structured_result=CONTENT_READ_META["structured_result"],
+            freshness=None, execution=execution)
+        fresh = _fresh(lifecycle).get_task(run_id)
+        ops = [o for o in fresh.get("operations") or []
+               if o.get("operation_id") == op_id]
+        assert len(ops) == 1
+        assert len(ops[0].get("execution", {}).get("findings") or []
+                   ) == n_findings
+
+    def test_receiptless_targets_create_no_findings(self, lifecycle):
+        """Case 5: coverage-only / prose results create NO typed
+        findings — a target with no values yields nothing."""
+        bare = {"targets": [{"item": "SLE24-16",
+                             "identity": {"status": "single"},
+                             "retrieval": {"status": "searched"}}],
+                "coverage": {"read_status": "success"}}
+        _run, _op, execution = self._settle(lifecycle, bare)
+        assert not execution.get("findings"), (
+            "no bound values -> no findings")
+
+    def test_multi_item_multi_basis_stay_distinct(self):
+        """Case 6: two items with differently-based prices keep their
+        own subjects and candidate meanings."""
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        receipt = {"structured_result": {
+            "source_identity": {"file_name": "quote.xlsx",
+                                "content_hash": "h1"},
+            "requested_fields": ["price"],
+            "targets": [
+                {"item": "SLE24-16",
+                 "identity": {"status": "single"},
+                 "field": {"status": "single", "values": [
+                     {"col": "U.S. LIST", "basis": "U.S. LIST",
+                      "value": 8984.0, "display": "8,984"}]}},
+                {"item": "No. 381",
+                 "identity": {"status": "single"},
+                 "field": {"status": "single", "values": [
+                     {"col": "CDN LIST", "basis": "CDN LIST",
+                      "value": 2902.0, "display": "2,902"}]}},
+            ]}}
+        execution = {}
+        _apply_read_receipt_facts(execution, receipt["structured_result"],
+                                  {"content_hash": "h1"})
+        findings = execution.get("findings") or []
+        subjects = {f.get("item") for f in findings}
+        assert subjects == {"SLE24-16", "No. 381"}
+        by_item = {f.get("item"): f for f in findings}
+        assert by_item["SLE24-16"].get("column") == "U.S. LIST"
+        assert by_item["No. 381"].get("column") == "CDN LIST"
+        bases = {f.get("parsed", {}).get("basis") for f in findings
+                 if isinstance(f.get("parsed"), dict)}
+        assert bases == {"U.S. LIST", "CDN LIST"}
+
+
+class TestRetrievalSurvivesReplyFailure:
+    """Owner work order 2026-10-10: research success and narration
+    failure are different stages — a reply that times out after a
+    completed read must not erase the durable findings."""
+
+    def test_failed_reply_stage_leaves_settled_findings_intact(
+            self, lifecycle):
+        from core.task_lifecycle import begin_retrieval_turn
+
+        from integrations.chat_orchestrator import (
+            _apply_read_receipt_facts,
+        )
+
+        run_id, op_id = begin_retrieval_turn(
+            lifecycle, {"id": "s1"}, "conv-timeout",
+            "chained required-source lookup: datasets (SLE24-16)",
+            "e-timeout", items=["SLE24-16"], requested_fields=["price"])
+        execution = {"invoked": True, "outcome": "read_succeeded",
+                     "served_basis": "saved_copy", "failure_stage": None,
+                     "items": {"SLE24-16": "single"}}
+        _apply_read_receipt_facts(
+            execution, CONTENT_READ_META["structured_result"],
+            CONTENT_READ_META)
+        from core.task_lifecycle import (
+            finish_retrieval_turn, record_read_outcome,
+        )
+
+        finish_retrieval_turn(
+            lifecycle, run_id, op_id,
+            CONTENT_READ_META["structured_result"], "e-timeout", True,
+            execution=execution)
+        record_read_outcome(
+            lifecycle, run_id, op_id,
+            structured_result=CONTENT_READ_META["structured_result"],
+            freshness=None, execution=execution)
+        # the reply stage then FAILS (deadline) — a separate turn-level
+        # operation records the failure; it must not touch the read
+        reply_exec = {"invoked": True, "outcome": "read_failed",
+                      "served_basis": "none", "failure_stage": "deadline",
+                      "items": {}}
+        run2, op2 = begin_retrieval_turn(
+            lifecycle, {"id": "s1"}, "conv-timeout",
+            "reply narration deadline", "e-timeout",
+            items=["SLE24-16"], requested_fields=["price"])
+        finish_retrieval_turn(
+            lifecycle, run2, op2, {}, "e-timeout", False,
+            execution=reply_exec)
+        record_read_outcome(
+            lifecycle, run2, op2, structured_result=None,
+            freshness=None, execution=reply_exec)
+        # fresh reload: the READ's findings survive the reply failure
+        fresh = _fresh(lifecycle).get_task(run_id)
+        ops = [o for o in fresh.get("operations") or []
+               if o.get("operation_id") == op_id]
+        ex = ops[0].get("execution") or {}
+        assert ex.get("findings"), (
+            "completed retrieval survives the failed narration stage")
+        assert ex.get("source_version") == (
+            "ce61dd3d40cac83d39bd702e4617b91df061c962")

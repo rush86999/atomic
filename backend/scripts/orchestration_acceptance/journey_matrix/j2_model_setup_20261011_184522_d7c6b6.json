@@ -1,0 +1,39 @@
+{
+  "journey": "J2",
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "provider": "openrouter",
+  "local_model": "llama3.1",
+  "started_at": "2026-10-11T22:39:59+00:00",
+  "resolved_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j2_model_setup_7lpe7i8p/run/atom.db",
+  "scrubbed_env_credentials": true,
+  "pass": false,
+  "error": "ReadTimeout: timed out",
+  "results": {
+    "boot": {
+      "booted": true,
+      "seconds": 6.2,
+      "status": "healthy",
+      "pid": 24091,
+      "git_commit": "618125225c9b"
+    },
+    "user": {
+      "registered": true,
+      "http": 200,
+      "workspace_id": "6cedfbf1-d9da-4d61-8f22-72d7efb62bf2"
+    },
+    "store_key": {
+      "http": 200,
+      "success": true,
+      "key_id_present": true
+    },
+    "providers_list": {
+      "http": 200,
+      "openrouter_configured": false
+    },
+    "key_status": {
+      "http": 404,
+      "has_key": false
+    }
+  },
+  "uvicorn_log_tail": "te: 1 provider(s) on provider-level cooldown \u2014 excluded before ranking: openrouter\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:[structured-pool] depth=1 candidates=[('openrouter', 'deepseek/deepseek-v4-pro')] attempted=False credit_failed=[]\nERROR:core.llm.byok_handler:All structured candidates SKIPPED before dispatch (gate/budget/rate exclusions; 1 of 1 examined) \u2014 no request was made\nERROR:core.llm.byok_handler:All structured candidates SKIPPED before dispatch (gate/budget/rate exclusions; 1 of 1 examined) \u2014 no request was made\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'\nWARNING:integrations.chat_orchestrator:[provider] reply leg returned provider failure as content \u2014 terminal failed outcome\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nWARNING:core.finalization:[apply-dbg] state=None work_turn=None noop=None success_in=False\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping\nINFO:main_api_app:Shutting down ATOM Platform...\nINFO:main_api_app:\u2713 Workflow Scheduler stopped\nINFO:main_api_app:\u2713 Postgres Event Bus listener stopped\nINFO:main_api_app:\u2713 AI Workflow Service sessions cleaned up\n"
+}

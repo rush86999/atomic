@@ -1,0 +1,55 @@
+{
+  "probe": "verifier round-14b J2 consistency check (pristine export cf6e31e26)",
+  "candidate": {
+    "commit": "cf6e31e26ab7c46ef46eda056e6eeeaa94038cc5",
+    "tree": "08b55dc8981f6c47c0d57828a4927d2800f95be2",
+    "harness_dirty_tracked": "clean",
+    "config_digest": "177ef2a107552dfeb64a6caf65a30041aa0358035cd327e34059a7576baf0f05"
+  },
+  "public_response": {
+    "success": true,
+    "error_code": null,
+    "outcome": "completed",
+    "provider": "ollama",
+    "model": "llama3.1:8b",
+    "execution_id": "af9a83e5-8b47-4f88-b1f0-8867e67b5d69",
+    "session_id": "7064b3ea-223c-4ab4-8a35-838c6fbba01b"
+  },
+  "durable_execution": {
+    "objective_met": true,
+    "delivery": true,
+    "receipt": {
+      "execution_id": "af9a83e5-8b47-4f88-b1f0-8867e67b5d69",
+      "tool": "documents.grep",
+      "verified": true,
+      "outcome": "status=empty_in_scope match_count=0",
+      "required": true,
+      "evidence_refs": 1,
+      "evidence": [
+        {
+          "kind": "documents",
+          "action": "grep",
+          "query": "quarterly revenue",
+          "coverage": "complete",
+          "match_count": 0
+        }
+      ]
+    }
+  },
+  "assistant_metadata": {
+    "source": "scratch-DB chat_messages.metadata_json",
+    "success": true,
+    "error_code": null,
+    "outcome": "completed"
+  },
+  "history": {
+    "content_agrees_with_delivery": true,
+    "survives_restart": true
+  },
+  "restart": {
+    "booted": true,
+    "seconds": 8.3,
+    "restart_number": 1
+  },
+  "verdict": "PASS \u2014 success, outcome, durable objective_met and history agree on cf6e31e26"
+}
