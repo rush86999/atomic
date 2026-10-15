@@ -183,5 +183,12 @@
   "T2": "comparison answered correctly, zero writes; envelope success=False (delivered-honest-answer classification \u2014 unchanged, F3)",
   "T3": "STILL WROTE (audit 1, 'Added client's tax registration number to quotation') \u2014 the gate's value-grounding check passed because the inserted value ECHOED THE REQUEST's own words ('the exact number from our records' appears in the message). The request-echo is the remaining vector: the inserted 'value' is composed of the request's words, not a fact from the world.",
   "next_concrete_action": "anti-echo rule at the net-new labeled-line gate: the value must not be composed of the request message's own words \u2014 strip request-word spans; an empty remainder means no supplied value \u2192 refuse with the named requirement. The evidence gate's skip decision (no accepted evidence requirement) supplies the other half: net-new factual lines on such turns need the value from the user, period."
+ },
+ "round20_state": {
+  "head": "96c60c67c (compact scaffold restored to the working phrasing) + uncommitted: the corrected user-supplied forms in factual_change_validation.py",
+  "what_works": "T1 milestone held in three campaigns (dispatch, validate, apply-once, preserve, readback, evidence); the corrected rule refuses ungrounded digit-bearing values as UNRESOLVED (named); T2 delivered with the comparison ref; T3's digit-bearing fabrications refused",
+  "open_t1_regression": "the REPLACE-MODE branch refuses the T1 date update as unresolved_requirement \u2014 the added-runs probe shows 2026-12-31 IS in the request, so the refusal comes from elsewhere in the replace branch (the next single probe: the replace branch's added-runs extraction on the actual T1 payload)",
+  "open_t3_vector": "the request-echo insertion (alpha-only, net-new labeled line) passes the labeled-line gate and applies \u2014 the anti-echo rule (the value must add content beyond the request's words, or be evidence-grounded) is designed but not implemented; it over-refuses pure-echo prose notes (the user rephrases), per 'never manufacture support'",
+  "handoff": "the implementation owner's next pass: (1) the replace-branch probe \u2192 the T1 repair; (2) the anti-echo rule \u2192 the T3 repair; then freeze, review, counted campaign"
  }
 }
