@@ -707,6 +707,20 @@ def extract_request_assignments(
     assignments: List[Dict[str, Any]] = []
     unresolved: List[Dict[str, Any]] = []
     source_refs: List[str] = []
+    _SOURCE_REF_PHRASE = _re.compile(
+        r"\b(?:from|in|per)\s+(?:our\s+|the\s+)?"
+        r"(?:records|systems?|files?|crm|workbook|database|"
+        r"hr\s+system|personnel\s+record\w*|source\w*)\b",
+        _re.IGNORECASE)
+
+    def _is_source_reference(value: str) -> bool:
+        """The value span POINTS at where a fact lives instead of stating
+        the fact ("the exact number from our records", "the department in
+        the personnel record"). Such a span is an unresolved source
+        reference — recording it as an explicit assignment would let the
+        plan certify its own echo as a supplied value."""
+        return bool(_SOURCE_REF_PHRASE.search(value))
+
     for m in _re.finditer(
             r"(?:update|set|change)\s+(?:the\s+)?"
             r"(?P<target>[a-z0-9][a-z0-9 /'-]{1,60}?)\s+to\s+"
@@ -714,6 +728,15 @@ def extract_request_assignments(
             text, _re.IGNORECASE):
         value = m.group("value").strip().rstrip(".")
         if not value:
+            continue
+        if _is_source_reference(value):
+            # A source reference in the VALUE position: the target is
+            # real, the value is an obligation to resolve — recorded as
+            # unresolved, never as an explicit assignment.
+            unresolved.append({
+                "target": _norm_target(m.group("target")),
+                "reference": value,
+            })
             continue
         assignments.append({
             "target": _norm_target(m.group("target")),
