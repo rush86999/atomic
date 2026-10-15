@@ -85,7 +85,7 @@ class TestFreeModelHelpers:
     def test_paid_fallback_model_mapping(self):
         assert _opencode_paid_fallback_model("deepseek-v4-flash-free") == "deepseek-v4-flash"
         assert _opencode_paid_fallback_model("mimo-v2.5-free") == "minimax-m2.7"
-        assert _opencode_paid_fallback_model("weird-free") == "deepseek-v4-flash"
+        assert _opencode_paid_fallback_model("weird-free") == "deepseek-v4.1-flash"
         assert _opencode_paid_fallback_model("gpt-4o") is None
 
     def test_insufficient_balance_variants(self):

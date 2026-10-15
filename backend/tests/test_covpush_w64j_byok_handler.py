@@ -166,9 +166,11 @@ class TestModuleHelpers:
             assert _opencode_paid_fallback_model("deepseek-v4-flash-free") == "mimo-v2.5-free"
 
     def test_opencode_paid_fallback_model_default(self):
-        assert _opencode_paid_fallback_model("some-model-free") == "deepseek-v4-flash"
+        assert _opencode_paid_fallback_model("some-model-free") == "deepseek-v4.1-flash"
         assert _is_opencode_free_model("deepseek-v4-flash-free") is True
         assert _opencode_paid_fallback_model("deepseek-v4-flash") is None
+        # Current-gen free sibling maps to its paid sibling.
+        assert _opencode_paid_fallback_model("deepseek-v4.1-flash-free") == "deepseek-v4.1-flash"
 
 
 # =========================================================================== #

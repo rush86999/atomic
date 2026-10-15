@@ -21,26 +21,22 @@ import os
 import threading
 from typing import Any, Dict, Optional
 
+from core.llm.opencode_catalog import (  # noqa: F401  (re-export for callers)
+    OPCODE_BASELINE_PRICE_PER_1M,
+    OPCODE_KNOWN_PRICES,
+    quota_weight_from_prices,
+)
+
 logger = logging.getLogger(__name__)
 
-# Baseline: deepseek-v4-flash input+output price per 1M tokens ($0.14 + $0.28).
-# All weights are (in+out per 1M) / baseline, so weight 1.0 = flash-equivalent.
-OPCODE_BASELINE_PRICE_PER_1M = 0.42
-
-# Price-derived default quota weights for the OpenCode Zen catalog (Aug 2026).
-# Kept in sync with ``DynamicPricingFetcher._opencode_static_fallback``.
+# Price-derived default quota weights for the OpenCode Zen catalog. Derived
+# from the shared, docs-refreshed price table (core.llm.opencode_catalog) so
+# the weights, the ``DynamicPricingFetcher`` catalog and the docs can never
+# drift apart again — the previous hand-maintained table went stale whenever
+# the gateway refreshed its lineup.
 OPCODE_DEFAULT_MODEL_WEIGHTS: Dict[str, float] = {
-    "deepseek-v4-flash": 1.0,     # $0.14 + $0.28
-    "minimax-m2.7": 3.6,          # $0.30 + $1.20
-    "minimax-m3": 3.6,            # $0.30 + $1.20
-    "qwen3.7-plus": 4.8,          # $0.40 + $1.60
-    "kimi-k2.7-code": 11.8,       # $0.95 + $4.00
-    "kimi-k2.6": 11.8,            # $0.95 + $4.00
-    "deepseek-v4-pro": 12.4,      # $1.74 + $3.48
-    "glm-5.1": 13.8,              # $1.40 + $4.40
-    "glm-5.2": 13.8,              # $1.40 + $4.40
-    "qwen3.7-max": 23.8,          # $2.50 + $7.50
-    "kimi-k3": 42.9,              # $3.00 + $15.00
+    model_id: quota_weight_from_prices(inp, out)
+    for model_id, (inp, out) in OPCODE_KNOWN_PRICES.items()
 }
 
 # Rate-limit window (seconds) reused by model-scoped tracking.

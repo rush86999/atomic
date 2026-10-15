@@ -466,7 +466,7 @@ class BYOKManager:
                 base_url="https://openrouter.ai/api/v1",
                 supported_tasks=["general", "chat", "code", "reasoning", "analysis", "vision"],
                 cost_per_token=0.000003,  # Varies by model — rough floor
-                model="openai/gpt-4o-mini",
+                model="minimax/minimax-m3",
                 reasoning_level=4
             ),
             # OpenCode Zen gateway — the BYOK handler has routed provider id
@@ -483,7 +483,7 @@ class BYOKManager:
                 base_url="https://opencode.ai/zen/v1",
                 supported_tasks=["code", "general", "chat", "reasoning"],
                 cost_per_token=0.0,  # Usage-billed; flash-class pricing
-                model="deepseek-v4-flash",
+                model="deepseek-v4.1-flash",
                 reasoning_level=3
             ),
             AIProviderConfig(
@@ -494,7 +494,7 @@ class BYOKManager:
                 base_url="https://opencode.ai/zen/v1",
                 supported_tasks=["code", "general", "chat", "reasoning"],
                 cost_per_token=0.0,  # Subscription: ~$0 marginal per token
-                model="deepseek-v4-flash",
+                model="deepseek-v4.1-flash",
                 reasoning_level=3
             )
         ]

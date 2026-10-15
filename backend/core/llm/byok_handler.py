@@ -1119,8 +1119,11 @@ COST_EFFICIENT_MODELS = {
     "opencode-go": {  # OpenCode Go — low-cost subscription via OpenCode Zen gateway
         # https://opencode.ai/zen — tested+verified open coding models served
         # by the OpenCode team; one subscription key, no per-provider signups.
-        QueryComplexity.SIMPLE: "deepseek-v4-flash",
-        QueryComplexity.MODERATE: "deepseek-v4-flash",
+        # Live-measured 2026-10-15 on the Go key: deepseek-v4.1-flash is the
+        # cheapest ENTITLED paid model (legacy deepseek-v4-flash is no longer
+        # in the authenticated catalog); pro/coding models sit above it.
+        QueryComplexity.SIMPLE: "deepseek-v4.1-flash",
+        QueryComplexity.MODERATE: "deepseek-v4.1-flash",
         QueryComplexity.COMPLEX: "deepseek-v4-pro",
         QueryComplexity.ADVANCED: "kimi-k2.7-code",
     },
@@ -1196,24 +1199,28 @@ MODELS_WITHOUT_TOOLS = {
 }
 
 # OpenCode Go free-usage vs subscription-paid split.
-# Per the official Zen docs (opencode.ai/docs/zen): free models carry a
-# "-free" suffix in their gateway ID (deepseek-v4-flash-free, mimo-v2.5-free,
-# laguna-s-2.1-free, ling-3.0-tiny-free, longcat-2.0-free, north-mini-code-free,
-# nemotron-3-ultra-free, big-pickle) and are "available for a limited time".
-# Their free allowance can be exhausted — the gateway then returns
-# CreditsError / "Insufficient balance" even with an ACTIVE subscription,
-# while the paid models would complete fine. When a free-usage attempt fails
-# with an insufficient-balance error, the same request is retried on a paid
-# model before falling back to other providers. Override via env:
-#   OPENCODE_FREE_PAID_FALLBACK='{"deepseek-v4-flash-free": "deepseek-v4-flash"}'
+# Per the live Zen models endpoint (2026-10-15): free models carry a "-free"
+# suffix in their gateway ID (deepseek-v4.1-flash-free, mimo-v2.6-flash-free,
+# longcat-2.5-preview-free, nemotron-3.5-lightning-free, ...) plus the free
+# stealth id "big-pickle", and are "available for a limited time". Their free
+# allowance can be exhausted — the gateway then returns CreditsError /
+# "Insufficient balance" even with an ACTIVE subscription, while the paid
+# models would complete fine. When a free-usage attempt fails with an
+# insufficient-balance error, the same request is retried on a paid model
+# before falling back to other providers. Override via env:
+#   OPENCODE_FREE_PAID_FALLBACK='{"deepseek-v4.1-flash-free": "deepseek-v4.1-flash"}'
 OPCODE_FREE_MODEL_SUFFIX = "-free"
 
 # Documented paid-sibling fallbacks (model ID as listed on opencode.ai/zen).
-# Any free model WITHOUT an explicit entry falls back to the cheapest PAID
-# model (deepseek-v4-flash, $0.14/$0.28 per 1M tokens).
+# Legacy "-free" ids are kept so older gateway lineups still map to their
+# sibling. Any free model WITHOUT an explicit entry falls back to the cheapest
+# CURRENT paid model (deepseek-v4.1-flash, $0.30/$1.20 per 1M tokens —
+# live-measured as the cheapest model entitled on the Go subscription key).
 OPCODE_FREE_MODEL_PAID_FALLBACK_DEFAULTS = {
-    "deepseek-v4-flash-free": "deepseek-v4-flash",
-    "mimo-v2.5-free": "minimax-m2.7",
+    "deepseek-v4.1-flash-free": "deepseek-v4.1-flash",
+    "mimo-v2.6-flash-free": "minimax-m2.7",
+    "deepseek-v4-flash-free": "deepseek-v4-flash",  # legacy free ID
+    "mimo-v2.5-free": "minimax-m2.7",               # legacy free ID
 }
 
 
@@ -1243,19 +1250,22 @@ def _opencode_paid_fallback_model(model: str) -> Optional[str]:
     paid = fallbacks.get(model)
     if paid:
         return paid
-    return "deepseek-v4-flash"  # cheapest paid model
+    return "deepseek-v4.1-flash"  # cheapest current paid model (Go key, 2026-10-15)
 
 
 # Free-usage models to retry with when the PAID tier is out of credits.
 # The subscription balance can be exhausted (CreditsError on every paid
-# model) while the "-free" allowance still works — verified live against
-# the Zen gateway: nemotron-3.5-lightning-free, laguna-s-2.1-free and
-# nemotron-3-ultra-free all complete with a zero-balance workspace.
+# model) while the "-free" allowance still works — verified live against the
+# Zen gateway on 2026-09. IDs refreshed 2026-10-15 from the live models
+# endpoint (laguna-s-2.1-free / nemotron-3-ultra-free are no longer served).
+# NOTE: since 2026-10 the free tier answers 403 "can only be used from within
+# OpenCode" for direct API clients — the chain is kept for in-OpenCode /
+# future routes, and failures fall through to other providers as before.
 # Override via env: OPENCODE_FREE_TIER_MODELS='["model-a-free", ...]'
 OPCODE_FREE_TIER_FALLBACK_DEFAULTS = [
     "nemotron-3.5-lightning-free",
-    "laguna-s-2.1-free",
-    "nemotron-3-ultra-free",
+    "deepseek-v4.1-flash-free",
+    "longcat-2.5-preview-free",
 ]
 
 
@@ -1290,12 +1300,17 @@ def _opencode_free_tier_fallbacks(model: str) -> list:
 # OpenRouter serves many models with a ":free" variant that has no per-token
 # cost but lower rate limits. When the user's credits are exhausted on a
 # paid model, retry on the :free sibling before skipping the provider.
+# Refreshed 2026-10-15 against the live catalog: the old targets
+# (google/gemma-2-9b-it:free, meta-llama/llama-3.1-8b-instruct:free) are no
+# longer served. Default = nvidia/nemotron-3-super-120b-a12b:free —
+# live-verified (tools + structured output, 262K context); the 2026 flash/
+# coding picks map there too.
+OPENROUTER_FREE_FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+
 OPENROUTER_PAID_FREE_FALLBACK_DEFAULTS = {
-    "openai/gpt-4o-mini": "google/gemma-2-9b-it:free",
-    "anthropic/claude-3.5-sonnet": "meta-llama/llama-3.1-8b-instruct:free",
-    "anthropic/claude-3-sonnet": "meta-llama/llama-3.1-8b-instruct:free",
-    "openai/gpt-4o": "google/gemma-2-9b-it:free",
-    "google/gemini-flash-1.5": "google/gemma-2-9b-it:free",
+    "minimax/minimax-m3": OPENROUTER_FREE_FALLBACK_MODEL,
+    "deepseek/deepseek-v4-pro": OPENROUTER_FREE_FALLBACK_MODEL,
+    "openai/gpt-4o-mini": OPENROUTER_FREE_FALLBACK_MODEL,
 }
 
 _openrouter_free_fallback_cache: dict | None = None
@@ -1333,8 +1348,8 @@ def _openrouter_free_fallback_model(model: str) -> Optional[str]:
     free = fallbacks.get(model)
     if free:
         return free
-    # Default: use a known-good free model
-    return "google/gemma-2-9b-it:free"
+    # Default: use a known-good free model (live-verified 2026-10-15).
+    return OPENROUTER_FREE_FALLBACK_MODEL
 
 
 def _is_insufficient_balance_error(err: Exception) -> bool:

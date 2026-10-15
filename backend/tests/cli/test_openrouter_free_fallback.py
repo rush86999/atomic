@@ -39,9 +39,10 @@ class TestInsufficientBalanceDetection:
 class TestOpenCodeFallbackModel:
     def test_free_model_maps_to_paid_sibling(self):
         assert _opencode_paid_fallback_model("deepseek-v4-flash-free") == "deepseek-v4-flash"
+        assert _opencode_paid_fallback_model("deepseek-v4.1-flash-free") == "deepseek-v4.1-flash"
 
     def test_unknown_free_gets_cheapest(self):
-        assert _opencode_paid_fallback_model("mystery-free") == "deepseek-v4-flash"
+        assert _opencode_paid_fallback_model("mystery-free") == "deepseek-v4.1-flash"
 
     def test_non_free_returns_none(self):
         assert _opencode_paid_fallback_model("gpt-4o") is None

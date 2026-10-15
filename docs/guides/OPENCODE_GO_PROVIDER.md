@@ -4,7 +4,7 @@
 > **Gateway**: https://opencode.ai/zen/v1  
 > **Auth**: `OPENCODE_API_KEY` (not `OPENCODE-GO_API_KEY` — hyphen in env name doesn't work)  
 > **Tier**: Budget + Code  
-> **Default models**: DeepSeek V4 Flash/Pro, Kimi K2.7 Code  
+> **Default models**: DeepSeek V4.1 Flash/V4 Pro, Kimi K2.7 Code  
 > **Cost reduction**: ~90% vs direct provider APIs via subscription model  
 
 ---
@@ -59,16 +59,21 @@ OpenCode Go participates in Atom's **BPC (Best Provider Candidate)** ranking alo
 
 ### Model Mapping (Static Fallback)
 
-When the dynamic pricing cache is unavailable, the router uses built-in mappings:
+When the dynamic pricing cache is unavailable, the router uses built-in mappings
+(refreshed 2026-10-15 against the live Zen catalog):
 
 | Complexity | Model | Use Case |
 |------------|-------|----------|
-| SIMPLE | `deepseek-v4-flash` | Chat, classification, extraction |
-| MODERATE | `deepseek-v4-flash` | Summarization, rewriting |
+| SIMPLE | `deepseek-v4.1-flash` | Chat, classification, extraction |
+| MODERATE | `deepseek-v4.1-flash` | Summarization, rewriting |
 | COMPLEX | `deepseek-v4-pro` | Reasoning, multi-step tasks |
 | ADVANCED | `kimi-k2.7-code` | Code generation, debugging |
 
-> **Note**: These are the *gateway model IDs*. The actual upstream model may differ — OpenCode Zen handles the mapping.
+> **Note**: These are the *gateway model IDs*. The actual upstream model may
+> differ — OpenCode Zen handles the mapping. The pricing fetcher merges the
+> live `/zen/v1/models` ID list with the documented price table
+> (`core.llm.opencode_catalog`), so delisted models drop out of routing
+> automatically and new ones appear as soon as they are priced.
 
 ---
 
@@ -109,18 +114,21 @@ OPENCODE_MAX_CONTEXT=200000
 
 OpenCode Go is a **flat-rate subscription**, so every request's *marginal* cost
 is ~$0 — but not every model burns the subscription's token allowance at the
-same rate. `kimi-k3` ($3/$15 per 1M) consumes ~43x the allowance of
-`deepseek-v4-flash` ($0.14/$0.28) for the same nominal request. Atom accounts
-for this with a **quota weight** per model:
+same rate. `kimi-k3` ($3/$15 per 1M) consumes ~43x the allowance of the
+baseline `deepseek-v4-flash` blend ($0.14/$0.28) for the same nominal request.
+Atom accounts for this with a **quota weight** per model (derived from the
+price table in `core.llm.opencode_catalog`, so weights refresh with the
+catalog):
 
 | Model | Quota weight | Meaning |
 |-------|-------------|---------|
 | `deepseek-v4-flash` | 1.0 | Baseline — cheapest burn |
-| `minimax-m2.7` / `minimax-m3` | ~3.6 | |
+| `glm-5.3-flash` / `qwen3.8-flash` | ~1.5 | |
+| `deepseek-v4.1-flash` / `minimax-m2.7` / `minimax-m3` | ~3.6 | |
 | `qwen3.7-plus` | ~4.8 | |
 | `kimi-k2.7-code` / `kimi-k2.6` | ~11.8 | |
 | `deepseek-v4-pro` | ~12.4 | |
-| `glm-5.1` / `glm-5.2` | ~13.8 | |
+| `glm-5.1` / `glm-5.2` / `glm-5.3` | ~13.8 | |
 | `qwen3.7-max` | ~23.8 | |
 | `kimi-k3` | ~42.9 | Heaviest burn — drains quota ~43x faster |
 
@@ -135,7 +143,7 @@ Weights are derived from the gateway's per-token price table (normalized to
    score by `max(0.25, weight^-0.2)`: weight 1.0 → 1.0, ~12x → ~0.61, ~43x →
    ~0.47. This is a mild nudge that only decides ties at *equal quality* — a
    heavy model still wins when it's meaningfully better (e.g.
-   `deepseek-v4-pro` still wins COMPLEX tasks over `deepseek-v4-flash`).
+   `deepseek-v4-pro` still wins COMPLEX tasks over `deepseek-v4.1-flash`).
 3. **Per-model limits** — models with their own RPM/TPM are hard-skipped
    **independently**; one exhausted model doesn't take the whole provider down.
 
@@ -237,7 +245,7 @@ value_score *= 0.83  # Light penalty — OpenCode Go stays competitive
 ```python
 # Request needs 50K context
 # OPENCODE_MAX_CONTEXT = 32000 (set by user)
-# → deepseek-v4-flash (200K native) CLAMPED to 32K
+# → deepseek-v4.1-flash (200K native) CLAMPED to 32K
 # → Model skipped for this request (insufficient context)
 ```
 
@@ -345,4 +353,4 @@ A: Only for models with a quota weight > 1.0 at *quality parity*. The per-token 
 
 ---
 
-*Last Updated: August 2026*
+*Last Updated: October 2026*

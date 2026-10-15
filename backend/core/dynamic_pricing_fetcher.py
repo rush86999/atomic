@@ -291,79 +291,145 @@ class DynamicPricingFetcher:
             logger.error(f"Failed to fetch OpenRouter pricing: {e}")
             return {}
 
-    def _opencode_static_fallback(self) -> Dict[str, Any]:
-        """Static OpenCode Zen catalog (Aug 2026) used when the live endpoint
-        is unreachable. Prices per 1M tokens from opencode.ai/zen; models are
-        keyed by their bare gateway IDs and tagged with the opencode-go
-        provider so the BPC ranker routes them to the opencode-go client."""
-        table = {
-            # (input_cost, output_cost, max_context)
-            "deepseek-v4-flash": (0.14, 0.28, 200000),
-            "deepseek-v4-pro": (1.74, 3.48, 200000),
-            "kimi-k2.7-code": (0.95, 4.00, 200000),
-            "kimi-k3": (3.00, 15.00, 200000),
-            "kimi-k2.6": (0.95, 4.00, 200000),
-            "glm-5.2": (1.40, 4.40, 200000),
-            "glm-5.1": (1.40, 4.40, 200000),
-            "minimax-m3": (0.30, 1.20, 200000),
-            "minimax-m2.7": (0.30, 1.20, 200000),
-            "qwen3.7-plus": (0.40, 1.60, 200000),
-            "qwen3.7-max": (2.50, 7.50, 200000),
+    def _opencode_pricing_entry(
+        self,
+        model_id: str,
+        input_per_1m: float,
+        output_per_1m: float,
+        max_input_tokens: Optional[int] = None,
+        name: Optional[str] = None,
+        supports_cache: bool = False,
+    ) -> Dict[str, Any]:
+        """Build one pricing-cache entry for an OpenCode Zen model."""
+        # Lazy import: a module-level ``core.llm`` import here created an
+        # import cycle (fetcher -> core.llm/__init__ -> byok_handler ->
+        # fetcher), the same reason ``curated_overrides`` is imported lazily.
+        from core.llm.opencode_catalog import OPCODE_GATEWAY_MAX_CONTEXT
+
+        return {
+            "input_cost_per_token": float(input_per_1m) / 1_000_000,
+            "output_cost_per_token": float(output_per_1m) / 1_000_000,
+            "max_input_tokens": int(max_input_tokens or OPCODE_GATEWAY_MAX_CONTEXT),
+            "name": name or model_id,
+            "source": "opencode-zen",
+            # Critical: tag with the opencode-go provider so BPC joins these
+            # models to the opencode-go client (same pattern as OpenRouter).
+            "litellm_provider": "opencode-go",
+            "supports_cache": bool(supports_cache),
         }
-        pricing = {}
-        for model_id, (inp, out, ctx) in table.items():
-            pricing[model_id] = {
-                "input_cost_per_token": inp / 1_000_000,
-                "output_cost_per_token": out / 1_000_000,
-                "max_input_tokens": ctx,
-                "name": model_id,
-                "source": "opencode-zen",
-                # Critical: tag with the opencode-go provider so BPC joins these
-                # models to the opencode-go client (same pattern as OpenRouter).
-                "litellm_provider": "opencode-go",
-                "supports_cache": False,
-            }
-        return pricing
+
+    def _opencode_static_fallback(self) -> Dict[str, Any]:
+        """Table-driven OpenCode Zen catalog used when the live endpoint is
+        unreachable (or yields nothing priceable).
+
+        Prices come from the shared ``OPCODE_KNOWN_PRICES`` table
+        (https://opencode.ai/docs/zen, refreshed 2026-10-15) because the live
+        models endpoint returns IDs only. Models are keyed by their bare
+        gateway IDs and tagged with the opencode-go provider so the BPC ranker
+        routes them to the opencode-go client.
+        """
+        from core.llm.opencode_catalog import OPCODE_KNOWN_PRICES
+
+        return {
+            model_id: self._opencode_pricing_entry(model_id, inp, out)
+            for model_id, (inp, out) in OPCODE_KNOWN_PRICES.items()
+        }
 
     async def fetch_opencode_pricing(self) -> Dict[str, Any]:
-        """Fetch the OpenCode Zen model catalog (OpenCode Go gateway).
+        """Fetch the OpenCode Zen model catalog (OpenCode Go gateway) and merge
+        it with the known-price table.
 
-        Falls back to a static table when the live endpoint is unreachable so
-        routing never loses the opencode-go candidates. Entries carry
-        ``litellm_provider: "opencode-go"`` for BPC join, and the provider's
-        custom RPM/TPM/context limits are applied at routing time by
+        The live endpoint returns model IDs only — no prices, no context. Live
+        IDs decide *what exists* (delisted models drop out automatically); the
+        shared ``OPCODE_KNOWN_PRICES`` table decides *what each model costs*.
+        A served-but-unpriced ID is dropped with a log line rather than being
+        mispriced as $0 (the bug this merge fixes: every cached Zen entry
+        carried a $0 price because the endpoint never sent cost fields).
+
+        Falls back to the full table when the endpoint is unreachable or
+        returns no live IDs, so routing never loses opencode-go candidates.
+        Entries carry ``litellm_provider: "opencode-go"`` for BPC join, and the
+        provider's custom RPM/TPM/context limits are applied at routing time by
         ``core.llm.provider_rate_limits``.
         """
+        from core.llm.opencode_catalog import (
+            OPCODE_KNOWN_FREE_MODELS,
+            OPCODE_KNOWN_PRICES,
+        )
+
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 response = await client.get(OPENCODE_MODELS_URL)
                 response.raise_for_status()
                 data = response.json()
 
-            pricing = {}
             # The endpoint returns a model list; accept both a bare list and
             # {data: [...]} envelope for forward-compat.
             models = data.get("data", data) if isinstance(data, dict) else data
+            live: Dict[str, Any] = {}
             if isinstance(models, list):
                 for model in models:
-                    model_id = model.get("id", "") or model.get("model", "")
-                    if not model_id:
+                    if isinstance(model, str):
+                        live.setdefault(model, {})
                         continue
-                    pricing[model_id] = {
-                        "input_cost_per_token": float(model.get("input_cost", model.get("prompt", 0))) / 1_000_000,
-                        "output_cost_per_token": float(model.get("output_cost", model.get("completion", 0))) / 1_000_000,
-                        "max_input_tokens": int(model.get("context_length", model.get("context", 200000))),
-                        "name": model.get("name", model_id),
-                        "source": "opencode-zen",
-                        "litellm_provider": "opencode-go",
-                        "supports_cache": bool(model.get("supports_cache", False)),
-                    }
-            if pricing:
-                logger.info(f"Fetched {len(pricing)} model prices from OpenCode Zen")
-                return pricing
-            logger.warning("OpenCode Zen endpoint returned no models; using static fallback")
+                    if not isinstance(model, dict):
+                        continue
+                    model_id = model.get("id", "") or model.get("model", "")
+                    if model_id:
+                        live[model_id] = model
         except Exception as e:
             logger.debug(f"Failed to fetch OpenCode Zen pricing (using static fallback): {e}")
+            return self._opencode_static_fallback()
+
+        pricing: Dict[str, Any] = {}
+        unpriced: List[str] = []
+        for model_id, raw in live.items():
+            # Free/stealth models are deliberately unpriced (BPC must not rank
+            # a $0 model a direct API key usually cannot call).
+            if model_id in OPCODE_KNOWN_FREE_MODELS or model_id.endswith("-free"):
+                continue
+            known = OPCODE_KNOWN_PRICES.get(model_id)
+            if known is not None:
+                pricing[model_id] = self._opencode_pricing_entry(
+                    model_id, known[0], known[1],
+                    name=raw.get("name"),
+                    supports_cache=bool(raw.get("supports_cache", False)),
+                )
+                continue
+            # Forward-compat: if the gateway ever starts serving prices for an
+            # ID the table does not know, prefer the live numbers over dropping
+            # it. Zero/absent values still mean "unpriced" — not "free".
+            live_in = raw.get("input_cost", raw.get("prompt"))
+            live_out = raw.get("output_cost", raw.get("completion"))
+            try:
+                live_in_f = float(live_in) if live_in is not None else 0.0
+                live_out_f = float(live_out) if live_out is not None else 0.0
+            except (TypeError, ValueError):
+                live_in_f = live_out_f = 0.0
+            if live_in_f > 0 or live_out_f > 0:
+                pricing[model_id] = self._opencode_pricing_entry(
+                    model_id, live_in_f, live_out_f,
+                    max_input_tokens=raw.get("context_length", raw.get("context")),
+                    name=raw.get("name"),
+                    supports_cache=bool(raw.get("supports_cache", False)),
+                )
+            else:
+                unpriced.append(model_id)
+
+        if unpriced:
+            shown = ", ".join(sorted(unpriced)[:10])
+            more = f" (+{len(unpriced) - 10} more)" if len(unpriced) > 10 else ""
+            logger.info(
+                f"OpenCode Zen serves {len(unpriced)} model(s) missing from "
+                f"OPCODE_KNOWN_PRICES — dropped until priced: {shown}{more}"
+            )
+        if pricing:
+            logger.info(
+                f"Fetched {len(pricing)} OpenCode Zen model prices "
+                f"({len(live)} served; table-merged)"
+            )
+            return pricing
+        logger.warning("OpenCode Zen endpoint returned no priced models; using static fallback")
         return self._opencode_static_fallback()
     
     async def refresh_pricing(self, force: bool = False) -> Dict[str, Any]:
