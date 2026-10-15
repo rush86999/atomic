@@ -2461,50 +2461,34 @@ def _replace_in_text(text: str, find: str, replace: str) -> Tuple[str, bool]:
 
 
 def _invented_insertion(
-    find: str, replace: str, request_message: str,
-    canvas_content: str,
+    inserted: str, request_message: str, evidence_text: str,
 ) -> Optional[str]:
-    """The NO-INVENTION FENCE (verifier finish line: a request whose
-    required value is absent must be declined, never applied with an
-    invented replacement).
+    """The NO-INVENTION FENCE — obligation-level grounding (the measured
+    token-presence fence was probed around: single-digit residue after
+    common-affix trim, sub-minimum short values, and numbers copied from
+    elsewhere in the canvas all slipped through).
 
-    Computes the text the op INSERTS (find/replace common-affix trim)
-    and requires every value-like run in it to be traceable to the
-    request message, the current canvas outside this op, or the
-    accepted evidence contract. Untraceable insertions are exactly the
-    fabricated-fact failure (J6 T3: "add the client's tax registration
-    number" with no such fact anywhere produced an applied fabrication,
-    certified objective_met=True). Returns the first untraceable run,
-    or None when the insertion is clean."""
+    Rule: every DIGIT-BEARING run in the inserted text must be supported
+    by the user's explicit instruction or the applicable evidence — an
+    unrelated number elsewhere in the canvas is not support, because
+    substring presence cannot establish that a fact belongs to the
+    requested subject and field. Pure-letter runs are ordinary wording
+    and pass unconditionally ("Hello" → "Greetings" stays possible).
+
+    Returns the first unsupported run, or None when every inserted
+    value is grounded."""
     import re as _re
 
-    inserted = replace or ""
-    if find:
-        # Common-affix trim: what the op genuinely ADDS.
-        _prefix = 0
-        while (_prefix < len(find) and _prefix < len(inserted)
-               and find[_prefix] == inserted[_prefix]):
-            _prefix += 1
-        _suffix = 0
-        while (_suffix < len(find) - _prefix
-               and _suffix < len(inserted) - _prefix
-               and find[len(find) - 1 - _suffix]
-               == inserted[len(inserted) - 1 - _suffix]):
-            _suffix += 1
-        inserted = inserted[_prefix:len(inserted) - _suffix] \
-            if _suffix else inserted[_prefix:]
-    # Value-like runs: numbers/dates/identifiers are the facts that
-    # must be traceable. Pure prose is the planner's phrasing.
-    runs = _re.findall(r"[A-Za-z0-9][A-Za-z0-9$.,%:/-]{3,}", inserted)
-    if not runs:
+    inserted = inserted or ""
+    if not inserted.strip():
         return None
-    haystack = " ".join((
-        (request_message or "").lower(),
-        (canvas_content or "").lower(),
-    ))
-    evidence = ""
-    return next((run for run in runs
-                 if run.lower() not in haystack), None) or None
+    unsupported = [
+        run for run in _re.findall(r"[A-Za-z0-9$.,%:/-]+", inserted)
+        if any(ch.isdigit() for ch in run)
+        and run.lower() not in (request_message or "").lower()
+        and run.lower() not in (evidence_text or "").lower()
+    ]
+    return unsupported[0] if unsupported else None
 
 
 def _apply_patch_ops(content: Any, ops: List["CanvasPatchOp"]) -> tuple:
@@ -4952,24 +4936,42 @@ async def apply_canvas_edit(
 
     if plan.ops:
         new_content, failed = _apply_patch_ops(current, plan.ops)
-        # NO-INVENTION FENCE (verifier finish line): an inserted value
-        # must trace to the request or the current canvas. Untraceable
-        # insertions are fabricated facts — the plan is refused and the
-        # turn names what is missing instead of certifying an invention.
+        # NO-INVENTION FENCE (verifier finish line): inserted values are
+        # grounded at the OBLIGATION level — the user's explicit
+        # instruction or the accepted evidence. Canvas presence alone is
+        # not support: substring matching cannot establish that a fact
+        # belongs to the requested subject and field.
+        _evidence_text = " ".join((
+            json.dumps(evidence_contract or {}, default=str)[:4000],
+        ))
         for _op in plan.ops or []:
-            if not getattr(_op, "find", None):
-                continue  # set-field ops on named fields are gated upstream
+            # EMPTY-FIELD (set-field) ops are NOT exempt: the set value
+            # is the insertion and carries the same grounding duty. The
+            # find is empty, so the whole replace is the insertion.
+            # The text the op genuinely ADDS (common-affix trim) — the
+            # insertion whose values must be obligation-grounded.
+            _find_text = getattr(_op, "find", "") or ""
+            _repl_text = getattr(_op, "replace", "") or ""
+            _prefix = 0
+            while (_prefix < len(_find_text) and _prefix < len(_repl_text)
+                   and _find_text[_prefix] == _repl_text[_prefix]):
+                _prefix += 1
+            _suffix = 0
+            while (_suffix < len(_find_text) - _prefix
+                   and _suffix < len(_repl_text) - _prefix
+                   and _find_text[len(_find_text) - 1 - _suffix]
+                   == _repl_text[len(_repl_text) - 1 - _suffix]):
+                _suffix += 1
+            _inserted = _repl_text[_prefix:len(_repl_text) - _suffix] \
+                if _suffix else _repl_text[_prefix:]
             _invented = _invented_insertion(
-                getattr(_op, "find", "") or "",
-                getattr(_op, "replace", "") or "",
-                request_message or "",
-                _body_from_content(current),
-            )
+                _inserted, request_message or "", _evidence_text)
             if _invented:
                 logger.warning(
                     "canvas edit: NO-INVENTION fence refused op — "
-                    "inserted value %r is traceable to neither the "
-                    "request nor the canvas", _invented)
+                    "inserted value %r is supported by neither the "
+                    "user's instruction nor the accepted evidence",
+                    _invented)
                 return _out(None, "invented_value")
         if failed:
             # The plan validated in plan_canvas_edit; a mismatch here means
@@ -5007,6 +5009,28 @@ async def apply_canvas_edit(
         current, new_content, request_messages, preserve_footer=preserve_footer)
     if scope_reason:
         return _out(None, scope_reason)
+
+    # NO-INVENTION FENCE — REPLACE MODE (same duty as patch ops): the
+    # ADDED values are the digit-bearing runs in the merged content that
+    # appear NOWHERE in the current content (reordering and reformatting
+    # of existing values are not insertions). Added runs must be
+    # grounded in the request or the accepted evidence.
+    import re as _re_f
+    _old_text = _serialize_content(current, max_chars=None).lower()
+    _new_text = _serialize_content(new_content, max_chars=None)
+    _added_runs = [
+        run for run in _re_f.findall(r"[A-Za-z0-9$.,%:/-]+", _new_text)
+        if any(ch.isdigit() for ch in run)
+        and run.lower() not in _old_text
+        and run.lower() not in (request_message or "").lower()
+        and run.lower() not in _evidence_text.lower()
+    ]
+    if _added_runs:
+        logger.warning(
+            "canvas edit: NO-INVENTION fence refused replace-mode plan — "
+            "added value %r is supported by neither the user's "
+            "instruction nor the accepted evidence", _added_runs[0])
+        return _out(None, "invented_value")
 
     missing_ready_actions = [
         action
