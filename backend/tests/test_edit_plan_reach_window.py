@@ -181,6 +181,40 @@ def test_optional_enrichment_is_bounded_and_execution_is_reached():
         .get("updated") is True
 
 
+def test_pre_start_gate_uses_the_accepted_decision_not_wording():
+    """The pre-start skip consumes the ACCEPTED decision's evidence
+    requirement (turn_evidence_required), never a new wording regex:
+    a literal edit is self-contained; a workbook/email reference keeps
+    its lookup; an absent decision or a non-edit message keeps today's
+    behavior."""
+    from core.turn_decision import build_turn_decision
+
+    ctx = {"canvas_id": "cv-reach"}
+
+    def _decision(msg):
+        return build_turn_decision(msg, {}, [], ctx)
+
+    # Literal edit: no sources, no research action -> self-contained.
+    assert co._self_contained_edit_turn(
+        MESSAGE, ctx, _decision(MESSAGE)) is True
+    # Workbook reference: the accepted request names a source -> keep it.
+    assert co._self_contained_edit_turn(
+        "update the price to the current workbook price", ctx,
+        _decision("update the price to the current workbook price")) is False
+    # Email reference: same.
+    assert co._self_contained_edit_turn(
+        "update the prices that were found in the email", ctx,
+        _decision("update the prices that were found in the email")) is False
+    # Absent decision: keep today's behavior.
+    assert co._self_contained_edit_turn(MESSAGE, ctx, None) is False
+    # Non-edit message: the gate is edit-shaped-only.
+    assert co._self_contained_edit_turn(
+        "compare the Unit price and the Subtotal. Do NOT change anything.",
+        ctx, _decision(
+            "compare the Unit price and the Subtotal. Do NOT change anything."
+        )) is False
+
+
 def test_stage_spans_identify_the_active_prerequisite(caplog):
     """The paired markers attribute a bounded leg to its stage: the
     fresh_data_lookup span opens AND closes when the lookup runs, and

@@ -2312,6 +2312,34 @@ def _user_grounded_edit_directive(message: str) -> bool:
     return bool(_USER_EDIT_DIRECTIVE_RE.search(t))
 
 
+def _self_contained_edit_turn(
+    message: str,
+    canvas_ctx: Optional[Dict[str, Any]],
+    decision: Optional[Dict[str, Any]],
+) -> bool:
+    """True when the accepted decision requires NO live evidence AND the
+    message is edit-shaped with a canvas open.
+
+    That shape is a self-contained edit: the edit lane owns the turn, and
+    the speculative tool plan is unnecessary research that would also
+    hold the shared model-attempt reservation the edit plan needs (the
+    2026-10-14 T1 diagnostic: 'All structured candidates SKIPPED before
+    dispatch' at 0.4s). The decision is the authority — a missing
+    decision (routing off) or a required-evidence request returns False
+    and keeps today's behavior.
+    """
+    if not canvas_ctx or not isinstance(decision, dict):
+        return False
+    try:
+        from core.turn_decision import turn_evidence_required
+
+        return bool(
+            turn_evidence_required(decision) is False
+            and _canvas_edit_shaped(message, {"canvas": canvas_ctx}))
+    except Exception:  # noqa: BLE001 — gate is additive
+        return False
+
+
 def _canvas_edit_shaped(
     message: str, context: Optional[Dict[str, Any]] = None
 ) -> bool:
@@ -11598,6 +11626,19 @@ class ChatOrchestrator:
                             except Exception:  # noqa: BLE001
                                 pass
 
+                # SELF-CONTAINED EDIT: NO SPECULATIVE RESEARCH (owner work
+                # order, 2026-10-14). When the accepted decision requires
+                # NO live evidence and the message is edit-shaped, the
+                # edit lane owns the turn — and the pre-started tool plan
+                # is unnecessary research that ALSO holds the shared
+                # model-attempt reservation the edit plan needs (the T1
+                # diagnostic: 'All structured candidates SKIPPED before
+                # dispatch' at 0.4s — the edit plan never dispatched).
+                # Skip the pre-start for exactly that shape; every other
+                # turn keeps today's behavior (decision absent → start).
+                _skip_plan_for_self_contained_edit = (
+                    _self_contained_edit_turn(
+                        message, _canvas_ctx, _td_decision))
                 if _clarify_turn:
                     # STRUCTURAL clarify guarantee: no plan task exists to
                     # await, so no speculative lookup can execute behind a
@@ -11611,6 +11652,11 @@ class ChatOrchestrator:
                         _request_reference.clarify_reason,
                         message[:110], _request_reference.candidates[:2],
                     )
+                elif _skip_plan_for_self_contained_edit:
+                    logger.info(
+                        "[tool-plan] pre-start skipped — the accepted "
+                        "request requires no live evidence and the edit "
+                        "lane owns this turn (self-contained edit)")
                 else:
                     _tool_plan_task = asyncio.create_task(
                         _planned_with_provenance())
