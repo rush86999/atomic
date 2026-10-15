@@ -163,5 +163,11 @@
   "fence_verified": "T3 (unmet requirement: tax number exists nowhere) NO LONGER WRITES OR CERTIFIES: preserved=True, delta=0, objective_met=None. The no-invention fence refused the plan and the lane answered honestly.",
   "reload": "agreement TRUE (t1_value_in_history, final_canvas_matches_t1, t3_still_unmet)",
   "first_remaining_failure": "ENVELOPE CLASSIFICATION: T2 answered the comparison correctly (preserved, 1 comparison ref settled) and T3 declined honestly \u2014 both deliver truthful answers but the envelope resolves success=False/failed. A delivered honest answer must not resolve failed. Narrow outcome-classification repair in the decline fall-through; nothing else remains."
+ },
+ "counted_campaign_4186a2137_r2": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_212328_c110a2.json",
+  "what_works": "T1 authorized edit: FULL GATE PASS \u2014 dispatch, contract=valid, ops match, applied exactly once, protected content intact, authoritative readback, durable mutation evidence, objective_met TRUE, 8.3s. Preservation TRUE. Reload agreement TRUE. T3: the no-invention fence refused the fabricated op (zero writes, objective_met=None \u2014 never certified) and the lane answered honestly. T2: the comparison answered correctly with the comparison ref settled (1 ref).",
+  "first_remaining_failure": "ENVELOPE CLASSIFICATION OF HONEST ANSWERS: T2 (delivered comparison, zero writes) and T3 (fence refusal + honest ask) both resolve success=False/failed. The recorded outcome treats the edit-request turn as failed even though a truthful answer was delivered and no unauthorized change occurred. This is an outcome-resolution classification repair in the decline fall-through \u2014 nothing in the edit path remains.",
+  "next_concrete_action": "the decline fall-through envelope: a turn whose edit leg declined and whose reply delivered a truthful answer resolves success=True with outcome=unconfirmed/partial (never certified completion); then the counted campaign closes J6 or names the next failure."
  }
 }
