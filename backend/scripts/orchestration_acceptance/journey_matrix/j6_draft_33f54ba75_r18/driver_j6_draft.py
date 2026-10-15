@@ -43,6 +43,7 @@ Gates (the four pillars the work order names):
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -56,7 +57,7 @@ MAIN_DEV_CACHE = Path(
     "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json")
 PRICING_CACHE = WORKTREE_BACKEND / "data" / "ai_pricing_cache.json"
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "a8d1ee3cf"
+SUBJECT = "5abf89c0e"
 
 
 class _T1OnlyComplete(Exception):
@@ -443,11 +444,15 @@ def run_j6(t1_only: bool = False) -> dict:
                                             time.gmtime())}
     ev["pricing_cache"] = cold_pricing_cache()
     ev["main_dev_cache_before"] = main_dev_cache_md5()
+    _extra_env = {"ATOM_LOCAL_ONLY": "true",
+                  "OLLAMA_BASE_URL": "http://localhost:11434/v1",
+                  "OLLAMA_MODEL": "llama3.1:8b", **CRED_SCRUB}
+    _capture_dir = os.environ.get("ATOM_PLAN_CAPTURE_DIR")
+    if _capture_dir:
+        _extra_env["ATOM_PLAN_CAPTURE_DIR"] = _capture_dir
     server = JR.ScratchServer(
         "j6_draft", allowlisted=True, code_export=None,
-        extra_env={"ATOM_LOCAL_ONLY": "true",
-                   "OLLAMA_BASE_URL": "http://localhost:11434/v1",
-                   "OLLAMA_MODEL": "llama3.1:8b", **CRED_SCRUB})
+        extra_env=_extra_env)
     ev["identity"] = server.evidence_identity()
     failed_requests = 0
     try:
