@@ -59,26 +59,40 @@ PRE_AUDIT_ID = "audit-pre-1"
 
 
 class _CanvasStore:
-    """The write/read pair with a counter, mutated content persisted."""
+    """The write/read pair with a counter, mutated content persisted,
+    and a version head that TRACKS writes (the restore-race guard
+    compares the live head against the refused write's own audit id)."""
 
-    def __init__(self, content):
+    def __init__(self, content, raced_versions=False):
         self.content = content
         self.updates: list = []
         self.restores: list = []
+        self.head = PRE_AUDIT_ID
+        self.raced_versions = raced_versions
 
     async def _update(self, user_id, canvas_id, content, *a, **k):
         self.updates.append(content)
         self.content = content
-        return {"success": True, "audit_id": "a1"}
+        self.head = f"audit-ours-{len(self.updates)}"
+        return {"success": True, "audit_id": self.head}
 
     async def _read(self, user_id, canvas_id, **k):
         return {"success": True, "canvas_id": canvas_id,
                 "canvas_type": "document", "title": "Q",
                 "content": self.content}
 
+    async def _versions(self, user_id, canvas_id, **k):
+        head = self.head
+        if self.raced_versions and self.updates:
+            # A concurrent write landed during verification: the head is
+            # no longer the refused edit.
+            head = "audit-concurrent"
+        return {"versions": [{"audit_id": head}]}
+
     async def _restore(self, user_id, canvas_id, audit_id, *a, **k):
         self.restores.append(audit_id)
         self.content = QUOTE
+        self.head = audit_id
         return {"success": True}
 
     def patches(self):
@@ -88,8 +102,7 @@ class _CanvasStore:
             patch("tools.canvas_crud_tool.read_canvas",
                   new=AsyncMock(side_effect=self._read)),
             patch("tools.canvas_crud_tool.list_canvas_versions",
-                  new=AsyncMock(return_value={"versions": [
-                      {"audit_id": PRE_AUDIT_ID}]})),
+                  new=AsyncMock(side_effect=self._versions)),
             patch("tools.canvas_crud_tool.restore_canvas_version",
                   new=AsyncMock(side_effect=self._restore)),
         )
@@ -368,7 +381,7 @@ async def test_owner_message_table(monkeypatch):
                 fresh=_stalled_fresh, plan=None)
     t = await _turn(monkeypatch, sid, "12,500",
                     fresh=_stalled_fresh,
-                    plan=lambda: _tax_plan("12,500"))
+                    plan=lambda *a, **k: _tax_plan("12,500"))
     assert t["plan_calls"] == 1, "12,500 is ONE value and binds"
     assert t["store"].content.count("12,500") == 1
 
@@ -378,15 +391,56 @@ async def test_owner_message_table(monkeypatch):
                 fresh=_stalled_fresh, plan=None)
     t = await _turn(monkeypatch, sid, "Research and Development",
                     fresh=_stalled_fresh,
-                    plan=lambda: _tax_plan("Research and Development"))
+                    plan=lambda *a, **k: _tax_plan("Research and Development"))
     assert t["plan_calls"] == 1, "a multi-word value binds verbatim"
     assert t["store"].content.count("Research and Development") == 1
+
+    # Compound cancel: the FIRST segment cancels — the value after it
+    # has no open requirement to bind to (review round 2, finding 4).
+    sid = f"sess-r3-cc-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid,
+                    "Cancel that. Actually use 03-4567-8912",
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "a leading cancellation owns the reply"
+    assert t["store"].updates == []
+    assert _open_questions(sid) == [], "the requirement closes"
+
+    # Politeness-only and meta-only replies never bind (finding 5).
+    # 'cancel it please' IS a cancellation: the requirement closes.
+    for meta, closes in (("please", False), ("cancel it please", True),
+                         ("3 things to know?", False), ("8912?", False)):
+        sid = f"sess-r3-meta-{uuid.uuid4().hex[:8]}"
+        await _turn(monkeypatch, sid, REQUEST_MSG,
+                    fresh=_stalled_fresh, plan=None)
+        t = await _turn(monkeypatch, sid, meta,
+                        fresh=_stalled_fresh, plan=_tax_plan)
+        assert t["plan_calls"] == 0, f"{meta!r} must not bind"
+        assert t["store"].updates == [], f"{meta!r} must not write"
+        if closes:
+            assert _open_questions(sid) == [], (
+                f"{meta!r} is a cancellation: the requirement closes")
+        else:
+            assert len(_open_questions(sid)) == 1, (
+                f"{meta!r} leaves the requirement open")
+
+    # "Acme, Inc" — one verbatim value (comma rule, finding 7).
+    sid = f"sess-r3-acme-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "Acme, Inc",
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: _tax_plan("Acme, Inc"))
+    assert t["plan_calls"] == 1, "a comma-bearing company name binds"
+    assert t["store"].content.count("Acme, Inc") == 1
 
 
 @pytest.mark.asyncio
 async def test_several_open_requirements_are_asked_apart(monkeypatch):
-    """Two open questions in one conversation: the reply must ask WHICH
-    requirement the value answers — never select the first silently."""
+    """Two open questions in one conversation: a bare value selects
+    NOTHING — the ask names the items; an explicit selection (naming the
+    item, or the option number) binds to THAT question."""
     sid = f"sess-r3-multi-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -403,14 +457,157 @@ async def test_several_open_requirements_are_asked_apart(monkeypatch):
         operation_id="op-2")
     assert qid2, "the second question stamps"
     assert len(_open_questions(sid)) == 2
+    # A bare value selects nothing: the numbered ask, zero writes.
     t = await _turn(monkeypatch, sid, BARE_VALUE,
                     fresh=_stalled_fresh, plan=_tax_plan)
     assert t["plan_calls"] == 0, "never select a requirement silently"
     assert t["store"].updates == []
     said = t["response"].get("message") or ""
     assert "more than one open question" in said, said
-    assert "tax registration number" in said and "VAT number" in said, said
+    assert "1)" in said and "2)" in said, "the options are numbered"
     assert len(_open_questions(sid)) == 2, "both stay open"
+
+    # Naming the item binds to THAT question.
+    t2 = await _turn(monkeypatch, sid, "The VAT number is 47-11",
+                     fresh=_stalled_fresh,
+                     plan=lambda *a, **k: _tax_plan("47-11"))
+    assert t2["plan_calls"] == 1, "the item-named answer binds"
+    assert t2["store"].content.count("47-11") == 1
+
+    # The option number binds to THAT question (the remaining one).
+    sid2 = f"sess-r3-multi2-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid2, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    _stamp_awaiting_value_requirement(
+        None, None, (_open_questions(sid2)[0]["run_id"]),
+        canvas_id=CANVAS_ID, goal_text="Add the client's VAT number to "
+        "this quotation.", references=["from the ledger"],
+        operation_id="op-2b")
+    t3 = await _turn(monkeypatch, sid2, "1",
+                     fresh=_stalled_fresh, plan=_tax_plan)
+    assert t3["plan_calls"] == 1, "an explicit option number binds"
+
+
+@pytest.mark.asyncio
+async def test_stamp_dedup_one_decline_one_question(monkeypatch):
+    """Re-declining the SAME requirement must not accumulate duplicate
+    awaiting-value questions (review round 2, finding 2)."""
+    sid = f"sess-r3-dedup-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+    t2 = await _turn(monkeypatch, sid, REQUEST_MSG,
+                     fresh=_stalled_fresh, plan=None)
+    assert t2["response"].get("outcome") == "partial"
+    assert len(_open_questions(sid)) == 1, (
+        "the same canvas+item stamps exactly one open question")
+
+
+@pytest.mark.asyncio
+async def test_a_fresh_edit_directive_is_never_hijacked(monkeypatch):
+    """Review round 2, finding 1 (BLOCKER): while a requirement is
+    open, a message that is ITSELF an authorized edit instruction is
+    NEW WORK — the normal flow owns it exactly as given, the pending
+    value never binds, and the requirement stays open."""
+    sid = f"sess-r3-fresh-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+
+    fresh_msg = ("Set the Valid Until date on this quotation to "
+                 "2026-12-31.")
+    seen_messages = []
+
+    def _date_plan(*a, **k):
+        seen_messages.append("planned")
+        return cce.CanvasEditPlan(
+            wants_edit=True,
+            edit_mode="patch",
+            ops=[cce.CanvasPatchOp(
+                find="Valid until: 2026-11-30",
+                replace="Valid until: 2026-12-31",
+                origin="user_supplied")],
+        )
+
+    t2 = await _turn(monkeypatch, sid, fresh_msg,
+                     fresh=_stalled_fresh, plan=_date_plan)
+    assert t2["plan_calls"] == 1, "the fresh directive runs the lane"
+    assert "2026-12-31" in t2["store"].content, (
+        "the user's actual instruction applies as given")
+    assert t2["store"].content.count(BARE_VALUE) == 0, (
+        "the pending requirement never injected its synthesized value")
+    # The requirement stays open (the fresh directive did not settle it).
+    assert len(_open_questions(sid)) == 1
+
+
+@pytest.mark.asyncio
+async def test_restore_race_is_named_not_silent(monkeypatch):
+    """Review round 2, finding 3: if the canvas version head moved past
+    our refused write, restoring would eat a concurrent edit — the
+    restore is REFUSED and the reply names it (the refused edit is still
+    in the history; the concurrent content is untouched)."""
+    sid = f"sess-r3-race-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+
+    # The turn's store races: after the lane's write the version head
+    # moves to a concurrent write, so our refused edit is no longer the
+    # head and a blind restore would eat that concurrent edit.
+    monkeypatch.setenv("ATOM_TASK_LIFECYCLE_ENABLED", "1")
+    monkeypatch.setenv("CHAT_FINALIZATION_M1", "1")
+    orchestrator = chat.ChatOrchestrator()
+    canvas = {"canvas_id": CANVAS_ID, "canvas_type": "document",
+              "title": "Quotation Q-2026-114", "content": QUOTE}
+    store = _CanvasStore(QUOTE, raced_versions=True)
+    session = {"id": sid, "history": []}
+
+    async def _reply(*a, **k):
+        return {"content": "the reply leg must not own this turn",
+                "success": True}
+
+    async def _status(sid_, aid, eid, status):
+        return None
+
+    with contextlib.ExitStack() as _stack:
+        for _cm in (
+            patch.object(orchestrator, "_get_or_create_session",
+                         return_value=session),
+            patch.object(orchestrator, "_resolve_canvas_ctx",
+                         new=AsyncMock(return_value=dict(canvas))),
+            patch.object(orchestrator, "_record_chat_step", new=AsyncMock()),
+            patch.object(orchestrator, "_emit_agent_status",
+                         new=AsyncMock(side_effect=_status)),
+            patch.object(orchestrator, "_try_canvas_action", new=AsyncMock()),
+            patch.object(orchestrator, "_get_qwen_response",
+                         new=AsyncMock(side_effect=_reply)),
+            patch("core.chat_tool_planner.plan_tool_use",
+                  new=AsyncMock(return_value=None)),
+            patch("core.chat_tool_planner._provenance_menu",
+                  new=AsyncMock(return_value="")),
+            patch.object(cce, "fetch_fresh_data_section", _stalled_fresh),
+            patch.object(cce, "plan_canvas_edit",
+                         new=AsyncMock(side_effect=(
+                             lambda *a, **k: _duplicated_label_plan()))),
+            patch.object(chat,
+                         "_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS", 0.3),
+        ):
+            _stack.enter_context(_cm)
+        for _cm in store.patches():
+            _stack.enter_context(_cm)
+        r = await orchestrator.process_chat_message(
+            "user-r3", BARE_VALUE, sid, context={"canvas_id": CANVAS_ID})
+
+    said = r.get("message") or ""
+    assert r.get("success") is True, r
+    assert "did NOT restore" in said or "newer change" in said, said
+    assert store.restores == [], (
+        "a raced restore is refused — it would eat a concurrent edit")
+    assert r.get("data", {}).get("canvas_edit", {}).get(
+        "mutation_present") is True
+    assert r.get("data", {}).get("canvas_edit", {}).get(
+        "restored") is False
+    assert len(_open_questions(sid)) == 1, "the question stays open"
 
 
 @pytest.mark.asyncio

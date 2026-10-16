@@ -522,6 +522,34 @@ def _stamp_awaiting_value_requirement(
         lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
         if lifecycle is None:
             return None
+        # DEDUP (review round 2, finding 2): a run already carrying an
+        # OPEN awaiting-value question for the SAME canvas and item must
+        # not accumulate a second one — every decline would otherwise
+        # grow the ledger and the multi-requirement ask would nag on
+        # requirements that are really the same one.
+        try:
+            existing = lifecycle.get_task(run_id) or {}
+            for q in (existing.get("task_revision") or {}).get(
+                    "unresolved") or []:
+                if not isinstance(q, dict) \
+                        or q.get("status") != "open" \
+                        or q.get("next_action") != _AWAITING_VALUE_NEXT_ACTION:
+                    continue
+                q_inputs = q.get("inputs") if isinstance(
+                    q.get("inputs"), dict) else {}
+                same_canvas = str(q_inputs.get("canvas_id") or "") == \
+                    str(canvas_id or "")
+                same_item = _requirement_item_from_request(goal_text) == \
+                    str(q.get("item") or "")
+                if same_canvas and same_item:
+                    logger.info(
+                        "[requirement-resume] an open awaiting-value "
+                        "question already covers this canvas+item — not "
+                        "stamping again (question=%s)",
+                        q.get("question_id"))
+                    return q.get("question_id")
+        except Exception:  # noqa: BLE001 — dedup is best-effort
+            pass
         question = {
             "kind": "missing_evidence",
             "item": _requirement_item_from_request(goal_text),
@@ -627,18 +655,24 @@ def _open_awaiting_value_requirements(
 
 
 #: CLOSED-CLASS REPLY INTERPRETATION (bounded correction 2026-10-16,
-#: item 1): an open awaiting-value question makes the next message its
-#: PROSPECTIVE answer — but cancellation and questions must never
-#: become edit attempts, so the reply is classified BEFORE any binding.
-#: Deterministic closed classes only; values are carried VERBATIM (no
-#: word removal, no numeric-adjacent splitting).
+#: item 1; independent-review round 2): an open awaiting-value question
+#: makes the next message its PROSPECTIVE answer — but cancellation and
+#: questions must never become edit attempts, so the reply is classified
+#: BEFORE any binding. Deterministic closed classes only; values are
+#: carried VERBATIM (no word removal, no numeric-adjacent splitting).
 _RESUME_CANCEL_RE = re.compile(
     r"^\s*(?:please\s+)?(?:"
     r"cancel(?:\s+(?:that|this|it|everything|all\s+of\s+it))?|"
     r"stop|abort|forget\s+it|nevermind|never\s+mind|dismiss|"
     r"scratch\s+that|don'?t\s+bother|do\s+not\s+bother|"
     r"leave\s+it|leave\s+that|nope|nah"
-    r")\s*[.!]?\s*$", re.IGNORECASE)
+    r")\s*(?:please)?\s*[.!]?\s*$", re.IGNORECASE)
+#: A message of ONLY politeness/meta tokens carries no value: the normal
+#: flows own it (binding "please" or "thanks" as a value is a garbage
+#: write).
+_RESUME_META_ONLY_RE = re.compile(
+    r"^\s*(?:please|thanks|thank\s+you|ok|okay|sure|alright|hello|hi)\s*"
+    r"[.!]?\s*$", re.IGNORECASE)
 _RESUME_QUESTION_RE = re.compile(
     r"^\s*(?:what|where|when|who|whom|whose|why|how|which|is|are|was|"
     r"were|do|does|did|can|could|will|would|shall|should|may|might|"
@@ -648,49 +682,87 @@ _RESUME_QUESTION_RE = re.compile(
 def _resume_reply_class(message: str) -> str:
     """cancel | question | answer (the classes an open requirement
     distinguishes BEFORE binding). A bare refusal with no value content
-    is a cancellation; anything interrogative is a question and falls to
-    the normal flows — never an edit attempt."""
+    is a cancellation; ANYTHING interrogative — including a trailing '?'
+    on a digit-bearing message — is a question and falls to the normal
+    flows, never an edit attempt (review round 2, finding 5)."""
     text = str(message or "").strip()
     if not text:
         return "question"  # nothing to bind; the normal flows own it
     if _RESUME_CANCEL_RE.match(text):
         return "cancel"
+    if _RESUME_META_ONLY_RE.match(text):
+        return "question"
     if _RESUME_QUESTION_RE.match(text):
         return "question"
-    if text.endswith("?") and not any(ch.isdigit() for ch in text):
-        return "question"  # a question mark with no value in sight
+    if text.endswith("?"):
+        # A trailing question mark is a question, digits or not: the
+        # safe direction is to let the conversational layer answer it.
+        return "question"
     return "answer"
 
 
 #: Coordination separators ONLY — a comma adjacent to digits stays part
-#: of the value ("12,500" is one value), a comma followed by whitespace
-#: separates candidates. Word removal is forbidden: interior words are
-#: carried verbatim ("Research and Development" stays whole).
+#: of the value ("12,500" is one value). A comma followed by whitespace
+#: splits ONLY when BOTH sides carry a digit: "03-4567-8912, or …"
+#: coordinates two numeric candidates, while "Acme, Inc" is one
+#: verbatim value (review round 2, finding 7). Word removal is
+#: forbidden: interior words are carried verbatim.
 _VALUE_CANDIDATE_SPLIT_RE = re.compile(
-    r"\n+|;\s*|,\s+|\s+or\s+(?=\S)", re.IGNORECASE)
+    r"\n+|;\s*|\s+or\s+(?=\S)", re.IGNORECASE)
+_VALUE_COMMA_SPLIT_RE = re.compile(r",\s+")
 #: KNOWN meta lead-ins/tails around a value — interpretation, not value
 #: content. Narrow on purpose; everything else is kept verbatim.
 _RESUME_META_LEAD_RE = re.compile(
     r"^(?:please|it'?s|it\s+is|the\s+(?:value|answer|number|amount)\s+is|"
-    r"use|try|maybe|possibly|perhaps|alternatively|or)\s+",
+    r"use|try|take|maybe|possibly|perhaps|alternatively|actually|or)\s+",
     re.IGNORECASE)
 _RESUME_META_TAIL_RE = re.compile(
     r"[\s,;]*[—–-]?\s*(?:not\s+sure|unsure|i\s+think|actually)\s*[.!]?\s*$",
     re.IGNORECASE)
+#: THE ANSWER FRAME: "X is Y" / "X: Y" / "X are Y" — the frame names the
+#: requirement, the tail IS the value. The frame is bounded (60 chars)
+#: so a value that merely CONTAINS ' is ' is not silently truncated
+#: unless the frame pattern genuinely leads the segment.
+_RESUME_ANSWER_FRAME_RE = re.compile(
+    r"^\s*(?:the\s+)?[a-z0-9'\s\-]{0,60}?(?:\bis\b|\bare\b|\s*:)\s*",
+    re.IGNORECASE)
+
+
+def _answer_value(segment: str) -> str:
+    """The value inside one answer segment: after a bounded
+    'X is/are/:' answer frame, the tail is the value, verbatim."""
+    text = str(segment or "").strip()
+    m = _RESUME_ANSWER_FRAME_RE.match(text)
+    if m:
+        tail = text[m.end():].strip()
+        if tail:
+            return tail
+    return text
 
 
 def _value_candidates(message: str) -> List[str]:
     """The distinct value attempts in the user's message, VERBATIM.
 
-    Splits on explicit coordination separators only (newline, semicolon,
-    comma-followed-by-whitespace, spaced 'or'); strips KNOWN meta
-    lead-ins/tails; keeps every other word. ONE candidate binds; several
-    are ambiguous — the ask names them VERBATIM, nothing writes."""
+    Splits on explicit coordination separators (newline, semicolon,
+    spaced 'or') and on comma-followed-by-whitespace ONLY when both
+    sides carry a digit; strips KNOWN meta lead-ins/tails; keeps every
+    other word. ONE candidate binds; several are ambiguous — the ask
+    names them VERBATIM, nothing writes."""
     text = str(message or "").strip()
     if not text:
         return []
+    parts: List[str] = []
+    for segment in _VALUE_CANDIDATE_SPLIT_RE.split(text):
+        # The comma rule: split only when BOTH sides carry a digit.
+        chunks = [segment]
+        if "," in segment:
+            pieces = _VALUE_COMMA_SPLIT_RE.split(segment)
+            if len(pieces) > 1 and all(
+                    any(ch.isdigit() for ch in p) for p in pieces):
+                chunks = pieces
+        parts.extend(chunks)
     candidates: List[str] = []
-    for part in _VALUE_CANDIDATE_SPLIT_RE.split(text):
+    for part in parts:
         candidate = str(part).strip().strip("\"'")
         while True:
             stripped = _RESUME_META_LEAD_RE.sub("", candidate).strip()
@@ -698,11 +770,25 @@ def _value_candidates(message: str) -> List[str]:
                 break
             candidate = stripped
         candidate = _RESUME_META_TAIL_RE.sub("", candidate).strip()
+        candidate = _answer_value(candidate)
         candidate = candidate.strip(" \t.,;!?\"'").strip()
         if candidate and any(ch.isalnum() for ch in candidate) \
                 and candidate not in candidates:
             candidates.append(candidate)
     return candidates
+
+
+def _compound_cancel(message: str) -> bool:
+    """A reply whose FIRST coordination segment cancels closes the
+    requirement: 'Cancel that. Actually use 03-4567-8912' is a
+    cancellation of the pending edit (the value after it has no open
+    requirement to bind to). Review round 2, finding 4."""
+    text = str(message or "").strip()
+    if not text:
+        return False
+    first = re.split(r"\n+|[.;]\s+|\s+or\s+", text, maxsplit=1,
+                     flags=re.IGNORECASE)[0]
+    return bool(_RESUME_CANCEL_RE.match(first.strip()))
 
 
 def _ambiguous_value_message(item: str, candidates: List[str]) -> str:
@@ -713,11 +799,46 @@ def _ambiguous_value_message(item: str, candidates: List[str]) -> str:
 
 
 def _multiple_requirements_message(items: List[str]) -> str:
-    shown = "; ".join(str(i)[:80] for i in items[:3])
+    numbered = "; ".join(
+        f"{i + 1}) {str(it)[:80]}" for i, it in enumerate(items[:3]))
     return (
-        "I have more than one open question here — your reply could "
-        f"answer any of: {shown}. Which one does your value belong to? "
+        "I have more than one open question here. Which one does your "
+        f"value answer — reply with the number, or name it: {numbered}. "
         "Nothing was changed yet.")
+
+
+def _select_requirement(
+        message: str, open_reqs: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Deterministic selection when several requirements are open
+    (review round 2, finding 2): an explicit option number picks that
+    question; naming an item picks it — matched by a ≥2-word contiguous
+    window of the item's own words, so 'the VAT number is 47-11' binds
+    the 'client's VAT number' requirement. Anything else selects
+    NOTHING — the ask is repeated, never a silent guess."""
+    text = str(message or "").strip()
+    m = re.match(r"^(?:option\s+)?([0-9])\s*[.!]?$", text, re.IGNORECASE)
+    if m:
+        idx = int(m.group(1)) - 1
+        return open_reqs[idx] if 0 <= idx < len(open_reqs) else None
+    low = f" {text.lower()} "
+
+    def _names_item(item: str) -> bool:
+        words = [
+            w.strip(".,;:!?\"'").lower()
+            for w in str(item or "").split()
+            if w.strip(".,;:!?\"'").lower() not in ("the", "a", "an")]
+        if len(words) < 2:
+            return f" {words[0]} " in low if words else False
+        for width in range(len(words), 1, -1):
+            for start in range(len(words) - width + 1):
+                window = " " + " ".join(words[start:start + width]) + " "
+                if window in low:
+                    return True
+        return False
+
+    hits = [q for q in open_reqs if _names_item(q.get("item"))]
+    return hits[0] if len(hits) == 1 else None
 
 
 def _resume_cancelled_message(item: str) -> str:
@@ -12233,10 +12354,37 @@ class ChatOrchestrator:
                 except Exception:  # noqa: BLE001 — additive
                     _resume_open = []
             if _resume_open:
+                # FRESH EDIT DIRECTIVE (review round 2, finding 1): a
+                # message that is ITSELF an edit-shaped instruction on
+                # this canvas is NEW WORK — the normal flow owns it and
+                # the requirement stays open. The pending value must
+                # never hijack a fresh directive (that both garbled the
+                # write and falsely settled the requirement). Shape alone
+                # decides here: a value answer is never edit-shaped,
+                # while a directive's grant is the lane's own gate to
+                # evaluate (edit_authorization may rightly answer
+                # needs_grant for a standalone directive).
+                _fresh_directive = False
+                if _canvas_ctx:
+                    try:
+                        _fresh_directive = bool(_canvas_edit_shaped(
+                            message, {"canvas": _canvas_ctx}))
+                    except Exception:  # noqa: BLE001 — fail toward binding
+                        _fresh_directive = False
+                if _fresh_directive:
+                    logger.info(
+                        "[requirement-resume] the reply is itself an "
+                        "edit-shaped instruction — normal flow owns it; "
+                        "the requirement stays open")
+                    _resume_open = []
+            if _resume_open:
                 _reply_class = _resume_reply_class(message)
-                if _reply_class == "cancel":
+                if _reply_class == "cancel" or _compound_cancel(message):
                     # CANCELLATION: close the open requirement(s) —
-                    # never an edit attempt, never left dangling.
+                    # never an edit attempt, never left dangling. A
+                    # compound message whose FIRST segment cancels
+                    # ('Cancel that. Actually use …') is a cancellation:
+                    # the value after it has no open requirement left.
                     _first_item = str(_resume_open[0].get(
                         "item") or "the requested change")
                     try:
@@ -12314,52 +12462,61 @@ class ChatOrchestrator:
                         "normal flow, requirement stays open")
                     _resume_open = []
                 elif len(_resume_open) > 1:
-                    # SEVERAL open requirements: ask which one — never
-                    # select silently.
-                    _multi_message = _multiple_requirements_message([
-                        _q.get("item") or "the requested change"
-                        for _q in _resume_open])
-                    _multi_response = {
-                        "success": True,
-                        "message": _multi_message,
-                        "session_id": session_id,
-                        "execution_id": _execution_id,
-                        "intent": "canvas_edit",
-                        "confidence": 0.9,
-                        "outcome": "partial",
-                        "_recorded_outcome": {
-                            "state": "partial", "work_turn": True,
-                            "noop": False, "declined": True},
-                        "data": {"canvas_edit": {
-                            "canvas_id": (_canvas_ctx or {}).get("canvas_id"),
-                            "updated": False, "no_apply": True,
-                            "reason": "multiple_open_requirements",
-                            "outcome": "refused",
+                    # SEVERAL open requirements: bind by EXPLICIT
+                    # selection only (option number or naming the item);
+                    # otherwise ask — never select silently.
+                    _selected = _select_requirement(message, _resume_open)
+                    if _selected is None:
+                        _multi_message = _multiple_requirements_message([
+                            _q.get("item") or "the requested change"
+                            for _q in _resume_open])
+                        _multi_response = {
+                            "success": True,
+                            "message": _multi_message,
+                            "session_id": session_id,
                             "execution_id": _execution_id,
-                            "requirement_question_ids": [
-                                _q.get("question_id") for _q in _resume_open],
-                        }},
-                        "suggested_actions": [],
-                        "requires_confirmation": False,
-                        "next_steps": [],
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                    self._update_session(
-                        session, message, _multi_response,
-                        {"primary_intent": "canvas_edit", "confidence": 0.9})
-                    await self._emit_agent_status(
-                        session_id, _trace_agent_id, _execution_id, "success")
-                    self._finish_chat_execution(
-                        _execution_id, "success", _multi_message,
-                        session=session, message=message,
-                        response=_multi_response, deadline=_deadline)
-                    logger.info(
-                        "[requirement-resume] several open requirements — "
-                        "asked which one, zero writes (%d)",
-                        len(_resume_open))
-                    if _tool_plan_task is not None and not _tool_plan_task.done():
-                        _tool_plan_task.cancel()
-                    return _multi_response
+                            "intent": "canvas_edit",
+                            "confidence": 0.9,
+                            "outcome": "partial",
+                            "_recorded_outcome": {
+                                "state": "partial", "work_turn": True,
+                                "noop": False, "declined": True},
+                            "data": {"canvas_edit": {
+                                "canvas_id": (
+                                    (_canvas_ctx or {}).get("canvas_id")),
+                                "updated": False, "no_apply": True,
+                                "reason": "multiple_open_requirements",
+                                "outcome": "refused",
+                                "execution_id": _execution_id,
+                                "requirement_question_ids": [
+                                    _q.get("question_id")
+                                    for _q in _resume_open],
+                            }},
+                            "suggested_actions": [],
+                            "requires_confirmation": False,
+                            "next_steps": [],
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        self._update_session(
+                            session, message, _multi_response,
+                            {"primary_intent": "canvas_edit",
+                             "confidence": 0.9})
+                        await self._emit_agent_status(
+                            session_id, _trace_agent_id, _execution_id,
+                            "success")
+                        self._finish_chat_execution(
+                            _execution_id, "success", _multi_message,
+                            session=session, message=message,
+                            response=_multi_response, deadline=_deadline)
+                        logger.info(
+                            "[requirement-resume] several open "
+                            "requirements — asked which one, zero writes "
+                            "(%d)", len(_resume_open))
+                        if _tool_plan_task is not None \
+                                and not _tool_plan_task.done():
+                            _tool_plan_task.cancel()
+                        return _multi_response
+                    _resume_req = _selected
                 else:
                     _resume_req = _resume_open[0]
             if _resume_req is not None:
@@ -12965,6 +13122,58 @@ class ChatOrchestrator:
                                     _restored_verified = False
                                     _pre_audit = str(
                                         _resume_pc.get("pre_audit_id") or "")
+                                    _race_guard = False
+                                    if _pre_audit:
+                                        try:
+                                            # RESTORE-RACE GUARD (review
+                                            # round 2, finding 3): the
+                                            # pre-edit version was
+                                            # captured before the whole
+                                            # plan+apply window. Restoring
+                                            # it blindly would also eat
+                                            # any CONCURRENT write that
+                                            # landed in that window. Our
+                                            # write must still be the
+                                            # version-list head; if the
+                                            # head moved, restoring is
+                                            # refused and the reply says
+                                            # so — never a silent revert
+                                            # of someone else's edit.
+                                            from tools.canvas_crud_tool \
+                                                import (
+                                                    list_canvas_versions
+                                                    as _rpost_list,
+                                                )
+                                            _head = ""
+                                            _vl = await _rpost_list(
+                                                user_id,
+                                                (_canvas_ctx or {}).get(
+                                                    "canvas_id"))
+                                            _vrows = (
+                                                (_vl or {}).get("versions")
+                                                if isinstance(_vl, dict)
+                                                else _vl)
+                                            if isinstance(_vrows, list) \
+                                                    and _vrows:
+                                                _head = str(
+                                                    (_vrows[0] or {}).get(
+                                                        "audit_id") or "")
+                                            _ours = str(
+                                                _ce_data.get("audit_id")
+                                                or "")
+                                            if _ours and _head \
+                                                    and _head != _ours:
+                                                _race_guard = True
+                                                _pre_audit = ""
+                                                logger.warning(
+                                                    "[requirement-resume] "
+                                                    "restore REFUSED — the "
+                                                    "canvas moved during "
+                                                    "verification (head=%s, "
+                                                    "ours=%s)", _head[:12],
+                                                    _ours[:12])
+                                        except Exception:
+                                            pass
                                     if _pre_audit:
                                         try:
                                             _rs = await _rpost_restore(
@@ -13006,6 +13215,19 @@ class ChatOrchestrator:
                                             "its prior state. Nothing was "
                                             "kept. ("
                                             + "; ".join(_violations) + ")")
+                                    elif _race_guard:
+                                        _pc_message = (
+                                            "The attempted change did not "
+                                            "preserve your draft, and a "
+                                            "newer change landed on the "
+                                            "canvas while I was "
+                                            "verifying — I did NOT "
+                                            "restore automatically, so "
+                                            "your latest content is "
+                                            "untouched but my refused "
+                                            "edit is still in the "
+                                            "history. ("
+                                            + "; ".join(_violations) + ")")
                                     else:
                                         _pc_message = (
                                             "The attempted change did not "
@@ -13040,6 +13262,17 @@ class ChatOrchestrator:
                                             "execution_id": _execution_id,
                                             "violations": _violations,
                                             "restored": _restored_verified,
+                                            # Honest payload (review
+                                            # round 2, finding 6): when
+                                            # the restore did not happen
+                                            # the refused write is still
+                                            # physically on the canvas —
+                                            # downstream consumers must
+                                            # see that.
+                                            "mutation_present": (
+                                                not _restored_verified),
+                                            "restore_race_guard": (
+                                                bool(_race_guard)),
                                             "requirement_question_id":
                                                 _resume_pc.get("question_id"),
                                         }},
