@@ -12059,13 +12059,18 @@ class ChatOrchestrator:
                                 session.get(FILE_TASK_SESSION_KEY),
                                 _direct_identity,
                             )
-                            # R4 SCRATCH LATCH (env-gated; diagnostic world
-                            # only) - the direct-complete read lane's commit
-                            # point: same checkpoint/block contract as the
-                            # planner-dispatch lane's latch.
-                            if os.getenv("ATOM_R4_DIAG") == "1":
+                            # R4 SCRATCH LATCH (env-gated via
+                            # ATOM_R4_LATCH; diagnostic world only) - placed
+                            # AFTER the settlement commits (findings, source
+                            # identity, outcome are in the lifecycle
+                            # operation) and BEFORE delivery. The checkpoint
+                            # carries the FULL identity chain. On expiry the
+                            # stored result is withheld and the expiry is
+                            # recorded loudly - never a silent fall-through
+                            # to delivery.
+                            if os.getenv("ATOM_R4_LATCH") == "1":
                                 import json as _r4json2
-                                _r4_dir2 = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+                                _r4_dir2 = os.environ["ATOM_DATA_DIR"]
                                 _r4_task = session.get(FILE_TASK_SESSION_KEY) or {}
                                 with open(os.path.join(
                                         _r4_dir2, "r4_checkpoint.json"),
@@ -12074,8 +12079,20 @@ class ChatOrchestrator:
                                         "lane": "direct_complete",
                                         "execution_id": execution_id,
                                         "session_id": session_id,
+                                        "workspace_id": (
+                                            (context or {}).get(
+                                                "workspace_id")),
+                                        "run_id": _tl_begin[0],
+                                        "operation_id": _tl_begin[1],
                                         "status": "retrieved_delivery_blocked",
-                                        "identity": _direct_identity,
+                                        "result_identity": _direct_identity,
+                                        "findings_count": len(
+                                            _tl_execution.get("findings")
+                                            or []) if isinstance(
+                                            _tl_execution, dict) else 0,
+                                        "source_version": (
+                                            _tl_execution or {}).get(
+                                            "source_version"),
                                         "task_state": {
                                             k: str(v)[:120] for k, v in
                                             _r4_task.items() if k in (
@@ -21860,82 +21877,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             "(identity=%s)",
                             (_identity).get("file_id")
                             or _plan_mentions[0])
-                        # R4 SCRATCH LATCH (env-gated; ONLY the diagnostic
-                        # world sets ATOM_R4_DIAG=1): the result transaction
-                        # has committed - announce the checkpoint with the
-                        # execution/result identities and BLOCK delivery
-                        # while the latch file exists, so the driver can
-                        # terminate the process at the PROVEN
-                        # retrieved-not-delivered boundary. A missing env is
-                        # production behavior, byte-for-byte unchanged.
-                        if os.getenv("ATOM_R4_DIAG") == "1":
-                            import asyncio as _r4asyncio
-                            import json as _r4json
-                            _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
-                            _r4_result = session.get("_pending_file_result") or {}
-                            _r4_ckpt = {
-                                "execution_id": execution_id,
-                                "session_id": session_id,
-                                "status": "retrieved_delivery_blocked",
-                                "identity": _r4_result.get("identity"),
-                                "rendered_head": str(
-                                    _r4_result.get("rendered") or "")[:400],
-                                "structured_result_keys": sorted(
-                                    (_r4_result.get("structured_result")
-                                     or {}).keys()
-                                ) if isinstance(
-                                    _r4_result.get("structured_result"),
-                                    dict) else [],
-                                "note": (
-                                    "checkpoint after the result write; "
-                                    "DURABLE persistence is verified by the "
-                                    "driver from the record store before the "
-                                    "kill - the in-memory assignment alone is "
-                                    "not proof"),
-                                "latched_at": time.time(),
-                            }
-                            with open(os.path.join(
-                                    _r4_dir, "r4_checkpoint.json"), "w") as rf:
-                                _r4json.dump(_r4_ckpt, rf, default=str)
-                            _r4_block = os.path.join(
-                                _r4_dir, "r4_delivery_block")
-                            logger.warning(
-                                "[r4-latch] result written; delivery "
-                                "BLOCKED while %s exists", _r4_block)
-                            # AWAITED wait (review round 8): a blocking
-                            # time.sleep starved the event loop. Monotonic
-                            # deadline; on EXPIRY the expiry is recorded
-                            # loudly (file + log) and the stored result is
-                            # set aside - the turn does NOT silently deliver
-                            # it; the driver classifies the attempt invalid.
-                            _r4_deadline = time.monotonic() + 300
-                            while os.path.exists(_r4_block)                                     and time.monotonic() < _r4_deadline:
-                                await _r4asyncio.sleep(0.2)
-                            if os.path.exists(_r4_block):
-                                # EXPIRED: the stored result is WITHHELD
-                                # (removed from the session so no downstream
-                                # lane renders it), the expiry is recorded
-                                # loudly, and this helper returns — the
-                                # outer turn proceeds WITHOUT the stored
-                                # result (the reply answers honestly from
-                                # what it has; nothing is silently
-                                # delivered). The driver classifies the
-                                # attempt invalid from the expiry file.
-                                session.pop("_pending_file_result", None)
-                                _r4_expired = os.path.join(
-                                    _r4_dir, "r4_latch_expired.json")
-                                with open(_r4_expired, "w") as rf:
-                                    _r4json.dump({
-                                        "execution_id": execution_id,
-                                        "session_id": session_id,
-                                        "identity": _r4_result.get(
-                                            "identity"),
-                                    }, rf, default=str)
-                                logger.warning(
-                                    "[r4-latch] EXPIRED - stored result "
-                                    "WITHHELD, diagnostic recorded invalid "
-                                    "(%s)", _r4_expired)
-                                return
                     else:
                         session[FILE_TASK_SESSION_KEY] = merge_pending_task(
                             session.get(FILE_TASK_SESSION_KEY), message,

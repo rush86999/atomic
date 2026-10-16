@@ -363,6 +363,7 @@ def run_r4() -> dict:
                   "OLLAMA_MODEL": "llama3.1:8b",
                   "ATOM_ASYNC_EDIT_PLAN_MODEL": PIN_SPEC,
                   "ATOM_R4_DIAG": "1",
+                  "ATOM_R4_LATCH": "1",
                   **CRED_SCRUB}
     # PERSISTENCE-PATH ISOLATION (owner instruction: record every
     # effective path; refuse launch if a writable store resolves to the
@@ -581,6 +582,14 @@ def run_r4() -> dict:
                 delivery_won = True
                 break
             time.sleep(0.15)
+        if checkpoint is not None:
+            # LANE AND IDENTITY CHAIN (owner items 1-2): the checkpoint
+            # must come from the direct-complete lane and carry the full
+            # identity chain.
+            assert checkpoint.get("lane") == "direct_complete", checkpoint
+            assert checkpoint.get("workspace_id"), checkpoint
+            assert checkpoint.get("run_id"), checkpoint
+            assert checkpoint.get("operation_id"), checkpoint
         wait_s = round(time.monotonic() - t0, 1)
         ev["barrier"] = {
             "checkpoint_seen": checkpoint_seen,

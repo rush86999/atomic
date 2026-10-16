@@ -7392,15 +7392,29 @@ async def _datasets_named_file_block(
     # counter, not by log silence, and a FAILED second read does not
     # disappear from the record (owner item: keep invocation and
     # completion distinct).
-    if os.getenv("ATOM_R4_DIAG") == "1":
-        import json as _r4json
-        import time as _r4time
-        _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+    _r4_diag = os.getenv("ATOM_R4_DIAG") == "1"
+    _r4_dir = os.environ.get("ATOM_DATA_DIR")
+    _r4_base: dict = {}
+    if _r4_diag and _r4_dir:
         _r4_base = {
             "plan_execution_id": getattr(plan, "id", None)
             or getattr(plan, "execution_id", None),
             "content_hash": (prov or {}).get("content_hash"),
         }
+    if _read_status == "failed":
+        _scan_action = "read_failed"
+    elif bool(recs) or _scanned_ok:
+        _scan_action = "new_read"
+    # R4 SCRATCH SOURCE COUNTER (env-gated; only the diagnostic world
+    # sets ATOM_R4_DIAG=1): an attributable source-executor event per
+    # read ATTEMPT (invoked) and per read COMPLETION (with the verdict
+    # and row count) - so "no second source call" is proven by the
+    # counter, not by log silence, and a FAILED second read does not
+    # disappear from the record. NO cwd fallback: without an explicit
+    # scratch dir the counter is skipped, never written elsewhere.
+    if _r4_diag and _r4_dir:
+        import json as _r4json
+        import time as _r4time
         with open(os.path.join(
                 _r4_dir, "r4_source_invocations.jsonl"), "a") as rf:
             rf.write(_r4json.dumps({**_r4_base, "event": "read_invoked",
@@ -7408,67 +7422,40 @@ async def _datasets_named_file_block(
                                     "rows": len(recs) if recs else 0,
                                     "at": _r4time.time()},
                                    default=str) + "\n")
+        if _scan_action:
+            with open(os.path.join(
+                    _r4_dir, "r4_source_invocations.jsonl"), "a") as rf:
+                rf.write(_r4json.dumps({**_r4_base, "event": "read_completed",
+                                        "scan_action": _scan_action,
+                                        "rows": len(recs) if recs else 0,
+                                        "at": _r4time.time()},
+                                       default=str) + "\n")
     if _read_status == "failed":
         _scan_action = "read_failed"
     elif bool(recs) or _scanned_ok:
         _scan_action = "new_read"
         if os.getenv("ATOM_R4_DIAG") == "1":
-            import asyncio as _r4aio
             import json as _r4json
             import time as _r4time
-            _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
-            _r4_exec_id = getattr(plan, "id", None) or getattr(
-                plan, "execution_id", None)
-            _r4_evt = {
-                "event": "read_completed",
-                "scan_action": _scan_action,
-                "plan_execution_id": _r4_exec_id,
-                "content_hash": (prov or {}).get("content_hash"),
-                "rows": len(recs) if recs else 0,
-                "at": _r4time.time(),
-            }
-            with open(os.path.join(
-                    _r4_dir, "r4_source_invocations.jsonl"), "a") as rf:
-                rf.write(_r4json.dumps(_r4_evt, default=str) + "\n")
-            # R4 SCRATCH LATCH (this lane produced the goal_runs
-            # findings): after the completed-read event, BEFORE the
-            # block is returned for rendering/delivery, announce the
-            # checkpoint and BLOCK while the latch file exists - the
-            # driver terminates the process at this proven
-            # post-commit/pre-delivery boundary. AWAITED (no event-loop
-            # starvation); monotonic deadline; on expiry the expiry is
-            # recorded loudly (never a silent fall-through to
-            # delivery).
-            _r4_ckpt = {
-                "lane": "datasets_named_file",
-                "plan_execution_id": _r4_exec_id,
-                "file_name": file_name,
-                "source_version": (prov or {}).get("content_hash"),
-                "scan_action": _scan_action,
-                "rows": len(recs) if recs else 0,
-                "latched_at": _r4time.time(),
-            }
-            with open(os.path.join(_r4_dir, "r4_checkpoint.json"),
-                      "w") as rf:
-                _r4json.dump(_r4_ckpt, rf, default=str)
-            _r4_block_file = os.path.join(_r4_dir, "r4_delivery_block")
-            logger.warning(
-                "[r4-latch] read committed; delivery BLOCKED while %s "
-                "exists", _r4_block_file)
-            _r4_deadline = _r4time.monotonic() + 300
-            while os.path.exists(_r4_block_file) \
-                    and _r4time.monotonic() < _r4_deadline:
-                await _r4aio.sleep(0.2)
-            if os.path.exists(_r4_block_file):
-                _r4_expired = os.path.join(_r4_dir, "r4_latch_expired.json")
-                with open(_r4_expired, "w") as rf:
-                    _r4json.dump({
-                        "lane": "datasets_named_file",
-                        "plan_execution_id": _r4_exec_id,
-                    }, rf, default=str)
-                logger.warning(
-                    "[r4-latch] EXPIRED - diagnostic recorded invalid "
-                    "(%s)", _r4_expired)
+            # NO cwd fallback (owner instruction): without an explicit
+            # scratch dir the counter is skipped, never written elsewhere.
+            _r4_dir = os.environ.get("ATOM_DATA_DIR")
+            if not _r4_dir:
+                logger.debug(
+                    "[r4-counter] skipped - no ATOM_DATA_DIR configured")
+            else:
+                _r4_evt = {
+                    "event": "read_completed",
+                    "scan_action": _scan_action,
+                    "plan_execution_id": getattr(plan, "id", None)
+                    or getattr(plan, "execution_id", None),
+                    "content_hash": (prov or {}).get("content_hash"),
+                    "rows": len(recs) if recs else 0,
+                    "at": _r4time.time(),
+                }
+                with open(os.path.join(
+                        _r4_dir, "r4_source_invocations.jsonl"), "a") as rf:
+                    rf.write(_r4json.dumps(_r4_evt, default=str) + "\n")
     elif not file_entries:
         _scan_action = "unverified"
     else:
