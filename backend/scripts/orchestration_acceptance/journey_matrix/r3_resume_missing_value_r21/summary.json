@@ -48,6 +48,20 @@
    "failed_request_count": 0,
    "result": "ALL GATES GREEN after three real restarts: the request ships the specific ask (partial, zero writes, draft unchanged); after the restart the bare value binds the stamped requirement ('Client's tax registration number updated to 03-4567-8912.') with ONE write, the value once, protected content intact, attributable audit row, objective_met=true + readback_matched=true, reload agreement; the ambiguous value asks once naming both candidates verbatim with zero writes.",
    "checks": "every check on every turn true; zero failed requests"
+  },
+  {
+   "evidence_archived": {
+    "path": "evidence_r3_resume_20261016_110140_b9354f.json",
+    "sha256": "d1fcf996923d2f0d9e91bb9dc8e2fc0de38451b54e829df0af3c4160a53e50e5",
+    "note": "sanitized in-repo archive; the FOCUSED restart/resume acceptance on the review-approved frozen candidate"
+   },
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_110140_b9354f.json",
+   "subject": "ec325cdc9 (structurally-closed frozen candidate; reviewer blob-verified the runtime byte-identical to the commit)",
+   "counted": false,
+   "pass": true,
+   "failed_request_count": 0,
+   "result": "FOCUSED ACCEPTANCE PASSES: request turn ships the specific ask (partial, zero writes, draft unchanged); after the real restart the bare value binds the stamped requirement ('Added client tax registration number 03-4567-8912 to the quotation.') with ONE write, the value EXACTLY ONCE, protected content intact, attributable audit row, reload agreement; the ambiguous value asks once naming both candidates. Zero failed requests; every check on every turn true.",
+   "review_round_6": "structurally closed (Option A): anchored frames bind ONLY digit-bearing or quoted tails \u2014 an unquoted non-digit tail is an open class and resolves to unresolved; quoted tails fall through to the quote branch; the word denylist is deleted. Reviewer APPROVE with the condition the run launches from the settled pinned tree (met)."
   }
  ],
  "tests": {
@@ -67,5 +81,13 @@
    "round 3 APPROVE on de3a647fb-lineage fixes; then the live run exposed the settled-lookup variance \u2192 bounded extension 8ebe1a2f0 \u2192 scoped re-review APPROVE (non-gating NOTEs: planner_declined residual message-accuracy class, chain-report append ordering, answer-frame inversion and other [MINOR] polish recorded for follow-up)"
   ],
   "verdict": "APPROVE \u2014 live run unblocked (the reviewer's independent probes, suite runs, and neighbor sweep all confirmed)"
- }
+ },
+ "closure": "R3's tested identifier-resume workflow passes, including restart, preservation, attribution, and reload. General natural-language reply interpretation and arbitrary text-value preservation remain unresolved. (Owner-corrected closure statement, 2026-10-16.)",
+ "interpretation_contract": [
+  "six classes: answer | question | cancel | selection | new_instruction | unresolved; unrecognized text is UNRESOLVED, never an answer by default",
+  "an answer is recognized only with an EXACT value span into the original message: requirement-anchored frame with a DIGIT-BEARING tail, a digit-bearing reply, or an explicitly quoted span",
+  "unanchored multi-word non-digit values (e.g. 'Research and Development', 'Acme, Inc' unquoted) ASK; the quoted form binds verbatim (recorded contract change)",
+  "ambiguity (several spans) and several open requirements produce specific clarifications with zero writes",
+  "pre-persistence preservation on the proposed artifact; post-write readback + revision-guarded restore only as exceptional recovery"
+ ]
 }
