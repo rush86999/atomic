@@ -663,23 +663,17 @@ def _open_awaiting_value_requirements(
 
 
 #: THE SIX-CLASS REPLY INTERPRETATION (owner instruction 2026-10-16,
-#: accepted-interpretation migration; speech-act boundary per the owner
-#: work order 2026-10-16): an open awaiting-value question makes the
-#: next message a PROSPECTIVE answer, and the reply is classified into
-#: answer | question | cancel | selection | new_instruction |
-#: unresolved. UNRECOGNIZED TEXT IS `unresolved` — it NEVER becomes an
-#: answer by default, and no stripping regex rewrites what the user
-#: wrote: an `answer` is RECOGNIZED only when the message carries an
-#: EXACT value span whose SPEECH ACT is a supply — a requirement-
-#: anchored frame ("The VAT number is 47-11": the frame's subject names
-#: the requirement's item), a bare digit reply ("03-4567-8912",
-#: "12,500"), an explicitly assigned quoted value ('Use "pending" as
-#: the status.'), or a bare quoted value answering one clear
-#: requirement ('"Acme, Inc"'). A message that only MENTIONS a value —
-#: reported information ('I found the note "pending" in our records.')
-#: or a future action ('I will check our records in 2026.') — is not a
-#: supply: it resolves to `unresolved` with a targeted clarification.
-#: The span text is used exactly as it appears in the message.
+#: accepted-interpretation migration): an open awaiting-value question
+#: makes the next message a PROSPECTIVE answer, and the reply is
+#: classified into answer | question | cancel | selection |
+#: new_instruction | unresolved. UNRECOGNIZED TEXT IS `unresolved` — it
+#: NEVER becomes an answer by default, and no stripping regex rewrites
+#: what the user wrote: an `answer` is RECOGNIZED only when the message
+#: carries an EXACT value span referencing the original message — a
+#: requirement-anchored frame ("The VAT number is 47-11": the frame's
+#: subject names the requirement's item), a digit-bearing message
+#: ("03-4567-8912", "12,500"), or a quoted span ("Acme, Inc"). The span
+#: text is used exactly as it appears in the message.
 _RESUME_CANCEL_RE = re.compile(
     r"^\s*(?:please\s+)?(?:"
     r"cancel(?:\s+(?:that|this|it|everything|all\s+of\s+it))?|"
@@ -786,24 +780,14 @@ def _digit_segments(message: str) -> List[Tuple[int, int]]:
 def _recognized_answer_spans(
         message: str, item: str) -> Optional[List[Tuple[int, int]]]:
     """The EXACT value spans in the message for a requirement whose item
-    is `item` — under the NARROW SUPPLY SYNTAX plus the SPEECH-ACT
-    boundary (owner work order 2026-10-16: distinguish SUPPLYING a
-    value from MENTIONING quoted text or numbers; neither digits nor
-    quotation marks establish answer intent — the speech act does):
+    is `item` — under the NARROW SUPPLY SYNTAX (owner instruction
+    2026-10-16: distinguish SUPPLYING a value from MENTIONING quoted
+    text or numbers; constrain every branch to the narrow syntax and
+    clarify everything else):
 
-      -1. NON-ANSWER FRAMES: a REPORTED-INFORMATION or FUTURE-ACTION
-          frame mentions a value instead of supplying one — the reply
-          is `unresolved` (with a targeted clarification) whatever the
-          span looks like.
       0. BARE DIGIT REPLY FIRST (never frame-parsed): the whole message
          is digits and separators — '47:11' is a value, never a frame.
          Coordination -> multiple spans -> one clarification.
-      0b. EXPLICIT ASSIGNMENT: an assignment verb presenting a quoted
-          value ('Use "pending" as the status.') — the quoted span is
-          the supplied value; several quoted candidates -> ambiguity.
-      0c. BARE QUOTED VALUE: the whole message is one quoted span —
-          a bare value answering one clear requirement, exactly as
-          written (preserved when unambiguous; verdict probe 1).
       1. REQUIREMENT-ANCHORED FRAME — the frame's subject references the
          requirement's own item, and the tail is BARE digit (coordination
          inside the tail -> segment split -> ambiguity) or the tail's
@@ -813,25 +797,16 @@ def _recognized_answer_spans(
          -> the tail span). A generic frame NEVER binds quoted values —
          quoting in an unanchored frame is a mention, not a supply.
 
-    Anything else — prose mentioning numbers, quoted text inside a
-    sentence that neither anchors the requirement nor assigns it —
-    returns None (`unresolved`): broader natural-language answers
-    belong in the structured interpretation mechanism. Every span is
-    validated against the message bounds; the text is preserved exactly
-    as written."""
+    Anything else — prose mentioning numbers, quoted text in a sentence
+    that does not anchor the requirement — returns None (`unresolved`):
+    broader natural-language answers belong in the structured
+    interpretation mechanism. Every span is validated against the
+    message bounds; the text is preserved exactly as written."""
     text = str(message or "")
     trimmed = text.strip()
     if not trimmed:
         return None
     lead = text.index(trimmed[0])
-
-    # -1. THE SPEECH-ACT GATE: a reported quotation or a future-action
-    #     sentence carries value-LIKE spans, but its frame is a mention,
-    #     not a supply — nothing in it binds (owner work order item 1:
-    #     mentioning a value must not promote into instructing the app
-    #     to use it).
-    if _non_answer_frame(text):
-        return None
 
     # 0. BARE DIGIT REPLY FIRST — a message that is entirely digits and
     #    separators is a VALUE first and must never be frame-parsed
@@ -845,19 +820,6 @@ def _recognized_answer_spans(
         if start >= 0:
             return [(start, start + len(candidate))]
         return None
-
-    # 0b. EXPLICIT ASSIGNMENT — the verb is the supply signal ('Use
-    #     "pending" as the status.'); competing quoted values ask.
-    _aspans = _assignment_quoted_spans(text)
-    if _aspans:
-        return _aspans
-
-    # 0c. BARE QUOTED VALUE — one quoted span as the whole message
-    #     answers the one clear requirement exactly as written.
-    bq = _RESUME_BARE_QUOTED_RE.match(trimmed)
-    if bq:
-        gi = 1 if bq.group(1) is not None else 2
-        return [(lead + bq.start(gi), lead + bq.end(gi))]
 
     # Frame interpretation (anchored and generic share the frame regex;
     # only the TAIL RULES differ).
@@ -933,133 +895,6 @@ def _recognized_answer_spans(
 _BARE_DIGIT_RE = re.compile(
     r"^[0-9][0-9 ,.\-/():]*(?:\s+or\s+[0-9][0-9 ,.\-/():]*)*$")
 
-#: THE NON-ANSWER FRAMES (owner work order 2026-10-16, item 1 — the
-#: reported-quotation boundary): neither digits nor quotation marks
-#: establish answer INTENT. Two frame classes mention a value instead
-#: of supplying one:
-#:   REPORTED INFORMATION — the predicate attributes the value to a
-#:   source: a first-person discovery verb ('I found the note "pending"
-#:   in our records.'), a record making a statement ('our records show
-#:   "pending".'), or an on-record attribution ('it is in our
-#:   records.');
-#:   FUTURE ACTION — the main clause defers to an action the user will
-#:   take ('I will check our records in 2026.').
-#: The frames are STRUCTURAL — what the sentence is doing — never
-#: value-shaped: no value word list, no field-specific rules; the same
-#: gate works for names, departments, dates, addresses, and statuses.
-#: A bare value ("03-4567-8912", '"pending"') carries no frame words
-#: and can never trip the gate.
-_RESUME_REPORTED_FRAME_RE = re.compile(
-    r"\b(?:i|we)\s+(?:just\s+|only\s+|also\s+)?"
-    r"(?:found|saw|seen|noticed|remember|recalled?|read|"
-    r"came\s+across|dug\s+up|went\s+through|"
-    r"looked\s+(?:up|through|into|at))\b"
-    r"|\b(?:our\s+|the\s+|this\s+|that\s+)?"
-    r"(?:records?|notes?|files?|documents?|ledger|database|memos?|"
-    r"logs?|system|thread|emails?)\s+"
-    r"(?:says?|said|shows?|showed?|states?|stated|lists?|listed?|"
-    r"mentions?|mentioned?|noted?|indicates?|indicated?|"
-    r"reports?|reported?|contains?|contained?|read|has|had)\b"
-    r"|\b(?:in|per)\s+(?:our|the)\s+(?:records?|notes?|files?|system|"
-    r"ledger|database)\b|\bon\s+file\b",
-    re.IGNORECASE)
-_RESUME_FUTURE_FRAME_RE = re.compile(
-    r"^\s*(?:ok(?:ay)?\s*[,.!]?\s*)?(?:so\s+|well[,.]\s*|then\s+|"
-    r"hmm[,.]\s*)?"
-    r"(?:i|we)\s*(?:'?ll|will|shall|won'?t|am\s+going\s+to|"
-    r"'m\s+going\s+to|are\s+going\s+to|'re\s+going\s+to|plan\s+to|"
-    r"intend\s+to|aim\s+to|promise\s+to|will\s+try\s+to)\s+"
-    r"(?:go\s+(?:check|look|find|see|ask)|try\s+to\s+)?"
-    r"(?:check|look|find|see|confirm|ask|search|dig|review|verify|"
-    r"double[- ]?check|follow\s+up|get\s+back|"
-    r"get\s+(?:the|that|those|them|it)|send|investigate|figure|"
-    r"revert|report\s+back|circle\s+back|pull|grab|gather|collect|"
-    r"hunt|track\s+down|chase)\b"
-    r"|\blet\s+me\s+(?:check|look|find|see|confirm|ask|search|dig|"
-    r"review|verify|double[- ]?check|follow\s+up|get|send|figure|"
-    r"investigate)\b",
-    re.IGNORECASE)
-#: The EXPLICIT ASSIGNMENT frame: an assignment verb (imperative, or
-#: first-person with an auxiliary) and the quoted value within the
-#: verb's own clause (the gap between verb and value carries no
-#: sentence terminator) — 'Use "pending" as the status.', 'Set the
-#: client's tax registration number to "pending".' (edit-shaped
-#: set-forms are owned by the fresh-directive gate before
-#: classification; "use"-forms are not edit-shaped and are the
-#: assignment control's home). The verb is the supply signal; the
-#: quotes alone never are. Fullmatch against the prefix before the
-#: first quote — a distant quotation never rides the verb.
-_RESUME_ASSIGNMENT_FRAME_RE = re.compile(
-    r"\s*(?:please\s+)?"
-    r"(?:(?:use|set|make|call|name|label|rename|assign|record|enter|"
-    r"save|store|put|change|update|replace|register|take)\b"
-    r"|(?:i|we)\s+(?:(?:'ll|will|want\s+to|would\s+like\s+to|"
-    r"intend\s+to|decided\s+to|chose\s+to|choose\s+to)\s+)?"
-    r"(?:use|set|make|call|name|record|enter|save|store|put|assign|"
-    r"register|label)\b)"
-    r"\s*[^.;!?\n]{0,120}",
-    re.IGNORECASE | re.DOTALL)
-#: A BARE QUOTED VALUE: the whole message is one quoted span (plus
-#: closing punctuation) — the narrow form the owner's control table
-#: preserves ('"pending"' answering one clear requirement).
-_RESUME_BARE_QUOTED_RE = re.compile(
-    r"""^\s*(?:"([^"\n]{1,200})"|'([^'\n]{1,200})')\s*[.!?]?\s*$""")
-#: Quoted runs and digit runs anywhere in a message (the mention
-#: candidates a non-answer frame may be carrying).
-_RESUME_QUOTED_ANY_RE = re.compile(
-    r'"([^"\n]{1,200})"|\'([^\'\n]{1,200})\'')
-_RESUME_MENTION_DIGIT_RE = re.compile(r"\d+(?:[.,\-/]\d+)*")
-
-
-def _non_answer_frame(message: str) -> Optional[Dict[str, str]]:
-    """The reply's NON-ANSWER speech-act frame, or None: 'reported' (a
-    value is attributed to a record/source) or 'future' (the main
-    clause defers to an action). The frame, not the value, decides."""
-    text = str(message or "")
-    if not text.strip():
-        return None
-    fm = _RESUME_FUTURE_FRAME_RE.search(text)
-    if fm:
-        return {"kind": "future", "marker": fm.group(0).strip()[:60]}
-    rm = _RESUME_REPORTED_FRAME_RE.search(text)
-    if rm:
-        return {"kind": "reported", "marker": rm.group(0).strip()[:60]}
-    return None
-
-
-def _frame_mention_spans(text: str) -> List[Tuple[int, int]]:
-    """The value-LIKE mentions a non-answer frame is carrying: quoted
-    runs if any, else digit runs — EXACT spans into the message (they
-    name the mention in the clarification, they never bind)."""
-    out: List[Tuple[int, int]] = []
-    for qm in _RESUME_QUOTED_ANY_RE.finditer(str(text or "")):
-        gi = 1 if qm.group(1) is not None else 2
-        out.append((qm.start(gi), qm.end(gi)))
-    if out:
-        return out
-    return [(m.start(), m.end())
-            for m in _RESUME_MENTION_DIGIT_RE.finditer(str(text or ""))]
-
-
-def _assignment_quoted_spans(text: str) -> Optional[List[Tuple[int, int]]]:
-    """The quoted value span(s) of an EXPLICIT ASSIGNMENT, or None when
-    the message is not assignment-framed. Assignment-framed means the
-    FIRST quoted span sits within the assignment verb's own clause (a
-    terminator-free gap, so a distant quotation never rides the verb).
-    Two or more quoted candidates are returned ALL — the ambiguity
-    shape — never a silent first-pick (owner control: competing values
-    ask which, zero writes)."""
-    text = str(text or "")
-    spans = [(qm.start(gi), qm.end(gi)) for qm in
-             _RESUME_QUOTED_ANY_RE.finditer(text)
-             for gi in ([1] if qm.group(1) is not None else [2])]
-    if not spans:
-        return None
-    if not _RESUME_ASSIGNMENT_FRAME_RE.fullmatch(
-            text[:spans[0][0]].strip()):
-        return None
-    return spans
-
 
 def _classify_resume_reply(
         message: str, requirement: Optional[Dict[str, Any]],
@@ -1085,26 +920,10 @@ def _classify_resume_reply(
     _item = str((requirement or {}).get("item") or "")
     _items = items if items else ([_item] if _item else [])
     if _item:
-        # THE SPEECH-ACT VERDICT BEFORE RECOGNITION (owner work order
-        # 2026-10-16, item 1): a reported quotation or a future-action
-        # sentence is `unresolved` — and when it carries a value-LIKE
-        # mention, the classification names it so the resume lane asks
-        # the USEFUL question ('does "pending" describe the record's
-        # status, or are you supplying it?') instead of a generic
-        # decline. Zero writes either way; the requirement stays open.
-        _frame = _non_answer_frame(text)
-        if _frame:
-            _mentions = _frame_mention_spans(message)
-            if _mentions:
-                return {
-                    "class": "unresolved",
-                    "speech_act": _frame["kind"],
-                    "spans": _mentions,
-                }
-        # ANSWER RECOGNITION (review round 5, positive pin): a reply
-        # with a recognized value span is an ANSWER even when it echoes
-        # the item's words ("The client is Acme, Inc" — a superset echo
-        # with an anchored frame).
+        # ANSWER RECOGNITION FIRST (review round 5, positive pin): a
+        # reply with a recognized value span is an ANSWER even when it
+        # echoes the item's words ("The client is Acme, Inc" — a
+        # superset echo with an anchored frame).
         spans = _recognized_answer_spans(message, _item)
         if spans is not None:
             return {
@@ -1147,54 +966,6 @@ def _ambiguous_value_message(item: str, candidates: List[str]) -> str:
     return (
         f"Which value should I use for {item} — {shown}? "
         "Nothing was changed yet; tell me which one and I'll apply it.")
-
-
-def _reported_mention_message(item: str, mention: str) -> str:
-    """The USEFUL clarification for a reported-information reply (owner
-    work order 2026-10-16, item 1): offer the two readings — describing
-    what the records say vs. supplying the value — instead of a generic
-    decline. The mention is shown exactly as the user wrote it."""
-    shown = str(mention or "").strip()[:60]
-    return (
-        f'Does "{shown}" describe what your records say, or are you '
-        f"supplying it as {item}? Nothing was changed yet — tell me "
-        "which and I'll apply it.")
-
-
-def _future_action_message(item: str, mention: str) -> str:
-    """The USEFUL clarification for a future-action reply: the digits or
-    quotes the sentence carried were part of a plan, not an answer."""
-    shown = str(mention or "").strip()[:60]
-    return (
-        f'"{shown}" reads as part of a plan, not as the value for '
-        f"{item}. Nothing was changed yet — what value should I use?")
-
-
-def _accepted_answer_valid(record: Any, message: str) -> bool:
-    """Deterministic validation of an accepted-interpretation record
-    (owner work order 2026-10-16, item 2): the requirement identity
-    fields are present, the decision is explicit, and the recorded span
-    REPRODUCES the value from the original message exactly. Anything
-    unevaluable is invalid — an acceptance that cannot be re-derived
-    from the user's own words never authorizes a write."""
-    if not isinstance(record, dict):
-        return False
-    if not str(record.get("requirement_id") or "").strip() \
-            or not str(record.get("run_id") or "").strip():
-        return False
-    if record.get("decision") != "user_supplied_as_answer":
-        return False
-    span = record.get("span")
-    if not (isinstance(span, (list, tuple)) and len(span) == 2):
-        return False
-    try:
-        s, e = int(span[0]), int(span[1])
-    except (TypeError, ValueError):
-        return False
-    original = str(record.get("original_message") or "")
-    if not (0 <= s <= e <= len(original)):
-        return False
-    return original[s:e] == str(record.get("value") or "")
 
 
 def _multiple_requirements_message(items: List[str]) -> str:
@@ -12807,7 +12578,6 @@ class ChatOrchestrator:
             # is the lifecycle's structured record (inputs), never prose.
             _resume_req: Optional[Dict[str, Any]] = None
             _resume_effective_message: Optional[str] = None
-            _resume_accepted_answer: Optional[Dict[str, Any]] = None
             _selection_candidates: Optional[List[str]] = None
             _resume_open: List[Dict[str, Any]] = []
             if _canvas_ctx and not _canvas_action_bypassed:
@@ -12929,89 +12699,6 @@ class ChatOrchestrator:
                         _tool_plan_task.cancel()
                     return _cancel_response
                 if _reply_class in ("question", "unresolved"):
-                    _speech_act = _reply.get("speech_act")
-                    _act_spans = [
-                        (int(s), int(e)) for (s, e) in (
-                            _reply.get("spans") or [])
-                        if 0 <= int(s) <= int(e) <= len(str(message or ""))]
-                    if _speech_act and _act_spans:
-                        # THE USEFUL CLARIFICATION (owner work order
-                        # 2026-10-16, item 1): a reported quotation or a
-                        # future-action sentence MENTIONS a value instead
-                        # of supplying one — one targeted ask naming the
-                        # mention exactly as written, ZERO edit-planner
-                        # calls, zero writes, the requirement stays open.
-                        # Deterministic: the conversational model never
-                        # has to guess what to ask.
-                        _act_item = str(
-                            (_resume_open[0] or {}).get("item")
-                            or "the requested change")
-                        _act_mention = str(message)[_act_spans[0][0]:
-                                                    _act_spans[0][1]]
-                        if len(_resume_open) > 1:
-                            _act_message = _multiple_requirements_message([
-                                _q.get("item") or "the requested change"
-                                for _q in _resume_open])
-                            _act_reason = "multiple_open_requirements"
-                        elif _speech_act == "reported":
-                            _act_message = _reported_mention_message(
-                                _act_item, _act_mention)
-                            _act_reason = "value_reported_not_supplied"
-                        else:
-                            _act_message = _future_action_message(
-                                _act_item, _act_mention)
-                            _act_reason = "future_action_not_supplied"
-                        _act_response = {
-                            "success": True,
-                            "message": _act_message,
-                            "session_id": session_id,
-                            "execution_id": _execution_id,
-                            "intent": "canvas_edit",
-                            "confidence": 0.9,
-                            # A delivered clarification ≠ edit completion:
-                            # the requirement stays OPEN, nothing is
-                            # certified.
-                            "outcome": "partial",
-                            "_recorded_outcome": {
-                                "state": "partial", "work_turn": True,
-                                "noop": False, "declined": True},
-                            "data": {"canvas_edit": {
-                                "canvas_id": (
-                                    (_canvas_ctx or {}).get("canvas_id")),
-                                "updated": False, "no_apply": True,
-                                "reason": _act_reason,
-                                "outcome": "refused",
-                                "execution_id": _execution_id,
-                                "requirement_question_ids": [
-                                    _q.get("question_id")
-                                    for _q in _resume_open],
-                            }},
-                            "suggested_actions": [],
-                            "requires_confirmation": False,
-                            "next_steps": [],
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                        self._update_session(
-                            session, message, _act_response,
-                            {"primary_intent": "canvas_edit",
-                             "confidence": 0.9})
-                        await self._emit_agent_status(
-                            session_id, _trace_agent_id, _execution_id,
-                            "success")
-                        self._finish_chat_execution(
-                            _execution_id, "success", _act_message,
-                            session=session, message=message,
-                            response=_act_response, deadline=_deadline)
-                        logger.info(
-                            "[requirement-resume] the reply %s a value "
-                            "instead of supplying it — one targeted "
-                            "clarification, zero writes (mention=%r)",
-                            "reports" if _speech_act == "reported"
-                            else "defers", _act_mention[:40])
-                        if _tool_plan_task is not None \
-                                and not _tool_plan_task.done():
-                            _tool_plan_task.cancel()
-                        return _act_response
                     # A question is NOT an answer, and UNRECOGNIZED TEXT
                     # IS NOT AN ANSWER EITHER (accepted-interpretation
                     # migration): the normal flows own the turn and the
@@ -13216,30 +12903,6 @@ class ChatOrchestrator:
                 if len(_rc_spans) == 1 and _rc_goal:
                     _vs, _ve = _rc_spans[0]
                     _rc_value_text = str(message)[_vs:_ve]
-                    # THE ACCEPTED INTERPRETATION (owner work order
-                    # 2026-10-16, item 2): ONE structured record of the
-                    # acceptance — the requirement's identity, the
-                    # subject and target field, the EXACT span into the
-                    # user's own message, and the decision that the user
-                    # supplied that span as the answer. It is validated
-                    # deterministically (bounds + identity + value
-                    # re-derivation) before it can authorize anything;
-                    # the planner reformulation below only DESCRIBES
-                    # this record.
-                    _resume_accepted_answer = {
-                        "requirement_id": _resume_req.get("question_id"),
-                        "run_id": _resume_req.get("run_id"),
-                        "subject": _rc_item,
-                        "target": {
-                            "canvas_id": (
-                                (_canvas_ctx or {}).get("canvas_id")),
-                            "item": _rc_item,
-                        },
-                        "span": [_vs, _ve],
-                        "value": _rc_value_text,
-                        "original_message": str(message or ""),
-                        "decision": "user_supplied_as_answer",
-                    }
                     # The EXPLICIT-ASSIGNMENT form the interpretation
                     # contract already accepts ("Set X to Y") — the plan
                     # must ground the value the user actually supplied,
@@ -13309,56 +12972,14 @@ class ChatOrchestrator:
                         edit_authorization as _edit_auth_fn,
                     )
 
-                    if _resume_effective_message is not None:
-                        # AUTHORITY COMES FROM THE ACCEPTED INTERPRETATION,
-                        # NOT THE REFORMULATION (owner work order
-                        # 2026-10-16, item 3): the "Set <item> to <value>."
-                        # text is the edit lane's PLANNING instruction — it
-                        # may describe an already accepted answer, but it
-                        # must never be re-read as a fresh user command (a
-                        # planner-friendly reformulation cannot turn a
-                        # reported quotation into an accepted assignment).
-                        # The resume is granted by the VALIDATED accepted-
-                        # answer record: the recorded requirement (the
-                        # user's own prior authorized request for THIS
-                        # canvas and conversation) plus the value span
-                        # re-derived from the user's own words. Fail
-                        # closed: without a valid record the probe is the
-                        # user's original message — NEVER the synthetic
-                        # imperative.
-                        if _resume_accepted_answer is not None \
-                                and _accepted_answer_valid(
-                                    _resume_accepted_answer, message) \
-                                and _resume_req is not None \
-                                and str(_resume_accepted_answer.get(
-                                    "requirement_id") or "") == str(
-                                    _resume_req.get("question_id") or "") \
-                                and str(_resume_accepted_answer.get(
-                                    "run_id") or "") == str(
-                                    _resume_req.get("run_id") or ""):
-                            _edit_auth = "granted"
-                            logger.info(
-                                "[requirement-resume] the edit lane is "
-                                "authorized by the ACCEPTED INTERPRETATION "
-                                "(requirement=%s, span %s:%s re-derived "
-                                "from the user's own words) — the "
-                                "reformulation is not authorization "
-                                "evidence",
-                                _resume_accepted_answer.get(
-                                    "requirement_id"),
-                                *(_resume_accepted_answer.get("span")
-                                  or ("?", "?")))
-                        else:
-                            _edit_auth, _ = _edit_auth_fn(
-                                str(message or ""), "", canvas_id=str(
-                                    (_canvas_ctx or {}).get("canvas_id")
-                                    or ""))
-                    else:
-                        _edit_auth, _ = _edit_auth_fn(
+                    _edit_probe = (
+                        _resume_effective_message
+                        if _resume_effective_message is not None else (
                             _edit_retry["instruction"]
-                            if _edit_retry is not None else message,
-                            "", canvas_id=str(
-                                (_canvas_ctx or {}).get("canvas_id") or ""))
+                            if _edit_retry is not None else message))
+                    _edit_auth, _ = _edit_auth_fn(
+                        _edit_probe, "", canvas_id=str(
+                            (_canvas_ctx or {}).get("canvas_id") or ""))
                     if _edit_auth != "granted":
                         _edit_lane_authorized = False
                         logger.info(
@@ -13429,23 +13050,8 @@ class ChatOrchestrator:
                     "question_id": _resume_req.get("question_id"),
                     "run_id": _resume_req.get("run_id"),
                     "item": _resume_req.get("item"),
-                    # THE ORIGINAL MESSAGE AND THE ACCEPTED ANSWER ARE
-                    # CARRIED SEPARATELY (owner work order 2026-10-16,
-                    # item 3): the reformulated instruction describes the
-                    # acceptance; the acceptance itself is this record —
-                    # validated spans + requirement identity + the
-                    # explicit decision that the user supplied the value.
-                    "original_message": str(message or ""),
-                    "accepted_answer": _resume_accepted_answer,
                     **(_resume_req.get("postcondition") or {}),
                 }
-                if _edit_lane_authorized:
-                    # AUTHORITY RESOLVED AT THE TURN LEVEL (owner work
-                    # order 2026-10-16, item 3): the lane gate must not
-                    # re-probe the reformulated instruction — the
-                    # authorization evidence is the accepted-interpretation
-                    # record (or the user's own words), resolved above.
-                    _shared_tool["turn_edit_authorized"] = True
             _edit_leg_timed_out = False
             try:
                 if _canvas_ctx and not _canvas_action_bypassed and (
@@ -26700,26 +26306,14 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             # remains the last guard before any mutation.
             _edit_nomination = _canvas_edit_shaped(
                 message, {"canvas": canvas})
-            # AUTHORITY AT THE LANE BOUNDARY (owner work order
-            # 2026-10-16, item 3): when the turn-level authorization was
-            # already resolved OUTSIDE this lane (the accepted-
-            # interpretation record, or the user's own words probed
-            # before reservation), the lane must NOT re-probe its
-            # instruction text — for a resumed requirement that text is
-            # the planner reformulation, and re-reading it as a fresh
-            # command would manufacture authority the user never gave.
-            if isinstance(shared_tool_state, dict) and \
-                    shared_tool_state.get("turn_edit_authorized"):
-                _lane_auth = "granted"
-            else:
-                from core.turn_decision import (
-                    edit_authorization as _lane_auth_fn,
-                )
+            from core.turn_decision import (
+                edit_authorization as _lane_auth_fn,
+            )
 
-                _lane_auth, _ = _lane_auth_fn(
-                    message, "", canvas_id=str(
-                        (canvas or {}).get("canvas_id")
-                        or (canvas or {}).get("id") or ""))
+            _lane_auth, _ = _lane_auth_fn(
+                message, "", canvas_id=str(
+                    (canvas or {}).get("canvas_id")
+                    or (canvas or {}).get("id") or ""))
             if (not _edit_nomination) or _lane_auth != "granted":
                 if shared_tool_state is not None:
                     shared_tool_state["canvas_edit_skipped_not_authorized"
