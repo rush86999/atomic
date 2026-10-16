@@ -494,6 +494,15 @@ def run_r4() -> dict:
             ("dataset_name", "file_name", "workspace_id", "status"),
             _cat_row)) if _cat_row else None
         if not _cat_row:
+            # THE WORLD'S OWN ACCOUNT: the server's log ring (captured in
+            # driver memory) records the background materialization's
+            # outcome — include it so the invalid attempt carries the
+            # cause, not just the absence.
+            try:
+                ev["world_log_at_catalog_expiry"] = \
+                    server.log_tail()[-4000:]
+            except Exception:  # noqa: BLE001
+                pass
             ev["invalid_reason"] = (
                 "workbook ingestion never materialized a DatasetEntry "
                 "within 90s - the named-file resolution had no catalog "
@@ -592,6 +601,10 @@ def run_r4() -> dict:
         server.proc.wait(timeout=15)
         ev["kill"] = {"signal": "SIGKILL", "at_s": round(
             time.monotonic() - t0, 1)}
+        try:
+            ev["world_log_at_kill"] = server.log_tail()[-4000:]
+        except Exception:  # noqa: BLE001
+            pass
 
         # POST-KILL VERIFICATION: no assistant delivery persisted.
         assistants_after = assistant_rows(server.db_path, sid)
