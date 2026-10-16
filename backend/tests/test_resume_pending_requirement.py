@@ -721,6 +721,47 @@ async def test_duplicated_label_plan_is_refused_and_restored(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_settled_lookup_decline_also_asks_and_stamps(monkeypatch):
+    """R3 live finding (run 091140): the named-source lookup has TWO
+    unhappy endings — timeout AND settle-with-nothing. The settle path
+    historically shipped the generic block decline (no specific ask, no
+    stamp, an unconfirmed/failed envelope). Both are the SAME unresolved
+    requirement: the specific ask ships, the requirement stamps, the
+    bare value resumes."""
+    sid = f"sess-r3-settle-{uuid.uuid4().hex[:8]}"
+
+    async def _settled_fresh(*a, **k):
+        # The lookup RAN and settled — with nothing that grounds the
+        # named reference.
+        return cce.FreshDataResult(
+            "Searched the mailbox and the shared drive; nothing about "
+            "tax registrations found.", True, True)
+
+    def _declining_plan(*a, **k):
+        return cce.CanvasEditPlan(wants_edit=False, edit_mode="patch",
+                                  ops=[])
+
+    t1 = await _turn(monkeypatch, sid, REQUEST_MSG,
+                     fresh=_settled_fresh, plan=_declining_plan)
+    r1 = t1["response"]
+    assert r1.get("success") is True, r1
+    assert r1.get("outcome") == "partial", r1
+    said = r1.get("message") or ""
+    assert "from our records" in said and "nothing was changed" in said, said
+    assert t1["store"].updates == [], "zero writes on the decline"
+    pending = _open_questions(sid)
+    assert len(pending) == 1, "the settled lookup still stamps the ask"
+
+    t2 = await _turn(monkeypatch, sid, BARE_VALUE,
+                     fresh=_settled_fresh, plan=_tax_plan)
+    assert t2["fresh_calls"] == 0, "the resume never re-opens the lookup"
+    assert t2["plan_calls"] == 1
+    assert t2["store"].content.count(BARE_VALUE) == 1
+    assert t2["response"].get("success") is True
+    assert _open_questions(sid) == [], "settles on verified fulfillment"
+
+
+@pytest.mark.asyncio
 async def test_a_requirement_for_another_canvas_is_never_hijacked(
         monkeypatch):
     """The question binds to ITS recorded canvas only: the same

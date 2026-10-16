@@ -13758,6 +13758,25 @@ class ChatOrchestrator:
                         "that plans canvas edits could not be reached, so "
                         "nothing was changed and your authorization "
                         "stands. Please try again in a moment.")
+                    # THE REQUEST'S OWN NAMED REFERENCES (R3 live finding
+                    # run 091140): computed ONCE for the whole no-apply
+                    # composition — the specific ask and the resume stamp
+                    # apply whether the named-source lookup TIMED OUT
+                    # (canvas_requirement_unresolved) or SETTLED with
+                    # nothing that grounds it (the evidence declines).
+                    _lane_named_refs: List[str] = []
+                    try:
+                        from core.turn_decision import (
+                            extract_request_assignments as _era_comp,
+                        )
+
+                        _lane_named_refs = [
+                            str(s) for s in (
+                                _era_comp(message).get(
+                                    "source_references") or [])
+                            if str(s).strip()]
+                    except Exception:  # noqa: BLE001 — additive
+                        _lane_named_refs = []
                     if _no_apply_reason in (
                             "planner_timeout", "planner_unavailable",
                             "planner_error", "planner_returned_none"):
@@ -13908,7 +13927,7 @@ class ChatOrchestrator:
                                 (_shared_tool.get(
                                     "canvas_requirement_unresolved") or {})
                                 .get("references") or [])
-                            if str(r).strip()]
+                            if str(r).strip()] or _lane_named_refs
                         _no_apply_message = (
                             _unresolved_requirement_message(_unresolved_refs)
                             if _unresolved_refs else (
@@ -14007,10 +14026,31 @@ class ChatOrchestrator:
                     # not happen and must not be certified; this is the
                     # same partial contract the apply-failure decline
                     # carries (success true, outcome partial).
+                    # R3 LIVE FINDING (diagnostic run 091140): the lookup
+                    # has TWO unhappy endings — it times out (the flag
+                    # above) or it SETTLES with nothing that grounds the
+                    # named reference (the generic block decline). Both
+                    # are the SAME unresolved requirement: when the
+                    # accepted request itself names a source reference
+                    # and the edit declined on evidence grounds with the
+                    # requirement unfulfilled, the specific ask and the
+                    # resume stamp apply either way.
                     _requirement_declined = bool(
-                        isinstance(_shared_tool, dict)
-                        and _shared_tool.get(
-                            "canvas_requirement_unresolved"))
+                        (isinstance(_shared_tool, dict)
+                         and _shared_tool.get(
+                             "canvas_requirement_unresolved"))
+                        or (_lane_named_refs
+                            and not _noop_satisfied
+                            and not _background_started
+                            and _no_apply_reason in (
+                                "evidence_unavailable",
+                                "evidence_declined",
+                                # The lookup SETTLED and the editor still
+                                # chose not to act — for a reference-valued
+                                # request that IS the unresolved requirement
+                                # (the editor never acts without the
+                                # grounded value).
+                                "planner_declined")))
                     # CLARIFICATION DELIVERY ≠ EDIT COMPLETION (owner
                     # repair 2026-10-16): a successfully delivered
                     # clarification is a successful turn — the requested
@@ -14025,6 +14065,18 @@ class ChatOrchestrator:
                     # failed.
                     _delivered = bool(_noop_satisfied
                                       or _requirement_declined)
+                    # THE SPECIFIC ASK OVERRIDES THE GENERIC WORDING
+                    # (bounded-correction extension, R3 run 091140): when
+                    # the accepted request itself named a source reference
+                    # and the edit declined unfulfilled on any of the
+                    # evidence grounds, the user gets the named-value ask
+                    # — never the generic coaching or block wording.
+                    if (_requirement_declined
+                            and not _noop_satisfied
+                            and not _background_started
+                            and _lane_named_refs):
+                        _no_apply_message = _unresolved_requirement_message(
+                            _lane_named_refs)
                     response = {
                         "success": bool(_noop_satisfied
                                         or _requirement_declined),
@@ -14076,7 +14128,8 @@ class ChatOrchestrator:
                             references=[
                                 str(r) for r in ((_shared_tool.get(
                                     "canvas_requirement_unresolved")
-                                    or {}).get("references") or [])],
+                                    or {}).get("references") or [])]
+                            or _lane_named_refs,
                             operation_id=(_edit_task_reserved or {}).get(
                                 "operation_id"),
                         )
