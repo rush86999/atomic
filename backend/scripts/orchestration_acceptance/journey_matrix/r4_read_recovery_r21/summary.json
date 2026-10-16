@@ -19,6 +19,13 @@
    },
    "first_missing_transition": "INITIAL READ COMPLETED \u2014 NOT MET. The read never dispatched: the file-mention extractor produced a garbled mention ('prices in consolidated price list 2019.md' \u2014 captured from the phrase, not the filename), which scored no match against the ingested catalog ('Consolidated Price List 2019.md', workspace b7e8caae\u2026), so the planner returned the NOT FOUND block and the lane exited pre-read.",
    "verdict": "harness/product boundary identified with actual records; the repair belongs to the mention-extraction boundary (detect_file_task_mentions / score_file_match), BEFORE any recovery-relevant work. Recovery machinery was never exercised."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_140138_1cc11c.json",
+   "subject": "0708c21ae + catalog-barrier and receipt-poll driver iterations",
+   "result": "TRANSITION 1 PROVEN WITH ACTUAL RECORDS: the workbook read dispatched, ran, and its payload is DURABLY COMMITTED in goal_runs task_lifecycle.operations[retrieve].execution - status=applied, invoked=True, outcome=read_succeeded, execution.findings carrying per-item payload with source attribution ('FZ16 - 88,410.25 - Consolidated Price List 2019.xlsx!Prices!row8', content_hash, source_version). The turn then DELIVERED the rendered prices with cell-level attribution ('FZ16 - 88,410.25 (Prices sheet, row 8, cell B8)').",
+   "diagnosis": "WHERE THE RESULT SURVIVES: goal_runs findings - NOT agent_executions.metadata_json (the receipt-poll watched the wrong table, which is why the barrier expired twice). Delivery and read commit happen within ONE turn for this read shape: there is no natural retrieved-not-delivered intermediate - the interrupted boundary must be entered by killing at the goal_runs findings commit (bounded driver fix), or the delivery latch must cover this lane.",
+   "next_bounded_step": "point the barrier poll at goal_runs findings (retrieve op with outcome=read_succeeded + non-empty findings for this conversation), SIGKILL at that proven commit, then the recovery turn must render from execution.findings - establishing whether the recovery transition works or is the next repair."
   }
  ],
  "next": "repair the mention-extraction boundary (bounded: the mention must capture the filename, not the phrase), re-run the same diagnostic, then proceed to the recovery transitions. The latch and source counter are in place and never armed."
