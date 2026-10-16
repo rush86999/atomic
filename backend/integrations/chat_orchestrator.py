@@ -693,6 +693,33 @@ _RESUME_FRAME_RE = re.compile(
     re.IGNORECASE | re.DOTALL)
 _RESUME_SELECT_NUMBER_RE = re.compile(
     r"^\s*(?:option\s+)?([0-9])\s*[.!]?$", re.IGNORECASE)
+#: CLOSED NON-VALUE VOCABULARY (review round 5): a frame tail composed
+#: ENTIRELY of these words says the user does not HAVE the value — it
+#: is never written as one. Fail toward `unresolved`. Interrogative
+#: tokens anywhere in a tail also make it a non-answer (a value never
+#: contains 'what').
+_RESUME_NONVALUE_WORDS = frozenset((
+    "not", "never", "no", "none", "na", "unknown", "unknowable",
+    "pending", "tbd", "missing", "absent", "unavailable", "waiting",
+    "unsure", "undecided", "yet", "still", "already", "anymore",
+    "currently", "presently", "known", "found", "same"))
+_RESUME_INTERROGATIVE_WORDS = frozenset((
+    "what", "where", "when", "who", "whom", "whose", "why", "how",
+    "which"))
+
+
+def _tail_is_nonvalue(tail: str) -> bool:
+    """Whether a frame tail says the user does not have the value
+    (negation/placeholder/status words only, or any interrogative
+    token). Deterministic and closed; anything else is accepted."""
+    words = [
+        w for w in _RESUME_WORD_RE.findall(str(tail or "").lower())
+        if len(w) >= 2 and w not in _RESUME_STOPWORDS]
+    if not words:
+        return True  # an empty-ish tail is not a value
+    if any(w in _RESUME_INTERROGATIVE_WORDS for w in words):
+        return True
+    return all(w in _RESUME_NONVALUE_WORDS for w in words)
 _RESUME_STOPWORDS = frozenset(("the", "a", "an", "my", "our", "of"))
 _RESUME_WORD_RE = re.compile(r"[a-z0-9\-']+")
 
@@ -709,14 +736,19 @@ def _names_item_window(text: str, item: str) -> bool:
     """Whether `text` references the requirement's item: a >=2-word
     contiguous window of the item's own words appears in the text."""
     words = [
-        w.strip(".,;:!?\"'").lower()
+        w.strip(".,;:!?\"'").lower().removesuffix("'s")
         for w in str(item or "").split()
-        if w.strip(".,;:!?\"'").lower() not in ("the", "a", "an")]
+        if w.strip(".,;:!?\"'").lower().removesuffix("'s")
+        not in ("the", "a", "an")]
     if not words:
         return False
     low = f" {str(text or '').lower()} "
-    if len(words) == 1:
-        return f" {words[0]} " in low
+    # A single DISTINCTIVE item word (>=5 chars, e.g. 'client' from
+    # "the client's name") anchors the frame; short words are too
+    # generic to anchor alone.
+    for w in words:
+        if len(w) >= 5 and f" {w} " in low:
+            return True
     for width in range(len(words), 1, -1):
         for start in range(len(words) - width + 1):
             window = " " + " ".join(words[start:start + width]) + " "
@@ -782,6 +814,12 @@ def _recognized_answer_spans(
     if fm and _names_item_window(fm.group("subject"), item):
         tail = fm.group("value").strip().rstrip(" .!?")
         if tail:
+            # NON-VALUE TAIL GUARD (review round 5): 'The tax
+            # registration number is not known yet' / 'is pending' /
+            # 'is TBD' are the common ways a user says they do not have
+            # the value — never written as one. Fail toward unresolved.
+            if _tail_is_nonvalue(tail):
+                return None
             start = text.find(tail, lead)
             if start < 0:
                 return None
@@ -840,6 +878,18 @@ def _classify_resume_reply(
         return {"class": "selection"}
     _item = str((requirement or {}).get("item") or "")
     _items = items if items else ([_item] if _item else [])
+    if _item:
+        # ANSWER RECOGNITION FIRST (review round 5, positive pin): a
+        # reply with a recognized value span is an ANSWER even when it
+        # echoes the item's words ("The client is Acme, Inc" — a
+        # superset echo with an anchored frame).
+        spans = _recognized_answer_spans(message, _item)
+        if spans is not None:
+            return {
+                "class": "answer",
+                "spans": spans,
+                "ambiguous": len(spans) != 1,
+            }
     if _items and not any(ch.isdigit() for ch in text):
         cand_words = {
             w for w in _RESUME_WORD_RE.findall(text.lower())
@@ -849,17 +899,10 @@ def _classify_resume_reply(
                     cand_words <= item_words
                     or item_words <= cand_words)
                 for it in _items):
-            # The reply ECHOES a requirement's item and carries nothing
-            # else — naming the requirement, not answering it.
+            # The reply ECHOES a requirement's item and carries no
+            # recognized value — naming the requirement, not answering
+            # it.
             return {"class": "selection"}
-    if _item:
-        spans = _recognized_answer_spans(message, _item)
-        if spans is not None:
-            return {
-                "class": "answer",
-                "spans": spans,
-                "ambiguous": len(spans) != 1,
-            }
     return {"class": "unresolved"}
 
 

@@ -442,6 +442,45 @@ async def test_owner_message_table(monkeypatch):
     assert t["store"].content == QUOTE, "the saved artifact is unchanged"
     assert len(_open_questions(sid)) == 1
 
+    # ITEM-ANCHORED NON-ANSWERS (review round 5): the most common ways
+    # a user says they do not have the value — never written as one.
+    for nonvalue in ("The tax registration number is not known yet",
+                     "The tax registration number is pending",
+                     "The tax registration number is TBD"):
+        sid = f"sess-r3-nv-{uuid.uuid4().hex[:8]}"
+        await _turn(monkeypatch, sid, REQUEST_MSG,
+                    fresh=_stalled_fresh, plan=None)
+        t = await _turn(monkeypatch, sid, nonvalue,
+                        fresh=_stalled_fresh, plan=_tax_plan)
+        assert t["plan_calls"] == 0, f"{nonvalue!r} is not a value"
+        assert t["store"].content == QUOTE, (
+            "the saved artifact is unchanged")
+        assert len(_open_questions(sid)) == 1
+
+    # The anchored frame still binds REAL values (the guard is a
+    # denylist, not a digit requirement) — the reviewer's positive pin:
+    # 'The client is Acme, Inc' with a client requirement.
+    sid = f"sess-r3-acmecl-{uuid.uuid4().hex[:8]}"
+    client_req = ("Add the client to this quotation. "
+                  "Use the exact name from our records.")
+
+    def _client_plan(*a, **k):
+        return cce.CanvasEditPlan(
+            wants_edit=True, edit_mode="patch",
+            ops=[cce.CanvasPatchOp(
+                find="Client: Dunmore Fabrication LLC",
+                replace="Client: Dunmore Fabrication LLC\n"
+                        "Client: Acme, Inc",
+                origin="user_supplied")],
+        )
+
+    await _turn(monkeypatch, sid, client_req,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "The client is Acme, Inc",
+                    fresh=_stalled_fresh, plan=_client_plan)
+    assert t["plan_calls"] == 1, "a real anchored value still binds"
+    assert t["store"].content.count("Acme, Inc") == 1
+
     # A cancellation PARAPHRASE outside the closed class: unresolved —
     # the normal flow owns it, nothing writes, the requirement stays
     # open (the conversational layer can then confirm the intent).
