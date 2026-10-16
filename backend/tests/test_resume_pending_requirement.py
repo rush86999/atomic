@@ -396,11 +396,16 @@ async def test_owner_message_table(monkeypatch):
     assert t["plan_calls"] == 1, "12,500 is ONE value and binds"
     assert t["store"].content.count("12,500") == 1
 
-    # 'Research and Development' — UNRECOGNIZED under the narrow supply
-    # syntax: no requirement anchor, no digit value, and QUOTING a
-    # mention does not make it a supply (owner instruction: distinguish
-    # supplying a value from mentioning quoted text). Both forms ask,
-    # nothing writes, the requirement stays open.
+    # 'Research and Development' — the UNQUOTED form is unrecognized (no
+    # requirement anchor, no digit value): the reply asks, nothing
+    # writes, the requirement stays open. The BARE QUOTED form answers
+    # the one clear requirement and binds VERBATIM (owner work order
+    # 2026-10-16, control table: "bare quoted value answering one clear
+    # requirement — preserve exactly when unambiguous"; the round-6
+    # recorded contract; the verdict probe set's first pin). Quoting is
+    # a supply here because the requirement context is the association
+    # — quotes alone never establish intent inside PROSE (the rejected
+    # reported-quotation control below).
     sid = f"sess-r3-r-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -418,11 +423,11 @@ async def test_owner_message_table(monkeypatch):
     t = await _turn(monkeypatch, sid, '"Research and Development"',
                     fresh=_stalled_fresh,
                     plan=lambda *a, **k: _tax_plan("Research and Development"))
-    assert t["plan_calls"] == 0, (
-        "quoting a mention does not make it a supply")
-    assert t["store"].updates == []
-    assert t["reply_calls"], "the normal flow owns the turn"
-    assert len(_open_questions(sid)) == 1
+    assert t["plan_calls"] == 1, (
+        "a bare quoted value answers one clear requirement")
+    assert t["store"].content.count("Research and Development") == 1, (
+        "the value is the inner text of the quotes, verbatim")
+    assert _open_questions(sid) == [], "the requirement settles"
 
     # The owner's counterexamples (round-4): the answer frame and the
     # lead-in stripper must not invent values.
@@ -534,10 +539,13 @@ async def test_owner_message_table(monkeypatch):
             assert len(_open_questions(sid)) == 1, (
                 f"{meta!r} leaves the requirement open")
 
-    # "Acme, Inc" — UNRECOGNIZED under the narrow supply syntax (no
-    # requirement anchor, no digits): the reply asks, nothing writes.
-    # QUOTING does not change that — mentioning quoted text is not
-    # supplying it; the ANCHORED quoted form binds (client pin above).
+    # "Acme, Inc" — UNRECOGNIZED unquoted (no requirement anchor, no
+    # digits): the reply asks, nothing writes. The BARE QUOTED form
+    # binds verbatim, commas included (owner work order control table:
+    # a bare quoted value answering one clear requirement is preserved
+    # when unambiguous); the ANCHORED quoted form binds too (client pin
+    # above). Only quoting inside a reported/future FRAME stays a
+    # mention (the rejected controls).
     sid = f"sess-r3-acme-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -553,11 +561,10 @@ async def test_owner_message_table(monkeypatch):
     t = await _turn(monkeypatch, sid, '"Acme, Inc"',
                     fresh=_stalled_fresh,
                     plan=lambda *a, **k: _tax_plan("Acme, Inc"))
-    assert t["plan_calls"] == 0, (
-        "an unanchored quoted mention is not a supply")
-    assert t["store"].updates == []
-    assert t["reply_calls"], "the normal flow owns the turn"
-    assert len(_open_questions(sid)) == 1
+    assert t["plan_calls"] == 1, (
+        "a bare quoted value binds verbatim")
+    assert t["store"].content.count("Acme, Inc") == 1
+    assert _open_questions(sid) == []
 
 
 @pytest.mark.asyncio
@@ -1020,6 +1027,183 @@ async def test_the_rejected_controls_never_plan_write_or_settle(
         "the saved artifact is byte-identical")
     assert len(_open_questions(sid)) == 1, (
         "the requirement stays open — nothing settled a non-answer")
+
+
+@pytest.mark.asyncio
+async def test_reported_and_future_replies_get_the_useful_clarification(
+        monkeypatch):
+    """OWNER WORK ORDER 2026-10-16, item 1 (the useful response): a
+    reported quotation and a future-action sentence leave the
+    requirement open and produce ZERO edit-planner calls — and the
+    reply must be USEFUL: it names the mention exactly as written and
+    offers the supply reading ('Does "pending" describe what your
+    records say, or are you supplying it?'), deterministically, not
+    left to the conversational model's phrasing."""
+    # Reported quotation → the supply reading is offered.
+    sid = f"sess-r3-rep-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+    t = await _turn(
+        monkeypatch, sid, 'I found the note "pending" in our records.',
+        fresh=_stalled_fresh,
+        plan=lambda *a, **k: _tax_plan("pending"))
+    r = t["response"]
+    assert t["plan_calls"] == 0, (
+        "a reported quotation must never reach the edit planner")
+    assert t["store"].updates == []
+    assert t["store"].content == QUOTE
+    assert t["reply_calls"] == [], (
+        "the resume path owns the turn and asks the targeted question")
+    said = r.get("message") or ""
+    assert "pending" in said and "Nothing was changed" in said, said
+    assert "or are you supplying" in said, (
+        f"the clarification must offer the supply reading: {said!r}")
+    assert r.get("success") is True, r
+    assert r.get("outcome") == "partial", r
+    assert t["status_events"][-1] == "success"
+    assert (t["execution_row"] or {}).get("status") == "success"
+    assert len(_open_questions(sid)) == 1, "the requirement stays open"
+
+    # Future action → the plan reading is named and the value re-asked.
+    sid = f"sess-r3-fut-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "I will check our records in 2026.",
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: _tax_plan("2026"))
+    r = t["response"]
+    assert t["plan_calls"] == 0
+    assert t["store"].updates == []
+    assert t["store"].content == QUOTE
+    assert t["reply_calls"] == []
+    said = r.get("message") or ""
+    assert "2026" in said and "Nothing was changed" in said, said
+    assert "what value" in said.lower(), (
+        f"the clarification must ask for the value: {said!r}")
+    assert r.get("success") is True
+    assert r.get("outcome") == "partial"
+    assert t["status_events"][-1] == "success"
+    assert len(_open_questions(sid)) == 1
+
+
+@pytest.mark.asyncio
+async def test_explicit_assignment_binds_and_pending_is_not_blacklisted(
+        monkeypatch):
+    """OWNER WORK ORDER 2026-10-16, control table: an EXPLICITLY
+    ASSIGNED quoted value is a correct assignment ('Use "X" as the
+    ...'), subject to the existing policy — it binds the recorded
+    requirement and settles it. And 'pending' is NOT blacklisted: the
+    same assignment with a status-like word binds just the same. The
+    gate is the speech act (a bare 'pending' MENTION inside a reported
+    frame still asks — see the rejected controls), never the value."""
+    sid = f"sess-r3-asg-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+    t = await _turn(
+        monkeypatch, sid,
+        'Use "03-4567-8912" as the tax registration number.',
+        fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 1, "an explicit assignment binds"
+    assert t["reply_calls"] == [], (
+        "the resume path applied the assignment, not the fresh lane")
+    assert t["store"].content.count(BARE_VALUE) == 1
+    assert t["response"].get("success") is True
+    assert _open_questions(sid) == [], (
+        "the assignment settled the requirement under the existing policy")
+
+    sid2 = f"sess-r3-asg2-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid2, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t2 = await _turn(
+        monkeypatch, sid2,
+        'Use "pending" as the tax registration number.',
+        fresh=_stalled_fresh,
+        plan=lambda *a, **k: _tax_plan("pending"))
+    assert t2["plan_calls"] == 1, (
+        "'pending' is not blacklisted — the assignment frame binds it")
+    assert t2["store"].content.count("pending") == 1
+    assert _open_questions(sid2) == []
+
+
+@pytest.mark.asyncio
+async def test_resume_authorization_never_reads_the_reformulation(
+        monkeypatch):
+    """OWNER WORK ORDER 2026-10-16, item 3 (no manufactured authority):
+    the planner-friendly reformulation ('Set <item> to <value>.') is
+    INSTRUCTION for the edit planner, never authorization or grounding
+    evidence. The resume lane is granted by the ACCEPTED INTERPRETATION
+    record — the validated requirement identity plus the exact span of
+    the user's own words — so the deterministic authorization probe on
+    a resumed turn is the user's original message, never the synthetic
+    imperative; and the accepted answer (requirement id, subject and
+    target, span, decision) rides to the editor SEPARATELY from the
+    reformulation."""
+    sid = f"sess-r3-auth-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+    qid = _open_questions(sid)[0]["question_id"]
+
+    # Record every message the deterministic authorization ever probes
+    # during the resumed turn.
+    probes = []
+
+    import core.turn_decision as _td
+
+    _real_auth = _td.edit_authorization
+
+    def _recording_auth(message, instruction="", canvas_id=None):
+        probes.append(str(message or ""))
+        return _real_auth(message, instruction, canvas_id=canvas_id)
+
+    monkeypatch.setattr(_td, "edit_authorization", _recording_auth)
+
+    # Capture what the editor received: the accepted answer must ride
+    # SEPARATELY from the planner reformulation.
+    apply_kwargs: dict = {}
+
+    _real_apply = cce.apply_canvas_edit
+
+    async def _capturing_apply(*a, **k):
+        apply_kwargs["resume_preservation"] = k.get("resume_preservation")
+        return await _real_apply(*a, **k)
+
+    with patch.object(cce, "apply_canvas_edit", _capturing_apply):
+        t = await _turn(monkeypatch, sid, BARE_VALUE,
+                        fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 1, (
+        "the accepted answer still resumes the edit — granted by the "
+        "accepted-interpretation record, not by a synthetic probe")
+    assert t["store"].content.count(BARE_VALUE) == 1
+    assert _open_questions(sid) == []
+
+    # The accepted-interpretation record reached the editor.
+    rp = apply_kwargs.get("resume_preservation") or {}
+    acc = rp.get("accepted_answer") or {}
+    assert acc.get("requirement_id") == qid, (
+        "the accepted answer carries the REQUIREMENT ID")
+    assert acc.get("decision") == "user_supplied_as_answer", (
+        "the accepted answer carries the explicit decision")
+    assert acc.get("span") and BARE_VALUE in (acc.get("value") or ""), (
+        "the accepted answer carries the exact span value")
+    assert acc.get("original_message") == BARE_VALUE, (
+        "the ORIGINAL message is carried separately from the "
+        "reformulation")
+    assert (rp.get("value") or "") == BARE_VALUE, (
+        "the preservation postcondition still rides with the record")
+
+    # The synthetic imperative is never the authorization evidence.
+    synthetic_shape = (
+        f"Set client's tax registration number to {BARE_VALUE}.")
+    for probe in probes:
+        assert probe != synthetic_shape, (
+            "the synthetic reformulation must never be the authorization "
+            f"probe: {probe!r}")
+        assert "\n\nSet " not in probe, (
+            "no reformulation text may be probed as authorization: "
+            f"{probe!r}")
 
 
 @pytest.mark.asyncio
