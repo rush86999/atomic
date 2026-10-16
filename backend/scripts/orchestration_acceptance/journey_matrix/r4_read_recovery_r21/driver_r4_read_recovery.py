@@ -565,22 +565,11 @@ def run_r4() -> dict:
         # the assistant delivery row appears first, delivery won the
         # race and the attempt is diagnostic-INVALID (retained).
         barrier_deadline = time.monotonic() + 600
-        receipt_seen = False
+        checkpoint_seen = False
         delivery_won = False
         while time.monotonic() < barrier_deadline:
-            try:
-                _con = _sq.connect(
-                    f"file:{server.db_path}?mode=ro", uri=True)
-                rows = _con.execute(
-                    "SELECT metadata_json FROM agent_executions "
-                    "WHERE metadata_json LIKE '%storage_read%' "
-                    "AND metadata_json LIKE '%Consolidated Price List "
-                    "2019.xlsx%'").fetchall()
-                _con.close()
-            except Exception:  # noqa: BLE001
-                rows = []
-            if rows:
-                receipt_seen = True
+            if checkpoint_file.exists():
+                checkpoint_seen = True
                 break
             arows = assistant_rows(server.db_path, "")
             if arows:
@@ -589,51 +578,78 @@ def run_r4() -> dict:
             time.sleep(0.15)
         wait_s = round(time.monotonic() - t0, 1)
         ev["barrier"] = {
-            "receipt_seen": receipt_seen,
+            "checkpoint_seen": checkpoint_seen,
             "delivery_won": delivery_won,
             "wait_s": wait_s,
         }
-        if delivery_won or (
-                not receipt_seen and assistant_rows(server.db_path, "")):
+        if delivery_won:
             assistants_won = assistant_rows(server.db_path, "")
             ev["turn1_delivered_reply"] = assistants_won[-1][:400] if \
                 assistants_won else None
             ev["invalid_reason"] = (
-                "delivery completed before a durable receipt was observed "
-                "- attempt diagnostic-invalid, retained")
+                "delivery won the race before the latch - attempt "
+                "diagnostic-invalid, retained")
             ev["pass"] = False
             return ev
-        if not receipt_seen:
+        if not checkpoint_seen:
             ev["invalid_reason"] = (
-                "neither the receipt nor a delivery appeared within the "
-                "barrier window - attempt diagnostic-invalid, retained")
+                "neither the latch checkpoint nor a delivery appeared "
+                "within the barrier window - attempt diagnostic-invalid, "
+                "retained")
             ev["pass"] = False
             return ev
-
-        # The driver INDEPENDENTLY reads the committed receipt (durable
-        # DB): the execution carrying the workbook's storage_read — the
-        # durable result identity the recovery turn must render.
-        import sqlite3 as _sq3
-        _con3 = _sq3.connect(f"file:{server.db_path}?mode=ro", uri=True)
-        _rec_rows = _con3.execute(
-            "SELECT id, metadata_json FROM agent_executions "
-            "WHERE metadata_json LIKE '%storage_read%' "
-            "AND metadata_json LIKE '%Consolidated Price List "
-            "2019.xlsx%'").fetchall()
+        # THE CHECKPOINT IS THE LANE'S OWN ANNOUNCEMENT. Now the driver
+        # INDEPENDENTLY reads the durable findings through a SEPARATE
+        # connection and asserts the requested payload, source
+        # attribution, and version - nonempty findings are insufficient
+        # (owner item 3).
+        sid = checkpoint.get("conversation_id")
+        exec_id = checkpoint.get("operation_id")
+        _con3 = _sq.connect(f"file:{server.db_path}?mode=ro", uri=True)
+        _f_rows = _con3.execute(
+            "SELECT parameters FROM goal_runs ORDER BY created_at"
+        ).fetchall()
         _con3.close()
-        ev["committed_receipt"] = {
-            "rows": len(_rec_rows),
-            "execution_ids": [r[0] for r in _rec_rows],
-        }
-        if not _rec_rows:
-            ev["invalid_reason"] = (
-                "the durable receipt vanished before the kill - the "
-                "result was not durably committed; attempt invalid")
-            ev["pass"] = False
-            return ev
+        findings: list = []
+        for (params,) in _f_rows:
+            try:
+                tl = (json.loads(params or "{}").get(
+                    "task_lifecycle") or {})
+            except Exception:  # noqa: BLE001
+                continue
+            if str(tl.get("conversation_id") or "") != str(sid or ""):
+                continue
+            for op in tl.get("operations") or []:
+                op = op or {}
+                if str(op.get("operation_id") or "") != str(
+                        checkpoint.get("operation_id")):
+                    continue
+                ex = op.get("execution") or {}
+                findings = ex.get("findings") or []
+                for f in findings:
+                    if isinstance(f, dict):
+                        findings.append(f)
+        assert findings, (
+            "the durable findings for the latched operation must exist")
+        _assert_items = ("FZ16", "Haas VF-2", "QT-250")
+        _assert_values = {"FZ16": "88,410.25", "Haas VF-2": "48,000",
+                          "QT-250": "63,180"}
+        for item in _assert_items:
+            match = next((f for f in findings
+                          if str(f.get("item")) == item), None)
+            assert match is not None, f"no durable finding for {item}"
+            assert str(match.get("source") or "").startswith(
+                WORKBOOK_NAME), (
+                f"the finding must carry source attribution: {match}")
+            assert match.get("content_hash"), "no content hash"
+            assert match.get("source_version") == match.get(
+                "content_hash"), "version identity mismatch"
+            assert str(match.get("value")) == _assert_values[item], (
+                f"the payload for {item} is {match.get('value')!r}")
+        ev["independently_verified_findings"] = findings[:6]
 
-        # SIGKILL the process: no graceful shutdown that could finish
-        # delivery (owner item 1).
+        # SIGKILL the process WHILE THE LATCH REMAINS CLOSED: no
+        # graceful shutdown that could finish delivery (owner item 1).
         server.proc.kill()
         server.proc.wait(timeout=15)
         ev["kill"] = {"signal": "SIGKILL", "at_s": round(
@@ -644,7 +660,8 @@ def run_r4() -> dict:
             pass
 
         # POST-KILL VERIFICATION (owner item 1): no assistant delivery
-        # persisted after the kill.
+        # persisted after the kill, and the durable findings (verified
+        # above) are still in place.
         assistants_after = assistant_rows(server.db_path, "")
         # THE ATTRIBUTABLE SOURCE COUNTER: the controlled read must
         # produce invocation + completion events (owner item 3).
@@ -659,13 +676,18 @@ def run_r4() -> dict:
         ev["post_kill"] = {
             "assistant_rows": len(assistants_after),
             "no_delivery_persisted": len(assistants_after) == 0,
-            "committed_receipt": ev["committed_receipt"],
+            "latched_operation": {
+                "run_id": checkpoint.get("run_id"),
+                "operation_id": checkpoint.get("operation_id"),
+                "conversation_id": checkpoint.get("conversation_id"),
+                "workspace_id": checkpoint.get("workspace_id"),
+                "source_version": checkpoint.get("source_version"),
+            },
             "retrieve_ops": retrieve_operations(server.db_path, ""),
         }
         ev["initial_read_proven"] = bool(
             ev["source_counter_at_stop"]["invoked"] >= 1
             and ev["source_counter_at_stop"]["completed"] >= 1
-            and _rec_rows
         )
 
         # ---- RECOVERY TURN (after restart) ----
@@ -678,7 +700,7 @@ def run_r4() -> dict:
         # The durable-state inspection continues: after the restart,
         # where does the result survive NOW?
         ev["durable_after_restart"] = {
-            "receipt_rows": len(_rec_rows),
+            "receipt_rows": len(findings),
             "retrieve_ops": retrieve_operations(server.db_path, ""),
             "history_rows": len(assistant_rows(server.db_path, "")),
         }

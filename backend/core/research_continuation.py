@@ -435,6 +435,57 @@ async def _execute_document_read(
     record_read_outcome(
         lifecycle, run_id, op["operation_id"], structured_result=None,
         freshness=None, execution=_exec_facts)
+    # R4 SCRATCH LATCH (env-gated; ONLY the diagnostic world sets
+    # ATOM_R4_DIAG=1): the findings are NOW DURABLY COMMITTED (the
+    # lifecycle operation carries the payload with source attribution).
+    # The checkpoint carries the full identity chain - conversation,
+    # workspace, run, operation, file, source version - and delivery
+    # BLOCKS while the latch file exists, so the driver can terminate
+    # the process at the PROVEN post-commit, pre-delivery boundary.
+    # A missing env is production behavior, byte-for-byte unchanged.
+    if os.getenv("ATOM_R4_DIAG") == "1":
+        import asyncio as _r4aio
+        import json as _r4json
+        import time as _r4time
+        _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+        _r4_record = lifecycle.get_task(run_id) or {}
+        _r4_ckpt = {
+            "lane": "research_continuation",
+            "run_id": run_id,
+            "operation_id": op["operation_id"],
+            "conversation_id": _r4_record.get("conversation_id"),
+            "workspace_id": str(workspace_id or ""),
+            "file_name": file_name,
+            "source_version": _scan_identity,
+            "outcome": _exec_facts["outcome"],
+            "items": statuses,
+            "findings_count": len(evidence),
+            "note": ("findings are durably committed; DURABLE persistence "
+                     "is verified by the driver from goal_runs before the "
+                     "kill"),
+            "latched_at": _r4time.time(),
+        }
+        with open(os.path.join(_r4_dir, "r4_checkpoint.json"), "w") as rf:
+            _r4json.dump(_r4_ckpt, rf, default=str)
+        _r4_block = os.path.join(_r4_dir, "r4_delivery_block")
+        logger.warning(
+            "[r4-latch] findings committed; delivery BLOCKED while %s "
+            "exists", _r4_block)
+        _r4_deadline = _r4time.monotonic() + 300
+        while os.path.exists(_r4_block) \
+                and _r4time.monotonic() < _r4_deadline:
+            await _r4aio.sleep(0.2)
+        if os.path.exists(_r4_block):
+            _r4_expired = os.path.join(_r4_dir, "r4_latch_expired.json")
+            with open(_r4_expired, "w") as rf:
+                _r4json.dump({
+                    "lane": "research_continuation",
+                    "run_id": run_id,
+                    "operation_id": op["operation_id"],
+                }, rf, default=str)
+            logger.warning(
+                "[r4-latch] EXPIRED - diagnostic recorded invalid "
+                "(%s)", _r4_expired)
     return {"file": file_name, "statuses": statuses,
             "evidence": evidence}
 
