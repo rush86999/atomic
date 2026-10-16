@@ -47,6 +47,19 @@
    },
    "first_missing_transition": "RECOVERY SELECTION: nothing in the recovery turn consults the durable findings committed at read completion. The interrupted attempt's payload is durable and inspectable; no code path consumes it.",
    "next": "build the recovery selection: the recovery turn renders from the durable findings (goal_runs retrieve op execution.findings) \u2014 the owner's bounded repair, then re-run this diagnostic for the full transition table."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_171723_0be13e.json",
+   "subject": "027d8d061 lineage (the session-id recovery fix)",
+   "result": "THE RECOVERY TURN RE-RENDERED THE STORED RESULT: 'From the saved copy of Consolidated Price List 2019.xlsx (saved 2026-10-16): Checked 3 items - 3 with values...' - the correct prices with cell-level attribution. The kill-at-completion barrier held (read_completed_seen, SIGKILL, no delivery). BUT the attributable counter recorded ONE new source invocation during the recovery turn - the reply leg's planner dispatch raced a fresh file read in the background. The reply itself came from the re-render lane, but the fresh dispatch violates the owner's 'no fresh source invocation' gate at the counter level.",
+   "transition_table": {
+    "initial_read_completed": "MET (counter + durable findings)",
+    "stopped_before_delivery": "MET (SIGKILL at read_completed; no assistant row)",
+    "recovery_selected_stored_result": "PARTIAL - the reply WAS the re-render of the stored result (correct facts), but a background planner dispatch fired one fresh read invocation",
+    "reply_delivered": "MET with the attribution caveat (facts correct, cell-level)",
+    "repeated_recovery": "RE-RENDERED again (explicit re-show - user asked; acceptable per the owner's explicit-vs-automatic distinction)"
+   },
+   "residual_repair": "GATE THE PLANNER DISPATCH: when the durable fallback resolves a recovery, the reply leg must not dispatch a fresh file read (cancel the tool-plan dispatch or suppress the file-scoped reader for show-shaped asks with a recovered result). Bounded: the durable fallback already knows the recovery is pending; the dispatch gate is one flag."
   }
  ],
  "next": "repair the mention-extraction boundary (bounded: the mention must capture the filename, not the phrase), re-run the same diagnostic, then proceed to the recovery transitions. The latch and source counter are in place and never armed."
