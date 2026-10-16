@@ -1,6 +1,6 @@
 {
- "campaign": "2026-10-16 R3 — supplying a missing value AFTER RESTART (owner milestone directive)",
- "subject_repair": "b9e2d8e5c — the awaiting-value requirement persists in the task lifecycle's unresolved ledger; intake binds the user's answer (single value -> resume the recorded edit; multiple -> one clarification, zero writes)",
+ "campaign": "2026-10-16 R3 \u2014 supplying a missing value AFTER RESTART (owner milestone directive)",
+ "subject_repair": "b9e2d8e5c \u2014 the awaiting-value requirement persists in the task lifecycle's unresolved ledger; intake binds the user's answer (single value -> resume the recorded edit; multiple -> one clarification, zero writes)",
  "subject_diagnosed": "df72807b8 (the integrated main HEAD before the repair)",
  "sequence": [
   "1. missing-information request via the public app",
@@ -14,31 +14,58 @@
   {
    "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_071658_4970db.json",
    "subject": "df72807b8 (pre-repair)",
-   "result": "THE GAP DEMONSTRATED: the request turn was perfect (success=true, outcome=partial, zero writes, the specific ask), but after the restart the bare value was treated as a LOOKUP question ('I did not find a match for \"03-4567-8912\" in the records…') — mutation.requested=false, the turn resolved failed. The association existed only in conversation prose.",
+   "result": "THE GAP DEMONSTRATED: the request turn was perfect (success=true, outcome=partial, zero writes, the specific ask), but after the restart the bare value was treated as a LOOKUP question ('I did not find a match for \"03-4567-8912\" in the records\u2026') \u2014 mutation.requested=false, the turn resolved failed. The association existed only in conversation prose.",
    "verdict": "repair required (owner pre-authorized the shape: persist the minimal structured requirement in the existing pending-task/lifecycle machinery)"
   },
   {
    "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_073932_8373eb.json",
    "subject": "b9e2d8e5c (repair)",
    "result": "THE RESUME WORKS END-TO-END: request turn green as before; after the REAL restart the bare value bound to the recorded requirement ('Client's tax registration number updated to 03-4567-8912.'), ONE write, the value landed once, protected content preserved, attributable audit row (operation_id = the resume execution id), durable mutation evidence (objective_met=true, readback_matched=true), reload agreement, zero failed requests. Scenario B: the ambiguous value produced exactly one clarification naming both candidates, zero writes, question stayed open.",
-   "verdict": "the R3 user experience passes; the run's one false check was a DRIVER artifact (details[:400] truncated the audit row's operation_id mid-string — attribution was present and is verified in the row dump)",
+   "verdict": "the R3 user experience passes; the run's one false check was a DRIVER artifact (details[:400] truncated the audit row's operation_id mid-string \u2014 attribution was present and is verified in the row dump)",
    "note": "harness artifact fixed in a9b8372a2 (details[:900] + prefix match)"
   },
   {
    "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_074317_a6d935.json",
    "subject": "b9e2d8e5c (repair)",
-   "result": "REPAIR STABLE, RUNG VARIANCE EXPOSED: the resume machinery worked again (binding, apply, settle, attribution now green, ambiguous scenario green), but this run's cloud edit-plan output was a sloppy TWO-op patch: the value landed twice (after the Client line AND after a duplicated 'Terms: Terms: Net 30' label) and the delivered reply omitted the value. The editor applied both ops faithfully — each grounded, postcondition matched. This is plan-quality variance of the accepted rung (same class as the earlier patch-format rounds), not a resume defect: the prior run on the same candidate produced a clean single-op plan.",
+   "result": "REPAIR STABLE, RUNG VARIANCE EXPOSED: the resume machinery worked again (binding, apply, settle, attribution now green, ambiguous scenario green), but this run's cloud edit-plan output was a sloppy TWO-op patch: the value landed twice (after the Client line AND after a duplicated 'Terms: Terms: Net 30' label) and the delivered reply omitted the value. The editor applied both ops faithfully \u2014 each grounded, postcondition matched. This is plan-quality variance of the accepted rung (same class as the earlier patch-format rounds), not a resume defect: the prior run on the same candidate produced a clean single-op plan.",
    "verdict": "recorded as an OPEN planner-quality limitation of the resume flow; not reopened now (owner: do not reopen; diagnostics over repairs). Candidate future repair, if the owner calls for it: a resume-plan preference for minimal ops / a post-apply no-op-duplication check."
+  },
+  {
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_091140_b75a3b.json",
+   "subject": "de3a647fb (pre-settled-lookup-fix)",
+   "result": "PATH VARIANCE DEMONSTRATED LIVE: scenario B fully green (the specific ask + the ambiguity clarification), but scenario A's named-source lookup SETTLED with nothing grounding the reference \u2014 that path shipped the generic block decline (no specific ask, no stamp, unconfirmed/failed envelope) and the follow-up value was answered by model prose ('I did not find one in what this turn actually searched'). Both lookup endings are the same unresolved requirement.",
+   "verdict": "bounded repair: the settled-lookup decline joins the requirement machinery (8ebe1a2f0)"
+  },
+  {
+   "evidence_archived": {
+    "path": "evidence_r3_resume_20261016_093604_f8f641.json",
+    "note": "sanitized in-repo archive; credential scan clean"
+   },
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_093604_f8f641.json",
+   "subject": "8ebe1a2f0 (review-approved runtime)",
+   "counted": false,
+   "pass": true,
+   "failed_request_count": 0,
+   "result": "ALL GATES GREEN after three real restarts: the request ships the specific ask (partial, zero writes, draft unchanged); after the restart the bare value binds the stamped requirement ('Client's tax registration number updated to 03-4567-8912.') with ONE write, the value once, protected content intact, attributable audit row, objective_met=true + readback_matched=true, reload agreement; the ambiguous value asks once naming both candidates verbatim with zero writes.",
+   "checks": "every check on every turn true; zero failed requests"
   }
  ],
  "tests": {
-  "behavioral": "tests/test_resume_pending_requirement.py — 4 passed (real decline->stamp->resume loop with REAL lifecycle runs: one write + question settles; ambiguous one-clarification-zero-writes; other-canvas never hijacked; no-record normal flow)",
-  "neighbor_sweep": "73 passed / 3 failed — the 3 are the known pre-existing failures in test_write_zero_effect_claims.py (attributed at c05cfd69b)"
+  "behavioral": "tests/test_resume_pending_requirement.py \u2014 4 passed (real decline->stamp->resume loop with REAL lifecycle runs: one write + question settles; ambiguous one-clarification-zero-writes; other-canvas never hijacked; no-record normal flow)",
+  "neighbor_sweep": "73 passed / 3 failed \u2014 the 3 are the known pre-existing failures in test_write_zero_effect_claims.py (attributed at c05cfd69b)"
  },
- "status": "R3 PASSES as a user experience on b9e2d8e5c (evidence run 073932): restart, answer the question, continue without repeating the request. Open: rung plan-quality variance (duplicated label observed once in run 074317).",
+ "status": "R3 PASSES its live diagnostic on 8ebe1a2f0 (pass=true, 0 failed requests, every check true on every turn): restart, answer the question, continue without repeating the request. The settled-lookup and timeout paths both deliver the specific ask and stamp the requirement.",
  "limits": [
   "diagnostic runs (counted=false); the driver's SHA guard pins the runtime candidate and allows harness-only HEAD deltas",
   "the value-candidate split is structural (comma/semicolon/newline/'or'); values containing those separators natively are out of scope for this round",
   "the resume binding is scoped to the same conversation AND the same recorded canvas"
- ]
+ ],
+ "review": {
+  "rounds": [
+   "round 1 REJECT: 3 required fixes \u2014 reply interpretation (word removal + numeric comma splits + cancel-as-value), answerable multi-requirement + stamp dedup, restore-race guard; plus expiry dead-code",
+   "round 2 REJECT: 1 required fix \u2014 selection-only replies ('1', 'option 2', 'The VAT number') bound the selection token as the value",
+   "round 3 APPROVE on de3a647fb-lineage fixes; then the live run exposed the settled-lookup variance \u2192 bounded extension 8ebe1a2f0 \u2192 scoped re-review APPROVE (non-gating NOTEs: planner_declined residual message-accuracy class, chain-report append ordering, answer-frame inversion and other [MINOR] polish recorded for follow-up)"
+  ],
+  "verdict": "APPROVE \u2014 live run unblocked (the reviewer's independent probes, suite runs, and neighbor sweep all confirmed)"
+ }
 }
