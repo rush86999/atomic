@@ -564,7 +564,7 @@ def run_r4() -> dict:
         # workbook — and SIGKILL the process the moment it appears. If
         # the assistant delivery row appears first, delivery won the
         # race and the attempt is diagnostic-INVALID (retained).
-        barrier_deadline = time.monotonic() + 240
+        barrier_deadline = time.monotonic() + 600
         receipt_seen = False
         delivery_won = False
         while time.monotonic() < barrier_deadline:
@@ -593,13 +593,20 @@ def run_r4() -> dict:
             "delivery_won": delivery_won,
             "wait_s": wait_s,
         }
-        if delivery_won and not receipt_seen:
+        if delivery_won or (
+                not receipt_seen and assistant_rows(server.db_path, "")):
             assistants_won = assistant_rows(server.db_path, "")
             ev["turn1_delivered_reply"] = assistants_won[-1][:400] if \
                 assistants_won else None
             ev["invalid_reason"] = (
-                "delivery won the race before the durable receipt was "
-                "observed - attempt diagnostic-invalid, retained")
+                "delivery completed before a durable receipt was observed "
+                "- attempt diagnostic-invalid, retained")
+            ev["pass"] = False
+            return ev
+        if not receipt_seen:
+            ev["invalid_reason"] = (
+                "neither the receipt nor a delivery appeared within the "
+                "barrier window - attempt diagnostic-invalid, retained")
             ev["pass"] = False
             return ev
 
