@@ -12077,7 +12077,7 @@ class ChatOrchestrator:
                                 with open(os.path.join(
                                         _r4_dir2, "r4_checkpoint.json"),
                                         "w") as rf2:
-                                    _r4json.dump({
+                                    _r4json2.dump({
                                         "lane": "direct_complete",
                                         "execution_id": execution_id,
                                         "session_id": session_id,
@@ -12117,7 +12117,7 @@ class ChatOrchestrator:
                                     _r4_expired2 = os.path.join(
                                         _r4_dir2, "r4_latch_expired.json")
                                     with open(_r4_expired2, "w") as rf3:
-                                        _r4json.dump({
+                                        _r4json2.dump({
                                             "lane": "direct_complete",
                                             "execution_id": execution_id,
                                         }, rf3, default=str)
@@ -12546,11 +12546,12 @@ class ChatOrchestrator:
                 _recovery_decision = "normal_work"
                 _recovery_payload = None
                 try:
-                    _r4_open = _load_durable_file_result(
+                    _r4_open = self._load_durable_file_result(
                         session_id,
                         workspace_id=(
                             _turn_scope.get("workspace_id")
                             if isinstance(_turn_scope, dict) else None),
+                        message=message,
                     )
                     if isinstance(_r4_open, dict) and _r4_open.get(
                             "__ambiguous__"):
@@ -12568,9 +12569,59 @@ class ChatOrchestrator:
                         "directly - zero planner dispatch, zero source "
                         "calls")
                 elif _recovery_decision == "clarify_result_selection":
+                    # CLARIFICATION: the ambiguity marker carries the
+                    # candidate identities - the ask names them, zero
+                    # writes, nothing consumed.
+                    _amb_names = "; ".join(
+                        str(c.get("file_name") or "the file")
+                        for c in (_recovery_candidates or [])[:3])
+                    _amb_response = {
+                        "success": True,
+                        "message": (
+                            "More than one recovered result is open here "
+                            f"- {_amb_names}. Which one should I show? "
+                            "Nothing was changed yet; tell me which one "
+                            "and I'll serve it."),
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "search",
+                        "confidence": 0.9,
+                        "outcome": "partial",
+                        "data": {"canvas_edit": {
+                            "canvas_id": (
+                                (_canvas_ctx or {}).get("canvas_id")),
+                            "updated": False, "no_apply": True,
+                            "reason": "multiple_durable_results",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "candidates": _recovery_candidates,
+                        }},
+                        "model": "deterministic",
+                        "provider": "structured",
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "suggested_actions": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _amb_response,
+                        {"primary_intent": "search", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id,
+                        "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success",
+                        _amb_response.get("message", ""),
+                        session=session, message=message,
+                        response=_amb_response, deadline=_deadline)
                     logger.info(
-                        "[r4-recovery] multiple stored results - asking "
-                        "which one, zero source calls")
+                        "[r4-recovery] multiple durable results - "
+                        "clarification delivered, zero writes (%d)",
+                        len(_recovery_candidates))
+                    if _tool_plan_task is not None \
+                            and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _amb_response
 
                 # RECOVERY DELIVERY (owner plan item 3, R4 2026-10-16):
                 # a fully selected stored result is served through the
@@ -12618,18 +12669,23 @@ class ChatOrchestrator:
                     # scan does not re-append).
                     try:
                         _r4_lifecycle = _task_lifecycle_for(
-                            None, workspace_id)
-                        _r4_record = _r4_lifecycle.find_active_task(
-                            str(session_id)) if _r4_lifecycle else None
-                        if _r4_record:
-                            session[FILE_TASK_SESSION_KEY] = (
-                                mark_task_delivered(
-                                    mark_task_retrieved(
-                                        session.get(
-                                            FILE_TASK_SESSION_KEY),
-                                        _r4_identity)))
-                    except Exception:  # noqa: BLE001
-                        pass
+                            getattr(self, "tenant_id", None),
+                            (context or {}).get("workspace_id"))
+                        if _r4_lifecycle is not None and _recovery_payload.get(
+                                "run_id"):
+                            _r4_lifecycle.finish_retrieval_turn(
+                                _recovery_payload["run_id"],
+                                _recovery_payload.get(
+                                    "recovery_operation_id"),
+                                {}, _execution_id, True,
+                                execution={"invoked": False,
+                                           "outcome": "delivered_from_durable",
+                                           "served_basis": "durable_findings"},
+                            )
+                    except Exception as _r4_settle_err:  # noqa: BLE001
+                        logger.warning(
+                            "[r4-recovery] lifecycle settle failed: %r",
+                            _r4_settle_err)
                     self._update_session(
                         session, message, _r4_response,
                         {"primary_intent": "search", "confidence": 0.9})
