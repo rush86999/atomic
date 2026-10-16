@@ -581,10 +581,16 @@ def run_r4() -> dict:
                 server.db_path,
                 "SELECT role, content FROM chat_messages ORDER BY "
                 "created_at, rowid", ())
+            assistants_now = assistant_rows(server.db_path, sid or "")
+            ev["turn1_delivered_reply"] = assistants_now[-1][:400] if assistants_now else None
+            try:
+                ev["world_log_at_kill_probe"] = server.log_tail()[-6000:]
+            except Exception:  # noqa: BLE001
+                pass
             ev["invalid_reason"] = (
                 "the checkpoint never appeared — the boundary was not "
-                f"reached (assistant rows so far: {len(t)}); attempt "
-                "retained as diagnostic-invalid")
+                f"reached (assistant rows so far: {len(assistants_now)}); "
+                "attempt retained as diagnostic-invalid")
             ev["pass"] = False
             return ev
 
