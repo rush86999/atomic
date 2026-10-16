@@ -618,3 +618,299 @@ async def test_reference_requirement_ships_the_specific_ask_deterministically():
         "the clarification ships without the reply leg (no model call)")
     assert result.get("success") is True, result
     assert result.get("outcome") == "partial", result
+
+
+# ---------------------------------------------------------------------------
+# 6. THE DELIVERED-CLARIFICATION ENVELOPE (owner repair 2026-10-16)
+#
+# The unresolved-requirement early return delivered the specific ask with
+# success=true / outcome=partial, but recorded the turn's execution as
+# FAILED (agent-status event + _finish_chat_execution). The route
+# finalizer binds the envelope to the execution record's own status, so a
+# successfully delivered clarification shipped as a system failure
+# (success false + execution_failed). The repair is at the producer: the
+# row status and the status event carry the SAME delivered decision as the
+# response. Global finalization precedence is untouched.
+# ---------------------------------------------------------------------------
+CLARIFICATION_MESSAGE = (
+    "Add the client's tax registration number to this quotation. "
+    "Use the exact number from our records.")
+CLARIFICATION_CANVAS_BODY = ("# Quotation Q-2026-114\n\n"
+                             "Valid until: 2026-11-30\n")
+
+
+async def _clarification_turn(message, session_id, fresh_side_effect,
+                              plan_side_effect=None):
+    """Drive the ACTUAL early-return branch with real scratch persistence.
+
+    The fresh-data lookup is controlled; `_start_chat_execution`,
+    `_update_session` and `_finish_chat_execution` are REAL (isolated test
+    DB); the agent-status event is captured; the canvas store is faked with
+    a write counter. Returns every artifact the assertions need."""
+    import asyncio as _aio
+    import core.chat_canvas_editor as cce
+    from integrations import chat_orchestrator as chat
+
+    orchestrator = chat.ChatOrchestrator()
+    canvas = {"canvas_id": "cv-reqfix", "canvas_type": "document",
+              "title": "Quotation Q-2026-114",
+              "content": CLARIFICATION_CANVAS_BODY}
+    writes = []
+    reply_calls = []
+    status_events = []
+    plan_calls = {"n": 0}
+
+    async def _update(user_id, canvas_id, content, *a, **k):
+        writes.append(content)
+        return {"success": True, "audit_id": "a1"}
+
+    async def _read(user_id, canvas_id, **k):
+        return {"success": True, "canvas_id": canvas_id,
+                "canvas_type": "document", "title": "Q",
+                "content": canvas["content"]}
+
+    async def _reply(*a, **k):
+        reply_calls.append(1)
+        return {"content": "the reply leg must not run", "success": True}
+
+    async def _plan(*a, **k):
+        plan_calls["n"] += 1
+        if plan_side_effect is None:
+            return None
+        return plan_side_effect()
+
+    async def _status(sid, aid, eid, status):
+        status_events.append(status)
+        return None
+
+    session = {"id": session_id, "history": []}
+    with (
+        patch.object(orchestrator, "_get_or_create_session",
+                     return_value=session),
+        patch.object(orchestrator, "_resolve_canvas_ctx",
+                     new=AsyncMock(return_value=dict(canvas))),
+        patch.object(orchestrator, "_record_chat_step", new=AsyncMock()),
+        patch.object(orchestrator, "_emit_agent_status",
+                     new=AsyncMock(side_effect=_status)),
+        patch.object(chat, "_begin_task_edit",
+                     return_value={"status": "reserved", "run_id": "run-z",
+                                   "operation_id": "op-z", "reason": None}),
+        patch.object(orchestrator, "_try_canvas_action", new=AsyncMock()),
+        patch.object(orchestrator, "_get_qwen_response",
+                     new=AsyncMock(side_effect=_reply)),
+        patch("core.chat_tool_planner.plan_tool_use",
+              new=AsyncMock(return_value=None)),
+        patch("core.chat_tool_planner._provenance_menu",
+              new=AsyncMock(return_value="")),
+        patch.object(cce, "fetch_fresh_data_section",
+                     new=AsyncMock(side_effect=fresh_side_effect)),
+        patch.object(cce, "plan_canvas_edit",
+                     new=AsyncMock(side_effect=_plan)),
+        patch.object(chat, "_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS", 0.3),
+        patch("tools.canvas_crud_tool.update_canvas_content",
+              new=AsyncMock(side_effect=_update)),
+        patch("tools.canvas_crud_tool.read_canvas",
+              new=AsyncMock(side_effect=_read)),
+    ):
+        result = await orchestrator.process_chat_message(
+            "u1", message, session_id, context={"canvas_id": "cv-reqfix"})
+    return {"response": result, "writes": writes,
+            "reply_calls": reply_calls, "status_events": status_events,
+            "plan_calls": plan_calls["n"], "session": session,
+            "canvas": canvas}
+
+
+def _reload_execution_row(execution_id):
+    """A FRESH read of the persisted execution row (reload, not cache)."""
+    from core.database import get_db_session
+    from core.models import AgentExecution
+
+    with get_db_session() as db:
+        row = db.query(AgentExecution).filter(
+            AgentExecution.id == execution_id).first()
+        assert row is not None, "the execution row must persist"
+        return {"status": row.status,
+                "result_summary": row.result_summary,
+                "metadata_json": (
+                    dict(row.metadata_json)
+                    if isinstance(row.metadata_json, dict) else {})}
+
+
+def _finalize_through_route(response):
+    """Continue the envelope through the REAL route finalizer."""
+    from core.database import get_db_session
+    from integrations.chat_routes import _finalize_chat_response
+
+    with get_db_session() as db:
+        return _finalize_chat_response(db, dict(response))
+
+
+@pytest.mark.asyncio
+async def test_delivered_clarification_is_not_a_system_failure(monkeypatch):
+    """Owner repair 2026-10-16: the unresolved-requirement early return
+    records a successfully delivered clarification as a successful turn.
+    Drives the real branch with a stalled lookup and real scratch
+    persistence, continues through the route finalizer and a fresh reload.
+    FAILS ON THE PARENT (row status failed → envelope failed)."""
+    import asyncio as _aio
+    import uuid as _uuid
+
+    import core.chat_canvas_editor as cce
+
+    monkeypatch.setenv("CHAT_FINALIZATION_M1", "1")
+    session_id = f"sess-reqfix-{_uuid.uuid4().hex[:8]}"
+
+    async def _slow_fresh(*a, **k):
+        await _aio.sleep(30)
+        return cce.FreshDataResult("", True, True)
+
+    turn = await _clarification_turn(
+        CLARIFICATION_MESSAGE, session_id, _slow_fresh)
+    response = turn["response"]
+    said = response.get("message") or ""
+
+    # 1. The specific clarification is delivered, nothing written.
+    assert "could not be retrieved this turn" in said, response
+    assert "'from our records'" in said, said
+    assert "Give me the exact value" in said, said
+    assert turn["writes"] == [], "zero audit writes"
+    assert turn["reply_calls"] == [], "no reply-leg model call"
+    assert turn["plan_calls"] == 0, "no edit plan for an ungrounded value"
+    assert response.get("success") is True, response
+    assert response.get("outcome") == "partial", response
+    assert response.get("error_code") is None, response
+    assert (response.get("_recorded_outcome") or {}).get("declined") is True
+    # 2. The turn itself is recorded as delivered, not failed.
+    assert "failed" not in turn["status_events"], turn["status_events"]
+    assert turn["status_events"] and turn["status_events"][-1] == "success"
+    execution_id = response.get("execution_id")
+    assert execution_id, "the envelope carries its execution identity"
+    row = _reload_execution_row(execution_id)
+    assert row["status"] == "success", row  # parent records "failed"
+    # 3. Through the route finalizer: still a delivered clarification.
+    finalized = _finalize_through_route(response)
+    assert finalized.get("success") is True, finalized
+    assert finalized.get("outcome") == "partial", finalized
+    assert finalized.get("error_code") is None, finalized
+    assert "execution_failed" not in str(finalized), finalized
+    assert finalized.get("message") == said, (
+        "the finalizer must not rewrite a delivered clarification")
+    # 4. Durable delivery confirmed on a fresh reload; the requirement
+    # stays open and completion is never certified.
+    from core import execution_outcome as _outcome
+
+    reloaded = _reload_execution_row(execution_id)
+    records = _outcome.load_operation_records(
+        reloaded["metadata_json"])
+    assert records.get(str(execution_id), {}).get(
+        "delivery_status") == "delivered", reloaded["metadata_json"]
+    task_outcome = reloaded["metadata_json"].get("task_outcome") or {}
+    assert task_outcome.get("objective_met") is not True, task_outcome
+    # 5. The draft is untouched; persisted metadata and history agree.
+    assert turn["canvas"]["content"] == CLARIFICATION_CANVAS_BODY
+    history = turn["session"]["history"]
+    assert history, "the turn is in session history"
+    assert history[-1]["response"]["message"] == finalized.get("message")
+    assert history[-1]["response"].get("success") is True
+    assert history[-1].get("error") is False, (
+        "a delivered clarification is not an error turn")
+    from core.database import get_db_session
+    from core.models import ChatMessage as ChatMessageModel
+
+    with get_db_session() as db:
+        rows = db.query(ChatMessageModel).filter(
+            ChatMessageModel.conversation_id == session_id).all()
+        roles = sorted(r.role for r in rows)
+        assert roles == ["assistant", "user"], roles
+        assistant = next(r for r in rows if r.role == "assistant")
+        assert assistant.content == finalized.get("message"), (
+            "persisted assistant metadata agrees with history")
+
+
+@pytest.mark.asyncio
+async def test_genuine_execution_failure_remains_failed(monkeypatch):
+    """Negative control 1: the finalizer still reports a genuinely failed
+    execution as a failure. Passes on parent and repair alike — the repair
+    is at the producer, global precedence untouched."""
+    from core.finalization import (
+        apply_recorded_outcome, finalize_payload,
+    )
+
+    drafted = {"success": True, "message": "specific ask text",
+               "outcome": "unconfirmed", "execution_id": "exec-neg-1"}
+    failed = finalize_payload(
+        {"execution_id": "exec-neg-1", "status": "failed",
+         "result_summary": "boom", "failure_stage": "lookup"}, drafted)
+    assert failed.get("success") is False, failed
+    assert failed.get("error_code") == "execution_failed", failed
+    out = apply_recorded_outcome(
+        {"success": True, "outcome": "unconfirmed", "data": {}},
+        {"state": "failed", "work_turn": True})
+    assert out.get("success") is False, out
+    assert out.get("outcome") == "failed", out
+
+
+@pytest.mark.asyncio
+async def test_timeout_without_delivered_clarification_is_not_promoted(
+        monkeypatch):
+    """Negative control 2: a lookup timeout with NO delivered clarification
+    (no named source, generic decline) still records failed. The repair
+    promotes only delivered clarifications. Passes on parent and repair."""
+    import uuid as _uuid
+
+    import core.chat_canvas_editor as cce
+
+    monkeypatch.setenv("CHAT_FINALIZATION_M1", "1")
+    session_id = f"sess-reqfix-neg-{_uuid.uuid4().hex[:8]}"
+
+    async def _dead_fresh(*a, **k):
+        return cce.FreshDataResult("", True, False)
+
+    turn = await _clarification_turn(
+        "Add the client's tax registration number to this quotation.",
+        session_id, _dead_fresh)
+    response = turn["response"]
+    assert response.get("success") is False, response
+    assert response.get("outcome") == "unconfirmed", response
+    assert "could not be retrieved this turn" not in (
+        response.get("message") or ""), response
+    assert turn["status_events"][-1] == "failed", turn["status_events"]
+    row = _reload_execution_row(response.get("execution_id"))
+    assert row["status"] == "failed", row
+    finalized = _finalize_through_route(response)
+    assert finalized.get("success") is False, finalized
+
+
+@pytest.mark.asyncio
+async def test_stale_requirement_marker_cannot_leak_into_another_execution():
+    """Negative control 3: turn 1 declines on an unresolved requirement;
+    turn 2 (same session, new execution, lookup now succeeding) proceeds
+    past the requirement gate — the marker is per-turn, never stale.
+    Passes on parent and repair alike."""
+    import asyncio as _aio
+    import uuid as _uuid
+
+    import core.chat_canvas_editor as cce
+
+    session_id = f"sess-reqfix-stale-{_uuid.uuid4().hex[:8]}"
+
+    async def _slow_fresh(*a, **k):
+        await _aio.sleep(30)
+        return cce.FreshDataResult("", True, True)
+
+    turn1 = await _clarification_turn(
+        CLARIFICATION_MESSAGE, session_id, _slow_fresh)
+    assert turn1["response"].get("outcome") == "partial", turn1["response"]
+    assert turn1["plan_calls"] == 0
+
+    async def _good_fresh(*a, **k):
+        return cce.FreshDataResult("TAX- Pencilled value", True, True)
+
+    turn2 = await _clarification_turn(
+        CLARIFICATION_MESSAGE, session_id, _good_fresh)
+    assert turn2["plan_calls"] == 1, (
+        "turn 2 passes the requirement gate: no stale marker")
+    assert "could not be retrieved this turn" not in (
+        turn2["response"].get("message") or ""), turn2["response"]
+    assert turn2["response"].get("execution_id") != turn1["response"].get(
+        "execution_id"), "a distinct execution"

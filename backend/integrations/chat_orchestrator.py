@@ -12858,6 +12858,20 @@ class ChatOrchestrator:
                         isinstance(_shared_tool, dict)
                         and _shared_tool.get(
                             "canvas_requirement_unresolved"))
+                    # CLARIFICATION DELIVERY ≠ EDIT COMPLETION (owner
+                    # repair 2026-10-16): a successfully delivered
+                    # clarification is a successful turn — the requested
+                    # edit did not happen and stays partial/open, but the
+                    # execution itself did not fail. The row status and
+                    # the agent-status event must carry this SAME
+                    # decision, or the route finalizer (which binds the
+                    # envelope to the execution record's own status)
+                    # rewrites the delivered clarification as a system
+                    # failure. Matches the response's success expression
+                    # exactly; an undelivered decline still records
+                    # failed.
+                    _delivered = bool(_noop_satisfied
+                                      or _requirement_declined)
                     response = {
                         "success": bool(_noop_satisfied
                                         or _requirement_declined),
@@ -12898,11 +12912,11 @@ class ChatOrchestrator:
                     )
                     await self._emit_agent_status(
                         session_id, _trace_agent_id, _execution_id,
-                        "success" if _noop_satisfied else "failed"
+                        "success" if _delivered else "failed"
                     )
                     self._finish_chat_execution(
                         _execution_id,
-                        "success" if _noop_satisfied else "failed",
+                        "success" if _delivered else "failed",
                         _no_apply_message,
                         session=session,
                         message=message,
