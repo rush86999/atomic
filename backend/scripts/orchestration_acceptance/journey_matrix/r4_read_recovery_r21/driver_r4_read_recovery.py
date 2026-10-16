@@ -272,6 +272,13 @@ def assistant_rows(db_path: Path, session_id: str) -> list:
     return [str(r[0] or "") for r in rows]
 
 
+
+def _assistant_count(db_path: Path) -> int:
+    rows = JR._sqlite_rows(
+        db_path,
+        "SELECT COUNT(*) FROM chat_messages WHERE role='assistant'", ())
+    return int(rows[0][0] or 0) if rows else 0
+
 def retrieve_operations(db_path: Path, session_id: str) -> list:
     """The durable retrieve operations bound to the conversation's runs,
     with their execution ids — the attributable operation record."""
@@ -577,8 +584,13 @@ def run_r4() -> dict:
                 except Exception:  # noqa: BLE001
                     checkpoint = {"raw": checkpoint_file.read_text()[:300]}
                 break
-            arows = assistant_rows(server.db_path, "")
-            if arows:
+            # The world is fresh: ANY assistant row is this turn's
+            # delivery (the conversation-scoped query with an empty id
+            # matches nothing — the poll was blind to delivery).
+            # The world is FRESH: any assistant row appearing is this
+            # turn's delivery (a conversation-scoped query with an empty
+            # id matches nothing - the poll was blind to delivery).
+            if _assistant_count(server.db_path) > 0:
                 delivery_won = True
                 break
             time.sleep(0.15)
