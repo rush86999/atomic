@@ -7389,6 +7389,26 @@ async def _datasets_named_file_block(
         _scan_action = "read_failed"
     elif bool(recs) or _scanned_ok:
         _scan_action = "new_read"
+        # R4 SCRATCH SOURCE COUNTER (env-gated; only the diagnostic world
+        # sets ATOM_R4_DIAG=1): an attributable source-executor event per
+        # ACTUAL read, keyed to the plan execution — so "no second source
+        # call" is proven by the counter, not by log silence.
+        if os.getenv("ATOM_R4_DIAG") == "1":
+            import json as _r4json
+            import time as _r4time
+            _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+            _r4_evt = {
+                "event": "workbook_new_read",
+                "scan_action": _scan_action,
+                "plan_execution_id": getattr(plan, "id", None)
+                or getattr(plan, "execution_id", None),
+                "content_hash": (prov or {}).get("content_hash"),
+                "rows": len(recs) if recs else 0,
+                "at": _r4time.time(),
+            }
+            with open(os.path.join(
+                    _r4_dir, "r4_source_invocations.jsonl"), "a") as rf:
+                rf.write(_r4json.dumps(_r4evt, default=str) + "\n")
     elif not file_entries:
         _scan_action = "unverified"
     else:
