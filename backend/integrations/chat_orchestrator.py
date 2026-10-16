@@ -9120,7 +9120,8 @@ class ChatOrchestrator:
             if not isinstance(_pfr, dict) or not _pfr.get("rendered"):
                 try:
                     _pfr = self._load_pending_file_result(
-                        session_id, message=message)
+                        session_id, message=message,
+                        workspace_id=workspace_id)
                 except Exception:  # noqa: BLE001 — best-effort
                     _pfr = None
             # NOTE: the reply leg's evidence-bound narration guard reads the
@@ -29932,20 +29933,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         Selection binding (owner item 2): the conversation's own run
         (find_active_task) - never the globally newest run. MULTIPLE
         retrieve results within the run are NOT resolved here - the
-        caller delivers a clarification instead of a silent pick. R3
-        separation: a digit-bearing (value-shaped) reply belongs to the
-        awaiting-value requirement's resume, so the fallback stands down
-        for value-shaped replies. Idempotency (owner item 4): if the
+        caller delivers a clarification instead of a silent pick. Idempotency (owner item 4): if the
         findings were already delivered (an assistant row carrying them
         exists), the fallback stands down."""
         if not session_id or not message:
             return None
         try:
-            # R3 SEPARATION (deterministic): a DIGIT-BEARING reply is a
-            # value answer for the open awaiting-value requirement - R3's
-            # resume owns it and this recovery stands down. A no-digit
-            # show request ("Show me the machine prices you found") is a
-            # recovery ask.
             lifecycle = _task_lifecycle_for(None, workspace_id)
             if lifecycle is None:
                 return None
@@ -29978,13 +29971,16 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             if not candidates:
                 return None
             if len(candidates) > 1:
-                # MULTIPLE plausible results: no silent pick (owner item
-                # 2) - and no lane-level clarification this round; the
-                # recovery stands down and the normal flow owns the turn.
-                logger.info(
-                    "[r4-recovery] multiple durable retrieve results - "
-                    "recovery stands down (%d)", len(candidates))
-                return None
+                # MULTIPLE plausible results: the caller delivers a
+                # clarification naming both - never a silent pick (owner
+                # item 2).
+                return {
+                    "__ambiguous__": True,
+                    "candidates": [
+                        {"file_name": c["file_name"],
+                         "source_version": c["source_version"]}
+                        for c in candidates],
+                }
             chosen = candidates[0]
             file_name = chosen["file_name"]
             lines = [f"From the previously retrieved results for "
@@ -30017,6 +30013,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
 
     def _load_pending_file_result(
         self, session_id: Optional[str], message: str = "",
+        workspace_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """The conversation's persisted structured file result (retrieved /
         delivered), from the newest assistant row that carries it — the
@@ -30064,7 +30061,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         # the R3 resume); multiple plausible results -> ambiguous marker
         # (the caller clarifies). Idempotency: the caller checks the
         # delivered marker.
-        durable = self._load_durable_file_result(session_id, message)
+        durable = self._load_durable_file_result(
+            session_id, workspace_id=workspace_id, message=message)
         if isinstance(durable, dict) and durable.get("__ambiguous__"):
             return {
                 "status": "ambiguous",
