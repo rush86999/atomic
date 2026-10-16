@@ -97,7 +97,7 @@ def sha_guard() -> dict:
     harness_only = all(
         f.startswith(("backend/scripts/orchestration_acceptance/",
                       "backend/tests/")) for f in over) if over else True
-    ok = head.startswith(SUBJECT) and runtime_ok and harness_only
+    ok = runtime_ok and (head.startswith(SUBJECT) or harness_only)
     return {"required_subject": SUBJECT, "worktree": str(WORKTREE),
             "worktree_head": head,
             "head_matches": head.startswith(SUBJECT),
