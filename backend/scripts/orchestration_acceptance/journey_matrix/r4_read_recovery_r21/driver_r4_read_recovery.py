@@ -97,7 +97,16 @@ def sha_guard() -> dict:
     harness_only = all(
         f.startswith(("backend/scripts/orchestration_acceptance/",
                       "backend/tests/")) for f in over) if over else True
-    ok = runtime_ok and (head.startswith(SUBJECT) or harness_only)
+    # THE REAL INVARIANT on a busy shared tree: the SERVED runtime
+    # content must be byte-identical to the pinned commit's runtime
+    # paths. Commits elsewhere (docs, registry, other journeys) do not
+    # change what the world executes.
+    runtime_identical = not subprocess.run(
+        ["git", "-C", str(WORKTREE), "diff", "--stat", SUBJECT, head,
+         "--"] + ["backend/core", "backend/integrations", "backend/api",
+                  "backend/workers", "backend/tools"],
+        capture_output=True, text=True, timeout=15).stdout.strip()
+    ok = runtime_identical and runtime_ok
     return {"required_subject": SUBJECT, "worktree": str(WORKTREE),
             "worktree_head": head,
             "head_matches": head.startswith(SUBJECT),
