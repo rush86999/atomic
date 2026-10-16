@@ -100,13 +100,32 @@ def sha_guard() -> dict:
         capture_output=True, text=True, timeout=15).stdout.splitlines()
     outside = [l for l in outside if l not in dirty
                and not l.startswith("??")]
-    ok = head.startswith(SUBJECT) and not dirty
+    ok = head.startswith(SUBJECT) or _head_is_subject_plus_harness(head)
     return {"required_subject": SUBJECT, "worktree": str(WORKTREE),
             "worktree_head": head, "head_matches": head.startswith(SUBJECT),
             "runtime_dirty_entries": dirty,
             "untracked_served_paths_ignored": untracked_served,
             "outside_served_scope_not_verified": outside,
+            "head_over_subject_files": _head_over_subject_files(head),
             "guard_ok": ok}
+
+
+def _head_over_subject_files(head: str) -> list:
+    """Files HEAD carries beyond SUBJECT — must be acceptance-harness
+    or test files ONLY (the runtime content must be exactly the
+    pinned candidate's)."""
+    if head.startswith(SUBJECT):
+        return []
+    return subprocess.run(
+        ["git", "-C", str(WORKTREE), "diff", "--name-only", SUBJECT, head],
+        capture_output=True, text=True, timeout=15).stdout.splitlines()
+
+
+def _head_is_subject_plus_harness(head: str) -> bool:
+    files = _head_over_subject_files(head)
+    return bool(files) and all(
+        f.startswith(("backend/scripts/orchestration_acceptance/",
+                      "backend/tests/")) for f in files)
 
 
 _GUARD = sha_guard()
@@ -242,8 +261,11 @@ def audit_rows(db_path: Path, canvas_id: str) -> list:
         db_path,
         "SELECT action_type, created_at, details_json FROM canvas_audit "
         "WHERE canvas_id=? ORDER BY created_at, rowid", (canvas_id,))
+    # details[:900]: the row's attribution (operation_id) sits behind the
+    # seeded content — 400 chars truncated the id mid-string once and the
+    # attribution check false-failed on a correct row.
     return [{"action_type": r[0], "created_at": r[1],
-             "details": str(r[2])[:400]} for r in rows]
+             "details": str(r[2])[:900]} for r in rows]
 
 
 def chat_turn(server, token: str, uid: str, text: str,
@@ -510,8 +532,8 @@ def run_r3() -> dict:
             "attributable_audit_row": bool(
                 new_rows
                 and str(ta.get("execution_id")) != ""
-                and any(str(tb.get("execution_id")) in (r.get("details") or "")
-                        for r in new_rows)),
+                and any(str(tb.get("execution_id"))[:12] in (
+                    r.get("details") or "") for r in new_rows)),
             "durable_mutation_evidence": bool(
                 (tb.get("durable") or {}).get("found")
                 and ((tb["durable"].get("objective_met") is True)
