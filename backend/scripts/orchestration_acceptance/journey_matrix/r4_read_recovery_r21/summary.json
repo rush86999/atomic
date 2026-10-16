@@ -33,6 +33,20 @@
    "result": "THE LATCH ARMED IN THE CORRECT LANE (checkpoint seen at 25.4s, delivery blocked, no assistant delivery). The planner-lane workbook read SUCCEEDED (counter: read_invoked + read_completed, storage_read receipt with full coverage: 4/4 targets found with values and cell attribution). BUT the DURABLE lifecycle retrieve op recorded outcome=read_failed, findings=0, source_version=None: the successful read's findings (which the reply rendered with cell-level attribution) were NEVER settled into the lifecycle operation. The driver's independent verification correctly refused (source_version None vs checkpoint content_hash).",
    "first_missing_transition": "THE FINDINGS SETTLEMENT: the planner-lane read renders and delivers from the plan's in-memory structured record, but the durable lifecycle op never receives the execution facts (findings + source attribution + content_hash/source_version). Recovery after restart cannot render from goal_runs because the findings were never committed there.",
    "repair_path": "reuse the existing record_read_outcome mechanism (the same settlement the research-continuation lane uses) to settle the planner-lane read's execution facts into the lifecycle retrieve op at read completion; the recovery turn then renders from the durably committed findings."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_165531_ceb794.json",
+   "subject": "853226d79 lineage + the R4 counter instrumentation (env-gated)",
+   "result": "THE KILL-AT-COMPLETION BARRIER WORKS: read_completed_seen=true at 12.4s, SIGKILL landed at the proven retrieved-not-delivered boundary (no assistant delivery persisted), and the findings ARE durably committed in goal_runs (retrieve op: applied/invoked=True/read_succeeded, findings_count=3, source_version committed). BUT THE RECOVERY TURN FAILED: it re-searched knowledge and workspace knowledge instead of rendering the stored findings ('I couldn't find a match for machine prices to the previous conversation and workspace knowledge'), and dispatched a NEW source invocation. The recovery turn does not consult the durable findings at all.",
+   "transition_table": {
+    "initial_read_completed": "MET \u2014 source invocation + committed findings in goal_runs (read_succeeded, findings_count 3, source_version committed)",
+    "stopped_before_delivery": "MET \u2014 SIGKILL at read_completed; no assistant row",
+    "recovery_selected_stored_result": "NOT MET \u2014 the recovery turn re-searched; the durable findings were never consulted",
+    "reply_delivered": "FAILED \u2014 the reply was a search clarification, not the stored facts",
+    "repeated_recovery": "FAILED \u2014 the idempotency turn re-searched again (a third source invocation)"
+   },
+   "first_missing_transition": "RECOVERY SELECTION: nothing in the recovery turn consults the durable findings committed at read completion. The interrupted attempt's payload is durable and inspectable; no code path consumes it.",
+   "next": "build the recovery selection: the recovery turn renders from the durable findings (goal_runs retrieve op execution.findings) \u2014 the owner's bounded repair, then re-run this diagnostic for the full transition table."
   }
  ],
  "next": "repair the mention-extraction boundary (bounded: the mention must capture the filename, not the phrase), re-run the same diagnostic, then proceed to the recovery transitions. The latch and source counter are in place and never armed."
