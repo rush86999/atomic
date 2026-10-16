@@ -581,7 +581,7 @@ def run_r4() -> dict:
                 server.db_path,
                 "SELECT role, content FROM chat_messages ORDER BY "
                 "created_at, rowid", ())
-            assistants_now = assistant_rows(server.db_path, sid or "")
+            assistants_now = assistant_rows(server.db_path, "")
             ev["turn1_delivered_reply"] = assistants_now[-1][:400] if assistants_now else None
             try:
                 ev["world_log_at_kill_probe"] = server.log_tail()[-6000:]
@@ -597,7 +597,6 @@ def run_r4() -> dict:
         # Driver INDEPENDENTLY reads the committed result (durable DB).
         sid = checkpoint.get("session_id")
         exec_id = checkpoint.get("execution_id")
-        exec_id_1 = str(exec_id or "")
         ops = retrieve_operations(server.db_path, sid)
         assistants_before = assistant_rows(server.db_path, sid)
         marker_hits_before = session_store_probe(
