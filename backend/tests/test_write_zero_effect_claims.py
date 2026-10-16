@@ -640,13 +640,19 @@ CLARIFICATION_CANVAS_BODY = ("# Quotation Q-2026-114\n\n"
 
 
 async def _clarification_turn(message, session_id, fresh_side_effect,
-                              plan_side_effect=None):
+                              plan_side_effect=None, session=None):
     """Drive the ACTUAL early-return branch with real scratch persistence.
 
     The fresh-data lookup is controlled; `_start_chat_execution`,
     `_update_session` and `_finish_chat_execution` are REAL (isolated test
     DB); the agent-status event is captured; the canvas store is faked with
-    a write counter. Returns every artifact the assertions need."""
+    a write counter. Returns every artifact the assertions need.
+
+    ``session`` (verifier round 2): pass a PREVIOUS turn's session dict to
+    run against a genuinely REUSED session — the same object, with its
+    accumulated history and any state the prior turn left on it. The
+    default creates a fresh dict, which proves only distinct-execution
+    behavior."""
     import asyncio as _aio
     import core.chat_canvas_editor as cce
     from integrations import chat_orchestrator as chat
@@ -683,7 +689,8 @@ async def _clarification_turn(message, session_id, fresh_side_effect,
         status_events.append(status)
         return None
 
-    session = {"id": session_id, "history": []}
+    session = session if session is not None else {
+        "id": session_id, "history": []}
     with (
         patch.object(orchestrator, "_get_or_create_session",
                      return_value=session),
@@ -804,8 +811,33 @@ async def test_delivered_clarification_is_not_a_system_failure(monkeypatch):
         reloaded["metadata_json"])
     assert records.get(str(execution_id), {}).get(
         "delivery_status") == "delivered", reloaded["metadata_json"]
-    task_outcome = reloaded["metadata_json"].get("task_outcome") or {}
+    # VERIFIER ROUND 2 (coverage gap): `objective_met is not True` is only
+    # meaningful when the task_outcome actually persists — an ABSENT
+    # outcome would satisfy it vacuously. Require the outcome, bound to
+    # THIS execution, with its structured non-completion record: the
+    # mutation was requested, nothing landed, and the delivery is real.
+    task_outcome = reloaded["metadata_json"].get("task_outcome")
+    assert isinstance(task_outcome, dict) and task_outcome, (
+        "the task_outcome must persist (absence must not pass)")
+    assert task_outcome.get("execution_id") == execution_id, task_outcome
     assert task_outcome.get("objective_met") is not True, task_outcome
+    _mutation = task_outcome.get("mutation") or {}
+    assert _mutation.get("requested") is True, _mutation
+    assert _mutation.get("readback_matched") is False, _mutation
+    assert (task_outcome.get("delivery") or {}).get("delivered") is True, (
+        task_outcome)
+    # The NAMED REQUIREMENT survives the reload: the durable row summary
+    # and the persisted structured envelope both still carry the specific
+    # reference the user must supply — the requirement is retained, not
+    # just the live reply's wording.
+    assert "'from our records'" in str(reloaded["result_summary"] or ""), (
+        reloaded["result_summary"])
+    _persisted = turn["session"]["history"][-1]["response"]
+    assert (_persisted.get("_recorded_outcome") or {}).get(
+        "declined") is True, _persisted.get("_recorded_outcome")
+    _persisted_edit = (_persisted.get("data") or {}).get("canvas_edit") or {}
+    assert _persisted_edit.get("no_apply") is True, _persisted_edit
+    assert _persisted_edit.get("outcome") == "refused", _persisted_edit
     # 5. The draft is untouched; persisted metadata and history agree.
     assert turn["canvas"]["content"] == CLARIFICATION_CANVAS_BODY
     history = turn["session"]["history"]
@@ -884,9 +916,15 @@ async def test_timeout_without_delivered_clarification_is_not_promoted(
 @pytest.mark.asyncio
 async def test_stale_requirement_marker_cannot_leak_into_another_execution():
     """Negative control 3: turn 1 declines on an unresolved requirement;
-    turn 2 (same session, new execution, lookup now succeeding) proceeds
-    past the requirement gate — the marker is per-turn, never stale.
-    Passes on parent and repair alike."""
+    turn 2 (lookup now succeeding) proceeds past the requirement gate —
+    the marker is per-turn, never stale. Passes on parent and repair
+    alike.
+
+    VERIFIER ROUND 2 (coverage gap): turn 2 runs against turn 1's ACTUAL
+    session dict — the same object, with the decline's history and
+    whatever the prior turn left on it. Two fresh dicts sharing an id
+    proved only distinct-execution behavior; a reused session is the
+    stale-state case."""
     import asyncio as _aio
     import uuid as _uuid
 
@@ -907,10 +945,21 @@ async def test_stale_requirement_marker_cannot_leak_into_another_execution():
         return cce.FreshDataResult("TAX- Pencilled value", True, True)
 
     turn2 = await _clarification_turn(
-        CLARIFICATION_MESSAGE, session_id, _good_fresh)
+        CLARIFICATION_MESSAGE, session_id, _good_fresh,
+        session=turn1["session"])
+    # The reuse is structural: the very dict turn 1 mutated.
+    assert turn2["session"] is turn1["session"]
     assert turn2["plan_calls"] == 1, (
-        "turn 2 passes the requirement gate: no stale marker")
+        "turn 2 passes the requirement gate on a REUSED session: "
+        "no stale marker")
     assert "could not be retrieved this turn" not in (
         turn2["response"].get("message") or ""), turn2["response"]
     assert turn2["response"].get("execution_id") != turn1["response"].get(
         "execution_id"), "a distinct execution"
+    # The prior turn's delivered-partial decision does not ride along:
+    # turn 2's outcome is its own (the planner-unavailable decline here
+    # is undelivered, so it must not inherit turn 1's declined marker).
+    assert (turn2["response"].get("_recorded_outcome") or {}).get(
+        "declined") is not True, turn2["response"].get("_recorded_outcome")
+    assert turn2["status_events"][-1] == "failed", turn2["status_events"]
+
