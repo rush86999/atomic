@@ -1,11 +1,11 @@
 {
  "campaign": "2026-10-16-j6-draft round 21 (canvas lane, counted acceptance)",
- "subject": "c05cfd69b — the owner-approved producer repair (delivered clarification records a successful turn) on top of the reviewed candidate 02568191b",
+ "subject": "c05cfd69b \u2014 the owner-approved producer repair (delivered clarification records a successful turn) on top of the reviewed candidate 02568191b",
  "harness": "byte-identical to the r18 counted campaign (driver_j6_draft.py lineage); only WORKTREE (/tmp/j45-r22, immutable detached checkout), SUBJECT and EVIDENCE_DIR (/tmp/j6_r21_evidence) moved. Hybrid configuration unchanged: reply lane = product-registered local ollama llama3.1:8b; edit-plan pin = deepseek/deepseek-v4-pro via the product-mounted credential (scope: the canvas-edit-plan structured call only); scrubbed dev .env; fresh scratch world per run; SHA guard verified before anything ran.",
- "test_only_successor": "8fd1b383a (j6-r21) — verifier-round-2 coverage tightenings on the delivered-clarification tests (reused session dict, task_outcome presence, named-requirement survival). NOT part of the campaign runtime: production content is exactly c05cfd69b.",
+ "test_only_successor": "8fd1b383a (j6-r21) \u2014 verifier-round-2 coverage tightenings on the delivered-clarification tests (reused session dict, task_outcome presence, named-requirement survival). NOT part of the campaign runtime: production content is exactly c05cfd69b.",
  "runs": [
   {
-   "evidence": "/tmp/j6_r21_evidence/j6_draft_20261015_230732_78ddc5.json",
+   "evidence": "evidence_j6_draft_20261015_230732_78ddc5.json (archived; original at /tmp/j6_r21_evidence/j6_draft_20261015_230732_78ddc5.json)",
    "subject": "c05cfd69b",
    "counted": true,
    "pass": true,
@@ -16,20 +16,47 @@
     "T3_unmet_requirement": 42.47
    },
    "T1_authorized_edit": {
-    "result": "GREEN — 'Updated the Valid Until date to 2026-12-31.'; exactly ONE audit write; plan validated; applied AND authoritatively read back (readback_new_date=true); durable mutation evidence (objective_met=true, attributable evidence ref)",
-    "checks": ["turn_success", "reply_claims_update_truthfully", "authoritative_readback", "one_audit_write", "durable_mutation_evidence", "objective_met_true"]
+    "result": "GREEN \u2014 'Updated the Valid Until date to 2026-12-31.'; exactly ONE audit write; plan validated; applied AND authoritatively read back (readback_new_date=true); durable mutation evidence (objective_met=true, attributable evidence ref)",
+    "checks": [
+     "turn_success",
+     "reply_claims_update_truthfully",
+     "authoritative_readback",
+     "one_audit_write",
+     "durable_mutation_evidence",
+     "objective_met_true"
+    ]
    },
    "T2_readonly_comparison": {
-    "result": "GREEN — both values answered from the canvas ('Unit price ($48,000.00) and the Subtotal ($48,000.00) match exactly'); zero audit writes; byte-identical preservation; outcome=completed consistent with full coverage; durable comparison evidence; no failed required lookup",
-    "checks": ["turn_success", "comparison_answered", "durable_comparison_evidence", "preserved_byte_identical", "zero_audit_writes", "no_failed_required_lookup"]
+    "result": "GREEN \u2014 both values answered from the canvas ('Unit price ($48,000.00) and the Subtotal ($48,000.00) match exactly'); zero audit writes; byte-identical preservation; outcome=completed consistent with full coverage; durable comparison evidence; no failed required lookup",
+    "checks": [
+     "turn_success",
+     "comparison_answered",
+     "durable_comparison_evidence",
+     "preserved_byte_identical",
+     "zero_audit_writes",
+     "no_failed_required_lookup"
+    ]
    },
    "T3_unmet_requirement": {
-    "result": "GREEN — the specific clarification delivered ('the value it needs — \\u2018from our records\\u2019 — could not be retrieved this turn, so nothing was changed. Give me the exact value and I\\u2019ll apply it.'); success=true, outcome=partial, error_code=null, failed_request=false; zero writes; byte-identical; completion NOT certified (objective_met not true, envelope not completed); the requirement stays open",
-    "checks": ["turn_success", "not_certified_in_reply", "objective_met_not_true", "envelope_not_completed", "unmet_named_or_honest", "preserved_byte_identical", "zero_audit_writes"],
+    "result": "GREEN \u2014 the specific clarification delivered ('the value it needs \u2014 \\u2018from our records\\u2019 \u2014 could not be retrieved this turn, so nothing was changed. Give me the exact value and I\\u2019ll apply it.'); success=true, outcome=partial, error_code=null, failed_request=false; zero writes; byte-identical; completion NOT certified (objective_met not true, envelope not completed); the requirement stays open",
+    "checks": [
+     "turn_success",
+     "not_certified_in_reply",
+     "objective_met_not_true",
+     "envelope_not_completed",
+     "unmet_named_or_honest",
+     "preserved_byte_identical",
+     "zero_audit_writes"
+    ],
     "note": "this closes the single remaining defect of the 02568191b campaign (dfd645f0f): the delivered clarification previously shipped success=false + execution_failed"
    },
    "reload": {
-    "result": "GREEN — fresh history read (3 assistant messages), T1's value in history, final canvas matches T1, T3 still unmet, all_match=true"
+    "result": "GREEN \u2014 fresh history read (3 assistant messages), T1's value in history, final canvas matches T1, T3 still unmet, all_match=true"
+   },
+   "evidence_archived": {
+    "path": "evidence_j6_draft_20261015_230732_78ddc5.json",
+    "sha256": "5cb71f638f01554441037d03c230aa0468cb0a2cfeb5bce58e9a25074f12c7f8",
+    "note": "sanitized in-repo archive of /tmp/j6_r21_evidence/j6_draft_20261015_230732_78ddc5.json (the /tmp original is ephemeral); credential scan clean (no key-shaped strings; the only long hex are the commit sha and the config digest)"
    }
   }
  ],

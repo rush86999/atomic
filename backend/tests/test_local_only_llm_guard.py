@@ -92,19 +92,62 @@ def test_pin_gate_allows_cloud_without_local_only(hybrid):
 
 
 @pytest.mark.asyncio
-async def test_ranking_excludes_cloud_under_local_only(local_only):
+async def test_ranking_excludes_cloud_under_local_only(local_only, monkeypatch):
     from core.llm.byok_handler import BYOKHandler
+    from core.llm import byok_handler
 
     handler = BYOKHandler(workspace_id="ws-lo", tenant_id="default",
                           provider_id="auto")
     handler.clients = {"deepseek": object(), "ollama": object(),
                        "local_abc": object()}
+
+    # HERMETIC CANDIDATE SOURCE (integration finding, 2026-10-16): the
+    # ranking loop iterates the pricing fetcher's cache, so this test's
+    # outcome depended on the AMBIENT dev cache file — a stale partial
+    # fetch (73 entries, no ollama models) emptied the local pool and
+    # failed this test on a correctly-merged tree. Seed the cache here:
+    # one cloud entry (the exclusion must be observable, not vacuous)
+    # and two local entries (ollama + a registered-style local route).
+    # No ambient file, no network refresh.
+    class _Seeded:
+        pricing_cache = {
+            "deepseek/deepseek-v4-pro": {
+                "litellm_provider": "deepseek",
+                "max_input_tokens": 131072, "mode": "chat",
+                "input_cost_per_token": 0.0000003,
+                "output_cost_per_token": 0.0000012,
+            },
+            "ollama/llama3.1:8b": {
+                "litellm_provider": "ollama",
+                "max_input_tokens": 32768, "mode": "chat",
+                "input_cost_per_token": 0.0,
+                "output_cost_per_token": 0.0,
+            },
+            "local_abc/llama3.1:8b": {
+                "litellm_provider": "local_abc",
+                "max_input_tokens": 32768, "mode": "chat",
+                "input_cost_per_token": 0.0,
+                "output_cost_per_token": 0.0,
+            },
+        }
+
+    def _no_refresh(*a, **k):
+        return _Seeded()
+
+    monkeypatch.setattr(
+        byok_handler, "get_pricing_fetcher_initialized_sync",
+        _no_refresh)
     ranked = await handler.get_ranked_providers(
         complexity="moderate", task_type="planning")
     providers = {str(p) for p, _m in (ranked or [])}
     assert "deepseek" not in providers, ranked
     assert providers, (
         "the local route must survive the exclusion")
+    # STRENGTHENED (integration finding, 2026-10-16): the pool must be
+    # local through and through — no ranked provider may classify as
+    # cloud under local-only mode, whatever the candidate source.
+    for p in providers:
+        assert not _provider_is_cloud(p), (p, ranked)
 
 
 @pytest.mark.asyncio
