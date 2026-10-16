@@ -396,11 +396,11 @@ async def test_owner_message_table(monkeypatch):
     assert t["plan_calls"] == 1, "12,500 is ONE value and binds"
     assert t["store"].content.count("12,500") == 1
 
-    # 'Research and Development' — UNRECOGNIZED under the migrated
-    # contract (no requirement anchor, no digits, no quotes): the reply
-    # asks, nothing writes, and NO word is ever removed from what the
-    # user wrote (owner instruction: unrecognized text is not an
-    # answer). The quoted form DOES bind, verbatim.
+    # 'Research and Development' — UNRECOGNIZED under the narrow supply
+    # syntax: no requirement anchor, no digit value, and QUOTING a
+    # mention does not make it a supply (owner instruction: distinguish
+    # supplying a value from mentioning quoted text). Both forms ask,
+    # nothing writes, the requirement stays open.
     sid = f"sess-r3-r-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -418,8 +418,11 @@ async def test_owner_message_table(monkeypatch):
     t = await _turn(monkeypatch, sid, '"Research and Development"',
                     fresh=_stalled_fresh,
                     plan=lambda *a, **k: _tax_plan("Research and Development"))
-    assert t["plan_calls"] == 1, "a quoted value binds"
-    assert t["store"].content.count("Research and Development") == 1, "the value is the inner text of the quotes"
+    assert t["plan_calls"] == 0, (
+        "quoting a mention does not make it a supply")
+    assert t["store"].updates == []
+    assert t["reply_calls"], "the normal flow owns the turn"
+    assert len(_open_questions(sid)) == 1
 
     # The owner's counterexamples (round-4): the answer frame and the
     # lead-in stripper must not invent values.
@@ -531,9 +534,10 @@ async def test_owner_message_table(monkeypatch):
             assert len(_open_questions(sid)) == 1, (
                 f"{meta!r} leaves the requirement open")
 
-    # "Acme, Inc" — UNRECOGNIZED under the migrated contract (no
+    # "Acme, Inc" — UNRECOGNIZED under the narrow supply syntax (no
     # requirement anchor, no digits): the reply asks, nothing writes.
-    # The quoted form binds verbatim, commas included.
+    # QUOTING does not change that — mentioning quoted text is not
+    # supplying it; the ANCHORED quoted form binds (client pin above).
     sid = f"sess-r3-acme-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -549,8 +553,11 @@ async def test_owner_message_table(monkeypatch):
     t = await _turn(monkeypatch, sid, '"Acme, Inc"',
                     fresh=_stalled_fresh,
                     plan=lambda *a, **k: _tax_plan("Acme, Inc"))
-    assert t["plan_calls"] == 1, "a quoted value binds verbatim"
-    assert t["store"].content.count("Acme, Inc") == 1
+    assert t["plan_calls"] == 0, (
+        "an unanchored quoted mention is not a supply")
+    assert t["store"].updates == []
+    assert t["reply_calls"], "the normal flow owns the turn"
+    assert len(_open_questions(sid)) == 1
 
 
 @pytest.mark.asyncio
@@ -911,6 +918,38 @@ async def test_settled_lookup_decline_also_asks_and_stamps(monkeypatch):
     assert t2["store"].content.count(BARE_VALUE) == 1
     assert t2["response"].get("success") is True
     assert _open_questions(sid) == [], "settles on verified fulfillment"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply", ('I found the note "pending" in our records',
+              "I will check our records in 2026"))
+async def test_the_rejected_controls_never_plan_write_or_settle(
+        monkeypatch, reply):
+    """THE OWNER'S REJECTED CONTROLS (2026-10-16, permanent): mentioning
+    quoted text or a number inside prose is NOT supplying a value. The
+    reply must never reach edit planning, never write, and never settle
+    the requirement — the saved artifact stays byte-identical and the
+    question stays open for the conversational layer to answer."""
+    sid = f"sess-r3-ctl-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+
+    def _forbidden_plan(*a, **k):
+        raise AssertionError(
+            f"edit planning ran for the non-answer {reply!r}")
+
+    t = await _turn(monkeypatch, sid, reply,
+                    fresh=_stalled_fresh, plan=_forbidden_plan)
+    assert t["plan_calls"] == 0, (
+        f"{reply!r} must not reach edit planning")
+    assert t["store"].updates == [], (
+        f"{reply!r} must not write")
+    assert t["store"].content == QUOTE, (
+        "the saved artifact is byte-identical")
+    assert len(_open_questions(sid)) == 1, (
+        "the requirement stays open — nothing settled a non-answer")
 
 
 @pytest.mark.asyncio
