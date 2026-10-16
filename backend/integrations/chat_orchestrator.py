@@ -12059,6 +12059,52 @@ class ChatOrchestrator:
                                 session.get(FILE_TASK_SESSION_KEY),
                                 _direct_identity,
                             )
+                            # R4 SCRATCH LATCH (env-gated; diagnostic world
+                            # only) - the direct-complete read lane's commit
+                            # point: same checkpoint/block contract as the
+                            # planner-dispatch lane's latch.
+                            if os.getenv("ATOM_R4_DIAG") == "1":
+                                import json as _r4json2
+                                _r4_dir2 = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+                                _r4_task = session.get(FILE_TASK_SESSION_KEY) or {}
+                                with open(os.path.join(
+                                        _r4_dir2, "r4_checkpoint.json"),
+                                        "w") as rf2:
+                                    _r4json.dump({
+                                        "lane": "direct_complete",
+                                        "execution_id": execution_id,
+                                        "session_id": session_id,
+                                        "status": "retrieved_delivery_blocked",
+                                        "identity": _direct_identity,
+                                        "task_state": {
+                                            k: str(v)[:120] for k, v in
+                                            _r4_task.items() if k in (
+                                                "status", "original_message",
+                                                "attempt", "confirmed_mention")
+                                        },
+                                        "latched_at": time.time(),
+                                    }, rf2, default=str)
+                                _r4_block2 = os.path.join(
+                                    _r4_dir2, "r4_delivery_block")
+                                logger.warning(
+                                    "[r4-latch][direct] retrieval committed; "
+                                    "delivery BLOCKED while %s exists",
+                                    _r4_block2)
+                                _r4_deadline2 = time.monotonic() + 300
+                                while os.path.exists(_r4_block2)                                         and time.monotonic() < _r4_deadline2:
+                                    await asyncio.sleep(0.2)
+                                if os.path.exists(_r4_block2):
+                                    session.pop("_pending_file_result", None)
+                                    _r4_expired2 = os.path.join(
+                                        _r4_dir2, "r4_latch_expired.json")
+                                    with open(_r4_expired2, "w") as rf3:
+                                        _r4json.dump({
+                                            "lane": "direct_complete",
+                                            "execution_id": execution_id,
+                                        }, rf3, default=str)
+                                    logger.warning(
+                                        "[r4-latch][direct] EXPIRED - "
+                                        "withheld, diagnostic invalid")
                         else:
                             session[FILE_TASK_SESSION_KEY] = merge_pending_task(
                                 session.get(FILE_TASK_SESSION_KEY),
