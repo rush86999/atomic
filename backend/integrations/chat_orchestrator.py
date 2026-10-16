@@ -807,6 +807,63 @@ def _multiple_requirements_message(items: List[str]) -> str:
         "Nothing was changed yet.")
 
 
+def _selection_only_message(item: str) -> str:
+    return (
+        f"{item} — got it. What value should I use? "
+        "Nothing was changed yet; give me the value and I'll apply it.")
+
+
+def _value_after_selection(
+        message: str, question: Dict[str, Any]) -> List[str]:
+    """The prospective value in a reply that ALSO selected a requirement:
+    candidates that are just the selection tokens — the item's own words
+    (either direction of word-set containment: 'The VAT number' echoes
+    'client's VAT number') or a bare option number — are removed. An
+    empty result means the reply was SELECTION-ONLY: it never carries a
+    value (review round 3, blocker: '1' or 'The VAT number' must not be
+    written as one)."""
+    item_words = {
+        w for w in re.findall(r"[a-z0-9\-']+", str(
+            question.get("item") or "").lower())
+        if len(w) >= 2 and w not in ("the", "a", "an", "my", "our")}
+    out: List[str] = []
+    for c in _value_candidates(message):
+        cand_words = {
+            w for w in re.findall(r"[a-z0-9\-']+", c.lower())
+            if len(w) >= 2 and w not in ("the", "a", "an", "my", "our")}
+        if cand_words and (cand_words <= item_words
+                           or (item_words and item_words <= cand_words)):
+            continue
+        if re.match(r"^(?:option\s+)?[0-9]$", c, re.IGNORECASE):
+            continue
+        if c not in out:
+            out.append(c)
+    return out
+
+
+def _remembered_selection(
+        session: Optional[Dict[str, Any]],
+        open_reqs: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """A selection remembered on the session (the user answered the
+    which-one ask with a bare selection and the value is expected
+    next). Returns the matching still-open question and CONSUMES the
+    memory; a lost or stale memory selects nothing — the ask repeats
+    (safe direction)."""
+    if not isinstance(session, dict):
+        return None
+    remembered = session.get("resume_selected_question")
+    if not isinstance(remembered, dict):
+        return None
+    qid = str(remembered.get("question_id") or "")
+    for q in open_reqs:
+        if str(q.get("question_id") or "") == qid:
+            session.pop("resume_selected_question", None)
+            return q
+    session.pop("resume_selected_question", None)
+    return None
+
+
 def _select_requirement(
         message: str, open_reqs: List[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
@@ -12344,6 +12401,7 @@ class ChatOrchestrator:
             # is the lifecycle's structured record (inputs), never prose.
             _resume_req: Optional[Dict[str, Any]] = None
             _resume_effective_message: Optional[str] = None
+            _selection_candidates: Optional[List[str]] = None
             _resume_open: List[Dict[str, Any]] = []
             if _canvas_ctx and not _canvas_action_bypassed:
                 try:
@@ -12463,60 +12521,128 @@ class ChatOrchestrator:
                     _resume_open = []
                 elif len(_resume_open) > 1:
                     # SEVERAL open requirements: bind by EXPLICIT
-                    # selection only (option number or naming the item);
-                    # otherwise ask — never select silently.
+                    # selection only (option number or naming the item),
+                    # and a SELECTION-ONLY reply never writes — it asks
+                    # for the selected requirement's value and the
+                    # selection is remembered for the next reply
+                    # (review round 3, blocker). Anything ambiguous asks
+                    # again — never a silent guess.
                     _selected = _select_requirement(message, _resume_open)
-                    if _selected is None:
-                        _multi_message = _multiple_requirements_message([
-                            _q.get("item") or "the requested change"
-                            for _q in _resume_open])
-                        _multi_response = {
-                            "success": True,
-                            "message": _multi_message,
-                            "session_id": session_id,
-                            "execution_id": _execution_id,
-                            "intent": "canvas_edit",
-                            "confidence": 0.9,
-                            "outcome": "partial",
-                            "_recorded_outcome": {
-                                "state": "partial", "work_turn": True,
-                                "noop": False, "declined": True},
-                            "data": {"canvas_edit": {
-                                "canvas_id": (
-                                    (_canvas_ctx or {}).get("canvas_id")),
-                                "updated": False, "no_apply": True,
-                                "reason": "multiple_open_requirements",
-                                "outcome": "refused",
+                    if _selected is not None:
+                        _remainder = _value_after_selection(
+                            message, _selected)
+                        if not _remainder:
+                            # SELECTION-ONLY: remember + ask for the
+                            # value. Zero writes, question stays open.
+                            session["resume_selected_question"] = {
+                                "question_id": _selected.get("question_id"),
+                                "item": _selected.get("item"),
+                            }
+                            _sel_message = _selection_only_message(
+                                str(_selected.get("item")
+                                    or "the selected requirement"))
+                            _sel_response = {
+                                "success": True,
+                                "message": _sel_message,
+                                "session_id": session_id,
                                 "execution_id": _execution_id,
-                                "requirement_question_ids": [
-                                    _q.get("question_id")
-                                    for _q in _resume_open],
-                            }},
-                            "suggested_actions": [],
-                            "requires_confirmation": False,
-                            "next_steps": [],
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                        self._update_session(
-                            session, message, _multi_response,
-                            {"primary_intent": "canvas_edit",
-                             "confidence": 0.9})
-                        await self._emit_agent_status(
-                            session_id, _trace_agent_id, _execution_id,
-                            "success")
-                        self._finish_chat_execution(
-                            _execution_id, "success", _multi_message,
-                            session=session, message=message,
-                            response=_multi_response, deadline=_deadline)
-                        logger.info(
-                            "[requirement-resume] several open "
-                            "requirements — asked which one, zero writes "
-                            "(%d)", len(_resume_open))
-                        if _tool_plan_task is not None \
-                                and not _tool_plan_task.done():
-                            _tool_plan_task.cancel()
-                        return _multi_response
-                    _resume_req = _selected
+                                "intent": "canvas_edit",
+                                "confidence": 0.9,
+                                "outcome": "partial",
+                                "_recorded_outcome": {
+                                    "state": "partial", "work_turn": True,
+                                    "noop": False, "declined": True},
+                                "data": {"canvas_edit": {
+                                    "canvas_id": (
+                                        (_canvas_ctx or {}).get("canvas_id")),
+                                    "updated": False, "no_apply": True,
+                                    "reason": "awaiting_selected_value",
+                                    "outcome": "refused",
+                                    "execution_id": _execution_id,
+                                    "requirement_question_id":
+                                        _selected.get("question_id"),
+                                }},
+                                "suggested_actions": [],
+                                "requires_confirmation": False,
+                                "next_steps": [],
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                            self._update_session(
+                                session, message, _sel_response,
+                                {"primary_intent": "canvas_edit",
+                                 "confidence": 0.9})
+                            await self._emit_agent_status(
+                                session_id, _trace_agent_id, _execution_id,
+                                "success")
+                            self._finish_chat_execution(
+                                _execution_id, "success", _sel_message,
+                                session=session, message=message,
+                                response=_sel_response, deadline=_deadline)
+                            logger.info(
+                                "[requirement-resume] selection-only "
+                                "reply — asked for the selected "
+                                "requirement's value, zero writes")
+                            if _tool_plan_task is not None \
+                                    and not _tool_plan_task.done():
+                                _tool_plan_task.cancel()
+                            return _sel_response
+                        _resume_req = _selected
+                        _selection_candidates = _remainder
+                    else:
+                        _remembered = _remembered_selection(
+                            session, _resume_open)
+                        if _remembered is not None:
+                            _resume_req = _remembered
+                        else:
+                            _multi_message = _multiple_requirements_message([
+                                _q.get("item") or "the requested change"
+                                for _q in _resume_open])
+                            _multi_response = {
+                                "success": True,
+                                "message": _multi_message,
+                                "session_id": session_id,
+                                "execution_id": _execution_id,
+                                "intent": "canvas_edit",
+                                "confidence": 0.9,
+                                "outcome": "partial",
+                                "_recorded_outcome": {
+                                    "state": "partial", "work_turn": True,
+                                    "noop": False, "declined": True},
+                                "data": {"canvas_edit": {
+                                    "canvas_id": (
+                                        (_canvas_ctx or {}).get("canvas_id")),
+                                    "updated": False, "no_apply": True,
+                                    "reason": "multiple_open_requirements",
+                                    "outcome": "refused",
+                                    "execution_id": _execution_id,
+                                    "requirement_question_ids": [
+                                        _q.get("question_id")
+                                        for _q in _resume_open],
+                                }},
+                                "suggested_actions": [],
+                                "requires_confirmation": False,
+                                "next_steps": [],
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                            self._update_session(
+                                session, message, _multi_response,
+                                {"primary_intent": "canvas_edit",
+                                 "confidence": 0.9})
+                            await self._emit_agent_status(
+                                session_id, _trace_agent_id, _execution_id,
+                                "success")
+                            self._finish_chat_execution(
+                                _execution_id, "success", _multi_message,
+                                session=session, message=message,
+                                response=_multi_response, deadline=_deadline)
+                            logger.info(
+                                "[requirement-resume] several open "
+                                "requirements — asked which one, zero "
+                                "writes (%d)", len(_resume_open))
+                            if _tool_plan_task is not None \
+                                    and not _tool_plan_task.done():
+                                _tool_plan_task.cancel()
+                            return _multi_response
                 else:
                     _resume_req = _resume_open[0]
             if _resume_req is not None:
@@ -12524,7 +12650,9 @@ class ChatOrchestrator:
                 _rc_goal = str(_rc_inputs.get("goal_text") or "")
                 _rc_item = str(
                     _resume_req.get("item") or "the requested change")
-                _rc_candidates = _value_candidates(message)
+                _rc_candidates = _selection_candidates if \
+                    _selection_candidates is not None else \
+                    _value_candidates(message)
                 if len(_rc_candidates) > 1:
                     _ambig_message = _ambiguous_value_message(
                         _rc_item, _rc_candidates)

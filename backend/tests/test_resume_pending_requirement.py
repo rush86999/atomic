@@ -145,6 +145,14 @@ def _duplicated_label_plan() -> cce.CanvasEditPlan:
     )
 
 
+#: Per-conversation session dicts, REUSED across _turn calls — the
+#: production `_get_or_create_session` returns the PERSISTED session (the
+#: same dict evolves across turns and restarts), so the harness must not
+#: hand every turn a fresh one (a remembered selection would otherwise
+#: vanish between turns).
+_SESSIONS: dict = {}
+
+
 async def _turn(monkeypatch, session_id, message, *, fresh, plan,
                 context_canvas_id=None):
     """One REAL process_chat_message turn with the dependencies
@@ -181,7 +189,8 @@ async def _turn(monkeypatch, session_id, message, *, fresh, plan,
         status_events.append(status)
         return None
 
-    session = {"id": session_id, "history": []}
+    session = _SESSIONS.setdefault(
+        session_id, {"id": session_id, "history": []})
     with contextlib.ExitStack() as _stack:
         for _cm in (
             patch.object(orchestrator, "_get_or_create_session",
@@ -439,13 +448,13 @@ async def test_owner_message_table(monkeypatch):
 @pytest.mark.asyncio
 async def test_several_open_requirements_are_asked_apart(monkeypatch):
     """Two open questions in one conversation: a bare value selects
-    NOTHING — the ask names the items; an explicit selection (naming the
-    item, or the option number) binds to THAT question."""
+    NOTHING; a SELECTION-ONLY reply ('1', 'The VAT number') never writes
+    — it asks for the selected requirement's value and the selection is
+    remembered so the follow-up value binds deterministically (review
+    round 3, blocker)."""
     sid = f"sess-r3-multi-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
-    # A second open requirement on the same conversation+canvas: stamped
-    # through the same production helper with a different item.
     from integrations.chat_orchestrator import (
         _stamp_awaiting_value_requirement,
     )
@@ -457,35 +466,66 @@ async def test_several_open_requirements_are_asked_apart(monkeypatch):
         operation_id="op-2")
     assert qid2, "the second question stamps"
     assert len(_open_questions(sid)) == 2
-    # A bare value selects nothing: the numbered ask, zero writes.
+
+    # A bare value with no selection: the numbered ask, zero writes.
     t = await _turn(monkeypatch, sid, BARE_VALUE,
                     fresh=_stalled_fresh, plan=_tax_plan)
     assert t["plan_calls"] == 0, "never select a requirement silently"
     assert t["store"].updates == []
-    said = t["response"].get("message") or ""
-    assert "more than one open question" in said, said
-    assert "1)" in said and "2)" in said, "the options are numbered"
+    assert "more than one open question" in (
+        t["response"].get("message") or "")
     assert len(_open_questions(sid)) == 2, "both stay open"
 
-    # Naming the item binds to THAT question.
-    t2 = await _turn(monkeypatch, sid, "The VAT number is 47-11",
-                     fresh=_stalled_fresh,
-                     plan=lambda *a, **k: _tax_plan("47-11"))
-    assert t2["plan_calls"] == 1, "the item-named answer binds"
-    assert t2["store"].content.count("47-11") == 1
+    # SELECTION-ONLY ('1'): the editor is NEVER called, the reply asks
+    # for the selected requirement's value, and the question stays open.
+    t1 = await _turn(monkeypatch, sid, "1",
+                     fresh=_stalled_fresh, plan=_tax_plan)
+    assert t1["plan_calls"] == 0, (
+        "a selection token is not a value — the editor must not run")
+    assert t1["store"].updates == [], "a selection-only reply writes nothing"
+    said1 = t1["response"].get("message") or ""
+    assert "got it" in said1.lower() and "what value" in said1.lower(), said1
+    assert t1["response"].get("success") is True
+    assert len(_open_questions(sid)) == 2, "both stay open"
 
-    # The option number binds to THAT question (the remaining one).
-    sid2 = f"sess-r3-multi2-{uuid.uuid4().hex[:8]}"
+    # The FOLLOW-UP value binds to the remembered selection (the tax
+    # question — option 1), settles it, and clears the memory.
+    t2 = await _turn(monkeypatch, sid, BARE_VALUE,
+                     fresh=_stalled_fresh, plan=_tax_plan)
+    assert t2["plan_calls"] == 1, "the follow-up value binds the selection"
+    assert t2["store"].content.count(BARE_VALUE) == 1
+    assert t2["response"].get("success") is True
+    remaining = _open_questions(sid)
+    assert len(remaining) == 1 and remaining[0]["question_id"] == qid2, (
+        "the SELECTED question settled; the other stays open")
+    assert not t2["session"].get("resume_selected_question"), (
+        "the selection memory is consumed")
+
+    # A bare item name is also selection-only.
+    sid2 = f"sess-r3-selname-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid2, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
     _stamp_awaiting_value_requirement(
         None, None, (_open_questions(sid2)[0]["run_id"]),
         canvas_id=CANVAS_ID, goal_text="Add the client's VAT number to "
         "this quotation.", references=["from the ledger"],
-        operation_id="op-2b")
-    t3 = await _turn(monkeypatch, sid2, "1",
+        operation_id="op-3")
+    t3 = await _turn(monkeypatch, sid2, "The VAT number",
                      fresh=_stalled_fresh, plan=_tax_plan)
-    assert t3["plan_calls"] == 1, "an explicit option number binds"
+    assert t3["plan_calls"] == 0, "'The VAT number' names, no value"
+    assert t3["store"].updates == []
+    said3 = t3["response"].get("message") or ""
+    assert "got it" in said3.lower(), said3
+    assert len(_open_questions(sid2)) == 2
+
+    # Selection + value in ONE reply binds directly.
+    t4 = await _turn(monkeypatch, sid2, "The VAT number is 47-11",
+                     fresh=_stalled_fresh,
+                     plan=lambda *a, **k: _tax_plan("47-11"))
+    assert t4["plan_calls"] == 1
+    assert t4["store"].content.count("47-11") == 1
+    remaining2 = _open_questions(sid2)
+    assert len(remaining2) == 1, "the VAT question settled"
 
 
 @pytest.mark.asyncio
