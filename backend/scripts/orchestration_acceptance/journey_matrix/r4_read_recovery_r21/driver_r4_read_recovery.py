@@ -58,23 +58,38 @@ CANVAS_CONTENT = (
     "Client: Harlow Mill Robotics\n"
     "Terms: Net 30\n")
 
-WORKBOOK_NAME = "Consolidated Price List 2019.md"
-WORKBOOK_TEXT = (
-    "# Consolidated Price List 2019\n\n"
-    "| Machine | Unit price |\n"
-    "| --- | --- |\n"
-    "| Haas VF-2 | 48,000.00 |\n"
-    "| DMG Mori NVX 5100 | 96,400.00 |\n"
-    "| Okuma Genos L250 | 71,250.50 |\n"
-    "| Mazak QT-250 | 63,180.00 |\n"
-    "| Doosan Puma 2100 | 58,900.00 |\n"
-    "| Hirobo SST-8 | 122,750.00 |\n"
-    "| Chiron FZ16 | 88,410.25 |\n"
-    "| Emco HyperTurn 665 | 104,300.00 |\n\n"
-    "Prices are per unit, EXW, 2019 list. Marker: R4-RECOVERY-771.\n")
+WORKBOOK_NAME = "Consolidated Price List 2019.xlsx"
+WORKBOOK_ROWS = [
+    ("Machine", "Unit price"),
+    ("Haas VF-2", 48000.00),
+    ("DMG Mori NVX 5100", 96400.00),
+    ("Okuma Genos L250", 71250.50),
+    ("Mazak QT-250", 63180.00),
+    ("Doosan Puma 2100", 58900.00),
+    ("Hirobo SST-8", 122750.00),
+    ("Chiron FZ16", 88410.25),
+    ("Emco HyperTurn 665", 104300.00),
+]
+
+
+def _workbook_bytes() -> bytes:
+    import io as _io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Prices"
+    for row in WORKBOOK_ROWS:
+        ws.append(list(row))
+    ws.cell(row=14, column=1, value="R4-RECOVERY-771")
+    buf = _io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
 
 READ_ASK = (
-    "Find the 8 machine prices in Consolidated Price List 2019.md and "
+    "Find the 8 machine prices in Consolidated Price List 2019.xlsx and "
     "list them for me.")
 RECOVERY_ASK = (
     "Show me the machine prices you found earlier from the price list.")
@@ -428,11 +443,9 @@ def run_r4() -> dict:
         up = httpx.post(
             f"{server.base}/api/document-ingestion/upload",
             headers={"Authorization": f"Bearer {token}"},
-            files={"file": (WORKBOOK_NAME,
-                            io.BytesIO(WORKBOOK_TEXT.encode()) if False
-                            else __import__("io").BytesIO(
-                                WORKBOOK_TEXT.encode()),
-                            "text/markdown")},
+            files={"file": (WORKBOOK_NAME, io.BytesIO(
+                _workbook_bytes()), "application/vnd.openxmlformats-"
+                "officedocument.spreadsheetml.sheet")},
             timeout=120, trust_env=False)
         try:
             upj = up.json()
@@ -443,14 +456,23 @@ def run_r4() -> dict:
         if up.status_code != 200:
             raise RuntimeError(f"upload failed: {up.status_code}")
         time.sleep(3)
-        idx = JR.auth_get(server.base, token,
-                          "/api/documents/search?q=Haas&limit=20",
-                          timeout_s=60.0)
-        j = idx.get("json") or {}
-        results = j.get("results") or j.get("documents") or []
-        ev["indexed"] = {"http": idx.get("http"),
-                         "count": len(results) if isinstance(
-                             results, list) else None}
+        # THE PLANNER'S CATALOG is DatasetEntry (created by workbook
+        # ingestion) - verify the entry EXISTS before the ask, or the
+        # named-file resolution fails pre-read (attempt 1's finding).
+        import sqlite3 as _sq3
+        _db = str(server.db_path)
+        _con = _sq3.connect(f"file:{_db}?mode=ro", uri=True)
+        _rows = _con.execute(
+            "SELECT dataset_name, file_name, workspace_id, status "
+            "FROM dataset_entries ORDER BY ingested_at DESC LIMIT 5"
+        ).fetchall() if _con.execute(
+            "SELECT count(*) FROM sqlite_master WHERE name="
+            "'dataset_entries'").fetchone()[0] else []
+        _con.close()
+        ev["dataset_catalog"] = {"rows": [
+            {"dataset_name": r[0], "file_name": r[1],
+             "workspace_head": str(r[2] or "")[:8], "status": r[3]}
+            for r in _rows]}
 
         baseline_ops = retrieve_operations(server.db_path, "")
         ev["audit_baseline"] = {"retrieve_ops": len(baseline_ops)}
