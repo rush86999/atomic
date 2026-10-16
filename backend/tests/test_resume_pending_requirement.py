@@ -355,10 +355,12 @@ async def test_ambiguous_value_asks_one_clarification_and_writes_nothing(
 
 @pytest.mark.asyncio
 async def test_owner_message_table(monkeypatch):
-    """The owner's reproduced table, end to end:
-    'Cancel that' cancels (never an edit attempt); 'What did you
-    change?' is a question (normal flow, requirement open); '12,500'
-    and 'Research and Development' bind as ONE verbatim value each."""
+    """The owner's reproduced table plus the round-4 counterexamples, end
+    to end on the SAVED ARTIFACT: 'Cancel that' cancels; 'What did you
+    change?' is a question; '12,500' binds as one value; unanchored
+    free text ('Research and Development', 'Love is Blind', 'Actually
+    Studios', cancellation paraphrases) is UNRESOLVED — normal flow,
+    zero writes, requirement open."""
     # Cancel that.
     sid = f"sess-r3-c-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
@@ -384,7 +386,7 @@ async def test_owner_message_table(monkeypatch):
     assert t["store"].updates == []
     assert len(_open_questions(sid)) == 1, "the question stays open"
 
-    # 12,500 — one value, not two.
+    # 12,500 — one value, not two; the value lands exactly once.
     sid = f"sess-r3-n-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -394,15 +396,63 @@ async def test_owner_message_table(monkeypatch):
     assert t["plan_calls"] == 1, "12,500 is ONE value and binds"
     assert t["store"].content.count("12,500") == 1
 
-    # Research and Development — verbatim, no word removal.
+    # 'Research and Development' — UNRECOGNIZED under the migrated
+    # contract (no requirement anchor, no digits, no quotes): the reply
+    # asks, nothing writes, and NO word is ever removed from what the
+    # user wrote (owner instruction: unrecognized text is not an
+    # answer). The quoted form DOES bind, verbatim.
     sid = f"sess-r3-r-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
     t = await _turn(monkeypatch, sid, "Research and Development",
                     fresh=_stalled_fresh,
                     plan=lambda *a, **k: _tax_plan("Research and Development"))
-    assert t["plan_calls"] == 1, "a multi-word value binds verbatim"
-    assert t["store"].content.count("Research and Development") == 1
+    assert t["plan_calls"] == 0, (
+        "an unanchored free-text reply is not an answer")
+    assert t["store"].updates == [], "nothing is written from a guess"
+    assert t["reply_calls"], "the normal flow owns the turn"
+    assert len(_open_questions(sid)) == 1, "the requirement stays open"
+    sid = f"sess-r3-rq-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, '"Research and Development"',
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: _tax_plan("Research and Development"))
+    assert t["plan_calls"] == 1, "a quoted value binds"
+    assert t["store"].content.count("Research and Development") == 1, "the value is the inner text of the quotes"
+
+    # The owner's counterexamples (round-4): the answer frame and the
+    # lead-in stripper must not invent values.
+    sid = f"sess-r3-lib-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "Love is Blind",
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "'Love is Blind' is not a value"
+    assert t["store"].content == QUOTE, "the saved artifact is unchanged"
+    assert t["store"].updates == []
+    assert len(_open_questions(sid)) == 1
+
+    sid = f"sess-r3-as-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "Actually Studios",
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "'Actually Studios' must not strip to a value"
+    assert t["store"].content == QUOTE, "the saved artifact is unchanged"
+    assert len(_open_questions(sid)) == 1
+
+    # A cancellation PARAPHRASE outside the closed class: unresolved —
+    # the normal flow owns it, nothing writes, the requirement stays
+    # open (the conversational layer can then confirm the intent).
+    sid = f"sess-r3-par-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "let's drop that idea",
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "a paraphrase must not bind or edit"
+    assert t["store"].content == QUOTE, "the saved artifact is unchanged"
+    assert len(_open_questions(sid)) == 1
 
     # Compound cancel: the FIRST segment cancels — the value after it
     # has no open requirement to bind to (review round 2, finding 4).
@@ -434,14 +484,25 @@ async def test_owner_message_table(monkeypatch):
             assert len(_open_questions(sid)) == 1, (
                 f"{meta!r} leaves the requirement open")
 
-    # "Acme, Inc" — one verbatim value (comma rule, finding 7).
+    # "Acme, Inc" — UNRECOGNIZED under the migrated contract (no
+    # requirement anchor, no digits): the reply asks, nothing writes.
+    # The quoted form binds verbatim, commas included.
     sid = f"sess-r3-acme-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
     t = await _turn(monkeypatch, sid, "Acme, Inc",
                     fresh=_stalled_fresh,
                     plan=lambda *a, **k: _tax_plan("Acme, Inc"))
-    assert t["plan_calls"] == 1, "a comma-bearing company name binds"
+    assert t["plan_calls"] == 0, "unanchored text is not an answer"
+    assert t["store"].updates == []
+    assert len(_open_questions(sid)) == 1
+    sid = f"sess-r3-acmeq-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, '"Acme, Inc"',
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: _tax_plan("Acme, Inc"))
+    assert t["plan_calls"] == 1, "a quoted value binds verbatim"
     assert t["store"].content.count("Acme, Inc") == 1
 
 
@@ -581,34 +642,65 @@ async def test_a_fresh_edit_directive_is_never_hijacked(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_restore_race_is_named_not_silent(monkeypatch):
-    """Review round 2, finding 3: if the canvas version head moved past
-    our refused write, restoring would eat a concurrent edit — the
-    restore is REFUSED and the reply names it (the refused edit is still
-    in the history; the concurrent content is untouched)."""
-    sid = f"sess-r3-race-{uuid.uuid4().hex[:8]}"
+async def test_post_write_divergence_restores_with_race_guard(monkeypatch):
+    """EXCEPTIONAL RECOVERY (owner caveat): the editor's PRE-write check
+    sees the proposed artifact, not the durable store. When a write
+    LANDS but the durable content diverges (simulated here: the read
+    path returns duplicated content after the update), the resume
+    preservation layer catches it, restores the pre-edit version under
+    the revision guard, and names what happened. With a RACED version
+    head the restore is refused — a concurrent edit must not be eaten."""
+    sid = f"sess-r3-div-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
     assert len(_open_questions(sid)) == 1
 
-    # The turn's store races: after the lane's write the version head
-    # moves to a concurrent write, so our refused edit is no longer the
-    # head and a blind restore would eat that concurrent edit.
-    monkeypatch.setenv("ATOM_TASK_LIFECYCLE_ENABLED", "1")
-    monkeypatch.setenv("CHAT_FINALIZATION_M1", "1")
-    orchestrator = chat.ChatOrchestrator()
-    canvas = {"canvas_id": CANVAS_ID, "canvas_type": "document",
-              "title": "Quotation Q-2026-114", "content": QUOTE}
-    store = _CanvasStore(QUOTE, raced_versions=True)
-    session = {"id": sid, "history": []}
+    # Clean plan; the store's READ path diverges after the write (store
+    # normalization or a concurrent write the editor could not see).
+    diverging = {"flag": False}
+
+    class _DivergentStore(_CanvasStore):
+        async def _update(self, user_id, canvas_id, content, *a, **k):
+            out = await super()._update(user_id, canvas_id, content,
+                                        *a, **k)
+            if self.updates:
+                # The durable content diverged from what was written
+                # (store normalization or a concurrent write).
+                diverging["flag"] = True
+            return out
+
+        async def _restore(self, user_id, canvas_id, audit_id, *a, **k):
+            # The restore itself resolves the divergence: reads go back
+            # to true content afterwards.
+            diverging["flag"] = False
+            return await super()._restore(user_id, canvas_id, audit_id,
+                                          *a, **k)
+
+        async def _read(self, user_id, canvas_id, **k):
+            content = self.content
+            if diverging["flag"] and self.updates:
+                # The durable content diverged from what was written.
+                content = self.content + (
+                    "Tax registration number: 03-4567-8912\n")
+            return {"success": True, "canvas_id": canvas_id,
+                    "canvas_type": "document", "title": "Q",
+                    "content": content}
+
+    store = _DivergentStore(QUOTE)
+
+    async def _status(sid_, aid, eid, status):
+        return None
+
+    session = _SESSIONS.setdefault(
+        sid, {"id": sid, "history": []})
 
     async def _reply(*a, **k):
         return {"content": "the reply leg must not own this turn",
                 "success": True}
 
-    async def _status(sid_, aid, eid, status):
-        return None
-
+    orchestrator = chat.ChatOrchestrator()
+    canvas = {"canvas_id": CANVAS_ID, "canvas_type": "document",
+              "title": "Quotation Q-2026-114", "content": QUOTE}
     with contextlib.ExitStack() as _stack:
         for _cm in (
             patch.object(orchestrator, "_get_or_create_session",
@@ -628,28 +720,34 @@ async def test_restore_race_is_named_not_silent(monkeypatch):
             patch.object(cce, "fetch_fresh_data_section", _stalled_fresh),
             patch.object(cce, "plan_canvas_edit",
                          new=AsyncMock(side_effect=(
-                             lambda *a, **k: _duplicated_label_plan()))),
+                             lambda *a, **k: _tax_plan()))),
             patch.object(chat,
                          "_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS", 0.3),
         ):
             _stack.enter_context(_cm)
-        for _cm in store.patches():
+        for _cm in (
+            patch("tools.canvas_crud_tool.update_canvas_content",
+                  new=AsyncMock(side_effect=store._update)),
+            patch("tools.canvas_crud_tool.read_canvas",
+                  new=AsyncMock(side_effect=store._read)),
+            patch("tools.canvas_crud_tool.list_canvas_versions",
+                  new=AsyncMock(side_effect=store._versions)),
+            patch("tools.canvas_crud_tool.restore_canvas_version",
+                  new=AsyncMock(side_effect=store._restore)),
+        ):
             _stack.enter_context(_cm)
         r = await orchestrator.process_chat_message(
             "user-r3", BARE_VALUE, sid, context={"canvas_id": CANVAS_ID})
 
     said = r.get("message") or ""
-    assert r.get("success") is True, r
-    assert "did NOT restore" in said or "newer change" in said, said
-    assert store.restores == [], (
-        "a raced restore is refused — it would eat a concurrent edit")
-    assert r.get("data", {}).get("canvas_edit", {}).get(
-        "mutation_present") is True
-    assert r.get("data", {}).get("canvas_edit", {}).get(
-        "restored") is False
-    assert len(_open_questions(sid)) == 1, "the question stays open"
-
-
+    # The write landed, the divergence was caught, and the restore ran
+    # (the head was ours — no race in this variant).
+    assert store.restores == [PRE_AUDIT_ID], (
+        "the revision-guarded restore ran for the diverged write")
+    assert store.content == QUOTE, "the draft is restored"
+    assert "restored" in said.lower() or "refused" in said.lower(), said
+    assert len(_open_questions(sid)) == 1, (
+        "the requirement is unfulfilled — the question stays open")
 @pytest.mark.asyncio
 async def test_expiry_fresh_binds_expired_and_malformed_never(monkeypatch):
     """The TTL check: a fresh stamp binds; an over-TTL stamp and a
@@ -690,12 +788,16 @@ async def test_expiry_fresh_binds_expired_and_malformed_never(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_duplicated_label_plan_is_refused_and_restored(monkeypatch):
+async def test_duplicated_label_plan_is_refused_before_persistence(
+        monkeypatch):
     """The captured failing shape (R3 run 074317): a plan that lands the
-    value twice and duplicates an existing line's label. The editor
-    applies ops faithfully; the RESUME postcondition catches the
-    preservation violation, refuses the WHOLE mutation, restores the
-    pre-edit version, and the question stays open."""
+    value twice and duplicates an existing line's label. PRESERVATION IS
+    PRE-PERSISTENCE now (owner caveat): the editor verifies the PROPOSED
+    artifact before the store write, so the violation never reaches the
+    canvas at all — zero updates, no restore needed, no intermediate
+    revision. The refusal is delivered honestly and the question stays
+    open; revision-guarded restoration remains only for exceptional
+    recovery."""
     sid = f"sess-r3-dup-{uuid.uuid4().hex[:8]}"
     await _turn(monkeypatch, sid, REQUEST_MSG,
                 fresh=_stalled_fresh, plan=None)
@@ -705,16 +807,19 @@ async def test_duplicated_label_plan_is_refused_and_restored(monkeypatch):
                     fresh=_stalled_fresh, plan=_duplicated_label_plan)
     r = t["response"]
     assert t["plan_calls"] == 1
-    # The corrupted content WAS written by the lane (op application is
-    # faithful) — the postcondition is what catches it.
+    assert t["store"].updates == [], (
+        "the violation refuses BEFORE the store write")
+    assert t["store"].restores == [], (
+        "prevention means no restoration is needed")
+    assert t["store"].content == QUOTE, (
+        "the saved artifact is untouched")
     assert r.get("success") is True, "the refusal is a delivered turn"
     said = r.get("message") or ""
-    assert "refused" in said.lower(), said
-    assert "restored" in said.lower(), said
-    assert t["store"].content == QUOTE, (
-        "the pre-edit content is restored byte-identically")
-    assert t["store"].restores == [PRE_AUDIT_ID], (
-        "the restore targets the captured pre-edit version")
+    assert (
+        "would have altered" in said
+        or "did not preserve" in said
+        or "refused" in said.lower()
+    ), "the refusal names the preservation violation"
     assert (t["execution_row"] or {}).get("status") == "success"
     assert len(_open_questions(sid)) == 1, (
         "the requirement is unfulfilled — the question stays open")

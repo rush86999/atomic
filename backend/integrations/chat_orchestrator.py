@@ -654,128 +654,214 @@ def _open_awaiting_value_requirements(
         return []
 
 
-#: CLOSED-CLASS REPLY INTERPRETATION (bounded correction 2026-10-16,
-#: item 1; independent-review round 2): an open awaiting-value question
-#: makes the next message its PROSPECTIVE answer — but cancellation and
-#: questions must never become edit attempts, so the reply is classified
-#: BEFORE any binding. Deterministic closed classes only; values are
-#: carried VERBATIM (no word removal, no numeric-adjacent splitting).
+#: THE SIX-CLASS REPLY INTERPRETATION (owner instruction 2026-10-16,
+#: accepted-interpretation migration): an open awaiting-value question
+#: makes the next message a PROSPECTIVE answer, and the reply is
+#: classified into answer | question | cancel | selection |
+#: new_instruction | unresolved. UNRECOGNIZED TEXT IS `unresolved` — it
+#: NEVER becomes an answer by default, and no stripping regex rewrites
+#: what the user wrote: an `answer` is RECOGNIZED only when the message
+#: carries an EXACT value span referencing the original message — a
+#: requirement-anchored frame ("The VAT number is 47-11": the frame's
+#: subject names the requirement's item), a digit-bearing message
+#: ("03-4567-8912", "12,500"), or a quoted span ("Acme, Inc"). The span
+#: text is used exactly as it appears in the message.
 _RESUME_CANCEL_RE = re.compile(
     r"^\s*(?:please\s+)?(?:"
     r"cancel(?:\s+(?:that|this|it|everything|all\s+of\s+it))?|"
-    r"stop|abort|forget\s+it|nevermind|never\s+mind|dismiss|"
-    r"scratch\s+that|don'?t\s+bother|do\s+not\s+bother|"
-    r"leave\s+it|leave\s+that|nope|nah"
+    r"stop|abort|forget\sit|nevermind|never\smind|dismiss|"
+    r"scratch\sthat|don'?t\sbother|do\snot\sbother|"
+    r"leave\sit|leave\sthat|nope|nah"
     r")\s*(?:please)?\s*[.!]?\s*$", re.IGNORECASE)
 #: A message of ONLY politeness/meta tokens carries no value: the normal
 #: flows own it (binding "please" or "thanks" as a value is a garbage
 #: write).
 _RESUME_META_ONLY_RE = re.compile(
-    r"^\s*(?:please|thanks|thank\s+you|ok|okay|sure|alright|hello|hi)\s*"
+    r"^\s*(?:please|thanks|thank\syou|ok|okay|sure|alright|hello|hi)\s*"
     r"[.!]?\s*$", re.IGNORECASE)
 _RESUME_QUESTION_RE = re.compile(
     r"^\s*(?:what|where|when|who|whom|whose|why|how|which|is|are|was|"
     r"were|do|does|did|can|could|will|would|shall|should|may|might|"
     r"has|have|had)\b[^?]*\?", re.IGNORECASE)
+#: The REQUIREMENT-ANCHORED ANSWER FRAME: "<subject naming the item>
+#: is/are/: <value>". The subject must reference the requirement's own
+#: item (word-window match), so "Love is Blind" — whose subject names
+#: nothing the requirement asked about — is NOT read as a value.
+_RESUME_FRAME_RE = re.compile(
+    r"^\s*(?:the\s+)?(?P<subject>[a-z0-9'\s\-]{2,80}?)"
+    r"\s*(?:\b(?:is|are)\b|\s*:)\s*(?P<value>.+)$",
+    re.IGNORECASE | re.DOTALL)
+_RESUME_SELECT_NUMBER_RE = re.compile(
+    r"^\s*(?:option\s+)?([0-9])\s*[.!]?$", re.IGNORECASE)
+_RESUME_STOPWORDS = frozenset(("the", "a", "an", "my", "our", "of"))
+_RESUME_WORD_RE = re.compile(r"[a-z0-9\-']+")
 
 
-def _resume_reply_class(message: str) -> str:
-    """cancel | question | answer (the classes an open requirement
-    distinguishes BEFORE binding). A bare refusal with no value content
-    is a cancellation; ANYTHING interrogative — including a trailing '?'
-    on a digit-bearing message — is a question and falls to the normal
-    flows, never an edit attempt (review round 2, finding 5)."""
-    text = str(message or "").strip()
-    if not text:
-        return "question"  # nothing to bind; the normal flows own it
-    if _RESUME_CANCEL_RE.match(text):
-        return "cancel"
-    if _RESUME_META_ONLY_RE.match(text):
-        return "question"
-    if _RESUME_QUESTION_RE.match(text):
-        return "question"
-    if text.endswith("?"):
-        # A trailing question mark is a question, digits or not: the
-        # safe direction is to let the conversational layer answer it.
-        return "question"
-    return "answer"
+def _item_word_set(item: str) -> set:
+    """The requirement item's own significant words (stop-words and
+    one-letter tokens dropped)."""
+    return {
+        w for w in _RESUME_WORD_RE.findall(str(item or "").lower())
+        if len(w) >= 2 and w not in _RESUME_STOPWORDS}
 
 
-#: Coordination separators ONLY — a comma adjacent to digits stays part
-#: of the value ("12,500" is one value). A comma followed by whitespace
-#: splits ONLY when BOTH sides carry a digit: "03-4567-8912, or …"
-#: coordinates two numeric candidates, while "Acme, Inc" is one
-#: verbatim value (review round 2, finding 7). Word removal is
-#: forbidden: interior words are carried verbatim.
-_VALUE_CANDIDATE_SPLIT_RE = re.compile(
-    r"\n+|;\s*|\s+or\s+(?=\S)", re.IGNORECASE)
-_VALUE_COMMA_SPLIT_RE = re.compile(r",\s+")
-#: KNOWN meta lead-ins/tails around a value — interpretation, not value
-#: content. Narrow on purpose; everything else is kept verbatim.
-_RESUME_META_LEAD_RE = re.compile(
-    r"^(?:please|it'?s|it\s+is|the\s+(?:value|answer|number|amount)\s+is|"
-    r"use|try|take|maybe|possibly|perhaps|alternatively|actually|or)\s+",
-    re.IGNORECASE)
-_RESUME_META_TAIL_RE = re.compile(
-    r"[\s,;]*[—–-]?\s*(?:not\s+sure|unsure|i\s+think|actually)\s*[.!]?\s*$",
-    re.IGNORECASE)
-#: THE ANSWER FRAME: "X is Y" / "X: Y" / "X are Y" — the frame names the
-#: requirement, the tail IS the value. The frame is bounded (60 chars)
-#: so a value that merely CONTAINS ' is ' is not silently truncated
-#: unless the frame pattern genuinely leads the segment.
-_RESUME_ANSWER_FRAME_RE = re.compile(
-    r"^\s*(?:the\s+)?[a-z0-9'\s\-]{0,60}?(?:\bis\b|\bare\b|\s*:)\s*",
-    re.IGNORECASE)
+def _names_item_window(text: str, item: str) -> bool:
+    """Whether `text` references the requirement's item: a >=2-word
+    contiguous window of the item's own words appears in the text."""
+    words = [
+        w.strip(".,;:!?\"'").lower()
+        for w in str(item or "").split()
+        if w.strip(".,;:!?\"'").lower() not in ("the", "a", "an")]
+    if not words:
+        return False
+    low = f" {str(text or '').lower()} "
+    if len(words) == 1:
+        return f" {words[0]} " in low
+    for width in range(len(words), 1, -1):
+        for start in range(len(words) - width + 1):
+            window = " " + " ".join(words[start:start + width]) + " "
+            if window in low:
+                return True
+    return False
 
 
-def _answer_value(segment: str) -> str:
-    """The value inside one answer segment: after a bounded
-    'X is/are/:' answer frame, the tail is the value, verbatim."""
-    text = str(segment or "").strip()
-    m = _RESUME_ANSWER_FRAME_RE.match(text)
-    if m:
-        tail = text[m.end():].strip()
-        if tail:
-            return tail
-    return text
-
-
-def _value_candidates(message: str) -> List[str]:
-    """The distinct value attempts in the user's message, VERBATIM.
-
-    Splits on explicit coordination separators (newline, semicolon,
-    spaced 'or') and on comma-followed-by-whitespace ONLY when both
-    sides carry a digit; strips KNOWN meta lead-ins/tails; keeps every
-    other word. ONE candidate binds; several are ambiguous — the ask
-    names them VERBATIM, nothing writes."""
-    text = str(message or "").strip()
-    if not text:
+def _digit_segments(message: str) -> List[Tuple[int, int]]:
+    """The digit-bearing coordination segments of a message, as EXACT
+    (start, end) spans in the original text. A comma adjacent to digits
+    stays inside a segment ("12,500" is one value); a comma followed by
+    whitespace, a semicolon, a newline, or spaced 'or' separates
+    segments ONLY when BOTH sides carry a digit ("8912, or 8913" is
+    ambiguous; "Acme, Inc" is not digit-bearing at all)."""
+    text = str(message or "")
+    if not any(ch.isdigit() for ch in text):
         return []
-    parts: List[str] = []
-    for segment in _VALUE_CANDIDATE_SPLIT_RE.split(text):
-        # The comma rule: split only when BOTH sides carry a digit.
-        chunks = [segment]
-        if "," in segment:
-            pieces = _VALUE_COMMA_SPLIT_RE.split(segment)
-            if len(pieces) > 1 and all(
-                    any(ch.isdigit() for ch in p) for p in pieces):
-                chunks = pieces
-        parts.extend(chunks)
-    candidates: List[str] = []
-    for part in parts:
-        candidate = str(part).strip().strip("\"'")
-        while True:
-            stripped = _RESUME_META_LEAD_RE.sub("", candidate).strip()
-            if stripped == candidate:
-                break
-            candidate = stripped
-        candidate = _RESUME_META_TAIL_RE.sub("", candidate).strip()
-        candidate = _answer_value(candidate)
-        candidate = candidate.strip(" \t.,;!?\"'").strip()
-        if candidate and any(ch.isalnum() for ch in candidate) \
-                and candidate not in candidates:
-            candidates.append(candidate)
-    return candidates
+    pieces: List[Tuple[int, int]] = []
+    cursor = 0
+    sep_re = re.compile(r"\n+|;\s*|\s+or\s+", re.IGNORECASE)
+    while cursor <= len(text):
+        m = sep_re.search(text, cursor)
+        end = m.start() if m else len(text)
+        if "," in text[cursor:end]:
+            cm = re.search(r",(?=\s)", text[cursor:end])
+            left = text[cursor:cursor + cm.start()] if cm else ""
+            right = text[cursor + cm.end():end] if cm else ""
+            if cm and any(ch.isdigit() for ch in left) and any(
+                    ch.isdigit() for ch in right):
+                pieces.append((cursor, cursor + cm.start()))
+                cursor = cursor + cm.end()
+                continue
+        pieces.append((cursor, end))
+        if m is None:
+            break
+        cursor = m.end()
+    trimmed_spans: List[Tuple[int, int]] = []
+    for (s, e) in pieces:
+        while e > s and text[e - 1] in ",;":
+            e -= 1
+        if any(ch.isdigit() for ch in text[s:e].strip()):
+            trimmed_spans.append((s, e))
+    return trimmed_spans
+
+
+def _recognized_answer_spans(
+        message: str, item: str) -> Optional[List[Tuple[int, int]]]:
+    """The EXACT value spans in the message for a requirement whose item
+    is `item` — or None when the reply is NOT RECOGNIZED as an answer
+    (it is `unresolved`: the conversational layer owns the turn, the
+    requirement stays open). An empty list means RECOGNIZED BUT
+    AMBIGUOUS: several value spans, one clarification, zero writes.
+    Every span is validated against the message bounds; the text is
+    preserved exactly as written."""
+    text = str(message or "")
+    trimmed = text.strip()
+    if not trimmed:
+        return None
+    lead = text.index(trimmed[0])
+    # 1. REQUIREMENT-ANCHORED FRAME: the subject must name the item.
+    fm = _RESUME_FRAME_RE.match(trimmed)
+    if fm and _names_item_window(fm.group("subject"), item):
+        tail = fm.group("value").strip().rstrip(" .!?")
+        if tail:
+            start = text.find(tail, lead)
+            if start < 0:
+                return None
+            return [(start, start + len(tail))]
+    # 2. GENERIC FRAME WITH A DIGIT-BEARING TAIL reads as the answer
+    #    shape ("It is 03-4567-8912." -> the tail "03-4567-8912"); a
+    #    NON-digit-bearing tail ("Love is Blind") is not recognized
+    #    here. The frame tail OUTRANKS whole-message segments: the
+    #    answer's value is the tail, not the whole sentence.
+    fm2 = re.match(
+        r"^\s*(?:the\s+)?[a-z0-9'\s\-]{0,80}?\s*"
+        r"(?:\b(?:is|are)\b|\s*:)\s*(?P<value>.+)$",
+        trimmed, re.IGNORECASE | re.DOTALL)
+    if fm2:
+        tail = fm2.group("value").strip().rstrip(" .!?")
+        if tail and any(ch.isdigit() for ch in tail):
+            start = text.find(tail, lead)
+            if start >= 0:
+                return [(start, start + len(tail))]
+    # 3. BARE DIGIT-BEARING SEGMENTS (coordination ambiguity: several
+    #    digit-bearing spans ask which one).
+    segments = _digit_segments(text)
+    if segments:
+        return segments
+    # 4. QUOTED SPAN: an explicitly quoted value is a value, whatever it
+    #    contains.
+    qm = re.search(r'"([^"\n]{1,200})"', text)
+    if qm:
+        return [(qm.start(1), qm.end(1))]
+    qm = re.search(r"'([^'\n]{1,200})'", text)
+    if qm:
+        return [(qm.start(1), qm.end(1))]
+    return None
+
+
+def _classify_resume_reply(
+        message: str, requirement: Optional[Dict[str, Any]],
+        items: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """The six-class classification of a reply to an open requirement:
+    answer (with exact spans) | question | cancel | selection |
+    new_instruction | unresolved. UNRECOGNIZED TEXT IS `unresolved` —
+    never an answer by default (owner instruction item 2). With several
+    requirements open, the selection echo is checked against EACH
+    item — naming any one of them is a selection."""
+    text = str(message or "").strip()
+    if not text:
+        return {"class": "unresolved"}
+    if _RESUME_CANCEL_RE.match(text):
+        return {"class": "cancel"}
+    if _RESUME_META_ONLY_RE.match(text):
+        return {"class": "question"}
+    if _RESUME_QUESTION_RE.match(text) or text.endswith("?"):
+        return {"class": "question"}
+    if _RESUME_SELECT_NUMBER_RE.match(text):
+        return {"class": "selection"}
+    _item = str((requirement or {}).get("item") or "")
+    _items = items if items else ([_item] if _item else [])
+    if _items and not any(ch.isdigit() for ch in text):
+        cand_words = {
+            w for w in _RESUME_WORD_RE.findall(text.lower())
+            if len(w) >= 2 and w not in _RESUME_STOPWORDS}
+        if cand_words and any(
+                (item_words := _item_word_set(it)) and (
+                    cand_words <= item_words
+                    or item_words <= cand_words)
+                for it in _items):
+            # The reply ECHOES a requirement's item and carries nothing
+            # else — naming the requirement, not answering it.
+            return {"class": "selection"}
+    if _item:
+        spans = _recognized_answer_spans(message, _item)
+        if spans is not None:
+            return {
+                "class": "answer",
+                "spans": spans,
+                "ambiguous": len(spans) != 1,
+            }
+    return {"class": "unresolved"}
+
 
 
 def _compound_cancel(message: str) -> bool:
@@ -814,30 +900,28 @@ def _selection_only_message(item: str) -> str:
 
 
 def _value_after_selection(
-        message: str, question: Dict[str, Any]) -> List[str]:
-    """The prospective value in a reply that ALSO selected a requirement:
-    candidates that are just the selection tokens — the item's own words
-    (either direction of word-set containment: 'The VAT number' echoes
-    'client's VAT number') or a bare option number — are removed. An
+        message: str, question: Dict[str, Any]) -> List[Tuple[int, int]]:
+    """The EXACT value spans in a reply that ALSO selected a requirement.
+    Selection echoes — spans whose words are just the item's own words
+    (either direction of containment: 'The VAT number' echoes 'client's
+    VAT number') — are removed; bare option numbers are removed. An
     empty result means the reply was SELECTION-ONLY: it never carries a
-    value (review round 3, blocker: '1' or 'The VAT number' must not be
-    written as one)."""
-    item_words = {
-        w for w in re.findall(r"[a-z0-9\-']+", str(
-            question.get("item") or "").lower())
-        if len(w) >= 2 and w not in ("the", "a", "an", "my", "our")}
-    out: List[str] = []
-    for c in _value_candidates(message):
+    value (review round 3, blocker)."""
+    item_words = _item_word_set(question.get("item"))
+    out: List[Tuple[int, int]] = []
+    for (s, e) in (_recognized_answer_spans(
+            message, question.get("item") or "") or []):
+        c = str(message)[s:e]
         cand_words = {
-            w for w in re.findall(r"[a-z0-9\-']+", c.lower())
-            if len(w) >= 2 and w not in ("the", "a", "an", "my", "our")}
+            w for w in _RESUME_WORD_RE.findall(c.lower())
+            if len(w) >= 2 and w not in _RESUME_STOPWORDS}
         if cand_words and (cand_words <= item_words
                            or (item_words and item_words <= cand_words)):
             continue
         if re.match(r"^(?:option\s+)?[0-9]$", c, re.IGNORECASE):
             continue
-        if c not in out:
-            out.append(c)
+        if (s, e) not in out:
+            out.append((s, e))
     return out
 
 
@@ -12444,7 +12528,16 @@ class ChatOrchestrator:
                         "the requirement stays open")
                     _resume_open = []
             if _resume_open:
-                _reply_class = _resume_reply_class(message)
+                # THE SIX-CLASS CLASSIFICATION (accepted-interpretation
+                # migration): classify against the FIRST open
+                # requirement's item; unrecognized replies are
+                # `unresolved` — the normal flows own the turn and the
+                # requirement stays open. An answer carries EXACT value
+                # spans into the original message.
+                _reply = _classify_resume_reply(
+                    message, _resume_open[0],
+                    items=[_q.get("item") for _q in _resume_open])
+                _reply_class = _reply.get("class")
                 if _reply_class == "cancel" or _compound_cancel(message):
                     # CANCELLATION: close the open requirement(s) —
                     # never an edit attempt, never left dangling. A
@@ -12520,12 +12613,15 @@ class ChatOrchestrator:
                     if _tool_plan_task is not None and not _tool_plan_task.done():
                         _tool_plan_task.cancel()
                     return _cancel_response
-                if _reply_class == "question":
-                    # A question is NOT an answer: the normal flows own
-                    # the turn and the requirement stays open.
+                if _reply_class in ("question", "unresolved"):
+                    # A question is NOT an answer, and UNRECOGNIZED TEXT
+                    # IS NOT AN ANSWER EITHER (accepted-interpretation
+                    # migration): the normal flows own the turn and the
+                    # requirement stays open. The user can restate the
+                    # value; nothing is guessed.
                     logger.info(
-                        "[requirement-resume] the reply is a question — "
-                        "normal flow, requirement stays open")
+                        "[requirement-resume] the reply is %s — normal "
+                        "flow, requirement stays open", _reply_class)
                     _resume_open = []
                 elif len(_resume_open) > 1:
                     # SEVERAL open requirements: bind by EXPLICIT
@@ -12658,12 +12754,24 @@ class ChatOrchestrator:
                 _rc_goal = str(_rc_inputs.get("goal_text") or "")
                 _rc_item = str(
                     _resume_req.get("item") or "the requested change")
-                _rc_candidates = _selection_candidates if \
-                    _selection_candidates is not None else \
-                    _value_candidates(message)
-                if len(_rc_candidates) > 1:
+                # THE ANSWER'S VALUE IS A SPAN INTO THE ORIGINAL MESSAGE
+                # (owner instruction item 3): bounds-validated, preserved
+                # exactly as the user wrote it — never a rewritten or
+                # stripped string.
+                if _reply_class == "answer":
+                    _rc_spans = [tuple(sp) for sp in (
+                        _reply.get("spans") or [])]
+                else:  # a selection that also carried the value
+                    _rc_spans = [tuple(sp) for sp in (
+                        _selection_candidates or [])]
+                _rc_spans = [
+                    (int(s), int(e)) for (s, e) in _rc_spans
+                    if 0 <= int(s) <= int(e) <= len(str(message or ""))
+                    and str(message)[int(s):int(e)].strip()]
+                if len(_rc_spans) > 1:
                     _ambig_message = _ambiguous_value_message(
-                        _rc_item, _rc_candidates)
+                        _rc_item,
+                        [str(message)[s:e] for (s, e) in _rc_spans])
                     _ambig_response = {
                         "success": True,
                         "message": _ambig_message,
@@ -12703,11 +12811,13 @@ class ChatOrchestrator:
                     logger.info(
                         "[requirement-resume] ambiguous value — one "
                         "clarification, zero writes (candidates=%d)",
-                        len(_rc_candidates))
+                        len(_rc_spans))
                     if _tool_plan_task is not None and not _tool_plan_task.done():
                         _tool_plan_task.cancel()
                     return _ambig_response
-                if len(_rc_candidates) == 1 and _rc_goal:
+                if len(_rc_spans) == 1 and _rc_goal:
+                    _vs, _ve = _rc_spans[0]
+                    _rc_value_text = str(message)[_vs:_ve]
                     # The EXPLICIT-ASSIGNMENT form the interpretation
                     # contract already accepts ("Set X to Y") — the plan
                     # must ground the value the user actually supplied,
@@ -12715,7 +12825,7 @@ class ChatOrchestrator:
                     # The value is carried VERBATIM.
                     _resume_effective_message = (
                         f"{_rc_goal}\n\nSet {_rc_item} to "
-                        f"{_rc_candidates[0]}.")
+                        f"{_rc_value_text}.")
                     # RESUME POSTCONDITION INPUTS (bounded correction
                     # 2026-10-16, item 4): the lane verifies — beyond the
                     # editor's own readback — that the requested change's
@@ -12727,7 +12837,7 @@ class ChatOrchestrator:
                     if isinstance(_rc_pre_content, dict):
                         _rc_pre_content = _rc_pre_content.get("content")
                     _resume_req["postcondition"] = {
-                        "value": _rc_candidates[0],
+                        "value": _rc_value_text,
                         "pre_content": str(_rc_pre_content or ""),
                         "intent": (
                             "add" if re.match(
@@ -13202,8 +13312,20 @@ class ChatOrchestrator:
                         _resume_post_ok: Optional[bool] = None
                         _ce_data = ((_edit_response.get("data") or {}).get(
                             "canvas_edit") or {})
-                        if _resume_pc and _edit_response.get("success", True) \
-                                and _ce_data.get("updated") is True:
+                        # EXCEPTIONAL RECOVERY (owner caveat 2026-10-16):
+                        # the editor's PRE-write check prevents
+                        # preservation violations it can see; this layer
+                        # catches what it cannot — a write that landed
+                        # but whose durable content diverged (store
+                        # normalization, concurrent writes). Reached when
+                        # the edit applied cleanly OR when the editor
+                        # recorded a write whose own readback failed.
+                        if _resume_pc and (
+                                (_edit_response.get("success", True)
+                                 and _ce_data.get("updated") is True)
+                                or (_ce_data.get("write_recorded") is True
+                                    and _ce_data.get(
+                                        "postcondition_verified") is False)):
                             try:
                                 from tools.canvas_crud_tool import (
                                     read_canvas as _rpost_read,
@@ -26692,6 +26814,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             require_evidence_postconditions=bool(
                 fresh.needed or fresh.evidence_contract
             ),
+            # PRE-PERSISTENCE PRESERVATION (owner caveat 2026-10-16):
+            # a resumed requirement's value and pre-content ride into
+            # the editor so a preservation violation refuses BEFORE the
+            # store write — recovery stays exceptional.
+            resume_preservation=(
+                shared_tool_state.get("resume_requirement")
+                if isinstance(shared_tool_state, dict) else None),
         )
         # Tolerant unpack: tests (and any caller using the default
         # return_reason=False) may hand back the bare result instead of the
@@ -26719,6 +26848,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "updated": False,
                         "write_recorded": True,
                         "postcondition_verified": False,
+                        # The write's own audit id — the exceptional
+                        # recovery's restore-race guard compares the live
+                        # version head against THIS id.
+                        "audit_id": result.get("audit_id"),
                         "postcondition_error": result.get(
                             "postcondition_error"
                         ),

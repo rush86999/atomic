@@ -4714,6 +4714,7 @@ async def apply_canvas_edit(
     evidence_contract: Optional[Dict[str, Any]] = None,
     require_evidence_postconditions: bool = False,
     calculations: Optional[List[Dict[str, Any]]] = None,
+    resume_preservation: Optional[Dict[str, Any]] = None,
 ):
     """Persist the planned edit through the general canvas CRUD layer
     (CanvasAudit append + WS broadcast). Patch ops are re-applied
@@ -5146,6 +5147,49 @@ async def apply_canvas_edit(
     if new_content == current:
         return _out(None, "no_change")
 
+    # RESUME PRESERVATION, BEFORE PERSISTENCE (owner caveat 2026-10-16):
+    # post-write restoration is recovery, not prevention — a violated
+    # mutation would create an invalid intermediate revision and extra
+    # audit rows. When a resumed requirement rides the plan, the
+    # PROPOSED artifact must already preserve the draft: the intended
+    # value exactly once, every pre-existing line unchanged and in
+    # order. Violation refuses BEFORE the store write — a verified zero
+    # effect, no restore, no audit noise. (The post-write readback and
+    # the revision-guarded restore remain as exceptional recovery for
+    # what cannot be seen pre-write: concurrent writes, store
+    # normalization.)
+    if resume_preservation:
+        _rp_value = str(resume_preservation.get("value") or "")
+        _rp_pre = str(resume_preservation.get("pre_content") or "")
+        _rp_violations: list = []
+        if _rp_value and _rp_value not in new_content:
+            _rp_violations.append(
+                "the intended value is not present in the proposed "
+                "content")
+        if _rp_value and new_content.count(_rp_value) != 1:
+            _rp_violations.append(
+                f"the intended value appears "
+                f"{new_content.count(_rp_value)} times in the proposed "
+                "content (expected exactly once)")
+        if _rp_pre.strip() and resume_preservation.get(
+                "intent") == "add":
+            _rp_pre_lines = _rp_pre.splitlines()
+            _rp_iter = iter(new_content.splitlines())
+            if not all(
+                any(_line == _pre_line for _line in _rp_iter)
+                for _pre_line in _rp_pre_lines
+            ):
+                _rp_violations.append(
+                    "pre-existing content was altered (the change was "
+                    "not addition-only)")
+        if _rp_violations:
+            logger.warning(
+                "canvas edit refused BEFORE the write for %s: resume "
+                "preservation violated — %s",
+                canvas_id, "; ".join(_rp_violations))
+            return _out(None, "resume_preservation_violation: "
+                        + "; ".join(_rp_violations)[:300])
+
     # Dead-link gate: a URL the edit introduces that confirmably 404s never
     # reaches the canvas (and from there, a customer's inbox). Fail-open —
     # only a confirmed 404/410 blocks; see _new_dead_links.
@@ -5453,6 +5497,10 @@ VERIFIED_PRE_WRITE_REFUSALS = (
     "postcondition_missing",
     "invented_value",
     "unresolved_requirement",
+    # RESUME PRESERVATION (owner caveat 2026-10-16): the refusal happens
+    # BEFORE the store write, so "nothing was changed" is a verified
+    # statement — prevention, not restoration.
+    "resume_preservation_violation",
     "scope_",
     "footer_",
 )
@@ -5646,6 +5694,20 @@ def describe_apply_failure(
             "the line should be reworded, name the new wording with the "
             "item still in it; if it should be removed outright, say "
             f"'remove {_dropped}'."
+        )
+    if reason and reason.startswith("resume_preservation_violation"):
+        # RESUME PRESERVATION, VERIFIED PRE-WRITE (owner caveat
+        # 2026-10-16): the proposed artifact failed the preservation
+        # check (value multiplicity, addition-only) — refused before
+        # the store write, so "nothing was changed" is verified, and
+        # the plan's specific defect is named for the user.
+        detail = reason.split(":", 1)[1].strip() if ":" in reason else ""
+        return (
+            "I refused that change before saving anything: applying it "
+            "would have corrupted your existing draft"
+            + (f" — {detail}" if detail else "")
+            + ". Nothing was changed; the draft is exactly as it was. "
+            "Tell me the value to use and I'll apply it cleanly."
         )
     if not _verified_zero_effect_refusal(reason):
         # DEFAULT DIRECTION IS UNCERTAIN. Every branch above either decided
