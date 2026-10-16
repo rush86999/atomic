@@ -211,9 +211,20 @@ class LocalOnlyGuard:
         """
         Check if local-only mode is currently enabled.
 
+        A reset (``reset_cache``) leaves the cached value unset and this
+        accessor RE-READS the environment — the documented contract
+        ("forces re-read of environment variable on next access"); before
+        this, a reset left ``_enabled`` at None and the accessor returned
+        None (falsy), silently DISABLING local-only mode until a fresh
+        construction (owner directive 2026-10-15: the policy must hold,
+        including after a reset).
+
         Returns:
             True if local-only mode is active, False otherwise
         """
+        if self._enabled is None:
+            type(self)._enabled = (
+                os.getenv("ATOM_LOCAL_ONLY", "false").lower() == "true")
         return self._enabled
 
     def allow_external_request(

@@ -84,7 +84,24 @@ def build_provider_model_pin(
     that provider actually has a client in the handler (otherwise the pin names
     a provider this workspace cannot call at all and the first attempt is
     guaranteed to fail, paying a full round trip for nothing).
+
+    LOCAL-ONLY (owner directive 2026-10-15): a cloud pin is refused outright
+    when the documented local-only policy is enabled — no cloud dispatch may
+    happen under ATOM_LOCAL_ONLY=true, pins included. The caller's fallback
+    then routes through the handler's local-only candidate pool (the same
+    pool the handler's own pin consumption re-enters).
     """
+    try:
+        from core.llm.byok_handler import _local_only_blocks_provider
+
+        if _local_only_blocks_provider(provider):
+            logger.warning(
+                "LOCAL-ONLY: pin %s/%s refused — cloud dispatch is "
+                "blocked; the call routes locally instead",
+                provider, model)
+            return {}
+    except Exception:  # noqa: BLE001 — the gate must not break pinning
+        pass
     try:
         if provider in llm_service._get_handler().clients:
             return {"provider_model": (provider, model)}

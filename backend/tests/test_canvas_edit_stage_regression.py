@@ -319,3 +319,56 @@ def test_plan_stage_events_are_positive_evidence(caplog):
                    and "outcome=unavailable" in r.getMessage()]
     assert none_events, (
         "a None plan logs outcome=unavailable — never validated")
+
+
+REF_REQUIREMENT_MESSAGE = (
+    "Add the client's tax registration number to this quotation. "
+    "Use the exact number from our records.")
+
+
+def test_reference_requirement_declines_before_planning_when_lookup_stalls():
+    """Owner directive 2026-10-15, item 4: the accepted request NAMES the
+    value's source by reference; the source lookup cannot settle inside
+    its bounded window, so the lane identifies the requirement FIRST —
+    declines with the named ask, dispatches NO edit plan (it could not
+    ground the referenced value anyway), and writes nothing."""
+    import time as _time
+
+    store = _DurableStore(QUOTE)
+    upd_patch, read_patch = store.patches()
+    shared: dict = {}
+    plan_calls = {"n": 0}
+
+    async def _slow_fresh(*a, **k):
+        await asyncio.sleep(30)
+        return cce.FreshDataResult("", True, True)
+
+    async def _plan(*a, **k):
+        plan_calls["n"] += 1
+        return _valid_plan()
+
+    t0 = _time.monotonic()
+    with patch.object(cce, "plan_canvas_edit",
+                      new=AsyncMock(side_effect=_plan)), \
+         patch.object(cce, "fetch_fresh_data_section",
+                      new=AsyncMock(side_effect=_slow_fresh)), \
+         patch.object(co, "_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS", 0.3), \
+         upd_patch, read_patch:
+        out = asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+            _orch(), REF_REQUIREMENT_MESSAGE, [], {
+                "canvas_id": CANVAS_ID,
+                "canvas_type": "document",
+                "title": "Quotation Q-2026-114",
+                "content": QUOTE,
+            }, "user-j6", "sess-j6", "exec-j6", None,
+            shared_tool_state=shared))
+    elapsed = _time.monotonic() - t0
+    assert out is None, "the lane declines (the requirement is unresolved)"
+    assert plan_calls["n"] == 0, (
+        "no edit plan is dispatched for a value that grounds nowhere")
+    assert store.writes == 0, "nothing is written"
+    assert shared.get("canvas_evidence_unavailable") is True
+    assert (shared.get("canvas_requirement_unresolved") or {}).get(
+        "references") == ["from our records"], shared
+    assert elapsed < 5.0, (
+        f"the wait is bounded (no 30s stall); took {elapsed:.1f}s")

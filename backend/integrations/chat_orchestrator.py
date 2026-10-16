@@ -435,6 +435,39 @@ def _canvas_leg_cap(deadline: "TurnDeadline") -> float:
 _REPLY_LEG_MIN_SECONDS = float(
     os.getenv("ATOM_REPLY_LEG_MIN_SECONDS", "40") or 40)
 
+#: REQUIREMENT-FIRST WAIT (owner directive 2026-10-15, item 4): when the
+#: accepted request names the value's SOURCE by reference ("use the exact
+#: number from our records") and supplies no value, the source lookup gets
+#: this bounded window; if it does not settle, the requirement is declared
+#: UNRESOLVED and the lane ASKS for the value — the specific missing-value
+#: clarification — instead of spending the rest of the turn on planning
+#: the plan cannot ground either (the referenced value grounds nowhere, so
+#: any op it emits is refused). Narrow on purpose: only reference-valued
+#: requests take this window; every other evidence-required edit keeps the
+#: existing generous planner bound.
+_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS = float(
+    os.getenv("ATOM_REFERENCE_REQUIREMENT_WAIT_SECONDS", "30") or 30)
+
+
+def _unresolved_requirement_message(references: List[str]) -> str:
+    """The SPECIFIC missing-value ask for a reference-valued requirement.
+
+    Names the reference the request already gave and asks for the value —
+    the "ask specifically for the missing value" contract (owner directive
+    2026-10-15, item 4). Deterministic; never a generic timeout sentence,
+    never a fabricated value."""
+    named = ", ".join(repr(str(r)[:80]) for r in (references or [])[:2]
+                      if str(r).strip())
+    if named:
+        return (
+            "I couldn't make that canvas change because the value it needs "
+            f"— {named} — could not be retrieved this turn, so nothing was "
+            "changed. Give me the exact value and I'll apply it.")
+    return (
+        "I couldn't make that canvas change because the value it needs "
+        "could not be retrieved this turn, so nothing was changed. Give me "
+        "the exact value and I'll apply it.")
+
 
 def _pre_reply_leg_timeout(deadline, want: float) -> float:
     """Seconds a pre-reply leg may wait, leaving the reply leg its share.
@@ -2476,6 +2509,42 @@ def _canvas_referencing_message(message: str) -> bool:
     return bool(_CANVAS_DEIXIS_RE.search(message or ""))
 
 
+# COMPARISON-SHAPED REQUESTS (owner directive 2026-10-15, item 3): the
+# verb set that marks a "tell me whether these agree" ask. Deliberately
+# narrow (compare/consistency/match family); a retrieval ask ("what are
+# the prices...") never matches.
+_CANVAS_COMPARISON_RE = re.compile(
+    r"\b(?:compare|comparison|consistent|consistency|matches?|matching|"
+    r"reconcile|identical|the same)\b", re.IGNORECASE)
+
+
+def _canvas_internal_comparison(message: str, shared_tool_state: Any) -> bool:
+    """Whether the request is a comparison OF the attached artifact's own
+    content — satisfied by the artifact's authoritative content, so no
+    external read obligation exists (owner directive 2026-10-15, item 3).
+
+    Guards (all required, conservative):
+      - the accepted request records NO live-evidence requirement
+        (``evidence_required`` explicitly False — a named source makes it
+        True and keeps the lookup);
+      - the message is comparison-shaped;
+      - the message references the attached artifact (canvas deixis).
+    Everything else — retrieval asks, row-range asks, source-referencing
+    comparisons — keeps the existing read path.
+    """
+    try:
+        if not isinstance(shared_tool_state, dict):
+            return False
+        if shared_tool_state.get("evidence_required") is not False:
+            return False
+        msg = str(message or "")
+        if not _CANVAS_COMPARISON_RE.search(msg):
+            return False
+        return bool(_canvas_referencing_message(msg))
+    except Exception:  # noqa: BLE001 — the gate never blocks the turn
+        return False
+
+
 _TABLE_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
 _TABLE_ROW_RE = re.compile(r"<tr[^>]*>(.*?)</tr>", re.IGNORECASE | re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -2991,13 +3060,24 @@ def _search_execution_receipt(
     }
 
 
-def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
+def _planner_receipt_rows(plan: Any,
+                          block: Optional[str] = None) -> List[Dict[str, Any]]:
     """Attributable tool_outcome rows for the planner lane's execution
     (pristine-J2 false-search finding, 2026-10-12): a search the tool
     planner dispatched must settle the turn's durable outcome with the
     SAME attributable rows the file lane writes — a turn with zero
     executed lookups can never read as served. Facts come from the plan's
-    stamped execution meta, never from returned prose."""
+    stamped execution meta, never from returned prose.
+
+    ``block`` is the block the dispatch RETURNED (when the caller has
+    it): the same dispatch fact the settle arm reads
+    (``_search_execution_receipt`` counts returned text as dispatch
+    evidence). Without it, a text-only execution — e.g. a memory search
+    over an empty store — computed dispatched=False and its row read
+    ``not_executed`` for a lookup that HAD run (live J6 T2 2026-10-15:
+    the settle recorded invoked=true while the companion row said
+    not_executed). Callers without the block keep the previous
+    behavior."""
     meta = getattr(plan, "_result_meta", None) or {}
     if not isinstance(meta, dict):
         meta = {}
@@ -3055,7 +3135,7 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
         # of 02ec1c57e: a failed or empty-shaped response must not look
         # executed and verified; executed / evidence / satisfaction are
         # distinct facts).
-        receipt = _search_execution_receipt(plan, None)
+        receipt = _search_execution_receipt(plan, block)
         invoked = bool(receipt["dispatched"])
         rc = receipt.get("receipt") or {}
         evidence_items = (
@@ -4782,6 +4862,10 @@ _UNMET_OBLIGATION_TOKENS: Tuple[Tuple[str, str], ...] = (
     ("ambiguous", "multiple_bases"),
     ("search_returned_no_receipt", "no_source_returned_in_scope"),
     ("search_succeeded_empty", "no_source_returned_in_scope"),
+    # A canvas-scoped read that completed over its explicit scope with
+    # zero matches (owner directive 2026-10-15, item 1) — a bounded
+    # absence, named as such when it leaves work open.
+    ("read_succeeded_empty", "no_source_returned_in_scope"),
     ("read_returned_no_receipt", "read_without_receipt"),
 )
 
@@ -5023,6 +5107,46 @@ def _receipts_carry_verified_complete_search(receipts) -> bool:
     return False
 
 
+def record_canvas_context_source(
+    session: Any,
+    execution_id: Any,
+    canvas_context: Any,
+    *,
+    no_live_evidence: bool,
+) -> None:
+    """Record the ATTACHED ARTIFACT as this execution's context source.
+
+    Owner R4 attribution + the 2026-10-15 J6 T2 evidence: a turn whose
+    ACCEPTED request requires no live evidence (presentation-only /
+    self-contained — the decision's own record) is answered FROM the
+    attached artifact, so the durable outcome must be able to say what
+    the answer was assembled from. The artifact rides the SAME
+    execution-keyed carrier the memory-context assembler publishes
+    (``_retrieval_source_observations_{eid}``) and the outcome builder
+    settles as ``context_source`` refs. Gated to the no-live-evidence
+    shape (evidence-required turns keep their lookup receipts as the
+    recorded basis); never replaces the assembler's own observations;
+    a no-op without a session/execution or without artifact content."""
+    try:
+        if not no_live_evidence or not isinstance(session, dict)                 or not execution_id:
+            return
+        canvas = canvas_context if isinstance(canvas_context, dict) else {}
+        if canvas.get("content") is None:
+            return
+        key = f"_retrieval_source_observations_{execution_id}"
+        if session.get(key):
+            return  # the assembler's observations are already the basis
+        session[key] = [{
+            "source_id": str(
+                canvas.get("canvas_id") or canvas.get("id") or ""),
+            "source_type": "artifact",
+            "service": "canvas",
+            "title": str(canvas.get("title") or "")[:200],
+        }]
+    except Exception:  # noqa: BLE001 — attribution is additive
+        pass
+
+
 def _fallback_turn_outcome(
     session: Any,
     execution_id: Any,
@@ -5032,6 +5156,7 @@ def _fallback_turn_outcome(
     canvas_was_read: bool = False,
     noop_receipt: bool = False,
     extra_execution_ids: Any = None,
+    presentation_only_turn: bool = False,
 ) -> Dict[str, Any]:
     """Resolve the turn's outcome from DURABLE, IDENTITY-BOUND records.
 
@@ -5229,6 +5354,25 @@ def _fallback_turn_outcome(
                     # partially-covered comparison is not a delivered
                     # result.
                     validated = True
+        # PRESENTATION DELIVERY (owner directive 2026-10-15, the J6 T2
+        # outcome defect): a turn whose ACCEPTED request is
+        # presentation-only — the decision grants a presentation and
+        # names no live source, no file, no edit (turn_decision
+        # ``turn_presentation_only``) — and which READ the attached
+        # artifact this turn (``canvas_was_read``: the durable canvas
+        # revision was in this turn's context and the reply presented
+        # it) delivered the requested result: the presentation itself,
+        # over the artifact revision the read resolved. This validates
+        # the TURN's delivery, never the reply's wording — narration
+        # agreement stays with the fabrication layer — and a recorded
+        # failure or an open obligation still resolves failed/partial
+        # first (the state map below). Prior shape (every recorded J6
+        # run): a delivered, correct canvas comparison resolved
+        # success=false / outcome_unconfirmed because no recorded
+        # delivery fact existed for a presentation.
+        if (not validated and presentation_only_turn
+                and canvas_was_read):
+            validated = True
         # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the memory-context
         # assembler publishes the source identities it actually
         # retrieved from — these become attributable evidence refs for
@@ -12600,11 +12744,24 @@ class ChatOrchestrator:
                     elif _no_apply_reason in (
                         "evidence_declined", "evidence_unavailable"
                     ):
+                        # SPECIFIC MISSING-VALUE ASK (owner directive
+                        # 2026-10-15, item 4): when the accepted request
+                        # named the value's source by reference and the
+                        # lookup could not settle, the reply asks for THE
+                        # VALUE — never a generic "information wasn't
+                        # available" sentence, never a timeout.
+                        _unresolved_refs = [
+                            str(r) for r in (
+                                (_shared_tool.get(
+                                    "canvas_requirement_unresolved") or {})
+                                .get("references") or [])
+                            if str(r).strip()]
                         _no_apply_message = (
-                            "I couldn't make that canvas change because the "
-                            "required information wasn't available, so nothing "
-                            "was changed."
-                        )
+                            _unresolved_requirement_message(_unresolved_refs)
+                            if _unresolved_refs else (
+                                "I couldn't make that canvas change because "
+                                "the required information wasn't available, "
+                                "so nothing was changed."))
                     else:
                         _no_apply_message = (
                             "I couldn't complete the canvas edit, so nothing "
@@ -12689,8 +12846,35 @@ class ChatOrchestrator:
                         _shared_tool.get("canvas_edit_decline_noop"))
                     _noop_check = _shared_tool.get(
                         "canvas_decline_requirement_check")
+                    # REQUIREMENT-FIRST DECLINE = F3 PARTIAL (owner
+                    # directive 2026-10-15, item 4): the lane declined
+                    # with a NAMED reason — the value's named source could
+                    # not supply it — and delivered the SPECIFIC ask. The
+                    # honest reply was delivered; the requested edit did
+                    # not happen and must not be certified; this is the
+                    # same partial contract the apply-failure decline
+                    # carries (success true, outcome partial).
+                    _requirement_declined = bool(
+                        isinstance(_shared_tool, dict)
+                        and _shared_tool.get(
+                            "canvas_requirement_unresolved"))
+                    # CLARIFICATION DELIVERY ≠ EDIT COMPLETION (owner
+                    # repair 2026-10-16): a successfully delivered
+                    # clarification is a successful turn — the requested
+                    # edit did not happen and stays partial/open, but the
+                    # execution itself did not fail. The row status and
+                    # the agent-status event must carry this SAME
+                    # decision, or the route finalizer (which binds the
+                    # envelope to the execution record's own status)
+                    # rewrites the delivered clarification as a system
+                    # failure. Matches the response's success expression
+                    # exactly; an undelivered decline still records
+                    # failed.
+                    _delivered = bool(_noop_satisfied
+                                      or _requirement_declined)
                     response = {
-                        "success": bool(_noop_satisfied),
+                        "success": bool(_noop_satisfied
+                                        or _requirement_declined),
                         "message": _no_apply_message,
                         "session_id": session_id,
                         # D3: every outcome carries the execution it belongs to.
@@ -12701,15 +12885,20 @@ class ChatOrchestrator:
                         # agrees with the confirmation text.
                         "outcome": (
                             "completed" if _noop_satisfied
+                            else "partial" if _requirement_declined
                             else "unconfirmed"),
                         "error_code": (
-                            None if _noop_satisfied
+                            None if (_noop_satisfied or _requirement_declined)
                             else "outcome_unconfirmed"),
                         "_recorded_outcome": {
                             "state": ("completed" if _noop_satisfied
+                                      else "partial"
+                                      if _requirement_declined
                                       else "unconfirmed"),
                             "work_turn": True,
                             "noop": _noop_satisfied,
+                            **({"declined": True}
+                               if _requirement_declined else {}),
                         },
                         "data": {"canvas_edit": _canvas_edit_data},
                         "suggested_actions": [],
@@ -12723,11 +12912,11 @@ class ChatOrchestrator:
                     )
                     await self._emit_agent_status(
                         session_id, _trace_agent_id, _execution_id,
-                        "success" if _noop_satisfied else "failed"
+                        "success" if _delivered else "failed"
                     )
                     self._finish_chat_execution(
                         _execution_id,
-                        "success" if _noop_satisfied else "failed",
+                        "success" if _delivered else "failed",
                         _no_apply_message,
                         session=session,
                         message=message,
@@ -13651,6 +13840,21 @@ class ChatOrchestrator:
                     _noop_receipt = bool(
                         isinstance(locals().get("_shared_tool"), dict)
                         and _shared_tool.get("canvas_edit_decline_noop"))
+                    # PRESENTATION-ONLY ACCEPTED REQUEST (owner directive
+                    # 2026-10-15): the decision for THIS turn classifies
+                    # the delivery of a presentation over the attached
+                    # artifact — the resolver consumes it so a delivered
+                    # presentation no longer resolves unconfirmed.
+                    _fb_presentation = False
+                    try:
+                        from core.turn_decision import (
+                            turn_presentation_only as _tpo_fn,
+                        )
+
+                        _fb_presentation = bool(
+                            _tpo_fn(locals().get("_td_decision")))
+                    except Exception:  # noqa: BLE001 — carry is additive
+                        _fb_presentation = False
                     # the calc lane runs on the reply leg's own inner
                     # execution id — carried on the blackboard so the
                     # identity-bound resolver matches its operations
@@ -13664,7 +13868,8 @@ class ChatOrchestrator:
                         canvas_was_read=_fb_read,
                         noop_receipt=_noop_receipt,
                         extra_execution_ids=(
-                            [_extra_exec] if _extra_exec else None))
+                            [_extra_exec] if _extra_exec else None),
+                        presentation_only_turn=_fb_presentation)
                 except Exception:  # noqa: BLE001 — additive
                     _fb_outcome = None
             if not _fb_from_gate and not (_fb_outcome or {}).get(
@@ -15692,6 +15897,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     )})
                 except Exception as canvas_ctx_err:
                     logger.debug(f"canvas context block skipped: {canvas_ctx_err}")
+                # CANVAS AS AN ATTRIBUTABLE CONTEXT SOURCE (owner R4
+                # attribution; the 2026-10-15 J6 T2 evidence): a turn
+                # whose ACCEPTED request requires no live evidence
+                # (presentation-only / self-contained — the decision's
+                # own record) is answered FROM the attached artifact,
+                # and the durable outcome must be able to say what the
+                # answer was assembled from. It rides the SAME carrier
+                # the memory-context assembler publishes (`context_source`
+                # refs for the outcome builder and the resolver); gated
+                # to this shape so evidence-required turns keep their
+                # lookup receipts as the recorded basis.
+                try:
+                    _no_live_evidence = bool(
+                        isinstance(shared_tool_state, dict)
+                        and shared_tool_state.get("evidence_required")
+                        is False)
+                    record_canvas_context_source(
+                        session, execution_id, canvas_context,
+                        no_live_evidence=_no_live_evidence)
+                except Exception:  # noqa: BLE001 — additive attribution
+                    pass
 
             # Typed canvas-evidence status (2026-09-22): ONE note per outcome,
             # worded by canvas_evidence_note — a withheld/rejected block is
@@ -16270,7 +16496,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             from core.hallucination_config import get_verify_panel_mode
 
             try:
-                from core.chat_tool_planner import execute_tool_plan, plan_tool_use
+                from core.chat_tool_planner import (
+                    exec_canvas_context,
+                    execute_tool_plan,
+                    plan_tool_use,
+                )
                 from core.verify_panel import verify_reply
 
                 if prefetched_tool_block and _evidence_rejected(
@@ -17239,11 +17469,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             # session (2026-09-22).
                                             "known_mail_handles":
                                                 self._load_conversation_mail_handles(session_id)[0],
-                                            "canvas": {
-                                                "title": canvas_context.get("title"),
-                                                **((canvas_context.get("content") or {})
-                                                   if isinstance(canvas_context, dict) else {}),
-                                            } if isinstance(canvas_context, dict) else None,
+                                            "canvas": exec_canvas_context(canvas_context),
                                         },
                                         llm_service=self.llm_service,
                                     ),
@@ -17382,7 +17608,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             if isinstance(session, dict) and execution_id:
                                 session[
                                     f"_planner_tool_receipts_{execution_id}"
-                                ] = _planner_receipt_rows(_plan)
+                                ] = _planner_receipt_rows(
+                                    _plan, block=_live_block)
                                 session[
                                     f"_planner_receipt_facts_{execution_id}"
                                 ] = _planner_receipt_facts(_plan)
@@ -23226,6 +23453,20 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 shared_tool_state["job_scope_items"] = list(scope_items)
         if not scope_items or not canvas_context:
             return None
+        # REQUEST-BOUND REQUIREMENT (owner directive 2026-10-15, item 3):
+        # a comparison of the attached artifact's OWN content is satisfied
+        # by the artifact's authoritative content — the accepted request
+        # records no live-evidence requirement, so NO external read
+        # obligation exists and no operation is begun here. A request that
+        # names a source keeps the full path, and so does every
+        # non-comparison ask (the row-range retrieval regression this
+        # branch exists for).
+        if _canvas_internal_comparison(message, shared_tool_state):
+            logger.info(
+                "[research-dispatch] canvas-internal comparison — the "
+                "artifact's authoritative content satisfies the request; "
+                "no external read requirement, dispatch skipped")
+            return None
         # THE REQUESTED-FIELD CONTRACT (owner correction 2026-10-11):
         # the request's own field asks through the EXISTING contract
         # derivation — never a local noun scan. An empty contract
@@ -23363,18 +23604,47 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         receipts: List[Dict[str, Any]] = []
         evidence_lines: List[str] = []
         _dispatch_error: Optional[str] = None
+        # SETTLEMENT FACTS (owner directive 2026-10-15, items 1-2): every
+        # scan's own outcome record — an ACTUAL error, an incomplete
+        # (deadline-farked) scan, the scope it covered, and whether a
+        # source identity receipt existed. Zero findings alone proves
+        # none of "failed" / "bounded absence" / "no receipt"; the settle
+        # below reads THESE.
+        _scan_meta: List[Dict[str, Any]] = []
 
         async def _scan(value: str, file_name: Optional[str] = None):
-            scan = await asyncio.wait_for(
-                asyncio.to_thread(
-                    _scan_fn, value, user_id, workspace_id,
-                    file_name=file_name, max_matches=6),
-                timeout=30)
-            receipt = (scan or {}).get("source_identity") or {}
+            try:
+                scan = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        _scan_fn, value, user_id, workspace_id,
+                        file_name=file_name, max_matches=6),
+                    timeout=30)
+            except Exception as _scan_exc:
+                # PRESERVED PER-SCAN ERROR (owner item 2): recorded on the
+                # meta BEFORE re-raising — a swallowed error must never
+                # read as a completed empty search.
+                _scan_meta.append({
+                    "value": str(value or ""),
+                    "file": str(file_name or ""),
+                    "error": f"{type(_scan_exc).__name__}: "
+                             f"{str(_scan_exc)[:120]}",
+                })
+                raise
+            scan = scan or {}
+            receipt = scan.get("source_identity") or {}
+            _scan_meta.append({
+                "value": str(value or ""),
+                "file": str(file_name or ""),
+                "error": str(scan.get("error") or "")[:160],
+                "incomplete": bool(scan.get("incomplete")),
+                "files_scanned": int(scan.get("files_scanned") or 0),
+                "total_matches": int(scan.get("total_matches") or 0),
+                "receipt": bool(receipt.get("content_hash")),
+            })
             if receipt.get("content_hash"):
                 receipts.append({"source_identity": dict(receipt),
                                  "targets": []})
-            return (scan or {}).get("matches") or []
+            return scan.get("matches") or []
 
         def _candidates_from(matches: List[Dict[str, Any]],
                              file_hint: Optional[str]):
@@ -23597,15 +23867,43 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             if f.get("source_version")}
         if len(_finding_versions) == 1 and _finding_versions:
             _read_version = next(iter(_finding_versions))
+        # SETTLEMENT CLASSIFICATION (owner directive 2026-10-15, item 1):
+        # an actual lookup/read ERROR is failed-with-its-reason; a search
+        # that completed over an EXPLICIT SCOPE with zero matches is a
+        # bounded absence (a delivered empty result, verified=None — never
+        # a fabricated one); anything else (no usable receipt, incomplete
+        # coverage) is unconfirmed/open work — never failed, never a
+        # completed absence. Zero findings alone proves none of these.
+        _scan_error_reasons = [
+            str(m.get("error") or "") for m in _scan_meta
+            if str(m.get("error") or "")]
+        # BOUNDED ABSENCE requires a COMPLETED, SCOPED search with ZERO
+        # matches: every scan ran without error and without truncation,
+        # covered a non-empty scope (files scanned or a source receipt),
+        # and found nothing. A junk match that failed to bind is NOT an
+        # established absence (the scope was not empty) — the read stays
+        # receipt-less/open instead.
+        _scans_are_scoped_complete = bool(_scan_meta) and all(
+            not m.get("error") and not m.get("incomplete")
+            and int(m.get("total_matches") or 0) == 0
+            and (int(m.get("files_scanned") or 0) > 0
+                 or bool(m.get("receipt")))
+            for m in _scan_meta)
+        _bounded_absence = (not findings and not _dispatch_error
+                            and not _scan_error_reasons
+                            and _scans_are_scoped_complete)
         execution = {
             "invoked": True,
             "outcome": ("read_succeeded" if findings and not
                         _dispatch_error else "read_failed"
-                        if _dispatch_error or any(
-                            v == "" for v in statuses.values())
+                        if (_dispatch_error or _scan_error_reasons)
+                        else "read_succeeded_empty"
+                        if _bounded_absence
                         else "read_returned_no_receipt"),
             "served_basis": "live",
-            "failure_stage": _dispatch_error,
+            "failure_stage": (
+                _dispatch_error
+                or (_scan_error_reasons[0] if _scan_error_reasons else None)),
             "items": statuses,
             "requested_fields": fields,
         }
@@ -24377,6 +24675,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         session: Optional[Dict[str, Any]] = None,
         lane_budget_s: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
+        # The lane's own start: the requirement-first bounded wait (owner
+        # directive 2026-10-15, item 4) sizes itself from the lane budget
+        # minus what this leg has already spent.
+        _lane_t0 = time.monotonic()
         # When the schema-capable edit-plan rung is pinned
         # (ATOM_ASYNC_EDIT_PLAN_MODEL), the plan needs its full latency —
         # the default 30 s starves a deepseek-v4-pro-class rung that needs
@@ -24618,8 +24920,36 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 execution_id or "-")
             fresh = FreshDataResult("", False, True)
         else:
-            with _stage_span("fresh_data_lookup"):
-                fresh = await fetch_fresh_data_section(
+            # REQUIREMENT-FIRST WINDOW (owner directive 2026-10-15, item
+            # 4): a reference-valued requirement ("use the exact number
+            # from our records") is ALREADY NAMED by the accepted
+            # request — the value must come from the named source, so
+            # the lookup is genuine, but a lookup that cannot settle
+            # inside its bounded window leaves the requirement
+            # UNRESOLVED and the specific missing-value ask must ship
+            # instead of a budget timeout.
+            _requirement_refs: List[str] = []
+            try:
+                from core.turn_decision import (
+                    extract_request_assignments as _era_lane_fn,
+                )
+
+                _requirement_refs = [
+                    str(s) for s in (
+                        _era_lane_fn(message).get("source_references") or [])
+                    if str(s).strip()]
+            except Exception:  # noqa: BLE001 — the window is additive
+                _requirement_refs = []
+            _fd_wait: Optional[float] = None
+            if _requirement_refs:
+                _fd_wait = _REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS
+                if lane_budget_s:
+                    _lane_spent = time.monotonic() - _lane_t0
+                    _fd_wait = min(_fd_wait, max(
+                        5.0, lane_budget_s - _lane_spent - 3.0))
+            try:
+                with _stage_span("fresh_data_lookup"):
+                    _fd_call = fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),
             step_recorder=_record_fresh_data_step,
@@ -24671,7 +25001,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 == "retrieved"
                 else None
             ),
-        )
+                    )
+                    fresh = (
+                        await asyncio.wait_for(_fd_call, timeout=_fd_wait)
+                        if _fd_wait else await _fd_call)
+            except asyncio.TimeoutError:
+                # REQUIREMENT-FIRST DECISION (owner directive 2026-10-15,
+                # item 4): the named source did not settle inside its
+                # bounded window, so the requirement stands UNRESOLVED.
+                # Decline with the SPECIFIC ask — never a silent budget
+                # timeout, never a fabricated value. The plan could not
+                # ground the referenced value either (it grounds
+                # nowhere), so planning it would only spend the turn.
+                logger.warning(
+                    "[canvas-edit] reference requirement unresolved — the "
+                    "source lookup did not settle in %.1fs; declining "
+                    "with the named ask", float(_fd_wait or 0.0))
+                fresh = FreshDataResult("", True, False)
+                if shared_tool_state is not None:
+                    shared_tool_state["canvas_requirement_unresolved"] = {
+                        "references": list(_requirement_refs[:2]),
+                    }
         if shared_tool_state is not None:
             if isinstance(fresh.evidence_contract, dict):
                 shared_tool_state["objective_evidence"] = (
@@ -25230,13 +25580,34 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     apply_reason, canvas.get("canvas_type"), canvas
                 ),
                 "session_id": session_id,
+                # D3 (every outcome carries the execution it belongs to):
+                # WITHOUT this the route cannot bind the turn to its
+                # execution row, the finalizer falls to the unknown-status
+                # branch and ships success=false with NO error code and NO
+                # durable attribution (live 2026-10-15 diagnostic: a
+                # declined T1 lost its identity and its honest reply
+                # shipped as an anonymous failure). Same identity/outcome
+                # envelope as the sibling `_no_apply` response.
+                "execution_id": execution_id,
                 "intent": "canvas_edit",
                 "confidence": 0.9,
+                # F3 partial: the honest reply was delivered, the
+                # requested edit did not happen and must not be
+                # certified — a delivered clarification, never
+                # unconfirmed-by-construction.
+                "outcome": "partial",
+                "error_code": None,
+                "_recorded_outcome": {
+                    "state": "partial",
+                    "work_turn": True,
+                    "declined": True,
+                },
                 "data": {
                     "canvas_edit": {
                         "canvas_id": canvas.get("canvas_id"),
                         "updated": False,
                         "reason": apply_reason,
+                        "execution_id": execution_id,
                     },
                     **({"objective_evidence": fresh.evidence_contract}
                        if fresh.evidence_contract else {}),

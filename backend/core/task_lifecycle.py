@@ -147,6 +147,11 @@ EXEC_OUTCOMES = (
     "search_returned_no_receipt",  # dispatched; prose came back, no receipt
     "read_returned_no_receipt",    # dispatched; prose came back, no receipt
     "search_succeeded_empty",      # valid empty search: bounded absence
+    # Owner directive 2026-10-15 (item 1): a read that COMPLETED over its
+    # explicit scope with zero matches is a bounded absence — a delivered
+    # empty result, distinct from a failed read and from a receipt-less
+    # one. Zero findings alone proves none of the three.
+    "read_succeeded_empty",        # valid empty read: bounded absence
     # Round 66's calculate lane executes deterministically and its result
     # rides the operation record — a real outcome, verbatim, not to be
     # clamped to read_failed (which misrecorded every calculation as a

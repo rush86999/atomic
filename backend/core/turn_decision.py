@@ -818,6 +818,37 @@ def turn_evidence_required(
     return False
 
 
+def turn_presentation_only(
+    decision: Optional[Dict[str, Any]],
+) -> bool:
+    """Whether the ACCEPTED request is PRESENTATION-ONLY over the
+    attached artifact: a presentation action was granted, no edit or
+    research action was requested, and the request carries no live-
+    evidence requirement (``turn_evidence_required`` is False — no
+    sources, no file, no source references in the words).
+
+    The recorded-outcome resolver consumes this to classify a turn that
+    presents the artifact it was handed and whose accepted request
+    names nothing live to go fetch (owner directive 2026-10-15, the J6
+    T2 envelope defect: a correct, delivered canvas comparison resolved
+    success=false / outcome_unconfirmed in every recorded run because
+    no recorded delivery fact existed for a presentation). The guard
+    NEVER blesses an answer's wording — narration agreement stays with
+    the fabrication layer. False for absent or unreadable decisions
+    (callers treat it as "not presentation-only" — the conservative
+    direction)."""
+    if not isinstance(decision, dict):
+        return False
+    actions = [action for action in decision.get("requested_actions") or []
+               if isinstance(action, dict)]
+    kinds = {str(action.get("kind") or "") for action in actions}
+    if _KIND_CANVAS_EDIT in kinds or _KIND_RESEARCH in kinds:
+        return False
+    if "presentation" not in kinds:
+        return False
+    return turn_evidence_required(decision) is False
+
+
 def _looks_seek_shaped(text: str) -> bool:
     # Mirrors the live _FILE_READ_SHAPE_RE read-shape vocabulary
     # (scenario-eval gaps: 'compare the workbook values', 'what does
