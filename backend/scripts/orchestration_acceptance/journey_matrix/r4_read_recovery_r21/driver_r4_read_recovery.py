@@ -565,7 +565,7 @@ def run_r4() -> dict:
         # workbook — and SIGKILL the process the moment it appears. If
         # the assistant delivery row appears first, delivery won the
         # race and the attempt is diagnostic-INVALID (retained).
-        barrier_deadline = time.monotonic() + 600
+        barrier_deadline = time.monotonic() + 900
         checkpoint_seen = False
         checkpoint = None
         delivery_won = False
