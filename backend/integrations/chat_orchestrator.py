@@ -12536,6 +12536,115 @@ class ChatOrchestrator:
                 _skip_plan_for_self_contained_edit = (
                     _self_contained_edit_turn(
                         message, _canvas_ctx, _td_decision))
+                # RECOVERY DECISION (owner plan item 1, R4 2026-10-16):
+                # resolved BEFORE planner task creation. When the
+                # conversation has durable retrieve findings (an
+                # interrupted turn committed them before delivery) and
+                # the reply is a show/recovery request, the stored result
+                # is served directly via the early delivery path — zero
+                # planner dispatch, zero source calls.
+                _recovery_decision = "normal_work"
+                _recovery_payload = None
+                try:
+                    _r4_open = _load_durable_file_result(
+                        session_id,
+                        workspace_id=(
+                            _turn_scope.get("workspace_id")
+                            if isinstance(_turn_scope, dict) else None),
+                    )
+                    if isinstance(_r4_open, dict) and _r4_open.get(
+                            "__ambiguous__"):
+                        _recovery_decision = "clarify_result_selection"
+                        _recovery_candidates = _r4_open.get(
+                            "candidates") or []
+                    elif isinstance(_r4_open, dict):
+                        _recovery_decision = "deliver_stored_result"
+                        _recovery_payload = _r4_open
+                except Exception:  # noqa: BLE001
+                    pass
+                if _recovery_decision == "deliver_stored_result":
+                    logger.info(
+                        "[r4-recovery] delivering the stored result "
+                        "directly - zero planner dispatch, zero source "
+                        "calls")
+                elif _recovery_decision == "clarify_result_selection":
+                    logger.info(
+                        "[r4-recovery] multiple stored results - asking "
+                        "which one, zero source calls")
+
+                # RECOVERY DELIVERY (owner plan item 3, R4 2026-10-16):
+                # a fully selected stored result is served through the
+                # EXISTING early delivery path - zero planner dispatch,
+                # zero source calls, no reply-model planner to rediscover
+                # what to do.
+                if _recovery_decision == "deliver_stored_result" \
+                        and _recovery_payload:
+                    _r4_identity = _recovery_payload.get("identity") or {}
+                    _r4_file = str(_r4_identity.get("file_name")
+                                   or "the file")
+                    _r4_rendered = str(
+                        _recovery_payload.get("rendered") or "")
+                    _r4_message = (
+                        f"From the previously retrieved results for "
+                        f"{_r4_file} (recovered after the restart - "
+                        f"nothing was re-read):\n{_r4_rendered}")
+                    _r4_response = {
+                        "success": True,
+                        "message": _r4_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "search",
+                        "confidence": 0.9,
+                        "outcome": "partial",
+                        "data": {
+                            "file_result": {
+                                "status": "delivered",
+                                "recovered_from_durable": True,
+                                "file_name": _r4_file,
+                                "source_version": _recovery_payload.get(
+                                    "identity", {}).get("source_version"),
+                                "zero_source_calls": True,
+                            },
+                        },
+                        "model": "deterministic",
+                        "provider": "structured",
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "suggested_actions": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    # SETTLE the lifecycle op: the stored findings are
+                    # now delivered (idempotent — a repeated recovery
+                    # scan does not re-append).
+                    try:
+                        _r4_lifecycle = _task_lifecycle_for(
+                            None, workspace_id)
+                        _r4_record = _r4_lifecycle.find_active_task(
+                            str(session_id)) if _r4_lifecycle else None
+                        if _r4_record:
+                            session[FILE_TASK_SESSION_KEY] = (
+                                mark_task_delivered(
+                                    mark_task_retrieved(
+                                        session.get(
+                                            FILE_TASK_SESSION_KEY),
+                                        _r4_identity)))
+                    except Exception:  # noqa: BLE001
+                        pass
+                    self._update_session(
+                        session, message, _r4_response,
+                        {"primary_intent": "search", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id,
+                        "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success", _r4_message,
+                        session=session, message=message,
+                        response=_r4_response, deadline=_deadline)
+                    logger.info(
+                        "[r4-recovery] delivered the stored result "
+                        "(zero source calls, idempotent)")
+                    return _r4_response
+
                 if _clarify_turn:
                     # STRUCTURAL clarify guarantee: no plan task exists to
                     # await, so no speculative lookup can execute behind a
