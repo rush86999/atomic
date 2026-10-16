@@ -492,6 +492,7 @@ def run_r4() -> dict:
         # the kill lands at the proven retrieved-not-delivered boundary.
         server.proc.kill()
         server.proc.wait(timeout=15)
+        sid = checkpoint.get("session_id")
         kill_s = round(time.monotonic() - t0, 1)
         ev["kill"] = {"signal": "SIGKILL", "at_s": kill_s,
                       "after_read_completed": True}
