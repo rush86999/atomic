@@ -530,7 +530,7 @@ def run_r4() -> dict:
         rec = JR.auth_post(
             server.base, token, "/api/chat/message",
             {"message": RECOVERY_ASK, "user_id": uid,
-             "request_id": str(uuid.uuid4()),
+             "request_id": str(uuid.uuid4()), "session_id": sid,
              "context": {"canvas": {"id": canvas_id,
                                     "canvas_type": "document",
                                     "name": CANVAS_TITLE}}},
@@ -571,6 +571,7 @@ def run_r4() -> dict:
             server.base, token, "/api/chat/message",
             {"message": "Show me that price list result again.",
              "user_id": uid, "request_id": str(uuid.uuid4()),
+             "session_id": sid,
              "context": {"canvas": {"id": canvas_id,
                                     "canvas_type": "document",
                                     "name": CANVAS_TITLE}}},
