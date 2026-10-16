@@ -42,7 +42,7 @@ WORKTREE = Path("/Users/rushiparikh/projects/atom")
 WORKTREE_BACKEND = WORKTREE / "backend"
 EVIDENCE_DIR = Path("/tmp/r4_read_recovery_evidence")
 TURN_TIMEOUT_S = 300.0
-SUBJECT = "0708c21ae"  # the reviewed runtime; the latch commit rides on top
+SUBJECT = "6a02c6ac3"  # the reviewed runtime; the latch commit rides on top
 RUNTIME_ALLOWS = ("c0c236d3d",)  # the env-gated latch commit (harness)
 
 PIN_PROVIDER = "deepseek"
