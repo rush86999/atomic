@@ -440,8 +440,15 @@ def run_r4() -> dict:
 
         # THE WORKBOOK through the product's ingestion path.
         import httpx
+        # UPLOAD through the DOCUMENT HUB route (/api/documents/upload):
+        # this is the surface whose ingestion materializes the workbook's
+        # DatasetEntry rows (the named-file resolution's catalog). The
+        # /api/document-ingestion/upload surface indexes for search but
+        # NEVER creates the catalog entry (the recorded 2026-09-07 'two
+        # reads, zero datasets' class) - attempt 1 proved it in this
+        # world: indexed count=1, dataset_entries rows=0, no latch.
         up = httpx.post(
-            f"{server.base}/api/document-ingestion/upload",
+            f"{server.base}/api/documents/upload",
             headers={"Authorization": f"Bearer {token}"},
             files={"file": (WORKBOOK_NAME, io.BytesIO(
                 _workbook_bytes()), "application/vnd.openxmlformats-"
