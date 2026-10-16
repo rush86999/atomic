@@ -91,6 +91,10 @@ def _workbook_bytes() -> bytes:
 READ_ASK = (
     "Find the 8 machine prices in Consolidated Price List 2019.xlsx and "
     "list them for me.")
+READ_ASK_WITH_ITEMS = (
+    "Find the prices for the Haas VF-2, the Mazak QT-250 and the Chiron "
+    f"FZ16 in {WORKBOOK_NAME} and list them for me.")
+
 RECOVERY_ASK = (
     "Show me the machine prices you found earlier from the price list.")
 UNRELATED_ASK = "What is a CNC press brake used for?"
