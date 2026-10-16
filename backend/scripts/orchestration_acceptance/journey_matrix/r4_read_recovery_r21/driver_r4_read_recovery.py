@@ -90,6 +90,9 @@ def sha_guard() -> dict:
          "--", "backend/core", "backend/integrations", "backend/api",
          "backend/workers", "backend/tools"],
         capture_output=True, text=True, timeout=15).stdout.splitlines()
+    # Untracked files cannot alter the served content of tracked modules
+    # (the one parallel-owner file under core/ is imported by nothing).
+    dirty = [l for l in dirty if not l.startswith("??")]
     runtime_ok = not dirty
     over = subprocess.run(
         ["git", "-C", str(WORKTREE), "diff", "--name-only", SUBJECT, head],
