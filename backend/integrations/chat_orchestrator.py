@@ -449,24 +449,32 @@ _REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS = float(
     os.getenv("ATOM_REFERENCE_REQUIREMENT_WAIT_SECONDS", "30") or 30)
 
 
-def _unresolved_requirement_message(references: List[str]) -> str:
+def _unresolved_requirement_message(references: List[str],
+                                    item: Optional[str] = None) -> str:
     """The SPECIFIC missing-value ask for a reference-valued requirement.
 
     Names the reference the request already gave and asks for the value —
     the "ask specifically for the missing value" contract (owner directive
     2026-10-15, item 4). Deterministic; never a generic timeout sentence,
-    never a fabricated value."""
+    never a fabricated value. When the item is known, the ask TEACHES the
+    accepted input form (owner directive 2026-10-16, item 3): the user
+    should not have to discover the syntax."""
     named = ", ".join(repr(str(r)[:80]) for r in (references or [])[:2]
                       if str(r).strip())
+    example = ""
+    if str(item or "").strip():
+        example = (
+            f" For example, write: The {str(item).strip()} is "
+            "'your value'.")
     if named:
         return (
             "I couldn't make that canvas change because the value it needs "
             f"— {named} — could not be retrieved this turn, so nothing was "
-            "changed. Give me the exact value and I'll apply it.")
+            "changed. Give me the exact value and I'll apply it." + example)
     return (
         "I couldn't make that canvas change because the value it needs "
         "could not be retrieved this turn, so nothing was changed. Give me "
-        "the exact value and I'll apply it.")
+        "the exact value and I'll apply it." + example)
 
 
 #: NEXT_ACTION on the durable open-work entry the decline stamps. Intake
@@ -971,7 +979,8 @@ def _multiple_requirements_message(items: List[str]) -> str:
 
 def _selection_only_message(item: str) -> str:
     return (
-        f"{item} — got it. What value should I use? "
+        f"{item} — got it. What value should I use? For example, write: "
+        f"The {str(item).strip()} is 'your value'. "
         "Nothing was changed yet; give me the value and I'll apply it.")
 
 
@@ -14135,7 +14144,9 @@ class ChatOrchestrator:
                                 .get("references") or [])
                             if str(r).strip()] or _lane_named_refs
                         _no_apply_message = (
-                            _unresolved_requirement_message(_unresolved_refs)
+                            _unresolved_requirement_message(
+                                _unresolved_refs,
+                                item=_requirement_item_from_request(message))
                             if _unresolved_refs else (
                                 "I couldn't make that canvas change because "
                                 "the required information wasn't available, "
@@ -14282,7 +14293,8 @@ class ChatOrchestrator:
                             and not _background_started
                             and _lane_named_refs):
                         _no_apply_message = _unresolved_requirement_message(
-                            _lane_named_refs)
+                            _lane_named_refs,
+                            item=_requirement_item_from_request(message))
                     response = {
                         "success": bool(_noop_satisfied
                                         or _requirement_declined),

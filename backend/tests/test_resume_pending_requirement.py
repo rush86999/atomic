@@ -907,6 +907,11 @@ async def test_settled_lookup_decline_also_asks_and_stamps(monkeypatch):
     assert r1.get("outcome") == "partial", r1
     said = r1.get("message") or ""
     assert "from our records" in said and "nothing was changed" in said, said
+    # THE CLARIFICATION TEACHES THE ACCEPTED FORM (owner directive
+    # 2026-10-16, item 3): the user should not have to discover the
+    # syntax — the ask shows exactly how to answer.
+    assert "For example, write:" in said, said
+    assert "The client's tax registration number is" in said, said
     assert t1["store"].updates == [], "zero writes on the decline"
     pending = _open_questions(sid)
     assert len(pending) == 1, "the settled lookup still stamps the ask"
