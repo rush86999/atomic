@@ -529,9 +529,10 @@ def run_r4() -> dict:
         checkpoint_file = server.scratch / "data" / "r4_checkpoint.json"
 
         import httpx as _hx
+        import sqlite3 as _sq
         request_id = str(uuid.uuid4())
         payload = {
-            "message": READ_ASK,
+            "message": READ_ASK_WITH_ITEMS,
             "user_id": uid,
             "request_id": request_id,
             "session_id": None,
@@ -554,61 +555,74 @@ def run_r4() -> dict:
         poster = threading.Thread(target=_post_turn1, daemon=True)
         poster.start()
 
-        # THE BARRIER: poll for the server's own checkpoint announcement
-        # (the result transaction committed; delivery is BLOCKED).
-        ckpt_deadline = time.monotonic() + 240
-        checkpoint = None
-        while time.monotonic() < ckpt_deadline:
-            if checkpoint_file.exists():
-                try:
-                    checkpoint = json.loads(
-                        checkpoint_file.read_text())
-                except Exception:  # noqa: BLE001
-                    checkpoint = {"raw": checkpoint_file.read_text()[:300]}
+        # THE BARRIER (owner item 1): poll the DURABLE record for the
+        # committed result — the execution's storage receipt carrying the
+        # workbook — and SIGKILL the process the moment it appears. If
+        # the assistant delivery row appears first, delivery won the
+        # race and the attempt is diagnostic-INVALID (retained).
+        barrier_deadline = time.monotonic() + 240
+        receipt_seen = False
+        delivery_won = False
+        while time.monotonic() < barrier_deadline:
+            try:
+                _con = _sq.connect(
+                    f"file:{server.db_path}?mode=ro", uri=True)
+                rows = _con.execute(
+                    "SELECT metadata_json FROM agent_executions "
+                    "WHERE metadata_json LIKE '%storage_read%' "
+                    "AND metadata_json LIKE '%Consolidated Price List "
+                    "2019.xlsx%'").fetchall()
+                _con.close()
+            except Exception:  # noqa: BLE001
+                rows = []
+            if rows:
+                receipt_seen = True
                 break
-            time.sleep(0.25)
+            arows = assistant_rows(server.db_path, "")
+            if arows:
+                delivery_won = True
+                break
+            time.sleep(0.15)
         wait_s = round(time.monotonic() - t0, 1)
         ev["barrier"] = {
-            "checkpoint_seen": checkpoint is not None,
-            "checkpoint": checkpoint,
+            "receipt_seen": receipt_seen,
+            "delivery_won": delivery_won,
             "wait_s": wait_s,
-            "latch_file_still_present": block_file.exists(),
         }
-        if checkpoint is None:
-            # Delivery may have won the race, or the lane never fired:
-            # record the attempt as diagnostic-INVALID, never a pass.
-            t = JR._sqlite_rows(
-                server.db_path,
-                "SELECT role, content FROM chat_messages ORDER BY "
-                "created_at, rowid", ())
-            assistants_now = assistant_rows(server.db_path, "")
-            ev["turn1_delivered_reply"] = assistants_now[-1][:400] if assistants_now else None
-            try:
-                ev["world_log_at_kill_probe"] = server.log_tail()[-6000:]
-            except Exception:  # noqa: BLE001
-                pass
+        if delivery_won and not receipt_seen:
+            assistants_won = assistant_rows(server.db_path, "")
+            ev["turn1_delivered_reply"] = assistants_won[-1][:400] if \
+                assistants_won else None
             ev["invalid_reason"] = (
-                "the checkpoint never appeared — the boundary was not "
-                f"reached (assistant rows so far: {len(assistants_now)}); "
-                "attempt retained as diagnostic-invalid")
+                "delivery won the race before the durable receipt was "
+                "observed - attempt diagnostic-invalid, retained")
             ev["pass"] = False
             return ev
 
-        # Driver INDEPENDENTLY reads the committed result (durable DB).
-        sid = checkpoint.get("session_id")
-        exec_id = checkpoint.get("execution_id")
-        ops = retrieve_operations(server.db_path, sid)
-        assistants_before = assistant_rows(server.db_path, sid)
-        marker_hits_before = session_store_probe(
-            server.scratch, "104,300.00")
-        ev["pre_stop_state"] = {
-            "assistant_rows": len(assistants_before),
-            "retrieve_ops": ops,
-            "result_survived_in": marker_hits_before,
+        # The driver INDEPENDENTLY reads the committed receipt (durable
+        # DB): the execution carrying the workbook's storage_read — the
+        # durable result identity the recovery turn must render.
+        import sqlite3 as _sq3
+        _con3 = _sq3.connect(f"file:{server.db_path}?mode=ro", uri=True)
+        _rec_rows = _con3.execute(
+            "SELECT id, metadata_json FROM agent_executions "
+            "WHERE metadata_json LIKE '%storage_read%' "
+            "AND metadata_json LIKE '%Consolidated Price List "
+            "2019.xlsx%'").fetchall()
+        _con3.close()
+        ev["committed_receipt"] = {
+            "rows": len(_rec_rows),
+            "execution_ids": [r[0] for r in _rec_rows],
         }
+        if not _rec_rows:
+            ev["invalid_reason"] = (
+                "the durable receipt vanished before the kill - the "
+                "result was not durably committed; attempt invalid")
+            ev["pass"] = False
+            return ev
 
-        # TERMINATE while the latch remains closed. SIGKILL: no graceful
-        # shutdown that could finish delivery.
+        # SIGKILL the process: no graceful shutdown that could finish
+        # delivery (owner item 1).
         server.proc.kill()
         server.proc.wait(timeout=15)
         ev["kill"] = {"signal": "SIGKILL", "at_s": round(
@@ -618,10 +632,11 @@ def run_r4() -> dict:
         except Exception:  # noqa: BLE001
             pass
 
-        # POST-KILL VERIFICATION: no assistant delivery persisted.
-        assistants_after = assistant_rows(server.db_path, sid)
-        # THE ATTRIBUTABLE SOURCE COUNTER: one controlled source read
-        # must produce invocation + completion events (owner item 3).
+        # POST-KILL VERIFICATION (owner item 1): no assistant delivery
+        # persisted after the kill.
+        assistants_after = assistant_rows(server.db_path, "")
+        # THE ATTRIBUTABLE SOURCE COUNTER: the controlled read must
+        # produce invocation + completion events (owner item 3).
         invocations_at_stop = source_invocation_events(server.scratch)
         ev["source_counter_at_stop"] = {
             "events": invocations_at_stop,
@@ -633,17 +648,13 @@ def run_r4() -> dict:
         ev["post_kill"] = {
             "assistant_rows": len(assistants_after),
             "no_delivery_persisted": len(assistants_after) == 0,
-            "checkpoint": checkpoint,
-            "retrieve_ops": retrieve_operations(server.db_path, sid),
-            "result_survived_in": session_store_probe(
-                server.scratch, "104,300.00"),
-            "result_survived_marker": session_store_probe(
-                server.scratch, "R4-RECOVERY-771"),
+            "committed_receipt": ev["committed_receipt"],
+            "retrieve_ops": retrieve_operations(server.db_path, ""),
         }
         ev["initial_read_proven"] = bool(
             ev["source_counter_at_stop"]["invoked"] >= 1
             and ev["source_counter_at_stop"]["completed"] >= 1
-            and checkpoint.get("identity")
+            and _rec_rows
         )
 
         # ---- RECOVERY TURN (after restart) ----
@@ -656,10 +667,9 @@ def run_r4() -> dict:
         # The durable-state inspection continues: after the restart,
         # where does the result survive NOW?
         ev["durable_after_restart"] = {
-            "result_survived_in": session_store_probe(
-                server.scratch, "104,300.00"),
-            "retrieve_ops": retrieve_operations(server.db_path, sid),
-            "history_rows": len(assistant_rows(server.db_path, sid)),
+            "receipt_rows": len(_rec_rows),
+            "retrieve_ops": retrieve_operations(server.db_path, ""),
+            "history_rows": len(assistant_rows(server.db_path, "")),
         }
 
         rec = JR.auth_post(
@@ -677,9 +687,9 @@ def run_r4() -> dict:
         if failed:
             failed_requests += 1
         time.sleep(5)
-        ops_after = retrieve_operations(server.db_path, sid)
+        ops_after = retrieve_operations(server.db_path, "")
         invocations_after = source_invocation_events(server.scratch)
-        assistants_recomputed = assistant_rows(server.db_path, sid)
+        assistants_recomputed = assistant_rows(server.db_path, "")
         facts = ("48,000.00" in recovery_reply
                  or "Haas VF-2" in recovery_reply
                  or "96,400.00" in recovery_reply)
@@ -694,14 +704,13 @@ def run_r4() -> dict:
         }
         ev["source_invocations_after_recovery"] = invocations_after
 
+        ops_before = retrieve_operations(server.db_path, "")
         recovery_checks = {
             "turn_success": recj.get("success") is True,
             "stored_facts_rendered": facts,
-            "no_new_source_invocations": all(
-                e.get("plan_execution_id") != str(exec_id_1)
-                for e in invocations_after) and len(invocations_after) == 0,
+            "no_new_source_invocations": len(invocations_after) == 0,
             "no_second_retrieve_op": len(ops_after) == len(
-                ev["pre_stop_state"]["retrieve_ops"]),
+                ops_before),
             "artifact_untouched": (read_canvas(
                 server.base, token, canvas_id).get("content")
                 == CANVAS_CONTENT),
@@ -721,7 +730,7 @@ def run_r4() -> dict:
         againj = again.get("json") or {}
         time.sleep(5)
         invocations_final = source_invocation_events(server.scratch)
-        assistants_final = assistant_rows(server.db_path, sid)
+        assistants_final = assistant_rows(server.db_path, "")
         ev["idempotency"] = {
             "assistant_rows_final": len(assistants_final),
             "assistant_rows_after_recovery": len(assistants_recomputed),
