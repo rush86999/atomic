@@ -469,6 +469,191 @@ def _unresolved_requirement_message(references: List[str]) -> str:
         "the exact value and I'll apply it.")
 
 
+#: NEXT_ACTION on the durable open-work entry the decline stamps. Intake
+#: consumes exactly this action — no prose matching, no new memory system:
+#: the requirement association lives in the task lifecycle's own
+#: unresolved-question ledger (task_revision.unresolved, kind
+#: missing_evidence, structured inputs), which already survives restarts.
+_AWAITING_VALUE_NEXT_ACTION = "resume_edit_on_user_value"
+
+#: TTL on an awaiting-value requirement. Beyond it the record is stale
+#: history, not a live question (the user moved on days ago).
+_AWAITING_VALUE_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _requirement_item_from_request(goal_text: str) -> str:
+    """The subject+field an awaiting-value question names, from the
+    request's own accepted additions — never invented."""
+    try:
+        from core.turn_decision import extract_request_assignments
+
+        parsed = extract_request_assignments(str(goal_text or ""))
+        for add in parsed.get("unresolved_additions") or []:
+            label = str((add or {}).get("label")
+                        or (add or {}).get("target") or "").strip()
+            if label:
+                return label[:80]
+        for a in parsed.get("assignments") or []:
+            target = str((a or {}).get("target") or "").strip()
+            if target:
+                return target[:80]
+    except Exception:  # noqa: BLE001 — the item is advisory
+        pass
+    return "the requested change"
+
+
+def _stamp_awaiting_value_requirement(
+    tenant_id: Any, workspace_id: Any, run_id: Optional[str], *,
+    canvas_id: Optional[str], goal_text: str,
+    references: List[str], operation_id: Optional[str],
+) -> Optional[str]:
+    """Persist the open requirement on the task lifecycle's OWN ledger.
+
+    R3 (owner milestone 2026-10-16): the delivered clarification must
+    leave a STRUCTURED association — artifact, requirement, original
+    request, authorization — that survives a restart. The carrier is the
+    existing record_unresolved transition (kind missing_evidence,
+    structured inputs, round-54 contract: workers dispatch from inputs,
+    never from prose). Best-effort: a lifecycle write failure never
+    breaks the delivered clarification."""
+    if not run_id:
+        return None
+    try:
+        lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
+        if lifecycle is None:
+            return None
+        question = {
+            "kind": "missing_evidence",
+            "item": _requirement_item_from_request(goal_text),
+            "question": (
+                "Awaiting the exact value — the user was asked to provide "
+                "it after the lookup could not retrieve "
+                + ", ".join(repr(str(r)[:60]) for r in (references or [])[:2])
+                + "."),
+            "next_action": _AWAITING_VALUE_NEXT_ACTION,
+            "inputs": {
+                "canvas_id": str(canvas_id or ""),
+                "goal_text": str(goal_text or "")[:4000],
+                "references": [str(r) for r in (references or [])[:2]],
+                "operation_id": str(operation_id or ""),
+                "authorized_actions": ["edit"],
+            },
+        }
+        revision = lifecycle.apply_transition(run_id, {
+            "kind": "record_unresolved",
+            "questions": [question],
+            "requested_change": (
+                "the delivered clarification retained the requirement; "
+                "awaiting the user's value"),
+            "source_operation": str(operation_id or "") or None,
+        })
+        qid = None
+        for q in (revision or {}).get("unresolved") or []:
+            if q.get("next_action") == _AWAITING_VALUE_NEXT_ACTION \
+                    and q.get("status") == "open":
+                qid = q.get("question_id")
+        logger.info(
+            "[requirement-resume] stamped the awaiting-value question "
+            "(run=%s question=%s)", run_id, qid)
+        return qid
+    except Exception as exc:  # noqa: BLE001 — never fail a delivered ask
+        logger.warning(
+            "[requirement-resume] could not stamp the awaiting-value "
+            "question (run=%s): %r", run_id, exc)
+        return None
+
+
+def _awaiting_value_requirement(
+    tenant_id: Any, workspace_id: Any, session_id: Optional[str],
+    canvas_id: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """The conversation's OPEN awaiting-value requirement, or None.
+
+    Reads the durable task lifecycle (survives restarts). The question
+    binds only when its recorded canvas matches the canvas this turn is
+    about — a requirement for one artifact must never hijack a turn
+    about another."""
+    if not session_id:
+        return None
+    try:
+        lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
+        if lifecycle is None:
+            return None
+        record = lifecycle.find_active_task(str(session_id))
+        if not record:
+            return None
+        for q in (record.get("task_revision") or {}).get("unresolved") or []:
+            if not isinstance(q, dict):
+                continue
+            if q.get("status") != "open" \
+                    or q.get("next_action") != _AWAITING_VALUE_NEXT_ACTION:
+                continue
+            opened = str(q.get("opened_at") or "")
+            if opened:
+                try:
+                    from datetime import datetime as _dt2
+                    age = _dt2.now(_dt2.timezone.utc) - _dt2.fromisoformat(
+                        opened)
+                    if age.total_seconds() > _AWAITING_VALUE_TTL_SECONDS:
+                        continue
+                except Exception:  # noqa: BLE001 — an unparseable stamp
+                    pass
+            inputs = q.get("inputs") if isinstance(
+                q.get("inputs"), dict) else {}
+            if str(inputs.get("canvas_id") or "") != str(canvas_id or ""):
+                continue
+            return {
+                "run_id": record.get("run_id") or record.get("id"),
+                "question_id": q.get("question_id"),
+                "item": str(q.get("item") or "the requested change"),
+                "inputs": inputs,
+            }
+        return None
+    except Exception as exc:  # noqa: BLE001 — never hijack on a read error
+        logger.debug("[requirement-resume] lookup failed: %r", exc)
+        return None
+
+
+_VALUE_CANDIDATE_SPLIT_RE = re.compile(
+    r"\n+|,+|;+|\s+or\s+|\s+versus\s+|\s+vs\.?\s+", re.IGNORECASE)
+#: Words that carry no value of their own; a segment of only these is
+#: meta-commentary, not a candidate.
+_VALUE_CANDIDATE_FILLER = frozenset((
+    "not", "sure", "unsure", "maybe", "possibly", "perhaps", "either",
+    "or", "and", "which", "one", "you", "choose", "pick", "hmm",
+    "actually", "think", "probably", "idk", "both", "all"))
+
+
+def _value_candidates(message: str) -> List[str]:
+    """The distinct value attempts in the user's message, by structure.
+
+    Splits on the explicit coordination separators (comma, semicolon,
+    newline, 'or', 'versus') and drops segments that carry no content of
+    their own (filler only, or no alphanumeric character). ONE candidate
+    binds; several are ambiguous — the ask names them, nothing writes."""
+    text = str(message or "").strip()
+    if not text:
+        return []
+    candidates: List[str] = []
+    for part in _VALUE_CANDIDATE_SPLIT_RE.split(text):
+        words = [w for w in str(part).strip().split() if w]
+        kept = [w for w in words
+                if w.strip(".,;!?—–-\"'()").lower()
+                not in _VALUE_CANDIDATE_FILLER]
+        if kept and any(ch.isalnum() for ch in " ".join(kept)):
+            candidate = " ".join(kept).strip()
+            if candidate and candidate not in candidates:
+                candidates.append(candidate)
+    return candidates
+
+
+def _ambiguous_value_message(item: str, candidates: List[str]) -> str:
+    shown = " or ".join(f"'{str(c)[:60]}'" for c in candidates[:3])
+    return (
+        f"Which value should I use for {item} — {shown}? "
+        "Nothing was changed yet; tell me which one and I'll apply it.")
+
+
 def _pre_reply_leg_timeout(deadline, want: float) -> float:
     """Seconds a pre-reply leg may wait, leaving the reply leg its share.
 
@@ -11955,6 +12140,93 @@ class ChatOrchestrator:
             if isinstance(_ask_task_local, dict) and isinstance(
                     _ask_task_local.get("request_scope"), dict):
                 _edit_request_scope = _ask_task_local["request_scope"]
+            # RESUME THE RECORDED REQUIREMENT (R3, owner milestone
+            # 2026-10-16): a delivered clarification left an awaiting-value
+            # question on the task lifecycle's durable ledger (it survives
+            # restarts). When THIS conversation, on THIS canvas, has one
+            # open, the user's next message is its answer: ONE value binds
+            # and the recorded edit intent resumes with its recorded
+            # authorization; SEVERAL values are ambiguous — exactly one
+            # clarification, zero writes. The association is the
+            # lifecycle's structured record (inputs), never prose.
+            _resume_req: Optional[Dict[str, Any]] = None
+            _resume_effective_message: Optional[str] = None
+            if _canvas_ctx and not _canvas_action_bypassed:
+                try:
+                    _resume_req = _awaiting_value_requirement(
+                        getattr(self, "tenant_id", None),
+                        (context or {}).get("workspace_id"),
+                        session_id, (_canvas_ctx or {}).get("canvas_id"))
+                except Exception:  # noqa: BLE001 — additive
+                    _resume_req = None
+            if _resume_req is not None:
+                _rc_inputs = _resume_req.get("inputs") or {}
+                _rc_goal = str(_rc_inputs.get("goal_text") or "")
+                _rc_item = str(
+                    _resume_req.get("item") or "the requested change")
+                _rc_candidates = _value_candidates(message)
+                if len(_rc_candidates) > 1:
+                    _ambig_message = _ambiguous_value_message(
+                        _rc_item, _rc_candidates)
+                    _ambig_response = {
+                        "success": True,
+                        "message": _ambig_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "canvas_edit",
+                        "confidence": 0.9,
+                        # Delivered clarification ≠ edit completion: the
+                        # requirement stays OPEN, nothing is certified.
+                        "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
+                        "data": {"canvas_edit": {
+                            "canvas_id": (_canvas_ctx or {}).get("canvas_id"),
+                            "updated": False, "no_apply": True,
+                            "reason": "ambiguous_value",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "requirement_question_id": _resume_req.get(
+                                "question_id"),
+                        }},
+                        "suggested_actions": [],
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _ambig_response,
+                        {"primary_intent": "canvas_edit", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id, "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success", _ambig_message,
+                        session=session, message=message,
+                        response=_ambig_response, deadline=_deadline)
+                    logger.info(
+                        "[requirement-resume] ambiguous value — one "
+                        "clarification, zero writes (candidates=%d)",
+                        len(_rc_candidates))
+                    if _tool_plan_task is not None and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _ambig_response
+                if len(_rc_candidates) == 1 and _rc_goal:
+                    # The EXPLICIT-ASSIGNMENT form the interpretation
+                    # contract already accepts ("Set X to Y") — the plan
+                    # must ground the value the user actually supplied,
+                    # not re-open the reference the user just answered.
+                    _resume_effective_message = (
+                        f"{_rc_goal}\n\nSet {_rc_item} to "
+                        f"{_rc_candidates[0]}.")
+                    logger.info(
+                        "[requirement-resume] binding the supplied value to "
+                        "the recorded requirement (question=%s)",
+                        _resume_req.get("question_id"))
+                elif not _rc_goal:
+                    # A requirement without its original request text
+                    # cannot resume safely — leave it for the normal flow.
+                    _resume_req = None
             # DETERMINISTIC EDIT AUTHORIZATION (owner work order
             # 2026-10-10, the live T1 routing defect): a canvas supplies
             # context and scope — it does not authorize editing. Resolve
@@ -11974,8 +12246,10 @@ class ChatOrchestrator:
                     )
 
                     _edit_probe = (
-                        _edit_retry["instruction"]
-                        if _edit_retry is not None else message)
+                        _resume_effective_message
+                        if _resume_effective_message is not None else (
+                            _edit_retry["instruction"]
+                            if _edit_retry is not None else message))
                     _edit_auth, _ = _edit_auth_fn(
                         _edit_probe, "", canvas_id=str(
                             (_canvas_ctx or {}).get("canvas_id") or ""))
@@ -12036,6 +12310,12 @@ class ChatOrchestrator:
                             _shared_tool[_adm_key] = _ask_task[_adm_key]
             except Exception:  # noqa: BLE001 — carry-over is additive
                 pass
+            if _resume_effective_message is not None:
+                # REQUIREMENT RESUME (R3): the value is EXPLICITLY
+                # supplied — no live lookup can add anything, and the
+                # reference-requirement window must not re-open for a
+                # requirement the user just answered.
+                _shared_tool["evidence_required"] = False
             _edit_leg_timed_out = False
             try:
                 if _canvas_ctx and not _canvas_action_bypassed and (
@@ -12072,9 +12352,14 @@ class ChatOrchestrator:
                     # FAILED-EDIT RETRY: the edit lane plans the ORIGINAL
                     # instruction — a bare "try again" carries no edit
                     # vocabulary and the classifier could only decline it.
+                    # REQUIREMENT RESUME (R3): the lane likewise plans the
+                    # recorded ORIGINAL request, now carrying the value the
+                    # user just supplied — the resume never re-asks.
                     _edit_message = (
-                        _edit_retry["instruction"]
-                        if _edit_retry is not None else message)
+                        _resume_effective_message
+                        if _resume_effective_message is not None else (
+                            _edit_retry["instruction"]
+                            if _edit_retry is not None else message))
                     _edit_task_reserved = _begin_task_edit(
                         getattr(self, "tenant_id", None),
                         (context or {}).get("workspace_id"),
@@ -12361,6 +12646,42 @@ class ChatOrchestrator:
                             _edit_response["message"] = (
                                 f"{_edit_response.get('message') or ''}"
                                 f"\n\n{_chain_report_applied}").strip()
+                        if _resume_req is not None and _edit_response.get(
+                                "success", True):
+                            # REQUIREMENT SETTLED (R3): the user's value
+                            # landed — resolve the open question on the
+                            # run that recorded it, so it never resurfaces.
+                            try:
+                                _tl_settle = _task_lifecycle_for(
+                                    getattr(self, "tenant_id", None),
+                                    (context or {}).get("workspace_id"))
+                                if _tl_settle is not None and _resume_req.get(
+                                        "run_id"):
+                                    _tl_settle.apply_transition(
+                                        _resume_req["run_id"], {
+                                            "kind": "record_unresolved",
+                                            "resolutions": [{
+                                                "question_id":
+                                                    _resume_req.get(
+                                                        "question_id"),
+                                                "resolution": (
+                                                    "the user supplied the "
+                                                    "value and the edit "
+                                                    "applied"),
+                                            }],
+                                            "requested_change": (
+                                                "the awaiting-value "
+                                                "requirement settled by "
+                                                "the resumed edit"),
+                                        })
+                                    logger.info(
+                                        "[requirement-resume] settled the "
+                                        "awaiting-value question (run=%s)",
+                                        _resume_req.get("run_id"))
+                            except Exception as _settle_err:  # noqa: BLE001
+                                logger.warning(
+                                    "[requirement-resume] could not settle "
+                                    "the question: %r", _settle_err)
                         # Persist the turn so follow-ups ("now make it shorter")
                         # have the request in session history, then return —
                         # skipping feature routing means edit requests can no
@@ -12906,6 +13227,27 @@ class ChatOrchestrator:
                         "next_steps": [],
                         "timestamp": datetime.now().isoformat(),
                     }
+                    if _requirement_declined:
+                        # REQUIREMENT RETENTION (R3, owner milestone
+                        # 2026-10-16): the delivered clarification leaves
+                        # the STRUCTURED association on the task
+                        # lifecycle's own unresolved ledger — artifact,
+                        # requirement, original request, authorization —
+                        # so the user's next answer resumes without
+                        # repeating the request, across restarts.
+                        _stamp_awaiting_value_requirement(
+                            getattr(self, "tenant_id", None),
+                            (context or {}).get("workspace_id"),
+                            (_edit_task_reserved or {}).get("run_id"),
+                            canvas_id=(_canvas_ctx or {}).get("canvas_id"),
+                            goal_text=message,
+                            references=[
+                                str(r) for r in ((_shared_tool.get(
+                                    "canvas_requirement_unresolved")
+                                    or {}).get("references") or [])],
+                            operation_id=(_edit_task_reserved or {}).get(
+                                "operation_id"),
+                        )
                     self._update_session(
                         session, message, response,
                         {"primary_intent": "canvas_edit", "confidence": 0.9},
