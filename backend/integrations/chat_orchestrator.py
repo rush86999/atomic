@@ -693,33 +693,7 @@ _RESUME_FRAME_RE = re.compile(
     re.IGNORECASE | re.DOTALL)
 _RESUME_SELECT_NUMBER_RE = re.compile(
     r"^\s*(?:option\s+)?([0-9])\s*[.!]?$", re.IGNORECASE)
-#: CLOSED NON-VALUE VOCABULARY (review round 5): a frame tail composed
-#: ENTIRELY of these words says the user does not HAVE the value — it
-#: is never written as one. Fail toward `unresolved`. Interrogative
-#: tokens anywhere in a tail also make it a non-answer (a value never
-#: contains 'what').
-_RESUME_NONVALUE_WORDS = frozenset((
-    "not", "never", "no", "none", "na", "unknown", "unknowable",
-    "pending", "tbd", "missing", "absent", "unavailable", "waiting",
-    "unsure", "undecided", "yet", "still", "already", "anymore",
-    "currently", "presently", "known", "found", "same"))
-_RESUME_INTERROGATIVE_WORDS = frozenset((
-    "what", "where", "when", "who", "whom", "whose", "why", "how",
-    "which"))
 
-
-def _tail_is_nonvalue(tail: str) -> bool:
-    """Whether a frame tail says the user does not have the value
-    (negation/placeholder/status words only, or any interrogative
-    token). Deterministic and closed; anything else is accepted."""
-    words = [
-        w for w in _RESUME_WORD_RE.findall(str(tail or "").lower())
-        if len(w) >= 2 and w not in _RESUME_STOPWORDS]
-    if not words:
-        return True  # an empty-ish tail is not a value
-    if any(w in _RESUME_INTERROGATIVE_WORDS for w in words):
-        return True
-    return all(w in _RESUME_NONVALUE_WORDS for w in words)
 _RESUME_STOPWORDS = frozenset(("the", "a", "an", "my", "our", "of"))
 _RESUME_WORD_RE = re.compile(r"[a-z0-9\-']+")
 
@@ -810,20 +784,32 @@ def _recognized_answer_spans(
         return None
     lead = text.index(trimmed[0])
     # 1. REQUIREMENT-ANCHORED FRAME: the subject must name the item.
+    # 1. REQUIREMENT-ANCHORED FRAME — STRUCTURALLY CLOSED (review
+    #    round 6, Option A): the tail binds ONLY when it is
+    #    digit-bearing or explicitly quoted. An unquoted non-digit tail
+    #    is an OPEN CLASS of non-answers ('is not known yet', 'is
+    #    pending', 'is unknown at this time', 'is in Germany', 'is
+    #    confidential') — no word list can close it — so it resolves to
+    #    `unresolved`: the conversational layer owns the turn and the
+    #    requirement stays open. A quoted tail falls through to the
+    #    quote branch (the strongest signal wins).
     fm = _RESUME_FRAME_RE.match(trimmed)
     if fm and _names_item_window(fm.group("subject"), item):
         tail = fm.group("value").strip().rstrip(" .!?")
-        if tail:
-            # NON-VALUE TAIL GUARD (review round 5): 'The tax
-            # registration number is not known yet' / 'is pending' /
-            # 'is TBD' are the common ways a user says they do not have
-            # the value — never written as one. Fail toward unresolved.
-            if _tail_is_nonvalue(tail):
-                return None
+        if tail and any(ch.isdigit() for ch in tail):
+            # Coordination ambiguity INSIDE the tail: several
+            # digit-bearing parts ask which one.
             start = text.find(tail, lead)
             if start < 0:
                 return None
+            _tail_spans = _digit_segments(tail)
+            if len(_tail_spans) > 1:
+                return [(start + s, start + e) for (s, e) in _tail_spans]
             return [(start, start + len(tail))]
+        if tail and ('"' in tail or "'" in tail):
+            pass  # fall through: an explicit quote is decided below
+        else:
+            return None
     # 2. GENERIC FRAME WITH A DIGIT-BEARING TAIL reads as the answer
     #    shape ("It is 03-4567-8912." -> the tail "03-4567-8912"); a
     #    NON-digit-bearing tail ("Love is Blind") is not recognized

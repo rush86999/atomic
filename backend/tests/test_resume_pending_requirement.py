@@ -442,11 +442,19 @@ async def test_owner_message_table(monkeypatch):
     assert t["store"].content == QUOTE, "the saved artifact is unchanged"
     assert len(_open_questions(sid)) == 1
 
-    # ITEM-ANCHORED NON-ANSWERS (review round 5): the most common ways
-    # a user says they do not have the value — never written as one.
+    # ITEM-ANCHORED NON-ANSWERS (review round 6, structurally closed):
+    # an anchored frame binds ONLY a digit-bearing or QUOTED tail — an
+    # unquoted non-digit tail is an open class of non-answers ('is not
+    # known yet', 'is pending', 'is unknown at this time', 'is in
+    # Germany', 'is confidential') and resolves to unresolved: normal
+    # flow, zero writes, the requirement stays open.
     for nonvalue in ("The tax registration number is not known yet",
                      "The tax registration number is pending",
-                     "The tax registration number is TBD"):
+                     "The tax registration number is TBD",
+                     "The tax registration number is unknown at this "
+                     "time",
+                     "The tax registration number is in Germany",
+                     "The tax registration number is confidential"):
         sid = f"sess-r3-nv-{uuid.uuid4().hex[:8]}"
         await _turn(monkeypatch, sid, REQUEST_MSG,
                     fresh=_stalled_fresh, plan=None)
@@ -457,9 +465,9 @@ async def test_owner_message_table(monkeypatch):
             "the saved artifact is unchanged")
         assert len(_open_questions(sid)) == 1
 
-    # The anchored frame still binds REAL values (the guard is a
-    # denylist, not a digit requirement) — the reviewer's positive pin:
-    # 'The client is Acme, Inc' with a client requirement.
+    # The anchored frame still binds REAL values when they are carried
+    # explicitly: a digit tail or a QUOTED value (the reviewer's
+    # positive pin, re-recorded for the closed contract).
     sid = f"sess-r3-acmecl-{uuid.uuid4().hex[:8]}"
     client_req = ("Add the client to this quotation. "
                   "Use the exact name from our records.")
@@ -476,9 +484,9 @@ async def test_owner_message_table(monkeypatch):
 
     await _turn(monkeypatch, sid, client_req,
                 fresh=_stalled_fresh, plan=None)
-    t = await _turn(monkeypatch, sid, "The client is Acme, Inc",
+    t = await _turn(monkeypatch, sid, 'The client is "Acme, Inc"',
                     fresh=_stalled_fresh, plan=_client_plan)
-    assert t["plan_calls"] == 1, "a real anchored value still binds"
+    assert t["plan_calls"] == 1, "a quoted anchored value binds"
     assert t["store"].content.count("Acme, Inc") == 1
 
     # A cancellation PARAPHRASE outside the closed class: unresolved —
