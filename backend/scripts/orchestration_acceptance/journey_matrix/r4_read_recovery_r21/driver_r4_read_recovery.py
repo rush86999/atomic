@@ -492,7 +492,12 @@ def run_r4() -> dict:
         # the kill lands at the proven retrieved-not-delivered boundary.
         server.proc.kill()
         server.proc.wait(timeout=15)
-        sid = checkpoint.get("session_id")
+        _user_row = JR._sqlite_rows(
+            server.db_path,
+            "SELECT conversation_id FROM chat_messages WHERE "
+            "role='user' ORDER BY created_at DESC LIMIT 1", ())
+        sid = (_user_row[0][0] if _user_row and _user_row[0][0]
+               else None)
         kill_s = round(time.monotonic() - t0, 1)
         ev["kill"] = {"signal": "SIGKILL", "at_s": kill_s,
                       "after_read_completed": True}
