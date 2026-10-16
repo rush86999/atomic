@@ -777,38 +777,32 @@ def _recognized_answer_spans(
     text or numbers; constrain every branch to the narrow syntax and
     clarify everything else):
 
+      0. BARE DIGIT REPLY FIRST (never frame-parsed): the whole message
+         is digits and separators — '47:11' is a value, never a frame.
+         Coordination -> multiple spans -> one clarification.
       1. REQUIREMENT-ANCHORED FRAME — the frame's subject references the
-         requirement's own item, and the tail is either a BARE digit
-         value (digits and separators, no letters — coordination with
-         'or' yields multiple spans -> one clarification) or an
-         EXPLICITLY QUOTED value (the inner text).
-      2. GENERIC FRAME with a BARE digit tail ("It is 03-4567-8912."
-         -> the tail span).
-      3. BARE DIGIT REPLY — the whole message is digits and separators
-         (coordination with 'or' -> multiple spans -> clarification).
+         requirement's own item, and the tail is BARE digit (coordination
+         inside the tail -> segment split -> ambiguity) or the tail's
+         EXPLICITLY QUOTED values (one -> bind; several -> ambiguity).
+         Any other anchored tail is `unresolved`.
+      2. GENERIC FRAME with a BARE digit tail ONLY ('It is 03-4567-8912.'
+         -> the tail span). A generic frame NEVER binds quoted values —
+         quoting in an unanchored frame is a mention, not a supply.
 
     Anything else — prose mentioning numbers, quoted text in a sentence
     that does not anchor the requirement — returns None (`unresolved`):
     broader natural-language answers belong in the structured
-    interpretation mechanism, not here. Every span is validated against
-    the message bounds; the text is preserved exactly as written."""
+    interpretation mechanism. Every span is validated against the
+    message bounds; the text is preserved exactly as written."""
     text = str(message or "")
     trimmed = text.strip()
     if not trimmed:
         return None
     lead = text.index(trimmed[0])
-    tail_value_span = _tail_value_span(message, trimmed, lead)
 
-    # 1. REQUIREMENT-ANCHORED FRAME: the subject must name the item.
-    fm = _RESUME_FRAME_RE.match(trimmed)
-    if fm and _names_item_window(fm.group("subject"), item):
-        if tail_value_span is not None:
-            return [tail_value_span]
-        return None
-    # 2. GENERIC FRAME with a BARE digit tail.
-    if tail_value_span is not None and _RESUME_FRAME_RE.match(trimmed):
-        return [tail_value_span]
-    # 3. BARE DIGIT REPLY: the whole message is digits and separators.
+    # 0. BARE DIGIT REPLY FIRST — a message that is entirely digits and
+    #    separators is a VALUE first and must never be frame-parsed
+    #    (review round 7, finding 3: '47:11' truncated to '11').
     if _BARE_DIGIT_RE.match(trimmed.rstrip(" .!?")):
         segments = _digit_segments(text)
         if len(segments) > 1:
@@ -817,57 +811,81 @@ def _recognized_answer_spans(
         start = text.find(candidate, lead)
         if start >= 0:
             return [(start, start + len(candidate))]
-    # 4. RECOGNIZED AMBIGUITY (owner item 4): several digit-bearing
-    #    coordination segments ARE the ambiguity shape ("8912, or
-    #    possibly 8913 — not sure") — the specific clarification with
-    #    zero writes. A PROSE-WRAPPED SINGLE digit run ("I will check
-    #    our records in 2026") is a MENTION, not a supply: unresolved.
+        return None
+
+    # Frame interpretation (anchored and generic share the frame regex;
+    # only the TAIL RULES differ).
+    fm = _RESUME_FRAME_RE.match(trimmed)
+    if not fm:
+        # PROSE-DRESSED COORDINATION AMBIGUITY (owner item 4): several
+        # digit-bearing segments ask which one — never a silent pick,
+        # and never a write. ("I will check our records in 2026" has a
+        # SINGLE segment: a mention, unresolved.)
+        segments = _digit_segments(text)
+        if len(segments) > 1:
+            return segments
+        return None
+    tail = fm.group("value").strip().rstrip(" .!?")
+    if not tail:
+        return None
+    tail_start = text.find(tail, lead)
+    if tail_start < 0:
+        return None
+
+    def _digit_tail_spans() -> Optional[List[Tuple[int, int]]]:
+        if not _BARE_DIGIT_RE.match(tail):
+            return None
+        tsegs = _digit_segments(tail)
+        if len(tsegs) > 1:
+            # Coordination inside the tail: several candidates — one
+            # clarification, zero writes (review round 7, finding 1).
+            return [(tail_start + s, tail_start + e) for (s, e) in tsegs]
+        return [(tail_start, tail_start + len(tail))]
+
+    def _quoted_tail_spans() -> List[Tuple[int, int]]:
+        # ALL quoted runs in the tail (review round 7, finding 4):
+        # several explicitly quoted candidates are the ambiguity shape,
+        # never a silent first-pick.
+        spans: List[Tuple[int, int]] = []
+        for qm in re.finditer(
+                r'"([^"\n]{1,200})"|\'([^\'\n]{1,200})\'', tail):
+            gi = 1 if qm.group(1) is not None else 2
+            spans.append((tail_start + qm.start(gi),
+                          tail_start + qm.end(gi)))
+        return spans
+
+    anchored = _names_item_window(fm.group("subject"), item)
+    if anchored:
+        # 1. ANCHORED: bare-digit tail (coordination -> ambiguity) or
+        #    the quoted values (one -> bind; several -> ambiguity).
+        digit_spans = _digit_tail_spans()
+        if digit_spans is not None:
+            return digit_spans
+        qspans = _quoted_tail_spans()
+        if qspans:
+            return qspans
+        return None
+    # 2. GENERIC FRAME: a quoted tail is a MENTION, not a supply
+    #    (review round 7, finding 2 — 'It is "pending"' resolves to
+    #    unresolved); only the bare-digit tail binds.
+    digit_spans = _digit_tail_spans()
+    if digit_spans is not None:
+        return digit_spans
     segments = _digit_segments(text)
     if len(segments) > 1:
         return segments
     return None
 
 
+
+
+
+
 #: A BARE digit value: digits plus value separators, NO letters. The
 #: coordination word 'or' between digit runs is allowed (it signals
 #: ambiguity, handled by the segment split).
-_BARE_DIGIT_RE = re.compile(r"^[0-9][0-9 ,.\-/():]*(?:\s+or\s+[0-9][0-9 ,.\-/():]*)*$")
-
-
-def _tail_value_span(
-        text: str, trimmed: str, lead: int) -> Optional[Tuple[int, int]]:
-    """The value span for a frame reply's tail, under the narrow syntax:
-    a BARE digit tail (digits and separators, no letters) or an
-    EXPLICITLY QUOTED value (the inner text). Anything else — prose,
-    mentions, negations — is None (unresolved)."""
-    fm = _RESUME_FRAME_RE.match(trimmed)
-    if not fm:
-        return None
-    tail = fm.group("value").strip().rstrip(" .!?")
-    if not tail:
-        return None
-    if _BARE_DIGIT_RE.match(tail):
-        start = text.find(tail, lead)
-        if start < 0:
-            return None
-        return (start, start + len(tail))
-    qm = re.search(r'"([^"\n]{1,200})"', tail)
-    if qm:
-        start = text.find(tail, lead)
-        if start < 0:
-            return None
-        qs = start + qm.start(1)
-        return (qs, qs + (qm.end(1) - qm.start(1)))
-    qm = re.search(r"'([^'\n]{1,200})'", tail)
-    if qm:
-        start = text.find(tail, lead)
-        if start < 0:
-            return None
-        qs = start + qm.start(1)
-        return (qs, qs + (qm.end(1) - qm.start(1)))
-    return None
-
-
+_BARE_DIGIT_RE = re.compile(
+    r"^[0-9][0-9 ,.\-/():]*(?:\s+or\s+[0-9][0-9 ,.\-/():]*)*$")
 
 
 def _classify_resume_reply(

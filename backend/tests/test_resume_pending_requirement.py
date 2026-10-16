@@ -921,6 +921,71 @@ async def test_settled_lookup_decline_also_asks_and_stamps(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_frame_branch_uniformity_pins(monkeypatch):
+    """Review round 7 findings 1-4, production-path: (1) an anchored
+    coordinated tail asks which value — never writes both as one
+    string; (2) a GENERIC frame never binds a quoted tail (the
+    quoted-note control in a generic-frame costume); (3) a bare digit
+    reply is a value before it is ever frame-parsed ('47:11' binds
+    whole); (4) several quoted candidates ask — never a silent
+    first-pick."""
+    # (1) anchored coordination -> ambiguity ask, zero writes.
+    sid = f"sess-r3-coord-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "The tax registration number "
+                    "is 47-11 or 8913",
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: (_ for _ in ()).throw(
+                        AssertionError("planned a coordinated tail")))
+    assert t["plan_calls"] == 0
+    assert t["store"].updates == []
+    said = t["response"].get("message") or ""
+    assert "Which value" in said and "47-11" in said and "8913" in said, said
+    assert len(_open_questions(sid)) == 1
+
+    # (2) generic frame + quoted mention -> unresolved, zero writes.
+    sid = f"sess-r3-genq-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, 'It is "pending"',
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: (_ for _ in ()).throw(
+                        AssertionError("generic frame bound a quote")))
+    assert t["plan_calls"] == 0
+    assert t["store"].updates == []
+    assert t["store"].content == QUOTE
+    assert len(_open_questions(sid)) == 1
+
+    # (3) bare digit reply is a value FIRST: '47:11' binds whole.
+    sid = f"sess-r3-colon-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "47:11",
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: _tax_plan("47:11"))
+    assert t["plan_calls"] == 1
+    assert t["store"].content.count("47:11") == 1, (
+        "the value is never truncated at the colon")
+
+    # (4) two quoted candidates -> the ambiguity ask quotes both.
+    sid = f"sess-r3-mq-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid,
+                    'The tax registration number is "47-11" or "8913"',
+                    fresh=_stalled_fresh,
+                    plan=lambda *a, **k: (_ for _ in ()).throw(
+                        AssertionError("planned a multi-quote pick")))
+    assert t["plan_calls"] == 0
+    assert t["store"].updates == []
+    said = t["response"].get("message") or ""
+    assert "Which value" in said
+    assert "47-11" in said and "8913" in said, said
+    assert len(_open_questions(sid)) == 1
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "reply", ('I found the note "pending" in our records',
               "I will check our records in 2026"))
