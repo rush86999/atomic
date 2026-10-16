@@ -563,87 +563,145 @@ def _stamp_awaiting_value_requirement(
         return None
 
 
-def _awaiting_value_requirement(
+def _open_awaiting_value_requirements(
     tenant_id: Any, workspace_id: Any, session_id: Optional[str],
     canvas_id: Optional[str],
-) -> Optional[Dict[str, Any]]:
-    """The conversation's OPEN awaiting-value requirement, or None.
+) -> List[Dict[str, Any]]:
+    """ALL of the conversation's OPEN awaiting-value requirements.
 
-    Reads the durable task lifecycle (survives restarts). The question
-    binds only when its recorded canvas matches the canvas this turn is
-    about — a requirement for one artifact must never hijack a turn
-    about another."""
+    Reads the durable task lifecycle (survives restarts). A question is
+    returned only when its recorded canvas matches the canvas this turn
+    is about — a requirement for one artifact must never hijack a turn
+    about another. A MALFORMED or over-TTL timestamp NEVER resumes: an
+    expiry check that cannot be evaluated must not silently authorize
+    binding (bounded correction 2026-10-16, item 3)."""
     if not session_id:
-        return None
+        return []
     try:
+        from datetime import datetime as _dt, timezone as _tz
+
         lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
         if lifecycle is None:
-            return None
+            return []
         record = lifecycle.find_active_task(str(session_id))
         if not record:
-            return None
+            return []
+        found: List[Dict[str, Any]] = []
         for q in (record.get("task_revision") or {}).get("unresolved") or []:
             if not isinstance(q, dict):
                 continue
             if q.get("status") != "open" \
                     or q.get("next_action") != _AWAITING_VALUE_NEXT_ACTION:
                 continue
-            opened = str(q.get("opened_at") or "")
-            if opened:
-                try:
-                    from datetime import datetime as _dt2
-                    age = _dt2.now(_dt2.timezone.utc) - _dt2.fromisoformat(
-                        opened)
-                    if age.total_seconds() > _AWAITING_VALUE_TTL_SECONDS:
-                        continue
-                except Exception:  # noqa: BLE001 — an unparseable stamp
-                    pass
+            opened = str(q.get("opened_at") or "").strip()
+            try:
+                if not opened:
+                    raise ValueError("missing opened_at")
+                age = (_dt.now(_tz.utc)
+                       - _dt.fromisoformat(opened)).total_seconds()
+                if age > _AWAITING_VALUE_TTL_SECONDS:
+                    continue
+            except Exception:
+                # Expired or MALFORMED — never resume on a stamp we
+                # cannot evaluate; the question stays for the audit
+                # trail but cannot bind.
+                logger.warning(
+                    "[requirement-resume] skipping an awaiting-value "
+                    "question with an unusable timestamp (%r)",
+                    opened[:40])
+                continue
             inputs = q.get("inputs") if isinstance(
                 q.get("inputs"), dict) else {}
             if str(inputs.get("canvas_id") or "") != str(canvas_id or ""):
                 continue
-            return {
+            found.append({
                 "run_id": record.get("run_id") or record.get("id"),
                 "question_id": q.get("question_id"),
                 "item": str(q.get("item") or "the requested change"),
                 "inputs": inputs,
-            }
-        return None
+            })
+        return found
     except Exception as exc:  # noqa: BLE001 — never hijack on a read error
         logger.debug("[requirement-resume] lookup failed: %r", exc)
-        return None
+        return []
 
 
+#: CLOSED-CLASS REPLY INTERPRETATION (bounded correction 2026-10-16,
+#: item 1): an open awaiting-value question makes the next message its
+#: PROSPECTIVE answer — but cancellation and questions must never
+#: become edit attempts, so the reply is classified BEFORE any binding.
+#: Deterministic closed classes only; values are carried VERBATIM (no
+#: word removal, no numeric-adjacent splitting).
+_RESUME_CANCEL_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:"
+    r"cancel(?:\s+(?:that|this|it|everything|all\s+of\s+it))?|"
+    r"stop|abort|forget\s+it|nevermind|never\s+mind|dismiss|"
+    r"scratch\s+that|don'?t\s+bother|do\s+not\s+bother|"
+    r"leave\s+it|leave\s+that|nope|nah"
+    r")\s*[.!]?\s*$", re.IGNORECASE)
+_RESUME_QUESTION_RE = re.compile(
+    r"^\s*(?:what|where|when|who|whom|whose|why|how|which|is|are|was|"
+    r"were|do|does|did|can|could|will|would|shall|should|may|might|"
+    r"has|have|had)\b[^?]*\?", re.IGNORECASE)
+
+
+def _resume_reply_class(message: str) -> str:
+    """cancel | question | answer (the classes an open requirement
+    distinguishes BEFORE binding). A bare refusal with no value content
+    is a cancellation; anything interrogative is a question and falls to
+    the normal flows — never an edit attempt."""
+    text = str(message or "").strip()
+    if not text:
+        return "question"  # nothing to bind; the normal flows own it
+    if _RESUME_CANCEL_RE.match(text):
+        return "cancel"
+    if _RESUME_QUESTION_RE.match(text):
+        return "question"
+    if text.endswith("?") and not any(ch.isdigit() for ch in text):
+        return "question"  # a question mark with no value in sight
+    return "answer"
+
+
+#: Coordination separators ONLY — a comma adjacent to digits stays part
+#: of the value ("12,500" is one value), a comma followed by whitespace
+#: separates candidates. Word removal is forbidden: interior words are
+#: carried verbatim ("Research and Development" stays whole).
 _VALUE_CANDIDATE_SPLIT_RE = re.compile(
-    r"\n+|,+|;+|\s+or\s+|\s+versus\s+|\s+vs\.?\s+", re.IGNORECASE)
-#: Words that carry no value of their own; a segment of only these is
-#: meta-commentary, not a candidate.
-_VALUE_CANDIDATE_FILLER = frozenset((
-    "not", "sure", "unsure", "maybe", "possibly", "perhaps", "either",
-    "or", "and", "which", "one", "you", "choose", "pick", "hmm",
-    "actually", "think", "probably", "idk", "both", "all"))
+    r"\n+|;\s*|,\s+|\s+or\s+(?=\S)", re.IGNORECASE)
+#: KNOWN meta lead-ins/tails around a value — interpretation, not value
+#: content. Narrow on purpose; everything else is kept verbatim.
+_RESUME_META_LEAD_RE = re.compile(
+    r"^(?:please|it'?s|it\s+is|the\s+(?:value|answer|number|amount)\s+is|"
+    r"use|try|maybe|possibly|perhaps|alternatively|or)\s+",
+    re.IGNORECASE)
+_RESUME_META_TAIL_RE = re.compile(
+    r"[\s,;]*[—–-]?\s*(?:not\s+sure|unsure|i\s+think|actually)\s*[.!]?\s*$",
+    re.IGNORECASE)
 
 
 def _value_candidates(message: str) -> List[str]:
-    """The distinct value attempts in the user's message, by structure.
+    """The distinct value attempts in the user's message, VERBATIM.
 
-    Splits on the explicit coordination separators (comma, semicolon,
-    newline, 'or', 'versus') and drops segments that carry no content of
-    their own (filler only, or no alphanumeric character). ONE candidate
-    binds; several are ambiguous — the ask names them, nothing writes."""
+    Splits on explicit coordination separators only (newline, semicolon,
+    comma-followed-by-whitespace, spaced 'or'); strips KNOWN meta
+    lead-ins/tails; keeps every other word. ONE candidate binds; several
+    are ambiguous — the ask names them VERBATIM, nothing writes."""
     text = str(message or "").strip()
     if not text:
         return []
     candidates: List[str] = []
     for part in _VALUE_CANDIDATE_SPLIT_RE.split(text):
-        words = [w for w in str(part).strip().split() if w]
-        kept = [w for w in words
-                if w.strip(".,;!?—–-\"'()").lower()
-                not in _VALUE_CANDIDATE_FILLER]
-        if kept and any(ch.isalnum() for ch in " ".join(kept)):
-            candidate = " ".join(kept).strip()
-            if candidate and candidate not in candidates:
-                candidates.append(candidate)
+        candidate = str(part).strip().strip("\"'")
+        while True:
+            stripped = _RESUME_META_LEAD_RE.sub("", candidate).strip()
+            if stripped == candidate:
+                break
+            candidate = stripped
+        candidate = _RESUME_META_TAIL_RE.sub("", candidate).strip()
+        candidate = candidate.strip(" \t.,;!?\"'").strip()
+        if candidate and any(ch.isalnum() for ch in candidate) \
+                and candidate not in candidates:
+            candidates.append(candidate)
     return candidates
 
 
@@ -652,6 +710,20 @@ def _ambiguous_value_message(item: str, candidates: List[str]) -> str:
     return (
         f"Which value should I use for {item} — {shown}? "
         "Nothing was changed yet; tell me which one and I'll apply it.")
+
+
+def _multiple_requirements_message(items: List[str]) -> str:
+    shown = "; ".join(str(i)[:80] for i in items[:3])
+    return (
+        "I have more than one open question here — your reply could "
+        f"answer any of: {shown}. Which one does your value belong to? "
+        "Nothing was changed yet.")
+
+
+def _resume_cancelled_message(item: str) -> str:
+    return (
+        f"Cancelled — I won't make the change to {item}. Nothing was "
+        "changed, and the draft is exactly as it was.")
 
 
 def _pre_reply_leg_timeout(deadline, want: float) -> float:
@@ -12141,24 +12213,155 @@ class ChatOrchestrator:
                     _ask_task_local.get("request_scope"), dict):
                 _edit_request_scope = _ask_task_local["request_scope"]
             # RESUME THE RECORDED REQUIREMENT (R3, owner milestone
-            # 2026-10-16): a delivered clarification left an awaiting-value
-            # question on the task lifecycle's durable ledger (it survives
-            # restarts). When THIS conversation, on THIS canvas, has one
-            # open, the user's next message is its answer: ONE value binds
-            # and the recorded edit intent resumes with its recorded
-            # authorization; SEVERAL values are ambiguous — exactly one
-            # clarification, zero writes. The association is the
-            # lifecycle's structured record (inputs), never prose.
+            # 2026-10-16; bounded correction 2026-10-16): a delivered
+            # clarification left an awaiting-value question on the task
+            # lifecycle's durable ledger (it survives restarts). The
+            # user's next message is classified FIRST — cancellation,
+            # question, or answer — and only an ANSWER with exactly one
+            # verbatim value binds; several candidates are ambiguous, and
+            # several OPEN requirements are asked apart. The association
+            # is the lifecycle's structured record (inputs), never prose.
             _resume_req: Optional[Dict[str, Any]] = None
             _resume_effective_message: Optional[str] = None
+            _resume_open: List[Dict[str, Any]] = []
             if _canvas_ctx and not _canvas_action_bypassed:
                 try:
-                    _resume_req = _awaiting_value_requirement(
+                    _resume_open = _open_awaiting_value_requirements(
                         getattr(self, "tenant_id", None),
                         (context or {}).get("workspace_id"),
                         session_id, (_canvas_ctx or {}).get("canvas_id"))
                 except Exception:  # noqa: BLE001 — additive
-                    _resume_req = None
+                    _resume_open = []
+            if _resume_open:
+                _reply_class = _resume_reply_class(message)
+                if _reply_class == "cancel":
+                    # CANCELLATION: close the open requirement(s) —
+                    # never an edit attempt, never left dangling.
+                    _first_item = str(_resume_open[0].get(
+                        "item") or "the requested change")
+                    try:
+                        _tl_cancel = _task_lifecycle_for(
+                            getattr(self, "tenant_id", None),
+                            (context or {}).get("workspace_id"))
+                        if _tl_cancel is not None:
+                            for _q in _resume_open:
+                                if not _q.get("run_id"):
+                                    continue
+                                _tl_cancel.apply_transition(
+                                    _q["run_id"], {
+                                        "kind": "record_unresolved",
+                                        "resolutions": [{
+                                            "question_id":
+                                                _q.get("question_id"),
+                                            "resolution": (
+                                                "cancelled by the user; "
+                                                "nothing was changed"),
+                                        }],
+                                        "requested_change": (
+                                            "the user cancelled the "
+                                            "awaiting requirement"),
+                                    })
+                    except Exception as _cancel_err:  # noqa: BLE001
+                        logger.warning(
+                            "[requirement-resume] cancel settlement "
+                            "failed: %r", _cancel_err)
+                    _cancel_message = _resume_cancelled_message(_first_item)
+                    _cancel_response = {
+                        "success": True,
+                        "message": _cancel_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "canvas_edit",
+                        "confidence": 0.9,
+                        "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
+                        "data": {"canvas_edit": {
+                            "canvas_id": (_canvas_ctx or {}).get("canvas_id"),
+                            "updated": False, "no_apply": True,
+                            "reason": "cancelled_by_user",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "requirement_question_ids": [
+                                _q.get("question_id") for _q in _resume_open],
+                        }},
+                        "suggested_actions": [],
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _cancel_response,
+                        {"primary_intent": "canvas_edit", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id, "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success", _cancel_message,
+                        session=session, message=message,
+                        response=_cancel_response, deadline=_deadline)
+                    logger.info(
+                        "[requirement-resume] cancelled by the user — "
+                        "zero writes (questions=%d)", len(_resume_open))
+                    if _tool_plan_task is not None and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _cancel_response
+                if _reply_class == "question":
+                    # A question is NOT an answer: the normal flows own
+                    # the turn and the requirement stays open.
+                    logger.info(
+                        "[requirement-resume] the reply is a question — "
+                        "normal flow, requirement stays open")
+                    _resume_open = []
+                elif len(_resume_open) > 1:
+                    # SEVERAL open requirements: ask which one — never
+                    # select silently.
+                    _multi_message = _multiple_requirements_message([
+                        _q.get("item") or "the requested change"
+                        for _q in _resume_open])
+                    _multi_response = {
+                        "success": True,
+                        "message": _multi_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "canvas_edit",
+                        "confidence": 0.9,
+                        "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
+                        "data": {"canvas_edit": {
+                            "canvas_id": (_canvas_ctx or {}).get("canvas_id"),
+                            "updated": False, "no_apply": True,
+                            "reason": "multiple_open_requirements",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "requirement_question_ids": [
+                                _q.get("question_id") for _q in _resume_open],
+                        }},
+                        "suggested_actions": [],
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _multi_response,
+                        {"primary_intent": "canvas_edit", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id, "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success", _multi_message,
+                        session=session, message=message,
+                        response=_multi_response, deadline=_deadline)
+                    logger.info(
+                        "[requirement-resume] several open requirements — "
+                        "asked which one, zero writes (%d)",
+                        len(_resume_open))
+                    if _tool_plan_task is not None and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _multi_response
+                else:
+                    _resume_req = _resume_open[0]
             if _resume_req is not None:
                 _rc_inputs = _resume_req.get("inputs") or {}
                 _rc_goal = str(_rc_inputs.get("goal_text") or "")
@@ -12216,9 +12419,45 @@ class ChatOrchestrator:
                     # contract already accepts ("Set X to Y") — the plan
                     # must ground the value the user actually supplied,
                     # not re-open the reference the user just answered.
+                    # The value is carried VERBATIM.
                     _resume_effective_message = (
                         f"{_rc_goal}\n\nSet {_rc_item} to "
                         f"{_rc_candidates[0]}.")
+                    # RESUME POSTCONDITION INPUTS (bounded correction
+                    # 2026-10-16, item 4): the lane verifies — beyond the
+                    # editor's own readback — that the requested change's
+                    # postconditions hold: intended value present with
+                    # multiplicity 1, pre-existing content preserved
+                    # (addition-only for an add request). On violation the
+                    # whole mutation is refused and restored.
+                    _rc_pre_content = (_canvas_ctx or {}).get("content")
+                    if isinstance(_rc_pre_content, dict):
+                        _rc_pre_content = _rc_pre_content.get("content")
+                    _resume_req["postcondition"] = {
+                        "value": _rc_candidates[0],
+                        "pre_content": str(_rc_pre_content or ""),
+                        "intent": (
+                            "add" if re.match(
+                                r"\s*(?:add|insert|append|include)\b",
+                                _rc_goal, re.IGNORECASE) else "replace"),
+                    }
+                    try:
+                        from tools.canvas_crud_tool import (
+                            list_canvas_versions as _lcv,
+                        )
+
+                        _versions = await _lcv(
+                            user_id, (_canvas_ctx or {}).get("canvas_id"))
+                        _vrows = (_versions or {}).get(
+                            "versions") if isinstance(
+                                _versions, dict) else _versions
+                        if isinstance(_vrows, list) and _vrows:
+                            _resume_req["postcondition"]["pre_audit_id"] = \
+                                str((_vrows[0] or {}).get("audit_id") or "")
+                    except Exception as _ver_err:  # noqa: BLE001
+                        logger.info(
+                            "[requirement-resume] pre-edit version capture "
+                            "unavailable: %r", _ver_err)
                     logger.info(
                         "[requirement-resume] binding the supplied value to "
                         "the recorded requirement (question=%s)",
@@ -12314,8 +12553,17 @@ class ChatOrchestrator:
                 # REQUIREMENT RESUME (R3): the value is EXPLICITLY
                 # supplied — no live lookup can add anything, and the
                 # reference-requirement window must not re-open for a
-                # requirement the user just answered.
+                # requirement the user just answered. The postcondition
+                # inputs (value/pre-content/pre-audit id/intent) ride the
+                # blackboard so the apply path can verify preservation
+                # beyond the editor's own readback.
                 _shared_tool["evidence_required"] = False
+                _shared_tool["resume_requirement"] = {
+                    "question_id": _resume_req.get("question_id"),
+                    "run_id": _resume_req.get("run_id"),
+                    "item": _resume_req.get("item"),
+                    **(_resume_req.get("postcondition") or {}),
+                }
             _edit_leg_timed_out = False
             try:
                 if _canvas_ctx and not _canvas_action_bypassed and (
@@ -12646,8 +12894,231 @@ class ChatOrchestrator:
                             _edit_response["message"] = (
                                 f"{_edit_response.get('message') or ''}"
                                 f"\n\n{_chain_report_applied}").strip()
-                        if _resume_req is not None and _edit_response.get(
-                                "success", True):
+                        # RESUME POSTCONDITION (bounded correction
+                        # 2026-10-16, item 4): the editor's readback
+                        # verifies the OPS applied — it cannot see that
+                        # the requested change PRESERVED the draft. For a
+                        # resumed add-one-field request the post-apply
+                        # content must carry the intended value exactly
+                        # once with the pre-existing content unchanged;
+                        # anything else refuses the WHOLE mutation
+                        # (restore the pre-edit version) — model
+                        # responsibility does not matter here.
+                        _resume_pc = _shared_tool.get(
+                            "resume_requirement") or {}
+                        _resume_post_ok: Optional[bool] = None
+                        _ce_data = ((_edit_response.get("data") or {}).get(
+                            "canvas_edit") or {})
+                        if _resume_pc and _edit_response.get("success", True) \
+                                and _ce_data.get("updated") is True:
+                            try:
+                                from tools.canvas_crud_tool import (
+                                    read_canvas as _rpost_read,
+                                    restore_canvas_version as _rpost_restore,
+                                )
+
+                                _rpost_rb = await _rpost_read(
+                                    user_id,
+                                    (_canvas_ctx or {}).get("canvas_id"))
+                                _rpost_new = (_rpost_rb or {}).get("content")
+                                if isinstance(_rpost_new, dict):
+                                    _rpost_new = _rpost_new.get("content")
+                                _rpost_new = str(_rpost_new or "")
+                                _rpost_pre = str(
+                                    _resume_pc.get("pre_content") or "")
+                                _rpost_value = str(
+                                    _resume_pc.get("value") or "")
+                                _violations: List[str] = []
+                                if _resume_pc.get("intent") == "add" \
+                                        and _rpost_pre.strip():
+                                    _multiplicity = _rpost_new.count(
+                                        _rpost_value)
+                                    if _multiplicity != 1:
+                                        _violations.append(
+                                            f"the intended value appears "
+                                            f"{_multiplicity} times "
+                                            "(expected exactly once)")
+                                    # ADDITION-ONLY: every pre-existing line
+                                    # must appear, UNCHANGED and IN ORDER,
+                                    # in the new content (insertions may
+                                    # sit between lines; byte containment
+                                    # would false-fail any mid-document
+                                    # insertion).
+                                    _pre_lines = _rpost_pre.splitlines()
+                                    _new_iter = iter(_rpost_new.splitlines())
+                                    _addition_only = all(
+                                        any(_line == _pre_line
+                                            for _line in _new_iter)
+                                        for _pre_line in _pre_lines)
+                                    if not _addition_only:
+                                        _violations.append(
+                                            "pre-existing content was "
+                                            "altered (the change was not "
+                                            "addition-only)")
+                                elif _rpost_value and _rpost_value \
+                                        not in _rpost_new:
+                                    _violations.append(
+                                        "the intended value is not present "
+                                        "on the canvas")
+                                if _violations:
+                                    _resume_post_ok = False
+                                    _restored_verified = False
+                                    _pre_audit = str(
+                                        _resume_pc.get("pre_audit_id") or "")
+                                    if _pre_audit:
+                                        try:
+                                            _rs = await _rpost_restore(
+                                                user_id,
+                                                (_canvas_ctx or {}).get(
+                                                    "canvas_id"),
+                                                _pre_audit)
+                                            _restored_verified = bool(
+                                                (_rs or {}).get("success"))
+                                            if _restored_verified:
+                                                _rpost_rb2 = await \
+                                                    _rpost_read(
+                                                        user_id,
+                                                        (_canvas_ctx or {}
+                                                         ).get("canvas_id"))
+                                                _rpost_after = \
+                                                    (_rpost_rb2 or {}
+                                                     ).get("content")
+                                                if isinstance(
+                                                        _rpost_after, dict):
+                                                    _rpost_after = \
+                                                        _rpost_after.get(
+                                                            "content")
+                                                _restored_verified = (
+                                                    str(_rpost_after or "")
+                                                    == _rpost_pre)
+                                        except Exception as _r_err:  # noqa: BLE001
+                                            logger.warning(
+                                                "[requirement-resume] "
+                                                "postcondition restore "
+                                                "failed: %r", _r_err)
+                                    if _restored_verified:
+                                        _pc_message = (
+                                            "I refused that change before "
+                                            "accepting it: applying it "
+                                            "would have altered your "
+                                            "existing content, and the "
+                                            "draft is restored to exactly "
+                                            "its prior state. Nothing was "
+                                            "kept. ("
+                                            + "; ".join(_violations) + ")")
+                                    else:
+                                        _pc_message = (
+                                            "The attempted change did not "
+                                            "preserve your draft, and I "
+                                            "could not restore the prior "
+                                            "version automatically — "
+                                            "please check the canvas "
+                                            "history before continuing. ("
+                                            + "; ".join(_violations) + ")")
+                                    _pc_response = {
+                                        "success": True,
+                                        "message": _pc_message,
+                                        "session_id": session_id,
+                                        "execution_id": _execution_id,
+                                        "intent": "canvas_edit",
+                                        "confidence": 0.9,
+                                        "outcome": "partial",
+                                        "_recorded_outcome": {
+                                            "state": "partial",
+                                            "work_turn": True,
+                                            "noop": False,
+                                            "declined": True},
+                                        "data": {"canvas_edit": {
+                                            "canvas_id": (
+                                                (_canvas_ctx or {}).get(
+                                                    "canvas_id")),
+                                            "updated": False,
+                                            "no_apply": True,
+                                            "reason":
+                                                "resume_postcondition_failed",
+                                            "outcome": "refused",
+                                            "execution_id": _execution_id,
+                                            "violations": _violations,
+                                            "restored": _restored_verified,
+                                            "requirement_question_id":
+                                                _resume_pc.get("question_id"),
+                                        }},
+                                        "suggested_actions": [],
+                                        "requires_confirmation": False,
+                                        "next_steps": [],
+                                        "timestamp": datetime.now()
+                                        .isoformat(),
+                                    }
+                                    # The question STAYS OPEN: the
+                                    # requirement is unfulfilled. The
+                                    # edit reservation still settles —
+                                    # honestly (the write was made and
+                                    # reverted; it did not stand).
+                                    try:
+                                        _finish_task_edit(
+                                            getattr(self, "tenant_id", None),
+                                            (context or {}).get("workspace_id"),
+                                            session, session_id, message,
+                                            _execution_id,
+                                            {**_ce_data, "updated": False},
+                                            success=False,
+                                            reserved=_edit_task_reserved,
+                                            canvas_ctx=_canvas_ctx)
+                                    except Exception as _ft_err:  # noqa: BLE001
+                                        logger.warning(
+                                            "[requirement-resume] edit "
+                                            "settlement after the refusal "
+                                            "failed: %r", _ft_err)
+                                    self._update_session(
+                                        session, message, _pc_response,
+                                        {"primary_intent": "canvas_edit",
+                                         "confidence": 0.9})
+                                    await self._emit_agent_status(
+                                        session_id, _trace_agent_id,
+                                        _execution_id, "success")
+                                    self._finish_chat_execution(
+                                        _execution_id, "success",
+                                        _pc_message, session=session,
+                                        message=message,
+                                        response=_pc_response,
+                                        deadline=_deadline)
+                                    logger.warning(
+                                        "[requirement-resume] postcondition "
+                                        "VIOLATION — mutation refused and "
+                                        "%s (violations=%s)",
+                                        "restored" if _restored_verified
+                                        else "NOT restored", _violations)
+                                    if _tool_plan_task is not None and \
+                                            not _tool_plan_task.done():
+                                        _tool_plan_task.cancel()
+                                    return _pc_response
+                                _resume_post_ok = True
+                            except Exception as _pc_err:  # noqa: BLE001
+                                # Unverified ≠ verified: the edit stands
+                                # but the requirement is NOT settled on it.
+                                _resume_post_ok = None
+                                logger.warning(
+                                    "[requirement-resume] postcondition "
+                                    "check unavailable: %r", _pc_err)
+                        # REQUIREMENT SETTLED (bounded correction item 5):
+                        # only VERIFIED fulfillment settles the question —
+                        # the response flag alone is insufficient, and an
+                        # UNAVAILABLE postcondition check withholds the
+                        # settle too (unverified is not verified). The
+                        # edit must have applied, the editor's own
+                        # readback must verify it, and (for a resumed
+                        # requirement) the preservation postcondition
+                        # must have PASSED.
+                        _edit_fulfilled = bool(
+                            _edit_response.get("success", True)
+                            and _ce_data.get("updated") is True
+                            and _ce_data.get("postcondition_verified")
+                            is True
+                            and (
+                                _resume_post_ok is True
+                                or (_resume_post_ok is None
+                                    and not _resume_pc)))
+                        if _resume_req is not None and _edit_fulfilled:
                             # REQUIREMENT SETTLED (R3): the user's value
                             # landed — resolve the open question on the
                             # run that recorded it, so it never resurfaces.

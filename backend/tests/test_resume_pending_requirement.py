@@ -1,26 +1,35 @@
 # -*- coding: utf-8 -*-
 """R3 — supplying a missing value resumes the recorded edit (owner
-milestone 2026-10-16).
+milestone 2026-10-16; bounded correction 2026-10-16).
 
-The delivered clarification leaves a STRUCTURED awaiting-value question
-on the task lifecycle's own unresolved ledger (kind missing_evidence,
-next_action resume_edit_on_user_value, structured inputs). The next
-message in the SAME conversation binds to it:
+Bounded-correction guarantees pinned here:
 
-  one value        -> the recorded edit intent resumes (the lane plans
-                      the ORIGINAL request plus the explicit assignment),
-                      one write, the question settles;
-  several values   -> exactly one clarification, zero writes, the
-                      question stays open;
-  other canvas     -> no hijack — a requirement for one artifact never
-                      binds a turn about another;
-  no record        -> normal flow, unchanged.
+  interpretation   "Cancel that" cancels (never an edit attempt);
+                   "What did you change?" is a question (normal flow,
+                   requirement stays open); "12,500" is ONE value;
+                   "Research and Development" is carried VERBATIM — no
+                   word removal, no numeric-adjacent splitting.
+  explicit binding several OPEN requirements -> ask which one; the
+                   answer binds to its question id, artifact and
+                   recorded authorization.
+  expiry           fresh stamps bind; expired and MALFORMED timestamps
+                   never do (an unevaluable check never silently
+                   authorizes).
+  preservation     a plan that duplicates the value or corrupts an
+                   existing line is REFUSED as a whole mutation: the
+                   pre-edit version is restored and verified, and the
+                   question stays open. The question settles only on
+                   verified fulfillment (applied + editor readback +
+                   resume postcondition), never on a success flag.
 
-Every run below drives the REAL process path with REAL lifecycle runs
+Every run drives the REAL process path with REAL lifecycle runs
 (``ATOM_TASK_LIFECYCLE_ENABLED=1``) against the isolated test DB — the
 same persistence that survives a restart."""
 import asyncio
+import contextlib
+import json
 import os
+import sqlite3
 import uuid
 
 os.environ.setdefault("TESTING", "1")
@@ -46,6 +55,7 @@ REQUEST_MSG = (
 BARE_VALUE = "03-4567-8912"
 AMBIGUOUS_VALUE = "03-4567-8912, or possibly 03-4567-8913 — not sure"
 CANVAS_ID = "cv-resume"
+PRE_AUDIT_ID = "audit-pre-1"
 
 
 class _CanvasStore:
@@ -54,6 +64,7 @@ class _CanvasStore:
     def __init__(self, content):
         self.content = content
         self.updates: list = []
+        self.restores: list = []
 
     async def _update(self, user_id, canvas_id, content, *a, **k):
         self.updates.append(content)
@@ -65,12 +76,22 @@ class _CanvasStore:
                 "canvas_type": "document", "title": "Q",
                 "content": self.content}
 
+    async def _restore(self, user_id, canvas_id, audit_id, *a, **k):
+        self.restores.append(audit_id)
+        self.content = QUOTE
+        return {"success": True}
+
     def patches(self):
         return (
             patch("tools.canvas_crud_tool.update_canvas_content",
                   new=AsyncMock(side_effect=self._update)),
             patch("tools.canvas_crud_tool.read_canvas",
                   new=AsyncMock(side_effect=self._read)),
+            patch("tools.canvas_crud_tool.list_canvas_versions",
+                  new=AsyncMock(return_value={"versions": [
+                      {"audit_id": PRE_AUDIT_ID}]})),
+            patch("tools.canvas_crud_tool.restore_canvas_version",
+                  new=AsyncMock(side_effect=self._restore)),
         )
 
 
@@ -79,15 +100,35 @@ async def _stalled_fresh(*a, **k):
     return cce.FreshDataResult("", True, True)
 
 
-def _tax_plan() -> cce.CanvasEditPlan:
+def _tax_plan(value: str = BARE_VALUE) -> cce.CanvasEditPlan:
     return cce.CanvasEditPlan(
         wants_edit=True,
         edit_mode="patch",
         ops=[cce.CanvasPatchOp(
             find="Terms: Net 30",
-            replace="Terms: Net 30\nTax registration number: "
-                    "03-4567-8912",
+            replace=f"Terms: Net 30\nTax registration number: {value}",
             origin="user_supplied")],
+    )
+
+
+def _duplicated_label_plan() -> cce.CanvasEditPlan:
+    """The captured failing shape (R3 run 074317): the value lands
+    TWICE and an existing line's label is duplicated."""
+    return cce.CanvasEditPlan(
+        wants_edit=True,
+        edit_mode="patch",
+        ops=[
+            cce.CanvasPatchOp(
+                find="Terms: Net 30",
+                replace="Terms: Terms: Net 30\nTax registration "
+                        "number: 03-4567-8912",
+                origin="user_supplied"),
+            cce.CanvasPatchOp(
+                find="Client: Dunmore Fabrication LLC",
+                replace="Client: Dunmore Fabrication LLC\nTax "
+                        "registration number: 03-4567-8912",
+                origin="user_supplied"),
+        ],
     )
 
 
@@ -128,8 +169,6 @@ async def _turn(monkeypatch, session_id, message, *, fresh, plan,
         return None
 
     session = {"id": session_id, "history": []}
-    import contextlib
-
     with contextlib.ExitStack() as _stack:
         for _cm in (
             patch.object(orchestrator, "_get_or_create_session",
@@ -175,10 +214,41 @@ async def _turn(monkeypatch, session_id, message, *, fresh, plan,
     }
 
 
-def _open_question(session_id):
-    from integrations.chat_orchestrator import _awaiting_value_requirement
+def _open_questions(session_id):
+    from integrations.chat_orchestrator import (
+        _open_awaiting_value_requirements,
+    )
 
-    return _awaiting_value_requirement(None, None, session_id, CANVAS_ID)
+    return _open_awaiting_value_requirements(
+        None, None, session_id, CANVAS_ID)
+
+
+def _set_opened_at(session_id, opened_at):
+    """Rewrite the stamped question's opened_at directly in the test DB
+    (expiry/malformed fixtures)."""
+    db_path = os.environ.get("DATABASE_URL", "sqlite:///test_integration.db")
+    db_path = db_path.replace("sqlite:///", "") or "test_integration.db"
+    con = sqlite3.connect(db_path)
+    try:
+        rows = con.execute(
+            "SELECT id, parameters FROM goal_runs ORDER BY created_at"
+        ).fetchall()
+        for rid, params in rows:
+            doc = json.loads(params or "{}")
+            tl = doc.get("task_lifecycle") or {}
+            rev = tl.get("task_revision") or {}
+            changed = False
+            for q in rev.get("unresolved") or []:
+                if q.get("next_action") == "resume_edit_on_user_value":
+                    q["opened_at"] = opened_at
+                    changed = True
+            if changed:
+                con.execute(
+                    "UPDATE goal_runs SET parameters=? WHERE id=?",
+                    (json.dumps(doc), rid))
+        con.commit()
+    finally:
+        con.close()
 
 
 @pytest.mark.asyncio
@@ -187,7 +257,8 @@ async def test_bare_value_after_the_decline_applies_the_recorded_edit(
     """Steps 1-6 of the owner's R3 sequence: the request declines with
     the specific ask; the bare value — same conversation, no repeated
     request — resumes the recorded edit: one write, the value lands,
-    protected content preserved, the question settles."""
+    protected content preserved, the question settles ONLY on verified
+    fulfillment."""
     session_id = f"sess-r3-{uuid.uuid4().hex[:8]}"
 
     # Step 1-2: the missing-information request declines with the ask.
@@ -199,17 +270,14 @@ async def test_bare_value_after_the_decline_applies_the_recorded_edit(
     assert "from our records" in (r1.get("message") or "")
     assert t1["store"].updates == [], "zero writes on the decline"
     assert t1["plan_calls"] == 0
-    # The STRUCTURED requirement is on the lifecycle ledger.
-    pending = _open_question(session_id)
-    assert pending is not None, "the awaiting-value question must persist"
-    assert pending["inputs"].get("goal_text", "").startswith(
+    pending = _open_questions(session_id)
+    assert len(pending) == 1, "the awaiting-value question must persist"
+    assert pending[0]["inputs"].get("goal_text", "").startswith(
         "Add the client's tax registration number")
-    assert pending["inputs"].get("canvas_id") == CANVAS_ID
-    first_question_id = pending["question_id"]
+    assert pending[0]["inputs"].get("canvas_id") == CANVAS_ID
 
     # Steps 3-4: the restart is covered by the R3 driver; THIS suite pins
     # the binding itself — the durable record is all a fresh process has.
-    # The bare value, no repeated request.
     t2 = await _turn(monkeypatch, session_id, BARE_VALUE,
                      fresh=_stalled_fresh, plan=_tax_plan)
     r2 = t2["response"]
@@ -218,7 +286,8 @@ async def test_bare_value_after_the_decline_applies_the_recorded_edit(
         "the value is explicitly supplied — no lookup re-opens")
     assert t2["plan_calls"] == 1, "the recorded edit intent resumed"
     content = t2["store"].content
-    assert BARE_VALUE in content, "the value lands on the canvas"
+    assert content.count(BARE_VALUE) == 1, (
+        "the intended value appears exactly once")
     assert "Tax registration number: 03-4567-8912" in content
     for protected in ("Dunmore Fabrication LLC", "Unit price: $48,000.00",
                       "Subtotal: $48,000.00", "Terms: Net 30",
@@ -228,9 +297,8 @@ async def test_bare_value_after_the_decline_applies_the_recorded_edit(
     assert r2.get("success") is True, r2
     assert t2["status_events"][-1] == "success"
     assert (t2["execution_row"] or {}).get("status") == "success"
-    # Step 5-6: the question settles — it never resurfaces.
-    assert _open_question(session_id) is None, (
-        "the awaiting-value question must be resolved after the edit")
+    assert _open_questions(session_id) == [], (
+        "the awaiting-value question settles on VERIFIED fulfillment")
     history = t2["session"]["history"]
     assert history and history[-1]["response"]["message"] == r2.get("message")
 
@@ -239,12 +307,13 @@ async def test_bare_value_after_the_decline_applies_the_recorded_edit(
 async def test_ambiguous_value_asks_one_clarification_and_writes_nothing(
         monkeypatch):
     """Step 7: two candidate values cannot bind — exactly one
-    clarification, zero writes, the question stays open."""
+    clarification (candidates named VERBATIM), zero writes, the question
+    stays open."""
     session_id = f"sess-r3-amb-{uuid.uuid4().hex[:8]}"
     t1 = await _turn(monkeypatch, session_id, REQUEST_MSG,
                      fresh=_stalled_fresh, plan=None)
     assert t1["response"].get("outcome") == "partial"
-    assert _open_question(session_id) is not None
+    assert len(_open_questions(session_id)) == 1
 
     t2 = await _turn(monkeypatch, session_id, AMBIGUOUS_VALUE,
                      fresh=_stalled_fresh, plan=_tax_plan)
@@ -258,8 +327,160 @@ async def test_ambiguous_value_asks_one_clarification_and_writes_nothing(
     assert r2.get("outcome") == "partial", r2
     assert t2["status_events"][-1] == "success"
     assert (t2["execution_row"] or {}).get("status") == "success"
-    assert _open_question(session_id) is not None, (
+    assert len(_open_questions(session_id)) == 1, (
         "the question stays open until ONE value is chosen")
+
+
+@pytest.mark.asyncio
+async def test_owner_message_table(monkeypatch):
+    """The owner's reproduced table, end to end:
+    'Cancel that' cancels (never an edit attempt); 'What did you
+    change?' is a question (normal flow, requirement open); '12,500'
+    and 'Research and Development' bind as ONE verbatim value each."""
+    # Cancel that.
+    sid = f"sess-r3-c-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "Cancel that",
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "cancellation must never plan an edit"
+    assert t["store"].updates == [], "cancellation writes nothing"
+    said = t["response"].get("message") or ""
+    assert "Cancelled" in said and "nothing was" in said.lower(), said
+    assert t["response"].get("success") is True
+    assert t["status_events"][-1] == "success"
+    assert _open_questions(sid) == [], "the question closes on cancellation"
+
+    # What did you change?
+    sid = f"sess-r3-q-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "What did you change?",
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "a question is not an answer"
+    assert t["reply_calls"], "the normal flow owns the question"
+    assert t["store"].updates == []
+    assert len(_open_questions(sid)) == 1, "the question stays open"
+
+    # 12,500 — one value, not two.
+    sid = f"sess-r3-n-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "12,500",
+                    fresh=_stalled_fresh,
+                    plan=lambda: _tax_plan("12,500"))
+    assert t["plan_calls"] == 1, "12,500 is ONE value and binds"
+    assert t["store"].content.count("12,500") == 1
+
+    # Research and Development — verbatim, no word removal.
+    sid = f"sess-r3-r-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    t = await _turn(monkeypatch, sid, "Research and Development",
+                    fresh=_stalled_fresh,
+                    plan=lambda: _tax_plan("Research and Development"))
+    assert t["plan_calls"] == 1, "a multi-word value binds verbatim"
+    assert t["store"].content.count("Research and Development") == 1
+
+
+@pytest.mark.asyncio
+async def test_several_open_requirements_are_asked_apart(monkeypatch):
+    """Two open questions in one conversation: the reply must ask WHICH
+    requirement the value answers — never select the first silently."""
+    sid = f"sess-r3-multi-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    # A second open requirement on the same conversation+canvas: stamped
+    # through the same production helper with a different item.
+    from integrations.chat_orchestrator import (
+        _stamp_awaiting_value_requirement,
+    )
+
+    qid2 = _stamp_awaiting_value_requirement(
+        None, None, (_open_questions(sid)[0]["run_id"]),
+        canvas_id=CANVAS_ID, goal_text="Add the client's VAT number to "
+        "this quotation.", references=["from the ledger"],
+        operation_id="op-2")
+    assert qid2, "the second question stamps"
+    assert len(_open_questions(sid)) == 2
+    t = await _turn(monkeypatch, sid, BARE_VALUE,
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "never select a requirement silently"
+    assert t["store"].updates == []
+    said = t["response"].get("message") or ""
+    assert "more than one open question" in said, said
+    assert "tax registration number" in said and "VAT number" in said, said
+    assert len(_open_questions(sid)) == 2, "both stay open"
+
+
+@pytest.mark.asyncio
+async def test_expiry_fresh_binds_expired_and_malformed_never(monkeypatch):
+    """The TTL check: a fresh stamp binds; an over-TTL stamp and a
+    MALFORMED timestamp never do — an unevaluable check must not
+    silently authorize resumption."""
+    sid = f"sess-r3-ttl-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+
+    # Fresh: binds.
+    t = await _turn(monkeypatch, sid, BARE_VALUE,
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 1
+    assert _open_questions(sid) == []
+
+    # Expired: the stamp is 8 days old — beyond the 7-day TTL.
+    sid = f"sess-r3-ttl-old-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    _set_opened_at(sid, "2026-10-08T00:00:00+00:00")
+    assert _open_questions(sid) == [], "an expired question never binds"
+    t = await _turn(monkeypatch, sid, BARE_VALUE,
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "expired: no resume"
+    assert t["reply_calls"], "the normal flow owns the turn"
+
+    # Malformed: the stamp is not a timestamp at all.
+    sid = f"sess-r3-ttl-bad-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    _set_opened_at(sid, "not-a-timestamp")
+    assert _open_questions(sid) == [], (
+        "a malformed timestamp never binds")
+    t = await _turn(monkeypatch, sid, BARE_VALUE,
+                    fresh=_stalled_fresh, plan=_tax_plan)
+    assert t["plan_calls"] == 0, "malformed: no resume"
+
+
+@pytest.mark.asyncio
+async def test_duplicated_label_plan_is_refused_and_restored(monkeypatch):
+    """The captured failing shape (R3 run 074317): a plan that lands the
+    value twice and duplicates an existing line's label. The editor
+    applies ops faithfully; the RESUME postcondition catches the
+    preservation violation, refuses the WHOLE mutation, restores the
+    pre-edit version, and the question stays open."""
+    sid = f"sess-r3-dup-{uuid.uuid4().hex[:8]}"
+    await _turn(monkeypatch, sid, REQUEST_MSG,
+                fresh=_stalled_fresh, plan=None)
+    assert len(_open_questions(sid)) == 1
+
+    t = await _turn(monkeypatch, sid, BARE_VALUE,
+                    fresh=_stalled_fresh, plan=_duplicated_label_plan)
+    r = t["response"]
+    assert t["plan_calls"] == 1
+    # The corrupted content WAS written by the lane (op application is
+    # faithful) — the postcondition is what catches it.
+    assert r.get("success") is True, "the refusal is a delivered turn"
+    said = r.get("message") or ""
+    assert "refused" in said.lower(), said
+    assert "restored" in said.lower(), said
+    assert t["store"].content == QUOTE, (
+        "the pre-edit content is restored byte-identically")
+    assert t["store"].restores == [PRE_AUDIT_ID], (
+        "the restore targets the captured pre-edit version")
+    assert (t["execution_row"] or {}).get("status") == "success"
+    assert len(_open_questions(sid)) == 1, (
+        "the requirement is unfulfilled — the question stays open")
 
 
 @pytest.mark.asyncio
@@ -271,7 +492,7 @@ async def test_a_requirement_for_another_canvas_is_never_hijacked(
     session_id = f"sess-r3-x-{uuid.uuid4().hex[:8]}"
     t1 = await _turn(monkeypatch, session_id, REQUEST_MSG,
                      fresh=_stalled_fresh, plan=None)
-    assert _open_question(session_id) is not None
+    assert len(_open_questions(session_id)) == 1
     t2 = await _turn(monkeypatch, session_id, BARE_VALUE,
                      fresh=_stalled_fresh, plan=_tax_plan,
                      context_canvas_id="cv-other")
@@ -279,8 +500,7 @@ async def test_a_requirement_for_another_canvas_is_never_hijacked(
         "a requirement must never bind a turn about another canvas")
     assert t2["reply_calls"], "the normal flow (reply leg) owns the turn"
     assert t2["store"].updates == []
-    # The question itself is untouched.
-    assert _open_question(session_id) is not None
+    assert len(_open_questions(session_id)) == 1
 
 
 @pytest.mark.asyncio
@@ -288,7 +508,7 @@ async def test_no_pending_requirement_means_no_hijack(monkeypatch):
     """A bare value with NO recorded requirement follows the normal flow:
     no plan runs, the reply leg owns the turn."""
     session_id = f"sess-r3-none-{uuid.uuid4().hex[:8]}"
-    assert _open_question(session_id) is None
+    assert _open_questions(session_id) == []
     t = await _turn(monkeypatch, session_id, BARE_VALUE,
                     fresh=_stalled_fresh, plan=_tax_plan)
     assert t["plan_calls"] == 0, "no recorded requirement, no resume"
