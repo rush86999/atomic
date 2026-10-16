@@ -566,10 +566,15 @@ def run_r4() -> dict:
         # race and the attempt is diagnostic-INVALID (retained).
         barrier_deadline = time.monotonic() + 600
         checkpoint_seen = False
+        checkpoint = None
         delivery_won = False
         while time.monotonic() < barrier_deadline:
             if checkpoint_file.exists():
                 checkpoint_seen = True
+                try:
+                    checkpoint = json.loads(checkpoint_file.read_text())
+                except Exception:  # noqa: BLE001
+                    checkpoint = {"raw": checkpoint_file.read_text()[:300]}
                 break
             arows = assistant_rows(server.db_path, "")
             if arows:
