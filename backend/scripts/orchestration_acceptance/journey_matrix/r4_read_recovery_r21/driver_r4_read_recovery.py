@@ -473,6 +473,34 @@ def run_r4() -> dict:
             {"dataset_name": r[0], "file_name": r[1],
              "workspace_head": str(r[2] or "")[:8], "status": r[3]}
             for r in _rows]}
+        # OBSERVABLE BARRIER: the workbook's DatasetEntry row is the
+        # named-file resolution's catalog. Wait for it (the ingestion
+        # materialization is a fire-and-forget background task); a
+        # catalog without the entry cannot dispatch the read.
+        _cat_deadline = time.monotonic() + 90
+        _cat_row = None
+        while time.monotonic() < _cat_deadline:
+            _con2 = _sq3.connect(f"file:{_db}?mode=ro", uri=True)
+            _cat_row = _con2.execute(
+                "SELECT dataset_name, file_name, workspace_id, status "
+                "FROM dataset_entries WHERE file_name=? AND status='active'",
+                (WORKBOOK_NAME,)).fetchone()
+            _con2.close()
+            if _cat_row:
+                break
+            time.sleep(1)
+        ev["dataset_catalog"]["entry_found"] = _cat_row is not None
+        ev["dataset_catalog"]["entry"] = dict(zip(
+            ("dataset_name", "file_name", "workspace_id", "status"),
+            _cat_row)) if _cat_row else None
+        if not _cat_row:
+            ev["invalid_reason"] = (
+                "workbook ingestion never materialized a DatasetEntry "
+                "within 90s - the named-file resolution had no catalog "
+                "candidate; attempt diagnostic-invalid (this is the "
+                "harness/ingestion boundary, not the recovery machinery)")
+            ev["pass"] = False
+            return ev
 
         baseline_ops = retrieve_operations(server.db_path, "")
         ev["audit_baseline"] = {"retrieve_ops": len(baseline_ops)}
