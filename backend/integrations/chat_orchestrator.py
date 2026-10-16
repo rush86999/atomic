@@ -21814,6 +21814,45 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             "(identity=%s)",
                             (_identity).get("file_id")
                             or _plan_mentions[0])
+                        # R4 SCRATCH LATCH (env-gated; ONLY the diagnostic
+                        # world sets ATOM_R4_DIAG=1): the result transaction
+                        # has committed - announce the checkpoint with the
+                        # execution/result identities and BLOCK delivery
+                        # while the latch file exists, so the driver can
+                        # terminate the process at the PROVEN
+                        # retrieved-not-delivered boundary. A missing env is
+                        # production behavior, byte-for-byte unchanged.
+                        if os.getenv("ATOM_R4_DIAG") == "1":
+                            import json as _r4json
+                            _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+                            _r4_result = session.get("_pending_file_result") or {}
+                            _r4_ckpt = {
+                                "execution_id": execution_id,
+                                "session_id": session_id,
+                                "status": "retrieved_delivery_blocked",
+                                "identity": _r4_result.get("identity"),
+                                "rendered_head": str(
+                                    _r4_result.get("rendered") or "")[:400],
+                                "structured_result_keys": sorted(
+                                    (_r4_result.get("structured_result")
+                                     or {}).keys()
+                                ) if isinstance(
+                                    _r4_result.get("structured_result"),
+                                    dict) else [],
+                                "latched_at": time.time(),
+                            }
+                            with open(os.path.join(
+                                    _r4_dir, "r4_checkpoint.json"), "w") as rf:
+                                _r4json.dump(_r4_ckpt, rf, default=str)
+                            _r4_block = os.path.join(
+                                _r4_dir, "r4_delivery_block")
+                            logger.warning(
+                                "[r4-latch] retrieval committed; delivery "
+                                "BLOCKED while %s exists", _r4_block)
+                            _r4_deadline = time.time() + 300
+                            while os.path.exists(_r4_block) \
+                                    and time.time() < _r4_deadline:
+                                time.sleep(0.2)
                     else:
                         session[FILE_TASK_SESSION_KEY] = merge_pending_task(
                             session.get(FILE_TASK_SESSION_KEY), message,
