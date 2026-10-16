@@ -62,6 +62,20 @@
    "failed_request_count": 0,
    "result": "FOCUSED ACCEPTANCE PASSES: request turn ships the specific ask (partial, zero writes, draft unchanged); after the real restart the bare value binds the stamped requirement ('Added client tax registration number 03-4567-8912 to the quotation.') with ONE write, the value EXACTLY ONCE, protected content intact, attributable audit row, reload agreement; the ambiguous value asks once naming both candidates. Zero failed requests; every check on every turn true.",
    "review_round_6": "structurally closed (Option A): anchored frames bind ONLY digit-bearing or quoted tails \u2014 an unquoted non-digit tail is an open class and resolves to unresolved; quoted tails fall through to the quote branch; the word denylist is deleted. Reviewer APPROVE with the condition the run launches from the settled pinned tree (met)."
+  },
+  {
+   "evidence_archived": {
+    "path": "evidence_r3_resume_20261016_115723_578116.json",
+    "sha256": "f7aaac9c2df0fc1267ad0cbf5aa08c43bcad8712ba42a9ee2ed39daa01aa447e",
+    "note": "sanitized in-repo archive; the FOCUSED restart/resume acceptance on the review-approved round-7 runtime (the semantic-boundary candidate)"
+   },
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_115723_578116.json",
+   "subject": "853226d79 (the narrow supply syntax + uniform frame-tail rules; reviewer round 7 APPROVE with the pin-bump condition, met)",
+   "counted": false,
+   "pass": true,
+   "failed_request_count": 0,
+   "result": "FOCUSED ACCEPTANCE PASSES on the semantic-boundary runtime: request turn ships the specific ask (partial, zero writes, draft unchanged); after the real restart the bare identifier binds the stamped requirement ('Client's tax registration number updated to 03-4567-8912.') with ONE write, the value EXACTLY ONCE, protected content intact, attributable audit row, reload agreement; the ambiguous value asks once naming both candidates. Zero failed requests; every check on every turn true.",
+   "review_round_7": "uniform frame-tail rules: anchored coordinated tails ask (segment split); generic frames bind only bare digit tails (quoted -> mention); bare-digit-first classification ('47:11' whole); multi-quote ambiguity. Reviewer APPROVE with the mechanical pin-bump condition, met."
   }
  ],
  "tests": {
@@ -82,12 +96,13 @@
   ],
   "verdict": "APPROVE \u2014 live run unblocked (the reviewer's independent probes, suite runs, and neighbor sweep all confirmed)"
  },
- "closure": "R3's tested identifier-resume workflow passes, including restart, preservation, attribution, and reload. General natural-language reply interpretation and arbitrary text-value preservation remain unresolved. (Owner-corrected closure statement, 2026-10-16.)",
+ "closure": "Identifier resume across restart verified; general answer recognition remains constrained to the narrow supply syntax above \u2014 broader natural-language answers are clarified, not guessed, and belong in the structured interpretation mechanism. (Owner-directed boundary, implemented.)",
  "interpretation_contract": [
   "six classes: answer | question | cancel | selection | new_instruction | unresolved; unrecognized text is UNRESOLVED, never an answer by default",
   "an answer is recognized only with an EXACT value span into the original message: requirement-anchored frame with a DIGIT-BEARING tail, a digit-bearing reply, or an explicitly quoted span",
   "unanchored multi-word non-digit values (e.g. 'Research and Development', 'Acme, Inc' unquoted) ASK; the quoted form binds verbatim (recorded contract change)",
   "ambiguity (several spans) and several open requirements produce specific clarifications with zero writes",
   "pre-persistence preservation on the proposed artifact; post-write readback + revision-guarded restore only as exceptional recovery"
- ]
+ ],
+ "boundary": "SUPPLY = a bare digit value, or an explicitly quoted value inside a requirement-anchored frame; coordination in either form asks; everything else \u2014 prose, mentions, negations, questions, selections, fresh directives \u2014 never writes. Values are exact spans of the user's own text; preservation is enforced pre-persistence with post-write recovery under a race guard; settlement requires verified fulfillment; the ledger dedups and expires. (Independent-reviewer closing statement, round 7.)"
 }
