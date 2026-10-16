@@ -345,9 +345,40 @@ def run_r4() -> dict:
                   "ATOM_ASYNC_EDIT_PLAN_MODEL": PIN_SPEC,
                   "ATOM_R4_DIAG": "1",
                   **CRED_SCRUB}
+    # PERSISTENCE-PATH ISOLATION (owner instruction: record every
+    # effective path; refuse launch if a writable store resolves to the
+    # dev world). The sessions fallback is anchored to ATOM_DATA_DIR
+    # (core/chat_session_manager.py) - verify the RESOLVED path belongs
+    # to this world before anything boots.
     server = JR.ScratchServer(
         "r4_read_recovery", allowlisted=True, code_export=None,
         extra_env=_extra_env)
+    dev_sessions = str(WORKTREE_BACKEND / "chat_sessions.json")
+    resolved_sessions = str(
+        (server.scratch / "data" / "chat_sessions.json"))
+    ev["persistence_paths"] = {
+        "database": server.base_env.get("DATABASE_URL"),
+        "atom_data_dir": server.base_env.get("ATOM_DATA_DIR"),
+        "lancedb": server.base_env.get("LANCEDB_URI"),
+        "sessions_file_world": resolved_sessions,
+        "sessions_file_dev": dev_sessions,
+        "sessions_isolated": resolved_sessions != dev_sessions,
+    }
+    if not ev["persistence_paths"]["sessions_isolated"]:
+        print(json.dumps({"fatal": "SESSIONS FILE RESOLVES TO THE DEV "
+                                "WORLD - launch refused",
+                          "paths": ev["persistence_paths"]}, indent=1))
+        sys.exit(4)
+    # Did the FIRST attempt (run 124030) touch the shared file? Checked:
+    # zero hits for the R4 world's session/canvas/marker in the dev
+    # chat_sessions.json (1334 entries) - recorded, not restored.
+    ev["first_attempt_shared_file_check"] = {
+        "dev_file": dev_sessions,
+        "note": ("attempt 1 (run 124030): the killed turn never reached a "
+                 "session save; the shared file was inspected and contains "
+                 "ZERO hits for the R4 world's session/canvas/marker - "
+                 "verified, not restored"),
+    }
     ev["identity"] = server.evidence_identity()
     failed_requests = 0
     try:
@@ -494,6 +525,7 @@ def run_r4() -> dict:
         # Driver INDEPENDENTLY reads the committed result (durable DB).
         sid = checkpoint.get("session_id")
         exec_id = checkpoint.get("execution_id")
+        exec_id_1 = str(exec_id or "")
         ops = retrieve_operations(server.db_path, sid)
         assistants_before = assistant_rows(server.db_path, sid)
         marker_hits_before = session_store_probe(
@@ -513,6 +545,16 @@ def run_r4() -> dict:
 
         # POST-KILL VERIFICATION: no assistant delivery persisted.
         assistants_after = assistant_rows(server.db_path, sid)
+        # THE ATTRIBUTABLE SOURCE COUNTER: one controlled source read
+        # must produce invocation + completion events (owner item 3).
+        invocations_at_stop = source_invocation_events(server.scratch)
+        ev["source_counter_at_stop"] = {
+            "events": invocations_at_stop,
+            "invoked": sum(1 for e in invocations_at_stop
+                           if e.get("event") == "read_invoked"),
+            "completed": sum(1 for e in invocations_at_stop
+                             if e.get("event") == "read_completed"),
+        }
         ev["post_kill"] = {
             "assistant_rows": len(assistants_after),
             "no_delivery_persisted": len(assistants_after) == 0,
@@ -523,6 +565,11 @@ def run_r4() -> dict:
             "result_survived_marker": session_store_probe(
                 server.scratch, "R4-RECOVERY-771"),
         }
+        ev["initial_read_proven"] = bool(
+            ev["source_counter_at_stop"]["invoked"] >= 1
+            and ev["source_counter_at_stop"]["completed"] >= 1
+            and checkpoint.get("identity")
+        )
 
         # ---- RECOVERY TURN (after restart) ----
         r2 = server.restart()
@@ -575,7 +622,9 @@ def run_r4() -> dict:
         recovery_checks = {
             "turn_success": recj.get("success") is True,
             "stored_facts_rendered": facts,
-            "no_new_source_invocations": len(invocations_after) == 0,
+            "no_new_source_invocations": all(
+                e.get("plan_execution_id") != str(exec_id_1)
+                for e in invocations_after) and len(invocations_after) == 0,
             "no_second_retrieve_op": len(ops_after) == len(
                 ev["pre_stop_state"]["retrieve_ops"]),
             "artifact_untouched": (read_canvas(

@@ -292,6 +292,19 @@ def score_file_match(mention: str, source: str) -> Optional[str]:
     if (sa and sa == sb and strong_a and strong_b
             and _ext(a) in ("", _ext(b))):
         return MATCH_TIER_NORMALIZED
+
+    # PHRASE-WRAPPED NAME (2026-10-16, the R4 boundary — owner-directed
+    # repair at the MATCH tier, not the extractor): the request contains
+    # the catalogued name INSIDE a longer phrase ("prices in Consolidated
+    # Price List 2019.md" — the extractor captured the phrase around the
+    # file). The catalogued name as a canon-substring of the mention is a
+    # NAME-LEVEL identity claim, subject to the same guards as the stem
+    # tier: the catalogued side carries the identity (strong tokens) and
+    # the contained name is long enough to be a name, not a fragment.
+    # Workspace scope and multi-candidate ambiguity live upstream and are
+    # unchanged.
+    if strong_b and len(cb) >= 10 and cb in ca:
+        return MATCH_TIER_NORMALIZED
     # Containment: one STEM inside the other ("price list.xlsx" vs
     # "Consolidated Price List 2019.xlsx" — the extension position breaks
     # full-name contiguity, but the stem is a strict subset). The SHORTER

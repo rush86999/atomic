@@ -21823,6 +21823,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # retrieved-not-delivered boundary. A missing env is
                         # production behavior, byte-for-byte unchanged.
                         if os.getenv("ATOM_R4_DIAG") == "1":
+                            import asyncio as _r4asyncio
                             import json as _r4json
                             _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
                             _r4_result = session.get("_pending_file_result") or {}
@@ -21839,6 +21840,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 ) if isinstance(
                                     _r4_result.get("structured_result"),
                                     dict) else [],
+                                "note": (
+                                    "checkpoint after the result write; "
+                                    "DURABLE persistence is verified by the "
+                                    "driver from the record store before the "
+                                    "kill - the in-memory assignment alone is "
+                                    "not proof"),
                                 "latched_at": time.time(),
                             }
                             with open(os.path.join(
@@ -21847,12 +21854,42 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             _r4_block = os.path.join(
                                 _r4_dir, "r4_delivery_block")
                             logger.warning(
-                                "[r4-latch] retrieval committed; delivery "
+                                "[r4-latch] result written; delivery "
                                 "BLOCKED while %s exists", _r4_block)
-                            _r4_deadline = time.time() + 300
-                            while os.path.exists(_r4_block) \
-                                    and time.time() < _r4_deadline:
-                                time.sleep(0.2)
+                            # AWAITED wait (review round 8): a blocking
+                            # time.sleep starved the event loop. Monotonic
+                            # deadline; on EXPIRY the expiry is recorded
+                            # loudly (file + log) and the stored result is
+                            # set aside - the turn does NOT silently deliver
+                            # it; the driver classifies the attempt invalid.
+                            _r4_deadline = time.monotonic() + 300
+                            while os.path.exists(_r4_block)                                     and time.monotonic() < _r4_deadline:
+                                await _r4asyncio.sleep(0.2)
+                            if os.path.exists(_r4_block):
+                                # EXPIRED: the stored result is WITHHELD
+                                # (removed from the session so no downstream
+                                # lane renders it), the expiry is recorded
+                                # loudly, and this helper returns — the
+                                # outer turn proceeds WITHOUT the stored
+                                # result (the reply answers honestly from
+                                # what it has; nothing is silently
+                                # delivered). The driver classifies the
+                                # attempt invalid from the expiry file.
+                                session.pop("_pending_file_result", None)
+                                _r4_expired = os.path.join(
+                                    _r4_dir, "r4_latch_expired.json")
+                                with open(_r4_expired, "w") as rf:
+                                    _r4json.dump({
+                                        "execution_id": execution_id,
+                                        "session_id": session_id,
+                                        "identity": _r4_result.get(
+                                            "identity"),
+                                    }, rf, default=str)
+                                logger.warning(
+                                    "[r4-latch] EXPIRED - stored result "
+                                    "WITHHELD, diagnostic recorded invalid "
+                                    "(%s)", _r4_expired)
+                                return
                     else:
                         session[FILE_TASK_SESSION_KEY] = merge_pending_task(
                             session.get(FILE_TASK_SESSION_KEY), message,

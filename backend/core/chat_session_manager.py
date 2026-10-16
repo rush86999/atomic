@@ -27,8 +27,15 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Sessions file path (Fallback)
-SESSIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chat_sessions.json")
+# Sessions file path (Fallback). ANCHORED to ATOM_DATA_DIR when set (the
+# scratch-world isolation contract, same class as the LanceDB/BYOK stores):
+# a fallback store must belong to the world that wrote it - an unanchored
+# path made every scratch world share (and overwrite) the dev sessions
+# file on completed turns.
+SESSIONS_FILE = os.path.join(
+    os.environ.get("ATOM_DATA_DIR")
+    or os.path.dirname(os.path.dirname(__file__)),
+    "chat_sessions.json")
 
 class ChatSessionManager:
     """Manages chat session metadata with DB support"""
