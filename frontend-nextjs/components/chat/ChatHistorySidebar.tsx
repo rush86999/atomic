@@ -19,9 +19,13 @@ interface ChatSession {
 interface ChatHistorySidebarProps {
     selectedSessionId: string | null;
     onSelectSession: (id: string) => void;
+    /** Parent-owned delete (so workspace/sidebar share one code path). */
+    onDeleteSession?: (id: string) => Promise<void>;
+    /** Bump to re-fetch the list after a sibling (workspace) deletes a chat. */
+    refreshKey?: number;
 }
 
-const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSessionId, onSelectSession }) => {
+const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSessionId, onSelectSession, onDeleteSession, refreshKey }) => {
     const [history, setHistory] = useState<ChatSession[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -30,7 +34,8 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSession
 
     useEffect(() => {
         fetchChatHistory();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshKey]);
 
     const fetchChatHistory = async () => {
         try {
@@ -139,24 +144,29 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({ selectedSession
     };
 
     // Delete a session: confirm, DELETE on the backend, drop it from the list.
-    // If the deleted chat was the one open in the middle pane, fall back to a
-    // fresh chat so the pane isn't left pointing at a dead session.
+    // When the page supplies `onDeleteSession` the delete is shared with the
+    // workspace (single code path + the list re-fetches via `refreshKey`);
+    // without it we fall back to a self-contained delete for standalone use.
     const handleDeleteChat = async (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation(); // don't trigger the row's session select
         if (deletingId) return;
         if (!window.confirm("Delete this chat? This cannot be undone.")) return;
         setDeletingId(sessionId);
         try {
-            const { apiClient } = await import('../../lib/api-client');
-            await apiClient.delete(`/api/chat/sessions/${sessionId}`, {
-                timeout: 10000,
-                // @ts-ignore
-                retry: false
-            });
-            if (selectedSessionId === sessionId) {
-                onSelectSession("new");
+            if (onDeleteSession) {
+                await onDeleteSession(sessionId);
+            } else {
+                const { apiClient } = await import('../../lib/api-client');
+                await apiClient.delete(`/api/chat/sessions/${sessionId}`, {
+                    timeout: 10000,
+                    // @ts-ignore
+                    retry: false
+                });
+                if (selectedSessionId === sessionId) {
+                    onSelectSession("new");
+                }
+                await fetchChatHistory();
             }
-            await fetchChatHistory();
         } catch (error) {
             console.error("Error deleting chat session:", error);
         } finally {
