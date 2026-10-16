@@ -9121,7 +9121,7 @@ class ChatOrchestrator:
                 try:
                     _pfr = self._load_pending_file_result(
                         session_id, message=message,
-                        workspace_id=workspace_id)
+                        workspace_id=_turn_scope.get("workspace_id"))
                 except Exception:  # noqa: BLE001 — best-effort
                     _pfr = None
             # NOTE: the reply leg's evidence-bound narration guard reads the
