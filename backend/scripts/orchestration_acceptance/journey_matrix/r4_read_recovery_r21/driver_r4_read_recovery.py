@@ -34,7 +34,7 @@ WORKTREE = Path("/Users/rushiparikh/projects/atom")
 WORKTREE_BACKEND = WORKTREE / "backend"
 EVIDENCE_DIR = Path("/tmp/r4_read_recovery_evidence")
 TURN_TIMEOUT_S = 600.0
-SUBJECT = "514556ca3"
+SUBJECT = "6180d83d3"
 
 PIN_PROVIDER = "deepseek"
 PIN_MODEL = "deepseek-v4-pro"
