@@ -9121,7 +9121,8 @@ class ChatOrchestrator:
                 try:
                     _pfr = self._load_pending_file_result(
                         session_id, message=message,
-                        workspace_id=_turn_scope.get("workspace_id"))
+                        workspace_id=_turn_scope.get("workspace_id"),
+                        tenant_id=_turn_scope.get("tenant_id"))
                 except Exception:  # noqa: BLE001 — best-effort
                     _pfr = None
             # NOTE: the reply leg's evidence-bound narration guard reads the
@@ -9770,6 +9771,40 @@ class ChatOrchestrator:
                         and not locals().get("_teaching_cue_turn"))
             except Exception:  # noqa: BLE001 — shape gate only
                 _ask_direct = False
+            # R4 EARLY RECOVERY CHECK (2026-10-16): one request-local
+            # decision BEFORE any planner-independent retrieval. When the
+            # turn is recovery-shaped with a resolved durable payload, the
+            # ask/direct lanes are suppressed here so no new read runs;
+            # the late pre-planner block reuses this same decision (no
+            # second load) and delivers/clarifies.
+            _r4_early_decision = {"decided": False}
+            try:
+                _e_dec, _e_pay, _e_cands = self._decide_file_recovery(
+                    message, session_id, _turn_scope,
+                    session, history, _canvas_ctx)
+                _r4_early_decision = {
+                    "decided": True,
+                    "decision": str(_e_dec or "normal_work"),
+                    "payload": _e_pay,
+                    "candidates": list(_e_cands or []),
+                }
+                if _r4_early_decision["decision"] in (
+                        "deliver_stored_result",
+                        "clarify_result_selection"):
+                    try:
+                        _ask_direct = False
+                    except Exception:
+                        pass
+                    try:
+                        _pending_file_task = None
+                    except Exception:
+                        pass
+                    logger.info(
+                        "[r4-recovery] early decision %s - retrieval "
+                        "suppressed, late block will serve",
+                        _r4_early_decision["decision"])
+            except Exception:  # noqa: BLE001
+                _r4_early_decision = {"decided": False}
             if (
                 _ask_direct
                 and not _pending_file_task
@@ -12070,9 +12105,29 @@ class ChatOrchestrator:
                             # stored result is withheld and the expiry is
                             # recorded loudly - never a silent fall-through
                             # to delivery.
-                            if os.getenv("ATOM_R4_LATCH") == "1":
+                            # ONE canonical explicit scratch directory
+                            # (no cwd fallback). Missing/invalid config
+                            # invalidates the diagnostic without writing
+                            # into repo or dev-data paths. The checkpoint is
+                            # published AFTER the persistence transaction
+                            # commits; delivery blocks on the awaited latch;
+                            # expiry withholds and loudly invalidates.
+                            _r4_latch_dir_ok = bool(
+                                os.environ.get("ATOM_DATA_DIR")
+                                and os.path.isdir(
+                                    str(os.environ.get("ATOM_DATA_DIR"))))
+                            if os.getenv("ATOM_R4_LATCH") == "1" and not (
+                                    _r4_latch_dir_ok):
+                                logger.warning(
+                                    "[r4-latch][direct] invalidated - "
+                                    "missing/invalid ATOM_DATA_DIR (%r); no "
+                                    "checkpoint written",
+                                    os.environ.get("ATOM_DATA_DIR"))
+                            if os.getenv("ATOM_R4_LATCH") == "1" and (
+                                    _r4_latch_dir_ok):
                                 import json as _r4json2
-                                _r4_dir2 = os.environ["ATOM_DATA_DIR"]
+                                _r4_dir2 = str(
+                                    os.environ.get("ATOM_DATA_DIR"))
                                 _r4_task = session.get(FILE_TASK_SESSION_KEY) or {}
                                 with open(os.path.join(
                                         _r4_dir2, "r4_checkpoint.json"),
@@ -12536,33 +12591,35 @@ class ChatOrchestrator:
                 _skip_plan_for_self_contained_edit = (
                     _self_contained_edit_turn(
                         message, _canvas_ctx, _td_decision))
-                # RECOVERY DECISION (owner plan item 1, R4 2026-10-16):
-                # resolved BEFORE planner task creation. When the
-                # conversation has durable retrieve findings (an
-                # interrupted turn committed them before delivery) and
-                # the reply is a show/recovery request, the stored result
-                # is served directly via the early delivery path — zero
-                # planner dispatch, zero source calls.
+                # RECOVERY DECISION (R4 2026-10-16): one request-local
+                # decision with three outcomes, derived BEFORE planner
+                # task creation. Explicit refresh stays new retrieval;
+                # genuine R3 answers stay with R3 (narrow syntax, never
+                # digits alone); unrelated stays normal work; ambiguous
+                # asks which. Reuses the early pre-retrieval decision when
+                # present to avoid a second durable load.
                 _recovery_decision = "normal_work"
                 _recovery_payload = None
+                _recovery_candidates = []
                 try:
-                    _r4_open = self._load_durable_file_result(
-                        session_id,
-                        workspace_id=(
-                            _turn_scope.get("workspace_id")
-                            if isinstance(_turn_scope, dict) else None),
-                        message=message,
-                    )
-                    if isinstance(_r4_open, dict) and _r4_open.get(
-                            "__ambiguous__"):
-                        _recovery_decision = "clarify_result_selection"
-                        _recovery_candidates = _r4_open.get(
-                            "candidates") or []
-                    elif isinstance(_r4_open, dict):
-                        _recovery_decision = "deliver_stored_result"
-                        _recovery_payload = _r4_open
+                    _early = locals().get("_r4_early_decision")
+                    if isinstance(_early, dict) and _early.get("decided"):
+                        _recovery_decision = str(
+                            _early.get("decision") or "normal_work")
+                        _recovery_payload = _early.get("payload")
+                        _recovery_candidates = list(
+                            _early.get("candidates") or [])
+                    else:
+                        _dec, _pay, _cands = self._decide_file_recovery(
+                            message, session_id, _turn_scope,
+                            session, history, _canvas_ctx)
+                        _recovery_decision = str(_dec or "normal_work")
+                        _recovery_payload = _pay
+                        _recovery_candidates = list(_cands or [])
                 except Exception:  # noqa: BLE001
-                    pass
+                    _recovery_decision = "normal_work"
+                    _recovery_payload = None
+                    _recovery_candidates = []
                 if _recovery_decision == "deliver_stored_result":
                     logger.info(
                         "[r4-recovery] delivering the stored result "
@@ -12570,23 +12627,44 @@ class ChatOrchestrator:
                         "calls")
                 elif _recovery_decision == "clarify_result_selection":
                     # CLARIFICATION: the ambiguity marker carries the
-                    # candidate identities - the ask names them, zero
-                    # writes, nothing consumed.
-                    _amb_names = "; ".join(
-                        str(c.get("file_name") or "the file")
-                        for c in (_recovery_candidates or [])[:3])
+                    # candidate identities - the ask names each with
+                    # filename plus useful context (objective snippet,
+                    # findings count, version), preserves identities for
+                    # the next reply, asks one specific question, and
+                    # returns with zero source calls and zero artifact
+                    # writes.
+                    _amb_parts = []
+                    for c in (_recovery_candidates or [])[:3]:
+                        _fn = str(c.get("file_name") or "the file")
+                        _obj = str(c.get("objective_text") or "")[:60]
+                        _fc = c.get("findings_count", 0)
+                        _sv = str(c.get("source_version") or "")[:8]
+                        _bit = _fn
+                        if _obj:
+                            _bit += f" ({_obj})"
+                        _bit += f" [{_fc} values"
+                        if _sv:
+                            _bit += f", v{_sv}"
+                        _bit += "]"
+                        _amb_parts.append(_bit)
+                    _amb_names = "; ".join(_amb_parts) or "the stored results"
+                    _amb_message = (
+                        "More than one previously retrieved result is open "
+                        f"here - {_amb_names}. Which one should I show? "
+                        "Reply with the file name (or the first few words "
+                        "of its request) and I'll serve it. Nothing was "
+                        "changed yet.")
                     _amb_response = {
                         "success": True,
-                        "message": (
-                            "More than one recovered result is open here "
-                            f"- {_amb_names}. Which one should I show? "
-                            "Nothing was changed yet; tell me which one "
-                            "and I'll serve it."),
+                        "message": _amb_message,
                         "session_id": session_id,
                         "execution_id": _execution_id,
                         "intent": "search",
                         "confidence": 0.9,
                         "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
                         "data": {"canvas_edit": {
                             "canvas_id": (
                                 (_canvas_ctx or {}).get("canvas_id")),
@@ -12623,11 +12701,19 @@ class ChatOrchestrator:
                         _tool_plan_task.cancel()
                     return _amb_response
 
-                # RECOVERY DELIVERY (owner plan item 3, R4 2026-10-16):
-                # a fully selected stored result is served through the
-                # EXISTING early delivery path - zero planner dispatch,
-                # zero source calls, no reply-model planner to rediscover
-                # what to do.
+                # RECOVERY DELIVERY (R4 2026-10-16): a fully selected
+                # stored result is served through the EXISTING delivery
+                # path - zero planner dispatch, zero source calls, no
+                # reply-model planner to rediscover what to do. The
+                # recovery turn's execution stays separate from the
+                # original read's execution; no fake retrieve operation is
+                # created and the original read is never relabeled as
+                # recovery-time execution. Idempotency: same-request retry
+                # replays via the transport key; repeated automatic scans
+                # never reach this branch (non-recovery-shaped stays
+                # normal); a new explicit display request receives an
+                # intentional reply with its own execution/delivery
+                # identities; refresh performs a new authorized read.
                 if _recovery_decision == "deliver_stored_result" \
                         and _recovery_payload:
                     _r4_identity = _recovery_payload.get("identity") or {}
@@ -12639,6 +12725,28 @@ class ChatOrchestrator:
                         f"From the previously retrieved results for "
                         f"{_r4_file} (recovered after the restart - "
                         f"nothing was re-read):\n{_r4_rendered}")
+                    # Derive the outcome from the request, coverage and
+                    # remaining obligations (never a hardcoded partial):
+                    # complete when no open obligations remain and every
+                    # covered item matched; otherwise partial. Persistence
+                    # or execution failure never becomes a success claim
+                    # (the loader returns None for missing/unreadable, so
+                    # this branch only runs on a readable payload).
+                    _r4_cov = dict(_recovery_payload.get("coverage") or {})
+                    _r4_open_obs = list(
+                        _recovery_payload.get("open_obligations") or [])
+                    if _r4_cov:
+                        _r4_matched = sum(
+                            1 for _v in _r4_cov.values()
+                            if _v == "matched")
+                        _r4_cov_complete = (
+                            _r4_matched == len(_r4_cov) and not _r4_open_obs)
+                    else:
+                        _r4_cov_complete = not _r4_open_obs
+                    _r4_outcome = (
+                        "completed" if _r4_cov_complete else "partial")
+                    _r4_terminal = (
+                        "success" if _r4_cov_complete else "partial")
                     _r4_response = {
                         "success": True,
                         "message": _r4_message,
@@ -12646,16 +12754,41 @@ class ChatOrchestrator:
                         "execution_id": _execution_id,
                         "intent": "search",
                         "confidence": 0.9,
-                        "outcome": "partial",
+                        "outcome": _r4_outcome,
+                        "_recorded_outcome": {
+                            "state": (
+                                "completed" if _r4_cov_complete
+                                else "partial"),
+                            "work_turn": True, "noop": False,
+                            "declined": False},
                         "data": {
                             "file_result": {
                                 "status": "delivered",
                                 "recovered_from_durable": True,
                                 "file_name": _r4_file,
-                                "source_version": _recovery_payload.get(
-                                    "identity", {}).get("source_version"),
+                                "source_version": _r4_identity.get(
+                                    "source_version"),
+                                "requested_fields": list(
+                                    _recovery_payload.get(
+                                        "requested_fields") or []),
+                                "coverage": dict(_r4_cov),
+                                "findings_count": len(
+                                    _recovery_payload.get("findings") or []),
                                 "zero_source_calls": True,
                             },
+                            "task_run_id": _recovery_payload.get("run_id"),
+                            "task_operation": {
+                                "run_id": _recovery_payload.get("run_id"),
+                                "operation_id": _recovery_payload.get(
+                                    "recovery_operation_id"),
+                            },
+                            "workspace_id": (
+                                _turn_scope.get("workspace_id")
+                                if isinstance(_turn_scope, dict) else None),
+                            "tenant_id": (
+                                _turn_scope.get("tenant_id")
+                                if isinstance(_turn_scope, dict) else None),
+                            "deterministic_delivery": True,
                         },
                         "model": "deterministic",
                         "provider": "structured",
@@ -12664,28 +12797,115 @@ class ChatOrchestrator:
                         "suggested_actions": [],
                         "timestamp": datetime.now().isoformat(),
                     }
-                    # SETTLE the lifecycle op: the stored findings are
-                    # now delivered (idempotent — a repeated recovery
-                    # scan does not re-append).
+                    # Persist the selected source-result reference through
+                    # the existing delivery mechanism (session carrier +
+                    # lifecycle delivery ledger via chat_routes). Keep the
+                    # recovery execution separate from the original read's
+                    # execution; never create a fake retrieve operation.
                     try:
-                        _r4_lifecycle = _task_lifecycle_for(
-                            getattr(self, "tenant_id", None),
-                            (context or {}).get("workspace_id"))
-                        if _r4_lifecycle is not None and _recovery_payload.get(
-                                "run_id"):
-                            _r4_lifecycle.finish_retrieval_turn(
-                                _recovery_payload["run_id"],
-                                _recovery_payload.get(
-                                    "recovery_operation_id"),
-                                {}, _execution_id, True,
-                                execution={"invoked": False,
-                                           "outcome": "delivered_from_durable",
-                                           "served_basis": "durable_findings"},
-                            )
-                    except Exception as _r4_settle_err:  # noqa: BLE001
+                        from core.pending_file_task import (
+                            FILE_TASK_SESSION_KEY as _R4_FTSK,
+                        )
+                        _r4_stored = dict(_recovery_payload)
+                        _r4_stored["status"] = "delivered"
+                        try:
+                            import time as _r4_time
+                            _r4_stored["delivered_at"] = _r4_time.time()
+                        except Exception:
+                            pass
+                        _r4_stored["delivery_execution_id"] = _execution_id
+                        _r4_stored["execution_id"] = _execution_id
+                        session["_pending_file_result"] = _r4_stored
+                        # Record the delivery on the durable task ledger
+                        # (idempotent on execution/message/content). The
+                        # route-layer persistence will also ledger this
+                        # turn via task_run_id; this direct record covers
+                        # the recovery path even when that layer is
+                        # bypassed in tests.
+                        try:
+                            _r4_lifecycle = _task_lifecycle_for(
+                                (_turn_scope.get("tenant_id")
+                                 if isinstance(_turn_scope, dict)
+                                 else getattr(self, "tenant_id", None)),
+                                (_turn_scope.get("workspace_id")
+                                 if isinstance(_turn_scope, dict)
+                                 else None))
+                            if _r4_lifecycle is not None and (
+                                    _recovery_payload.get("run_id")):
+                                import hashlib as _r4_hl
+                                _r4_bytes = _r4_message.encode()
+                                _r4_hash = _r4_hl.sha256(
+                                    _r4_bytes).hexdigest()
+                                # message_id is allocated by
+                                # _update_session below; record with the
+                                # execution-bound placeholder and let the
+                                # route layer bind the exact row id. A
+                                # same-execution retry replays (same
+                                # execution + same bytes).
+                                try:
+                                    _r4_lifecycle.record_delivery(
+                                        str(_recovery_payload.get(
+                                            "run_id")),
+                                        execution_id=str(_execution_id),
+                                        operation_ids=[
+                                            str(_recovery_payload.get(
+                                                "recovery_operation_id"))]
+                                        if _recovery_payload.get(
+                                            "recovery_operation_id")
+                                        else [],
+                                        message_id=(
+                                            f"recovery-{_execution_id}"),
+                                        content_sha256=_r4_hash)
+                                except Exception:
+                                    pass
+                        except Exception as _r4_rec_err:  # noqa: BLE001
+                            logger.debug(
+                                "[r4-recovery] delivery ledger skipped: %r",
+                                _r4_rec_err)
+                    except Exception as _r4_persist_err:  # noqa: BLE001
                         logger.warning(
-                            "[r4-recovery] lifecycle settle failed: %r",
-                            _r4_settle_err)
+                            "[r4-recovery] recovery persistence failed: %r",
+                            _r4_persist_err)
+                        # Persistence failure never becomes a success
+                        # claim: surface it honestly instead of
+                        # delivering as if durable.
+                        _r4_fail_response = {
+                            "success": False,
+                            "message": (
+                                "The previously retrieved result could not "
+                                "be restored durably, so nothing was "
+                                "delivered as complete. You can ask me to "
+                                "show it again or to re-run the read."),
+                            "session_id": session_id,
+                            "execution_id": _execution_id,
+                            "intent": "search",
+                            "confidence": 0.9,
+                            "outcome": "unconfirmed",
+                            "error_code": "recovery_persistence_failed",
+                            "model": "deterministic",
+                            "provider": "structured",
+                            "requires_confirmation": False,
+                            "next_steps": [],
+                            "suggested_actions": [],
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        self._update_session(
+                            session, message, _r4_fail_response,
+                            {"primary_intent": "search",
+                             "confidence": 0.9})
+                        await self._emit_agent_status(
+                            session_id, _trace_agent_id, _execution_id,
+                            "failed")
+                        self._finish_chat_execution(
+                            _execution_id, "failed",
+                            str(_r4_fail_response.get("message") or ""),
+                            session=session, message=message,
+                            response=_r4_fail_response,
+                            deadline=_deadline)
+                        if _tool_plan_task is not None \
+                                and not _tool_plan_task.done():
+                            _tool_plan_task.cancel()
+                        return _r4_fail_response
                     self._update_session(
                         session, message, _r4_response,
                         {"primary_intent": "search", "confidence": 0.9})
@@ -12693,9 +12913,12 @@ class ChatOrchestrator:
                         session_id, _trace_agent_id, _execution_id,
                         "success")
                     self._finish_chat_execution(
-                        _execution_id, "success", _r4_message,
+                        _execution_id, _r4_terminal, _r4_message,
                         session=session, message=message,
-                        response=_r4_response, deadline=_deadline)
+                        response=_r4_response, deadline=_deadline,
+                        pending_task=session.get("_pending_file_task"),
+                        authorized_actions=["read"],
+                        allow_persisted_evidence=True)
                     logger.info(
                         "[r4-recovery] delivered the stored result "
                         "(zero source calls, idempotent)")
@@ -30085,110 +30308,688 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
 
     def _load_durable_file_result(
         self, session_id: Optional[str],
-        workspace_id: Optional[str] = None,
+        *, workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
         message: str = "",
     ) -> Optional[Dict[str, Any]]:
-        """DURABLE-RESULT FALLBACK for the recovery lane (owner plan item
-        1, R4 2026-10-16): an interrupted turn with NO assistant row
-        cannot recover through the assistant-metadata carrier even when
-        its findings exist durably in goal_runs. Resolve the
-        conversation's own run's successful retrieve operation and
-        reconstruct the stored payload from execution.findings.
+        """DURABLE-RESULT fallback for the recovery lane (R4 2026-10-16).
 
-        Selection binding (owner item 2): the conversation's own run
-        (find_active_task) - never the globally newest run. MULTIPLE
-        retrieve results within the run are NOT resolved here - the
-        caller delivers a clarification instead of a silent pick. Idempotency (owner item 4): if the
-        findings were already delivered (an assistant row carrying them
-        exists), the fallback stands down."""
+        An interrupted turn with NO assistant row cannot recover through
+        the assistant-metadata carrier even when its findings exist
+        durably in goal_runs. Resolve the conversation's own successful
+        retrieve operation(s) and reconstruct the stored payload from
+        execution.findings.
+
+        Selection binding: the conversation's own runs only (workspace +
+        conversation bound) - never the globally newest run. When the
+        newest non-terminal run carries no eligible findings but an older
+        conversation-bound run does, the older eligible record is
+        selected (mirrors the canvas applicable-task policy: a newer
+        findings-less run never shadows an older eligible result).
+        MULTIPLE eligible retrieve results are NOT resolved here - the
+        caller delivers a clarification instead of a silent pick.
+        A missing or unreadable authorized result returns None (never a
+        successful recovery).
+        """
         if not session_id or not message:
             return None
         try:
-            lifecycle = _task_lifecycle_for(None, workspace_id)
+            lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
             if lifecycle is None:
                 return None
-            record = lifecycle.find_active_task(str(session_id))
-            if not record:
+            # Conversation-bound runs, newest first. find_active_task
+            # returns the newest non-terminal run; when it carries no
+            # eligible findings a newer findings-less run would shadow an
+            # older eligible result, so scan the conversation's own runs
+            # in order and select the first with eligible findings.
+            try:
+                _runs = lifecycle.runs.list_runs(
+                    include_terminal=False, limit=200)
+            except Exception:
+                _runs = []
+            _conv_runs: list = []
+            for _r in _runs or []:
+                try:
+                    _params = (_r.get("parameters") or {})
+                    _lc = _params.get("task_lifecycle") or {}
+                    _cid = _lc.get("conversation_id")
+                except Exception:
+                    _cid = None
+                if _cid is None:
+                    try:
+                        _rec_probe = lifecycle.get_task(
+                            str(_r.get("id") or ""))
+                        _cid = (_rec_probe or {}).get("conversation_id")
+                    except Exception:
+                        _cid = None
+                if str(_cid or "") == str(session_id):
+                    _conv_runs.append(_r)
+            _records: list = []
+            if _conv_runs:
+                for _r in _conv_runs:
+                    try:
+                        _rec = lifecycle.get_task(str(_r.get("id") or ""))
+                    except Exception:
+                        _rec = None
+                    if _rec:
+                        _records.append(_rec)
+            else:
+                try:
+                    _active = lifecycle.find_active_task(str(session_id))
+                except Exception:
+                    _active = None
+                if _active:
+                    _records.append(_active)
+            if not _records:
                 return None
             candidates: list = []
-            findings: list = []
-            for op in record.get("operations") or []:
-                op = op or {}
-                if str(op.get("operation_type") or "") != "retrieve":
-                    continue
-                if str(op.get("status") or "") != "applied":
-                    continue
-                ex = op.get("execution") or {}
-                if str(ex.get("outcome") or "") != "read_succeeded":
-                    continue
-                fnd = [f for f in (ex.get("findings") or [])
-                       if isinstance(f, dict)]
-                if not fnd:
-                    continue
-                candidates.append({
-                    "operation_id": op.get("operation_id"),
-                    "file_name": str(
-                        (fnd[0] or {}).get("source_file_name")
-                        or (fnd[0] or {}).get("source") or "the file"),
-                    "source_version": str(ex.get("source_version") or ""),
-                })
-                findings.extend(fnd)
+            for _record in _records:
+                _run_id = _record.get("run_id") or _record.get("id")
+                _revision = _record.get("task_revision") or {}
+                _objective = str(_revision.get("objective_text") or "")
+                _requested_fields = list(
+                    _revision.get("requested_fields") or [])
+                _open_obligations = [
+                    q for q in (_revision.get("unresolved") or [])
+                    if isinstance(q, dict) and q.get("status") == "open"]
+                _deliveries = list(_record.get("deliveries") or [])
+                for op in _record.get("operations") or []:
+                    op = op or {}
+                    if str(op.get("operation_type") or "") != "retrieve":
+                        continue
+                    if str(op.get("status") or "") != "applied":
+                        continue
+                    ex = op.get("execution") or {}
+                    if str(ex.get("outcome") or "") != "read_succeeded":
+                        continue
+                    fnd = [f for f in (ex.get("findings") or [])
+                           if isinstance(f, dict)]
+                    if not fnd:
+                        continue
+                    _first = fnd[0] or {}
+                    _fname = str(
+                        _first.get("source_file_name")
+                        or _first.get("file_name")
+                        or (ex.get("source_identity") or {}).get("file_name")
+                        or _first.get("source") or "the file")
+                    candidates.append({
+                        "run_id": _run_id,
+                        "operation_id": op.get("operation_id"),
+                        "execution_id": op.get("execution_id"),
+                        "file_name": _fname,
+                        "source_version": str(
+                            ex.get("source_version") or ""),
+                        "findings": list(fnd),
+                        "requested_fields": list(_requested_fields),
+                        "objective_text": _objective,
+                        "coverage_items": dict(ex.get("items") or {}),
+                        "open_obligations": list(_open_obligations),
+                        "deliveries": list(_deliveries),
+                        "conversation_id": str(session_id),
+                        "workspace_id": str(workspace_id or ""),
+                    })
+                if candidates:
+                    break
             if not candidates:
                 return None
             if len(candidates) > 1:
                 # MULTIPLE plausible results: the caller delivers a
-                # clarification naming both - never a silent pick (owner
-                # item 2).
+                # clarification naming each - never a silent pick. Preserve
+                # distinct run/operation identities even when filenames are
+                # equal. Full per-candidate payloads ride along so a
+                # selecting follow-up can deliver without a second load.
                 return {
                     "__ambiguous__": True,
                     "candidates": [
                         {"file_name": c["file_name"],
-                         "source_version": c["source_version"]}
+                         "source_version": c["source_version"],
+                         "run_id": c["run_id"],
+                         "operation_id": c["operation_id"],
+                         "execution_id": c.get("execution_id"),
+                         "requested_fields": list(
+                             c.get("requested_fields") or []),
+                         "findings_count": len(c.get("findings") or []),
+                         "objective_text": str(
+                             c.get("objective_text") or "")[:160],
+                         "findings": list(c.get("findings") or []),
+                         "coverage_items": dict(
+                             c.get("coverage_items") or {}),
+                         "open_obligations": list(
+                             c.get("open_obligations") or []),
+                         "conversation_id": str(
+                             c.get("conversation_id") or ""),
+                         "workspace_id": str(
+                             c.get("workspace_id") or "")}
                         for c in candidates],
                 }
             chosen = candidates[0]
             file_name = chosen["file_name"]
-            lines = [f"From the previously retrieved results for "
-                     f"{file_name} (recovered after the restart - "
-                     f"nothing was re-read):"]
+            findings = list(chosen.get("findings") or [])
+            lines = []
             for f in findings:
                 item = str(f.get("item") or "?")
-                value = str(f.get("value") or "?")
-                src_at = str(f.get("source") or "")
-                lines.append(f"- **{item}** - {value} ({src_at})")
-            rendered = "\n".join(lines)[:24000]
+                raw = str(f.get("raw") or f.get("value") or "?")
+                parsed = f.get("parsed") if isinstance(
+                    f.get("parsed"), dict) else {}
+                basis = str(parsed.get("basis") or f.get("basis") or "")
+                currency = str(
+                    parsed.get("currency") or f.get("currency") or "")
+                unit = str(parsed.get("unit") or f.get("unit") or "")
+                _basis_bits = " ".join(
+                    b for b in [basis, currency, unit] if b)
+                _loc = str(f.get("source") or "")
+                _ver = str(f.get("content_hash")
+                           or chosen.get("source_version") or "")
+                _extra = "; ".join(
+                    b for b in [_basis_bits, _loc,
+                                (f"version {_ver[:16]}" if _ver else "")]
+                    if b)
+                if _extra:
+                    lines.append(f"- **{item}** - {raw} ({_extra})")
+                else:
+                    lines.append(f"- **{item}** - {raw}")
+            _coverage = dict(chosen.get("coverage_items") or {})
+            _cov_done = [k for k, v in _coverage.items() if v == "matched"]
+            _cov_open = [k for k, v in _coverage.items()
+                         if v not in ("matched",)]
+            _cov_line = ""
+            if _coverage:
+                _cov_line = (
+                    f"Coverage: {len(_cov_done)}/{len(_coverage)} "
+                    f"items matched"
+                    + (f" (open: {', '.join(_cov_open[:4])})"
+                       if _cov_open else ""))
+            rendered_body = "\n".join(lines)[:22000]
+            if _cov_line:
+                rendered_body = (
+                    f"{rendered_body}\n{_cov_line}" if rendered_body
+                    else _cov_line)
+            _ver_full = str(chosen.get("source_version") or "")
+            if _ver_full:
+                rendered_body = (
+                    f"{rendered_body}\nSource version: {_ver_full[:32]}"
+                    if rendered_body else
+                    f"Source version: {_ver_full[:32]}")
             from core.workbook_read_artifact import (
                 TARGET_EXTRACTION_VERSION as _tev,
             )
             return {
                 "status": "retrieved",
-                "rendered": rendered,
+                "rendered": rendered_body,
                 "identity": {
                     "file_name": file_name,
                     "source_version": chosen["source_version"],
+                    "workspace_id": str(workspace_id or ""),
+                    "conversation_id": str(session_id),
                 },
                 "target_extraction_version": _tev,
                 "recovered_from_durable": True,
                 "recovery_operation_id": chosen.get("operation_id"),
-                "run_id": record.get("run_id"),
+                "recovery_execution_id": chosen.get("execution_id"),
+                "run_id": chosen.get("run_id"),
+                "conversation_id": str(session_id),
+                "workspace_id": str(workspace_id or ""),
+                "original_request": str(chosen.get("objective_text") or ""),
+                "requested_fields": list(
+                    chosen.get("requested_fields") or []),
+                "coverage": dict(chosen.get("coverage_items") or {}),
+                "findings": findings,
+                "open_obligations": list(
+                    chosen.get("open_obligations") or []),
+                "source_identity": {
+                    "file_name": file_name,
+                    "source_version": chosen.get("source_version"),
+                },
+                "recorded_version": str(chosen.get("source_version") or ""),
+                "delivery_state": list(chosen.get("deliveries") or []),
             }
         except Exception as exc:  # noqa: BLE001
             logger.debug("[r4-recovery] durable load skipped: %r", exc)
             return None
 
+    def _is_r3_owned_reply(
+        self, message: str, canvas_ctx: Optional[Dict[str, Any]],
+        session_id: Optional[str],
+        turn_scope: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Whether the narrow R3 supply syntax owns this reply.
+
+        R3 owns a reply ONLY when an open awaiting-value requirement
+        exists for THIS canvas and the message classifies as an answer
+        (exact value span), a selection, or a cancellation under the
+        accepted narrow contract (_classify_resume_reply). Digit presence
+        alone never establishes ownership: "Show the saved prices for
+        machine 381" is a result request, not an R3 answer. The lookup
+        uses the already resolved authenticated request scope (workspace
+        + tenant), never default-scoped behavior.
+        """
+        try:
+            _canvas_id = None
+            if isinstance(canvas_ctx, dict):
+                _canvas_id = canvas_ctx.get("canvas_id")
+            if not _canvas_id or not session_id:
+                return False
+            _ws = (turn_scope or {}).get("workspace_id") if isinstance(
+                turn_scope, dict) else None
+            _tn = (turn_scope or {}).get("tenant_id") if isinstance(
+                turn_scope, dict) else None
+            try:
+                _open = _open_awaiting_value_requirements(
+                    _tn if _tn is not None else getattr(
+                        self, "tenant_id", None),
+                    _ws,
+                    session_id, _canvas_id)
+            except Exception:
+                _open = []
+            if not _open:
+                return False
+            try:
+                _cls = _classify_resume_reply(
+                    message, _open[0],
+                    items=[_q.get("item") for _q in _open])
+            except Exception:
+                return False
+            return str(_cls.get("class") or "") in (
+                "answer", "selection", "cancel")
+        except Exception:
+            return False
+
+    def _is_recovery_shaped(
+        self, message: str, session: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Whether the message asks to show a previously retrieved result.
+
+        Narrow, recovery-anchored (not a generic intent): an approval
+        (is_filename_confirmation), a presentation follow-up
+        (_continuation_decision retrieval == "none"), or a show verb with
+        a recovery marker (earlier/previous/saved/stored/found/recovered/
+        again/last/before/restart, or an explicit that-result reference).
+        Result/status/clarification asks and work instructions are never
+        recovery-shaped: the normal flows own them. Unknown or unrelated
+        input returns False.
+        """
+        try:
+            import re as _re
+            from core.pending_file_task import is_filename_confirmation
+            t = str(message or "")
+            if not t.strip():
+                return False
+            try:
+                if bool(_RESULT_REFERENCE_ASK_RE.search(t)):
+                    return False
+                if bool(_STATUS_TABLE_ASK_RE.search(t)):
+                    return False
+                if bool(_CLARIFY_PREVIOUS_RE.search(t)):
+                    return False
+                if bool(_WORK_INSTRUCTION_RE.search(t)):
+                    return False
+            except Exception:
+                pass
+            try:
+                if is_filename_confirmation(t):
+                    return True
+            except Exception:
+                pass
+            try:
+                _cont = self._continuation_decision(t, session)
+                if isinstance(_cont, dict) and _cont.get(
+                        "retrieval") == "none":
+                    return True
+            except Exception:
+                pass
+            _verb = bool(_re.search(
+                r"\b(show|display|give|list|tell|what)\b", t,
+                _re.IGNORECASE))
+            _marker = bool(_re.search(
+                r"\b(earlier|previous|previously|saved|stored|found|"
+                r"recovered|again|last|before|restart)\b"
+                r"|\bthat\b.{0,30}\bresult\b"
+                r"|\bprice\b.{0,20}\blist\b.{0,20}\bresult\b",
+                t, _re.IGNORECASE))
+            if _verb and _marker:
+                return True
+            return False
+        except Exception:
+            return False
+
+    def _prior_clarify_candidates(
+        self, history: Optional[list],
+    ) -> list:
+        """The most recent clarification's preserved candidate identities.
+
+        The clarification handler stores the distinct run/operation/file
+        identities in the response data; _update_session persists them in
+        the turn history. A selecting follow-up resolves against these -
+        never a silent pick, never content-equality alone.
+        """
+        try:
+            for entry in reversed(list(history or [])[-6:]):
+                resp = (entry or {}).get("response") if isinstance(
+                    entry, dict) else None
+                data = (resp or {}).get("data") if isinstance(
+                    resp, dict) else None
+                cands = None
+                if isinstance(data, dict):
+                    ce = data.get("canvas_edit") if isinstance(
+                        data.get("canvas_edit"), dict) else None
+                    if isinstance(ce, dict) and isinstance(
+                            ce.get("candidates"), list):
+                        cands = ce.get("candidates")
+                    elif isinstance(data.get("candidates"), list):
+                        cands = data.get("candidates")
+                if cands:
+                    return list(cands)
+        except Exception:
+            pass
+        return []
+
+    def _select_clarify_candidate(
+        self, message: str, candidates: list,
+    ) -> Optional[Dict[str, Any]]:
+        """Which single clarified candidate the message selects, or None.
+
+        Ordinals ("1", "option 2", "first") select by position; otherwise
+        the message must name exactly one candidate's file (case-insensitive
+        substring, or the stored objective snippet). Ambiguous or empty
+        selections return None - the caller clarifies again.
+        """
+        try:
+            import re as _re
+            t = str(message or "").strip()
+            if not t or not candidates:
+                return None
+            # Ordinals first (the clarification numbers them).
+            m = _re.match(
+                r"^\s*(?:option\s+)?([1-3])\s*[.!?]*\s*$",
+                t, _re.IGNORECASE)
+            if m:
+                idx = int(m.group(1)) - 1
+                if 0 <= idx < len(candidates):
+                    return candidates[idx]
+                return None
+            low = t.lower()
+            if _re.search(r"\bfirst\b|\b1st\b", low):
+                return candidates[0] if len(candidates) >= 1 else None
+            if _re.search(r"\bsecond\b|\b2nd\b", low):
+                return candidates[1] if len(candidates) >= 2 else None
+            if _re.search(r"\bthird\b|\b3rd\b", low):
+                return candidates[2] if len(candidates) >= 3 else None
+            # File-name (or objective-snippet) match: exactly one.
+            hits = []
+            for c in candidates:
+                fn = str((c or {}).get("file_name") or "").lower()
+                obj = str((c or {}).get("objective_text") or "").lower()
+                if fn and fn != "the file" and fn in low:
+                    hits.append(c)
+                elif obj and len(obj) > 8 and obj[:40] in low:
+                    hits.append(c)
+            if len(hits) == 1:
+                return hits[0]
+            return None
+        except Exception:
+            return None
+
+    def _payload_from_candidate(
+        self, candidate: Dict[str, Any], session_id: Optional[str],
+        workspace_id: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Build a deliverable payload from one clarified candidate.
+
+        Uses the candidate's own findings/coverage/obligations with the
+        same rendering and identity contract as the single-result path -
+        no silent pick, no content-equality decision.
+        """
+        try:
+            c = candidate or {}
+            findings = list(c.get("findings") or [])
+            if not findings:
+                # The clarification marker carries IDENTITIES only (run +
+                # operation + name) - the reply history must not become a
+                # second evidence store. Resolve the SELECTED operation's
+                # own stored evidence from the durable record; the
+                # selection binds run+operation identity, never a guess
+                # from rendered history content.
+                try:
+                    _lc = _task_lifecycle_for(
+                        getattr(self, "tenant_id", None),
+                        (str(workspace_id) if workspace_id else None))
+                    _rec = None
+                    if _lc is not None and c.get("run_id"):
+                        _rec = _lc.get_task(str(c.get("run_id")))
+                    for _op in (_rec or {}).get("operations") or []:
+                        _op = _op or {}
+                        if str(_op.get("operation_id") or "") != str(
+                                c.get("operation_id") or ""):
+                            continue
+                        _ex = _op.get("execution") or {}
+                        if str(_ex.get("outcome") or "") != "read_succeeded":
+                            break
+                        findings = [
+                            f for f in (_ex.get("findings") or [])
+                            if isinstance(f, dict)]
+                        c = {**c,
+                             "coverage_items": dict(
+                                 _ex.get("items") or {}),
+                             "open_obligations": list(c.get(
+                                 "open_obligations") or []),
+                             "deliveries": list(
+                                 (_rec or {}).get("deliveries") or []),
+                             "execution_id": _op.get("execution_id"),
+                             "source_version": str(
+                                 _ex.get("source_version")
+                                 or c.get("source_version") or "")}
+                        break
+                except Exception:
+                    findings = []
+            if not findings:
+                return None
+            file_name = str(c.get("file_name") or "the file")
+            lines = []
+            for f in findings:
+                item = str(f.get("item") or "?")
+                raw = str(f.get("raw") or f.get("value") or "?")
+                parsed = f.get("parsed") if isinstance(
+                    f.get("parsed"), dict) else {}
+                basis = str(parsed.get("basis") or f.get("basis") or "")
+                currency = str(
+                    parsed.get("currency") or f.get("currency") or "")
+                unit = str(parsed.get("unit") or f.get("unit") or "")
+                _bits = " ".join(b for b in [basis, currency, unit] if b)
+                _loc = str(f.get("source") or "")
+                _ver = str(f.get("content_hash")
+                           or c.get("source_version") or "")
+                _extra = "; ".join(
+                    b for b in [_bits, _loc,
+                                (f"version {_ver[:16]}" if _ver else "")]
+                    if b)
+                lines.append(
+                    f"- **{item}** - {raw} ({_extra})" if _extra
+                    else f"- **{item}** - {raw}")
+            _cov = dict(c.get("coverage_items") or c.get("coverage") or {})
+            _cov_done = [k for k, v in _cov.items() if v == "matched"]
+            _cov_line = ""
+            if _cov:
+                _cov_line = (
+                    f"Coverage: {len(_cov_done)}/{len(_cov)} items matched")
+            body = "\n".join(lines)[:22000]
+            if _cov_line:
+                body = f"{body}\n{_cov_line}" if body else _cov_line
+            _vf = str(c.get("source_version") or "")
+            if _vf:
+                body = (f"{body}\nSource version: {_vf[:32]}"
+                        if body else f"Source version: {_vf[:32]}")
+            from core.workbook_read_artifact import (
+                TARGET_EXTRACTION_VERSION as _tev,
+            )
+            return {
+                "status": "retrieved",
+                "rendered": body,
+                "identity": {
+                    "file_name": file_name,
+                    "source_version": str(c.get("source_version") or ""),
+                    "workspace_id": str(workspace_id or ""),
+                    "conversation_id": str(session_id or ""),
+                },
+                "target_extraction_version": _tev,
+                "recovered_from_durable": True,
+                "recovery_operation_id": c.get("operation_id"),
+                "recovery_execution_id": c.get("execution_id"),
+                "run_id": c.get("run_id"),
+                "conversation_id": str(session_id or ""),
+                "workspace_id": str(workspace_id or ""),
+                "original_request": str(c.get("objective_text") or ""),
+                "requested_fields": list(
+                    c.get("requested_fields") or []),
+                "coverage": dict(_cov),
+                "findings": findings,
+                "open_obligations": list(
+                    c.get("open_obligations") or []),
+                "source_identity": {
+                    "file_name": file_name,
+                    "source_version": str(c.get("source_version") or ""),
+                },
+                "recorded_version": str(c.get("source_version") or ""),
+                "delivery_state": list(c.get("deliveries") or []),
+            }
+        except Exception:
+            return None
+
+    def _decide_file_recovery(
+        self, message: str, session_id: Optional[str],
+        turn_scope: Optional[Dict[str, Any]],
+        session: Optional[Dict[str, Any]],
+        history: Optional[list],
+        canvas_ctx: Optional[Dict[str, Any]],
+    ) -> "tuple[str, Optional[Dict[str, Any]], list]":
+        """One request-local recovery decision (deliver/clarify/normal).
+
+        Local to the request (no mutable cross-turn flag). Carries the
+        selected payload or candidate identities with the decision.
+        Order: explicit refresh stays new retrieval; a genuine R3 answer
+        stays with R3; a non-recovery-shaped or extending request stays
+        normal work; otherwise a single resolved payload delivers and
+        multiple plausible results clarify. Never classifies every
+        message as recovery merely because stored findings exist.
+        """
+        try:
+            from core.pending_file_task import (
+                is_retrieval_refresh_request,
+                request_extends_objective,
+            )
+        except Exception:
+            return ("normal_work", None, [])
+        t = str(message or "")
+        if not t.strip() or not session_id:
+            return ("normal_work", None, [])
+        # Explicit refresh/re-run stays new retrieval.
+        try:
+            if is_retrieval_refresh_request(t):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        # Genuine R3 answers stay with R3 (narrow syntax, not digits).
+        try:
+            if self._is_r3_owned_reply(
+                    t, canvas_ctx, session_id, turn_scope):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        # Selecting follow-up to a prior clarification: the history
+        # carries the preserved candidate identities; naming one file
+        # (or an ordinal) delivers it without a new read. Checked before
+        # the recovery-shape gate so "the first one" still resolves.
+        try:
+            _prior = self._prior_clarify_candidates(history)
+            if _prior:
+                _sel = self._select_clarify_candidate(t, _prior)
+                if isinstance(_sel, dict):
+                    # Resolve the selected run/op to a full payload via
+                    # the single durable load below (filtered, no silent
+                    # pick: exactly one named match).
+                    _ws0 = (turn_scope or {}).get(
+                        "workspace_id") if isinstance(
+                        turn_scope, dict) else None
+                    _tn0 = (turn_scope or {}).get(
+                        "tenant_id") if isinstance(
+                        turn_scope, dict) else None
+                    try:
+                        _open0 = self._load_durable_file_result(
+                            session_id, workspace_id=_ws0,
+                            tenant_id=_tn0, message=t)
+                    except Exception:
+                        _open0 = None
+                    if isinstance(_open0, dict) and _open0.get(
+                            "__ambiguous__"):
+                        _full = {
+                            str(c.get("run_id") or "") + "|"
+                            + str(c.get("operation_id") or ""): c
+                            for c in (_open0.get("candidates") or [])}
+                        _key = str(_sel.get("run_id") or "") + "|" + str(
+                            _sel.get("operation_id") or "")
+                        _hit = _full.get(_key)
+                        if isinstance(_hit, dict):
+                            _single = self._payload_from_candidate(
+                                _hit, session_id, _ws0)
+                            if isinstance(_single, dict):
+                                return ("deliver_stored_result",
+                                        _single, [])
+                    # Fall through to normal clarify handling when the
+                    # selection does not resolve to a durable record.
+                    pass
+        except Exception:
+            pass
+        # Recovery-shaped gate before any durable load interpretation.
+        try:
+            if not self._is_recovery_shaped(t, session):
+                return ("normal_work", None, [])
+        except Exception:
+            return ("normal_work", None, [])
+        # Single durable load (no independent reinterpretation elsewhere).
+        try:
+            _ws = (turn_scope or {}).get("workspace_id") if isinstance(
+                turn_scope, dict) else None
+            _tn = (turn_scope or {}).get("tenant_id") if isinstance(
+                turn_scope, dict) else None
+            _open = self._load_durable_file_result(
+                session_id, workspace_id=_ws, tenant_id=_tn, message=t)
+        except Exception:
+            return ("normal_work", None, [])
+        if not isinstance(_open, dict):
+            return ("normal_work", None, [])
+        if _open.get("__ambiguous__"):
+            return ("clarify_result_selection",
+                    None, list(_open.get("candidates") or []))
+        # Coverage gate: an extending follow-up (new source, changed
+        # requested information) stays normal work even when
+        # recovery-shaped.
+        try:
+            _pseudo = {
+                "original_message": str(_open.get("original_request") or ""),
+                "mention": str((_open.get("identity") or {}).get(
+                    "file_name") or ""),
+            }
+            if _pseudo["original_message"] and request_extends_objective(
+                    t, _pseudo):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        return ("deliver_stored_result", _open, [])
+
     def _load_pending_file_result(
-        self, session_id: Optional[str], message: str = "",
+        self, session_id: Optional[str],
+        *, message: str = "",
         workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """The conversation's persisted structured file result (retrieved /
         delivered), from the newest assistant row that carries it — the
         same durable carrier as the task. Restart recovery for delivery
         retry without re-reading.
 
-        DURABLE FALLBACK (R4, owner plan item 1): an interrupted turn
-        with no assistant row cannot recover through this carrier even
-        when its findings exist in goal_runs — the durable fallback
-        resolves them (see _load_durable_file_result)."""
+        No durable-findings fallback here: an interrupted turn
+        with no assistant row is owned exclusively by the R4 recovery
+        decision (_load_durable_file_result), so the stored result is
+        loaded and interpreted once, never independently in two branches."""
         if not session_id:
             return None
         try:
@@ -30216,24 +31017,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     return result
         except Exception as e:  # noqa: BLE001 — loader is best-effort
             logger.debug(f"pending file result load skipped: {e}")
-        # DURABLE FALLBACK (R4, owner plan item 1): an interrupted turn
-        # with no assistant row cannot recover through this carrier even
-        # when its findings exist in goal_runs. The fallback resolves the
-        # conversation's own run's successful retrieve op (workspace +
-        # conversation bound via find_active_task) and reconstructs the
-        # payload from execution.findings. Gates: no R3 open
-        # awaiting-value requirement (the value-shaped reply belongs to
-        # the R3 resume); multiple plausible results -> ambiguous marker
-        # (the caller clarifies). Idempotency: the caller checks the
-        # delivered marker.
-        durable = self._load_durable_file_result(
-            session_id, workspace_id=workspace_id, message=message)
-        if isinstance(durable, dict) and durable.get("__ambiguous__"):
-            return {
-                "status": "ambiguous",
-                "candidates": durable.get("candidates") or [],
-            }
-        return durable or None
+        return None
 
     def _load_pending_file_task(
         self, session_id: Optional[str],

@@ -1,15 +1,26 @@
 """R4 — recovered read delivery: the interrupted retrieved-not-delivered
 attempt, inspected durable state, and the recovery turn.
 
-THE BARRIER (owner item 1): poll the attributable source-executor
-counter for the read_completed event - the read has RUN and its receipt
-is keyed to the plan execution - and SIGKILL the process IMMEDIATELY.
-The findings are settled into the lifecycle op by the completing turn
-before delivery renders, so the kill lands at the proven
-retrieved-not-delivered boundary. If the assistant delivery row appears
-first, delivery won the race and the attempt is diagnostic-INVALID
-(retained). No timed sleeps; no cwd fallbacks (explicit ATOM_DATA_DIR
-or the counter is skipped).
+OBSERVED INTERRUPTION (owner item 1, diagnostic-only): poll the
+attributable source-executor counter for the read_completed event - the
+read has RUN and its receipt is keyed to the plan execution - and SIGKILL
+the process IMMEDIATELY. This is an OBSERVED interruption with post-kill
+verification, not a guaranteed blocking barrier: the findings are settled
+into the lifecycle op by the completing turn before delivery renders, so
+the kill is EXPECTED at the retrieved-not-delivered boundary, but only
+the post-kill checks (no assistant delivery persisted, durable findings
+committed with attribution + version) prove it. If the assistant delivery
+row appears first, delivery won the race and the attempt is
+diagnostic-INVALID (retained). No timed sleeps; one canonical explicit
+scratch dir (explicit ATOM_DATA_DIR, no cwd fallback - missing config
+invalidates without writing elsewhere).
+
+LATCH PREREQUISITE (R4 2026-10-16): the production post-commit/pre-delivery
+latch (ATOM_R4_LATCH direct lane + ATOM_R4_DIAG research lane) publishes
+r4_checkpoint.json AFTER the persistence transaction commits, blocks
+delivery on the awaited r4_delivery_block file, and withholds on expiry.
+The counter trigger above is retained as the observed kill signal; the
+latch is the proven post-commit/pre-delivery boundary for acceptance.
 
 THE DRIVER INDEPENDENTLY READS THE COMMITTED RESULT (owner item 3):
 the durable findings in goal_runs - asserting the requested payload,
@@ -487,9 +498,11 @@ def run_r4() -> dict:
                 "retained")
             ev["pass"] = False
             return ev
-        # SIGKILL IMMEDIATELY: the findings are settled into the
-        # lifecycle op by the completing turn before delivery renders -
-        # the kill lands at the proven retrieved-not-delivered boundary.
+        # OBSERVED SIGKILL (not a guaranteed barrier): the findings are
+        # settled into the lifecycle op by the completing turn before
+        # delivery renders - the kill is expected at the
+        # retrieved-not-delivered boundary, proven only by the post-kill
+        # verification below (no delivery persisted + durable findings).
         server.proc.kill()
         server.proc.wait(timeout=15)
         _user_row = JR._sqlite_rows(

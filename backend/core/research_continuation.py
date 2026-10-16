@@ -443,11 +443,24 @@ async def _execute_document_read(
     # BLOCKS while the latch file exists, so the driver can terminate
     # the process at the PROVEN post-commit, pre-delivery boundary.
     # A missing env is production behavior, byte-for-byte unchanged.
-    if os.getenv("ATOM_R4_DIAG") == "1":
+    # ONE canonical explicit scratch directory (no cwd fallback).
+    # Missing/invalid config invalidates the diagnostic without writing
+    # into repo or dev-data paths. The checkpoint is published AFTER the
+    # persistence transaction commits; delivery blocks on the awaited
+    # latch; expiry withholds and loudly invalidates.
+    _r4_diag_on = os.getenv("ATOM_R4_DIAG") == "1"
+    _r4_dir_ok = bool(
+        os.environ.get("ATOM_DATA_DIR")
+        and os.path.isdir(str(os.environ.get("ATOM_DATA_DIR"))))
+    if _r4_diag_on and not _r4_dir_ok:
+        logger.warning(
+            "[r4-latch] invalidated - missing/invalid ATOM_DATA_DIR (%r); "
+            "no checkpoint written", os.environ.get("ATOM_DATA_DIR"))
+    if _r4_diag_on and _r4_dir_ok:
         import asyncio as _r4aio
         import json as _r4json
         import time as _r4time
-        _r4_dir = os.environ.get("ATOM_DATA_DIR") or os.getcwd()
+        _r4_dir = str(os.environ.get("ATOM_DATA_DIR"))
         _r4_record = lifecycle.get_task(run_id) or {}
         _r4_ckpt = {
             "lane": "research_continuation",
