@@ -29939,10 +29939,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         if not session_id or not message:
             return None
         try:
-            # R3 SEPARATION: a value-shaped reply belongs to the open
-            # awaiting-value requirement's resume, never to this
-            # recovery.
-            if _value_candidates(message):
+            # R3 SEPARATION (deterministic): a DIGIT-BEARING reply is a
+            # value answer for the open awaiting-value requirement - R3's
+            # resume owns it and this recovery stands down. A no-digit
+            # show request ("Show me the machine prices you found") is a
+            # recovery ask.
+            if re.search(r"[0-9]", str(message or "")):
                 return None
             lifecycle = _task_lifecycle_for(None, None)
             if lifecycle is None:
@@ -29976,15 +29978,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             if not candidates:
                 return None
             if len(candidates) > 1:
-                # MULTIPLE plausible results: the caller clarifies -
-                # never a silent pick (owner item 2).
-                return {
-                    "__ambiguous__": True,
-                    "candidates": [
-                        {"file_name": c["file_name"],
-                         "source_version": c["source_version"]}
-                        for c in candidates],
-                }
+                # MULTIPLE plausible results: no silent pick (owner item
+                # 2) - and no lane-level clarification this round; the
+                # recovery stands down and the normal flow owns the turn.
+                logger.info(
+                    "[r4-recovery] multiple durable retrieve results - "
+                    "recovery stands down (%d)", len(candidates))
+                return None
             chosen = candidates[0]
             file_name = chosen["file_name"]
             lines = [f"From the previously retrieved results for "
