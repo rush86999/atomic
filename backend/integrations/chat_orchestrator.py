@@ -29918,7 +29918,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             return ""
 
     def _load_durable_file_result(
-        self, session_id: Optional[str], message: str = "",
+        self, session_id: Optional[str],
+        workspace_id: Optional[str] = None,
+        message: str = "",
     ) -> Optional[Dict[str, Any]]:
         """DURABLE-RESULT FALLBACK for the recovery lane (owner plan item
         1, R4 2026-10-16): an interrupted turn with NO assistant row
@@ -29944,9 +29946,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             # resume owns it and this recovery stands down. A no-digit
             # show request ("Show me the machine prices you found") is a
             # recovery ask.
-            if re.search(r"[0-9]", str(message or "")):
-                return None
-            lifecycle = _task_lifecycle_for(None, None)
+            lifecycle = _task_lifecycle_for(None, workspace_id)
             if lifecycle is None:
                 return None
             record = lifecycle.find_active_task(str(session_id))
