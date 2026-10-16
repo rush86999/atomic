@@ -9119,7 +9119,8 @@ class ChatOrchestrator:
             _pfr = session.get("_pending_file_result")
             if not isinstance(_pfr, dict) or not _pfr.get("rendered"):
                 try:
-                    _pfr = self._load_pending_file_result(session_id)
+                    _pfr = self._load_pending_file_result(
+                        session_id, message=message)
                 except Exception:  # noqa: BLE001 — best-effort
                     _pfr = None
             # NOTE: the reply leg's evidence-bound narration guard reads the
@@ -29916,13 +29917,116 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         except Exception:  # noqa: BLE001 — editor data is additive
             return ""
 
+    def _load_durable_file_result(
+        self, session_id: Optional[str], message: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """DURABLE-RESULT FALLBACK for the recovery lane (owner plan item
+        1, R4 2026-10-16): an interrupted turn with NO assistant row
+        cannot recover through the assistant-metadata carrier even when
+        its findings exist durably in goal_runs. Resolve the
+        conversation's own run's successful retrieve operation and
+        reconstruct the stored payload from execution.findings.
+
+        Selection binding (owner item 2): the conversation's own run
+        (find_active_task) - never the globally newest run. MULTIPLE
+        retrieve results within the run are NOT resolved here - the
+        caller delivers a clarification instead of a silent pick. R3
+        separation: a digit-bearing (value-shaped) reply belongs to the
+        awaiting-value requirement's resume, so the fallback stands down
+        for value-shaped replies. Idempotency (owner item 4): if the
+        findings were already delivered (an assistant row carrying them
+        exists), the fallback stands down."""
+        if not session_id or not message:
+            return None
+        try:
+            # R3 SEPARATION: a value-shaped reply belongs to the open
+            # awaiting-value requirement's resume, never to this
+            # recovery.
+            if _value_candidates(message):
+                return None
+            lifecycle = _task_lifecycle_for(None, None)
+            if lifecycle is None:
+                return None
+            record = lifecycle.find_active_task(str(session_id))
+            if not record:
+                return None
+            candidates: list = []
+            findings: list = []
+            for op in record.get("operations") or []:
+                op = op or {}
+                if str(op.get("operation_type") or "") != "retrieve":
+                    continue
+                if str(op.get("status") or "") != "applied":
+                    continue
+                ex = op.get("execution") or {}
+                if str(ex.get("outcome") or "") != "read_succeeded":
+                    continue
+                fnd = [f for f in (ex.get("findings") or [])
+                       if isinstance(f, dict)]
+                if not fnd:
+                    continue
+                candidates.append({
+                    "operation_id": op.get("operation_id"),
+                    "file_name": str(
+                        (fnd[0] or {}).get("source_file_name")
+                        or (fnd[0] or {}).get("source") or "the file"),
+                    "source_version": str(ex.get("source_version") or ""),
+                })
+                findings.extend(fnd)
+            if not candidates:
+                return None
+            if len(candidates) > 1:
+                # MULTIPLE plausible results: the caller clarifies -
+                # never a silent pick (owner item 2).
+                return {
+                    "__ambiguous__": True,
+                    "candidates": [
+                        {"file_name": c["file_name"],
+                         "source_version": c["source_version"]}
+                        for c in candidates],
+                }
+            chosen = candidates[0]
+            file_name = chosen["file_name"]
+            lines = [f"From the previously retrieved results for "
+                     f"{file_name} (recovered after the restart - "
+                     f"nothing was re-read):"]
+            for f in findings:
+                item = str(f.get("item") or "?")
+                value = str(f.get("value") or "?")
+                src_at = str(f.get("source") or "")
+                lines.append(f"- **{item}** - {value} ({src_at})")
+            rendered = "\n".join(lines)[:24000]
+            from core.workbook_read_artifact import (
+                TARGET_EXTRACTION_VERSION as _tev,
+            )
+            return {
+                "status": "retrieved",
+                "rendered": rendered,
+                "identity": {
+                    "file_name": file_name,
+                    "source_version": chosen["source_version"],
+                },
+                "target_extraction_version": _tev,
+                "recovered_from_durable": True,
+                "recovery_operation_id": chosen.get("operation_id"),
+                "run_id": record.get("run_id"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("[r4-recovery] durable load skipped: %r", exc)
+            return None
+
     def _load_pending_file_result(
-        self, session_id: Optional[str],
+        self, session_id: Optional[str], message: str = "",
     ) -> Optional[Dict[str, Any]]:
         """The conversation's persisted structured file result (retrieved /
         delivered), from the newest assistant row that carries it — the
         same durable carrier as the task. Restart recovery for delivery
-        retry without re-reading."""
+        retry without re-reading.
+
+        DURABLE FALLBACK (R4, owner plan item 1): an interrupted turn
+        with no assistant row cannot recover through this carrier even
+        when its findings exist in goal_runs — the durable fallback
+        resolves them (see _load_durable_file_result)."""
         if not session_id:
             return None
         try:
@@ -29950,7 +30054,23 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     return result
         except Exception as e:  # noqa: BLE001 — loader is best-effort
             logger.debug(f"pending file result load skipped: {e}")
-        return None
+        # DURABLE FALLBACK (R4, owner plan item 1): an interrupted turn
+        # with no assistant row cannot recover through this carrier even
+        # when its findings exist in goal_runs. The fallback resolves the
+        # conversation's own run's successful retrieve op (workspace +
+        # conversation bound via find_active_task) and reconstructs the
+        # payload from execution.findings. Gates: no R3 open
+        # awaiting-value requirement (the value-shaped reply belongs to
+        # the R3 resume); multiple plausible results -> ambiguous marker
+        # (the caller clarifies). Idempotency: the caller checks the
+        # delivered marker.
+        durable = self._load_durable_file_result(session_id, message)
+        if isinstance(durable, dict) and durable.get("__ambiguous__"):
+            return {
+                "status": "ambiguous",
+                "candidates": durable.get("candidates") or [],
+            }
+        return durable or None
 
     def _load_pending_file_task(
         self, session_id: Optional[str],
