@@ -9444,7 +9444,15 @@ class ChatOrchestrator:
                                     context or {}, session_id=session_id,
                                     request_id=str(
                                         (context or {}).get("request_id")
-                                        or "")))
+                                        or ""),
+                                    # The REQUEST-scoped service (_scope_llm
+                                    # above), never self.llm_service: the
+                                    # public route serves every user through
+                                    # ONE default-scoped orchestrator, so
+                                    # constructor scope is not authenticated
+                                    # request scope (verifier correction
+                                    # 2026-10-16).
+                                    llm_service=_scope_llm))
                         except Exception as _interp_err:  # noqa: BLE001
                             _td_interpretation = None
                             logger.debug(
