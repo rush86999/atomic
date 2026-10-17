@@ -22,11 +22,19 @@ if [ "$(node -e 'const [ma,mi]=process.versions.node.split(".").map(Number); con
 fi
 echo "✅ Node $(node --version)"
 
+# Supported interpreter range (F1, Phase D 2026-10-17): the dependency set
+# (torch>=2,<3 and the compiled wheels it pulls) publishes distributions for
+# CPython 3.11–3.13. CI and both Dockerfiles pin 3.11. The old `>=3.11` guard
+# accepted this host's Python 3.14 and dead-ended inside pip with
+# "No matching distribution found for torch<3.0.0" — reject an unsupported
+# interpreter up front instead of failing deep in the dependency install.
 PY_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-if python3 -c 'import sys; assert sys.version_info >= (3,11)' 2>/dev/null; then
+if python3 -c 'import sys; assert (3,11) <= sys.version_info[:2] <= (3,13)' 2>/dev/null; then
     echo "✅ Python $PY_VERSION"
 else
-    echo "❌ Python 3.11+ required (found $PY_VERSION)"
+    echo "❌ Python 3.11–3.13 required (found $PY_VERSION)."
+    echo "   torch<3 publishes no wheels for 3.14; use python3.11/3.12/3.13"
+    echo "   (3.11 is the CI/Docker pin) and re-run: bash scripts/quickstart.sh"
     exit 1
 fi
 
@@ -47,7 +55,14 @@ else
     # shellcheck disable=SC1091
     source backend/venv/bin/activate
 fi
-pip install -q -r backend/requirements.txt
+# --prefer-binary (F2, Phase D 2026-10-17): some in-range releases publish an
+# sdist but no wheel for this platform (cryptography 49.0.0 on Intel macOS);
+# plain pip prefers the newest version and then runs a Rust metadata build,
+# which dead-ends on hosts without a working Rust toolchain. Prefer-binary
+# keeps the range's security floor intact while selecting the newest
+# WHEEL-BEARING release where one exists; pure-Python sdists (e.g.
+# python-docx) still install normally.
+pip install -q --prefer-binary -r backend/requirements.txt
 echo "✅ Backend dependencies installed"
 
 # --- Generate .env if missing ---
