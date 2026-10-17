@@ -1,0 +1,55 @@
+INFO:core.chat_session_manager:Created DB session: session_f5repro_baseline_269ea0d6
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 5f095aad-e96e-4289-a8d3-8707ee51484b
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+WARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:core.turn_decision:[turn-interpretation] empty 
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 5f095aad-e96e-4289-a8d3-8707ee51484b
+WARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:integrations.chat_orchestrator:[timeline] chat planner finished: 0.0s after the turn's canvas-edit clock started
+INFO:integrations.chat_orchestrator:[derivation] ask=False matched-row-evidence=False tool_block=450 chars named_file=False
+INFO:integrations.chat_orchestrator:tool plan executed: None
+INFO:integrations.chat_orchestrator:[prompt-budget] routing-default model=auto: input=1131 tokens (window=32000, output reservation=6000, fits=True, window estimated)
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:core.llm.learning_router_registry:[LearningRouter] auto-mode readiness: 17 verdict row(s) in the last 7d, 1 model(s) with >= 8 observations -> re-ranking not yet (static BPC ordering) (thresholds: >=30 rows, >=2 models)
+INFO:core.llm.byok_handler:Attempting stream with provider: ollama (requested: ollama) model=llama3.1:8b
+INFO:httpx:HTTP Request: POST http://localhost:11434/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:core.llm.byok_handler:[inflight] ollama/llama3.1:8b released by 'structured:chat' after 7.2s
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:27cc1e0b-25bd-45a5-9aad-9e94bb4fe56c'. type='chat_token'
+WARNING:integrations.chat_orchestrator:streamed reply is a generic non-answer despite tool results — grounded regeneration
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:27cc1e0b-25bd-45a5-9aad-9e94bb4fe56c'. type='chat_token_done'
+INFO:integrations.chat_orchestrator:[stage-timing] reply STREAMED: 7.2s to full text (ollama/llama3.1:8b, 1 chunks)
+INFO:ai.nlp_engine:Parsing command: Reply with exactly: OK
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:integrations.chat_orchestrator:Routing to features: [<FeatureType.AGENT: 'agent'>]
+INFO:integrations.chat_orchestrator:Executing handler for FeatureType.AGENT
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'
+INFO:core.turn_fact_extractor:turn_fact circuit breaker HALF-OPEN — probing
+INFO:core.lancedb_handler:Document added to 'agent_experience': c19f4306-8f62-4407-bb04-cf2fc2604916
+INFO:core.agent_governance_service:Recorded outcome for atom_main: success
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'
+INFO:integrations.chat_orchestrator:Handler FeatureType.AGENT succeeded
+INFO:integrations.chat_orchestrator:Feature handling complete. Handled: True, Intent: ChatIntent.AGENT_REQUEST
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.2s turn_offset=8.0s elapsed=8.3s remaining=86.7s budget=95.0s
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'
+INFO:main_api_app:🏁 [ULTRA LOUD] POST /api/chat/message -> 200
+INFO:     127.0.0.1:57051 - "POST /api/chat/message HTTP/1.1" 200 OK
+INFO:main_api_app:🚀 [ULTRA LOUD] POST /api/chat/message

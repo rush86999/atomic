@@ -1,0 +1,1022 @@
+{
+ "journey": "phase-d-fresh-install-complete-loop",
+ "phase": "D-pristine-install-run2",
+ "run": 2,
+ "started_at": "2026-10-17T14:32:44+00:00",
+ "harness": {
+  "file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/scripts/orchestration_acceptance/browser_phase_d_loop_complete.py",
+  "sha256": "3c104238e49f7a20e3cbf4e493c75cf7d1516d7fb05ca9cb8779bbb3e8f770ee",
+  "carries": "browser_phase_d_quickstart_loop.py (Phase C machinery)"
+ },
+ "frozen_candidate": "68729ebe4425c689832f012c3d5da23f3effc491",
+ "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine",
+ "context": "run 1 (browser_quickstart_loop_20261017_101746.json) failed the loop at upload (F3, fixed: pyarrow==25.0.1) and at the first chat answer (F4, product defect: wizard stores key_name 'Ollama (local)' which the resolver cannot read; workaround shown here via Settings -> AI, which posts key_name=default).",
+ "versions": {
+  "pyarrow": "25.0.1",
+  "numpy": "1.26.4",
+  "lancedb": "0.25.3",
+  "playwright": "1.58.0"
+ },
+ "backend_health_identity": {
+  "pid": 1967,
+  "started_at": "2026-10-17T14:27:54.024731+00:00",
+  "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+  "git_commit": "68729ebe4425",
+  "source_id": "68729ebe4425-dirty.04c87733f933",
+  "instance_id": "68729ebe4425-dirty.04c87733f933.1967.1792247277",
+  "revision": "68729ebe4425c689832f012c3d5da23f3effc491",
+  "dirty": true,
+  "dirty_digest": "04c87733f933",
+  "dirty_paths": [],
+  "untracked_paths": [
+   "backend/scripts/orchestration_acceptance/browser_phase_d_quickstart_loop.py",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/FREEZE.md",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/INSTALL_FINDINGS.md",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/browser_quickstart_loop_20261017_101746.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_after_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_after_reload.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_chat_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_documents_uploaded.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_ready_before_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_signed_in.png",
+   "logs_phase_d/isolation_applied.md"
+  ],
+  "captured_at": "2026-10-17T14:27:57.187009+00:00",
+  "port": 18100,
+  "error": null,
+  "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/atom_dev.db",
+  "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/data/byok_keys.json"
+ },
+ "backend_ownership": {
+  "tag": "attach",
+  "port": 18100,
+  "listener_pid": 1955,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+  "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18100 --reload",
+  "owned_by_worktree": true
+ },
+ "frontend_ownership": {
+  "tag": "attach",
+  "port": 18101,
+  "listener_pid": 96443,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+  "listener_cmd": "next-server (v16.2.2)",
+  "owned_by_worktree": true
+ },
+ "db_path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/atom_dev.db",
+ "db_path_inside_worktree": true,
+ "db_before": {
+  "found": true,
+  "id": "30b24f82-3cf5-4c19-b980-f5ae181272c5",
+  "completed": true,
+  "step": "completed",
+  "users_total": 1,
+  "workspaces_total": 1
+ },
+ "product_user": {
+  "registered": true,
+  "register_http": 200,
+  "email": "jprobe_d4c812e487@example.com",
+  "id": "48c819f7-9a76-4528-955f-1d95236799f8"
+ },
+ "admin_credentials": {
+  "email": "admin@example.com",
+  "password_file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/logs/bootstrap_admin_password.txt",
+  "password_present": true,
+  "password": "<redacted>"
+ },
+ "browser_version": "145.0.7632.6",
+ "admin_signin": {
+  "login": {
+   "url": "http://localhost:18101/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792247567}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792247567384_eqld7wai9"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792247567384_eqld7wai9"
+   }
+  },
+  "login_observed": true,
+  "login_200": true,
+  "overlay_present_after_login": false,
+  "onboarding_status": {
+   "status": 200,
+   "auth_header_present": true,
+   "body": {
+    "success": true,
+    "data": {
+     "onboarding_step": "completed",
+     "onboarding_completed": true
+    },
+    "timestamp": "2026-10-17T14:32:50.102599+00:00"
+   }
+  }
+ },
+ "session": {
+  "login": {
+   "url": "http://localhost:18101/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792247570}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_d4c812e487@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792247571049_p678eadi1"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792247571049_p678eadi1"
+   }
+  },
+  "login_200": true,
+  "frontend_ownership_login": {
+   "tag": "after_login",
+   "port": 18101,
+   "listener_pid": 96443,
+   "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+   "listener_cmd": "next-server (v16.2.2)",
+   "owned_by_worktree": true
+  },
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Journey!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "enable_ollama_found": true,
+    "enable_clicked": true,
+    "advanced_to_ready": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "provider_after_wizard_enable": {
+   "ollama": {
+    "has_api_keys": false,
+    "has_tenant_key": false,
+    "status": "inactive"
+   }
+  },
+  "wizard_enable_left_provider_inactive": true,
+  "frontend_ownership_before_click": {
+   "tag": "before_click",
+   "port": 18101,
+   "listener_pid": 96443,
+   "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+   "listener_cmd": "next-server (v16.2.2)",
+   "owned_by_worktree": true
+  },
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 13.61,
+   "overlay_closed_at": 14.64,
+   "overlay_closed_seconds_after_click": 1.03,
+   "toasts_seen": [
+    "Ollama connected",
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 13.63,
+     "method": "POST",
+     "url": "http://localhost:18100/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 13.64,
+     "status": 200,
+     "url": "http://localhost:18100/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T14:32:58.017534+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 13.63,
+      "method": "POST",
+      "url": "http://localhost:18100/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     }
+    ],
+    "responses": [
+     {
+      "t": 13.64,
+      "status": 200,
+      "url": "http://localhost:18100/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T14:32:58.017534+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:18101/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}",
+       "{\"event\":\"span-end\",\"startTime\":1792247570186,\"endTime\":1792247570388.7,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10707:13)\\n    at http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5D__07yy\u2026(+1053)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"10:32:51.052\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"10:32:51.056\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"console\",\"consoleMethodStack\":\"    at console.warn (http://localhost:18101/_next/static/chunks/node_modules_next_dist_08w_b42._.js:1380:13)\\n    at GlobalChatWidget.useEffect.fetchPendingApprovals (http://localhost:18101/_next/static/chunks/%5Broot-of-the-\u2026(+219)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"10:32:51.119\",\"level\":\"WARN\",\"message\":\"[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown.\"}]}",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}",
+       "{\"event\":\"client-success\",\"clientId\":1792247570413}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true,\"/dashboard\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":1492341815228525}}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"31\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"33\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"built\",\"hash\":\"35\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"37\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"39\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/settings/ai\":true,\"/dashboard\":true,\"/login\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"built\",\"hash\":\"41\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}"
+      ]
+     },
+     {
+      "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+      "frames_sent": [],
+      "frames_received": []
+     },
+     {
+      "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "post_click": {
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T14:33:28.167238+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "48c819f7-9a76-4528-955f-1d95236799f8",
+    "completed": true,
+    "step": "completed",
+    "users_total": 2,
+    "workspaces_total": 2
+   },
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792247570}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_d4c812e487@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792247571049_p678eadi1"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792247571049_p678eadi1"
+   }
+  },
+  "settings_model_config": {
+   "fresh_user_attempt": {
+    "settings_page_loaded": true,
+    "ollama_card_found": true,
+    "badge_before": "Not Configured",
+    "badge_after": "\u2713 Working",
+    "card_class_after": "provider-card configured",
+    "save_requests": [
+     {
+      "t": 10.81,
+      "method": "POST",
+      "url": "http://localhost:18100/api/ai/providers/ollama/keys",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"api_key\":\"ollama-local-no-key-required\",\"key_name\":\"Ollama (local)\",\"environment\":\"production\"}"
+     },
+     {
+      "t": 56.23,
+      "method": "POST",
+      "url": "http://localhost:18101/api/ai/providers/ollama/keys?key_name=default",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"api_key\":\"ollama-local-no-key-required\"}"
+     }
+    ],
+    "save_responses": [
+     {
+      "t": 10.83,
+      "status": 200,
+      "url": "http://localhost:18100/api/ai/providers/ollama/keys",
+      "body_head": "{\"success\":true,\"data\":{\"key_id\":\"tenant_1dc27e9e-c615-4c26-aca6-9fdd5cbc41f6_ollama_Ollama (local)_production\",\"message\":\"API key stored successfully for ollama in Journey's Workspace\"},\"error\":null,\"message\":null,\"timestamp\":\"2026-10-17T14:32:55.203471Z\"}"
+     },
+     {
+      "t": 56.25,
+      "status": 200,
+      "url": "http://localhost:18101/api/ai/providers/ollama/keys?key_name=default",
+      "body_head": "{\"success\":true,\"data\":{\"key_id\":\"tenant_1dc27e9e-c615-4c26-aca6-9fdd5cbc41f6_ollama_default_production\",\"message\":\"API key stored successfully for ollama in Journey's Workspace\"},\"error\":null,\"message\":null,\"timestamp\":\"2026-10-17T14:33:40.624843Z\"}"
+     }
+    ],
+    "ollama_after": {
+     "has_api_keys": true,
+     "has_tenant_key": true,
+     "status": "active"
+    }
+   },
+   "final_readback": {
+    "has_api_keys": true,
+    "has_tenant_key": true,
+    "status": "active"
+   },
+   "configured_in": "fresh-user-context"
+  },
+  "upload": {
+   "file_input_found": true,
+   "success_text_seen": true,
+   "upload_requests": [
+    {
+     "t": 62.41,
+     "method": "POST",
+     "url": "http://localhost:18100/api/documents/upload",
+     "authorization_present": true,
+     "content_type": "multipart/form-data; boundary=----WebKitFormBoundarysOhY6A7feUNuRNrl",
+     "post_data": null
+    }
+   ],
+   "upload_responses": [
+    {
+     "t": 62.46,
+     "status": 200,
+     "url": "http://localhost:18100/api/documents/upload",
+     "body_head": "{\"id\":\"doc_ee4153d4a4ff67b28359e186\",\"title\":\"phase_d_zephyr_notes.txt\",\"type\":\"text/plain\",\"metadata\":{\"source\":\"upload\",\"size\":221,\"title\":\"phase_d_zephyr_notes.txt\",\"filename\":\"phase_d_zephyr_notes.txt\",\"file_type\":\"txt\",\"ingested_at\":\"2026-10-17T10:33:46.802071\",\"doc_id\":\"doc_ee4153d4a4ff67b28359e186\",\"pg_document_id\":\"doc_ee4153d4a4ff67b28359e186\",\"source_type\":\"upload\",\"integration_id\":\"manual_upload\",\"author\":\"jprobe_d4c812e487@example.com\"},\"ingested_at\":\"2026-10-17T10:33:46.802071\",\"chu\u2026(+12)"
+    }
+   ],
+   "documents_list": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": [
+      {
+       "id": "doc_ee4153d4a4ff67b28359e186",
+       "title": "phase_d_zephyr_notes.txt",
+       "text_preview": "ATOM PHASE D FIXTURE \u2014 internal notes.\nProject Zephyr-9 launch planning.\nThe launch code for project Zephyr-9 is QUARTZ-77.\nOwner: R. Parikh. Team: acceptance.\nDecoy: the archive key for project Halcy",
+       "metadata": {
+        "source": "upload",
+        "size": 221,
+        "title": "phase_d_zephyr_notes.txt",
+        "filename": "phase_d_zephyr_notes.txt",
+        "file_type": "txt",
+        "ingested_at": "2026-10-17T10:33:46.802071",
+        "doc_id": "doc_ee4153d4a4ff67b28359e186",
+        "pg_document_id": "doc_ee4153d4a4ff67b28359e186",
+        "source_type": "upload",
+        "integration_id": "manual_upload",
+        "author": "jprobe_d4c812e487@example.com",
+        "source_content_hash": "ev4:ee4153d4a4ff67b28359e18665a669cab4afc0a6363572630cddc3155d3c5cd7"
+       },
+       "created_at": "2026-10-17T14:33:46.826839+00:00"
+      }
+     ],
+     "timestamp": "2026-10-17T14:33:47.811544+00:00",
+     "metadata": {
+      "total": 1,
+      "limit": 100,
+      "offset": 0
+     }
+    }
+   },
+   "fixture_in_list": false
+  },
+  "chat": {
+   "input_found": true,
+   "answer_contains_fact": false,
+   "history_contains_fact": false,
+   "sent_at": 66.61,
+   "last_history_status": 200,
+   "session_id": "session_1792247571049_p678eadi1",
+   "history_msgs_count": 2,
+   "assistant_text_dom": "No eligible LLM providers found for your current plan.",
+   "answer_text_from_history": "",
+   "waited_seconds": 427.7,
+   "message_requests": [
+    {
+     "t": 66.61,
+     "method": "POST",
+     "url": "http://localhost:18100/api/chat/message",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"message\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\",\"session_id\":\"session_1792247571049_p678eadi1\",\"user_id\":\"48c819f7-9a76-4528-955f-1d95236799f8\",\"request_id\":\"602a225b-e3f4-4b40-836e-850b8c103e56\",\"context\":{\"current_page\":\"/chat\",\"agent_id\":null,\"conversation_history\":[],\"attachments\":[]}}"
+    }
+   ],
+   "message_responses": [
+    {
+     "t": 78.91,
+     "status": 200,
+     "url": "http://localhost:18100/api/chat/message",
+     "body_head": "{\"success\":false,\"message\":\"You need an AI provider to use chat. Add an API key in Settings to get started.\",\"session_id\":\"session_1792247571049_p678eadi1\",\"intent\":\"unknown\",\"confidence\":0.5,\"suggested_actions\":[],\"requires_confirmation\":false,\"next_steps\":[],\"timestamp\":\"2026-10-17T14:34:03.262357\",\"metadata\":null,\"memory_context\":null,\"model\":null,\"provider\":null,\"reasoning\":null,\"execution_id\":null,\"error_code\":\"no_llm_provider\",\"failure_reason\":null,\"recovery_url\":\"/settings/ai\",\"outcome\":n\u2026(+4)"
+    }
+   ],
+   "ws_tail": [
+    {
+     "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"session_id\":\"session_1792247571049_p678eadi1\"},\"timestamp\":\"2026-10-17T10:33:51.082087\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" live\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" tool\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" results\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" indicate\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" that\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" no\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" matching\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" lines\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" were\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" in\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" with\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specified\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" pattern\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" I\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" suggest\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" refining\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" by\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specifying\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" additional\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" details\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\",\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" such\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" as\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" file\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" name\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" directory\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" where\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" relevant\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"Would\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" like\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" to\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"1\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" Search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specific\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" folder\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"?\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"2\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" Use\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" different\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" query\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"?\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"Please\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" provide\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" more\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" context\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" clarify\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" request\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" so\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" I\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" can\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" assist\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" better\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"content\":\"No eligible LLM providers found for your current plan.\",\"elapsed_s\":11.5}}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"No eligible LLM providers found for your current plan.\",\"timestamp\":\"2026-10-17T10:34:03.21676\u2026(+266)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"session_id\":\"session_1792247571049_p678eadi1\"},\"timestamp\":\"2026-10-17T10:34:03.256533\"}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"session_id\":\"session_1792247571049_p678eadi1\"},\"timestamp\":\"2026-10-17T10:33:51.082087\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" live\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" tool\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" results\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" indicate\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" that\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" no\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" matching\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" lines\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" were\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" in\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" with\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specified\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" pattern\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" I\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" suggest\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" refining\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" by\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specifying\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" additional\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" details\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\",\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" such\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" as\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" file\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" name\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" directory\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" where\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" relevant\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"Would\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" like\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" to\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"1\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" Search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specific\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" folder\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"?\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"2\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" Use\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" different\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" query\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"?\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"Please\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" provide\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" more\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" context\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" clarify\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" request\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" so\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" I\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" can\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" assist\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" better\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"content\":\"No eligible LLM providers found for your current plan.\",\"elapsed_s\":11.5}}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"No eligible LLM providers found for your current plan.\",\"timestamp\":\"2026-10-17T10:34:03.21676\u2026(+266)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"session_id\":\"session_1792247571049_p678eadi1\"},\"timestamp\":\"2026-10-17T10:34:03.256533\"}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"session_id\":\"session_1792247571049_p678eadi1\"},\"timestamp\":\"2026-10-17T10:33:51.082087\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" live\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" tool\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" results\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" indicate\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" that\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" no\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" matching\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" lines\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" were\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" in\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" with\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specified\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" pattern\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" I\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" suggest\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" refining\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" by\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specifying\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" additional\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" details\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\",\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" such\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" as\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" file\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" name\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" directory\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" where\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" relevant\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"Would\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" like\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" to\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"1\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" Search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" specific\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" folder\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"?\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"2\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" Use\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" different\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" query\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"?\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\"Please\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" provide\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" more\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" context\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" or\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" clarify\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" request\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" so\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" I\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" can\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" assist\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" you\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\" better\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792247571049_p678eadi1\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"content\":\"No eligible LLM providers found for your current plan.\",\"elapsed_s\":11.5}}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"No eligible LLM providers found for your current plan.\",\"timestamp\":\"2026-10-17T10:34:03.21676\u2026(+266)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"bfeed47f-6d84-4dfb-a5f0-505622e8e707\",\"session_id\":\"session_1792247571049_p678eadi1\"},\"timestamp\":\"2026-10-17T10:34:03.256533\"}"
+     ]
+    }
+   ],
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792247628}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_d4c812e487@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792247571049_p678eadi1"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792247571049_p678eadi1"
+   }
+  },
+  "reload": {
+   "chat_text_after_reload": "No eligible LLM providers found for your current plan.",
+   "fact_persists_after_reload": false,
+   "wizard_present_after_reload": false,
+   "wizard_present_after_dashboard_load": false,
+   "host_status_fetches": [],
+   "host_fetch_shows_completed": false,
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T14:41:17.040477+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "48c819f7-9a76-4528-955f-1d95236799f8",
+    "completed": true,
+    "step": "completed",
+    "users_total": 2,
+    "workspaces_total": 2
+   },
+   "frontend_ownership_end": {
+    "tag": "end",
+    "port": 18101,
+    "listener_pid": 96443,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+    "listener_cmd": "next-server (v16.2.2)",
+    "owned_by_worktree": true
+   },
+   "backend_ownership_end": {
+    "tag": "end",
+    "port": 18100,
+    "listener_pid": 1955,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+    "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18100 --reload",
+    "owned_by_worktree": true
+   },
+   "console_tail": [
+    {
+     "t": 503.62,
+     "type": "info",
+     "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+     "t": 503.65,
+     "type": "log",
+     "text": "[HMR] connected"
+    },
+    {
+     "t": 503.68,
+     "type": "warning",
+     "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<redacted-scratch-jwt>' failed: WebSocket is closed before the connection is established."
+    },
+    {
+     "t": 503.68,
+     "type": "error",
+     "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+    },
+    {
+     "t": 503.69,
+     "type": "debug",
+     "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+    },
+    {
+     "t": 503.76,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+     "t": 503.76,
+     "type": "warning",
+     "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+    },
+    {
+     "t": 503.78,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 503.78,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 503.79,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 503.79,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+   ]
+  }
+ },
+ "console_tail": [
+  {
+   "t": 64.28,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 64.28,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 64.29,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 64.29,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 494.48,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 494.51,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 494.55,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<redacted-scratch-jwt>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 494.55,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<redacted-scratch-jwt>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 494.55,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<redacted-scratch-jwt>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 494.56,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 494.56,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 494.56,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 494.66,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 494.66,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 503.62,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 503.65,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 503.68,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<redacted-scratch-jwt>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 503.68,
+   "type": "error",
+   "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+  },
+  {
+   "t": 503.69,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 503.76,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 503.76,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 503.78,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 503.78,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 503.79,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 503.79,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ],
+ "page_errors": [],
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "admin-signin": true,
+  "product-user-registered": true,
+  "fresh-user-signin": true,
+  "wizard-present": true,
+  "wizard-enable-clicked": true,
+  "wizard-enable-left-provider-inactive": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "settings-ai-configured-provider": true,
+  "upload-succeeded": true,
+  "upload-durable": false,
+  "chat-answer-received": true,
+  "answer-uses-uploaded-source": false,
+  "answer-durable-in-history": false,
+  "reload-chat-persists": false,
+  "reload-no-wizard": false
+ },
+ "pass": false,
+ "finished_at": "2026-10-17T14:41:17+00:00"
+}

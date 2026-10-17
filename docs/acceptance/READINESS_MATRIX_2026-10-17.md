@@ -32,6 +32,26 @@ frontend-ownership verification, server-driven re-open legs (dismiss key
 cleared; host status fetch recorded), on-origin sign-out, and a CORS-clean
 injected 500 with sub-second toast polling. Same outcome, same candidate.
 
+**Rev 4 (2026-10-17, Phase D).** `J1.quickstart-install` flips **untested → verified**
+on `68729ebe4`: a genuinely new venv (Python 3.11.16) + new `node_modules` on this host
+(no symlinked dependencies; package caches may be reused), the documented
+`scripts/quickstart.sh` run **unchanged**, first failure preserved (F1: Python guard
+accepts 3.14, `torch<3` has no 3.14 wheel; F2: `cryptography 49.0.0` has no Intel-mac
+wheel and the sdist needs a Rust toolchain the host lacks), rc=0 after exactly two
+documented manual-path interventions, plus one fresh-install dependency defect found,
+fixed and re-verified (F3: `pyarrow 26.0.0` vs `numpy<2` → document upload 500;
+`pyarrow 25.0.1`). Browser loop on the installed product reaches sign-in, wizard BYOK,
+Settings→AI activation, document upload and reload persistence; the **answer leg is
+blocked** by product defects **F5** (local-only: planning leg starves → `no_llm_provider`
+sentinel) and **F6** (cloud: `minimax-m3` narration quarantined as reasoning-tag residue
+→ "unusable output" placeholder; 3/3 API odds probe) and is **not promoted**.
+`J1.signin` and `J1.onboarding-completion` are **re-bound** to the same run-3b evidence.
+Claim qualification: a fresh venv on this existing host proves clean-environment
+installation **on this host**, not on a clean machine or another OS. Archive:
+`journey_matrix/phase_d_fresh_install/` (INSTALL_FINDINGS F1–F6, evidence, logs, probes,
+CHECKSUMS). A second independent stream (`atom-phase-d`, ports 18200/18201) reproduced
+F1/F2; two-stream reconciliation pending (Phase C Y-pattern).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -80,10 +100,10 @@ against the `/tmp` originals; credential scans clean before archiving).
 |---|-----------------------------|--------|----------------|-------------------------------|----------|----------------------|-------------|
 | 1 | **J1.config-parity** — required gates (lifecycle, finalization M1/M2) are EFFECTIVE in the serving process after quickstart env generation | verified | mechanism (load-order-faithful subprocess from code export) | `d6fbcd846`, allowlisted export world, 2026-10-12 | `journey_matrix/parity_pristine_20261012_20261012_104240_de7328.json` | dependency installation not exercised (export reuses interpreter) | Phase D fresh-install proof (acceptance) |
 | 2 | **J1.boot** — backend boots healthy on the generated env (scratch DB) | verified | mechanism + public API (`/api/health`) | `d6fbcd846` | same as 1 | clean-machine boot unproven | Phase D |
-| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `d6fbcd846` (browser chain carried from 2026-10-11) | parity JSON + `browser_j2_chain_20261012_112631_9258b4.json` | first-run onboarding completion is row 6 (verified on `cca1fb13d`, Phase C); this row's own chain keeps its Oct-12-era binding | carry into the unified-candidate browser re-run (Phase E) |
+| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `68729ebe4` (Phase D fresh-install run-3b; bootstrap admin + freshly registered user) | `journey_matrix/phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json`; prior lineage `browser_j2_chain_20261012_112631_9258b4.json` (`d6fbcd846`) | re-bound to the Phase D candidate; onboarding completion remains row 6 | none (Phase D) |
 | 4 | **J1.workspace** — workspace created/used through the product | verified | public API | `d6fbcd846` | parity JSON | not re-run on any later lineage | Phase D/E |
-| 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **untested** | mechanism partial (env gen + boot proven) | `d6fbcd846`-era | contract note (deliberate) | clean dependency installation never exercised | Phase D: quickstart on fresh venv/machine (acceptance) |
-| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `cca1fb13d` (clean worktree tree `4e8329d4…`), fresh product-created user + fresh browser context, scratch boot, local Ollama; harness sha256 `43c1dc43…` | `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256 `657943f3…`; 13/13 checks, `first_failed_transition=null`); independently replicated — `journey_matrix/phase_c_onboarding/evidence_browser_onboarding_completion_20261017_094558_3158b2.json` (sha256 `6b4db92b…`; 14/14; harness `406f1fdd…`) | Oct-12 failure does not reproduce (reproduce-first outcome; no repair required); historical failure preserved in `browser_j2_chain_20261012_112631_9258b4.json`, cause unestablished on this lineage | none — Phase C closed; clean-state install carries with row 5 (Phase D) |
+| 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **verified** | fresh install + browser loop | `68729ebe4` (detached worktree, isolated data, ports 18100/18101), genuinely new venv + node_modules, documented `scripts/quickstart.sh` run unchanged; rc=0 after 2 documented interventions (F1/F2) + F3 dependency pin | `journey_matrix/phase_d_fresh_install/` — run-3b `browser_complete_loop_r3_20261017_113656.json` (22/25; all failures are the blocked answer leg), `INSTALL_FINDINGS.md` F1–F6, logs, `CHECKSUMS.sha256` | fresh venv on the EXISTING HOST only — not a clean-machine/other-OS proof; F2 partly host-toolchain; answer leg blocked by F5 (local) / F6 (cloud) and NOT promoted | none — Phase D closed; Phase E carries the unified-candidate re-run |
+| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `68729ebe4` (Phase D fresh-install run-3b), fresh product-created user, installed product; prior lineage `cca1fb13d` (Phase C, tree `4e8329d4…`, harness `43c1dc43…`) | `journey_matrix/phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json` (completion persisted: DB `onboarding_completed=1`, `/api/onboarding/status` completed, reload shows no wizard); Phase C evidence retained at `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256 `657943f3…`; 13/13) | re-bound to the installed product; same run recorded F4 (wizard Card B key inactive until Settings→AI) | none — Phase D closed |
 | 7 | **J2.provider-setup-first-reply** — provider added via product; first request served by it | verified | public API (+ Oct-12 browser chain on earlier lineage) | pin `cf6e31e26` (digests `177ef2a1…`/`5945c832…`), r14b, local ollama `llama3.1:8b` | `journey_matrix/j2_model_setup_20261013_182933_e7f609.json` | bound to `cf6e31e26`; not re-run on later lineage | unified-candidate re-run (Phase E) |
 | 8 | **J2.real-reply** — counted first request served (no warm-up) | verified | public API | same as 7 | same as 7 (PONG 4.609 s) | same as 7 | Phase E |
 | 9 | **J2.byok-add-product-path** — BYOK key stored via product, decrypts | verified | public API | same as 7 | same as 7 | same as 7 | Phase E |
@@ -171,21 +191,21 @@ against the `/tmp` originals; credential scans clean before archiving).
 
 ---
 
-## Gate status (computed 2026-10-17 rev 3, after Phase C verified row 6)
+## Gate status (computed 2026-10-17 rev 4, after Phase D verified row 5)
 
 - `journey_contract.py --check --release` → **rc=0** — no failing journeys in
-  release scope (J1–J3); `J1.onboarding-completion` verified on `cca1fb13d`
-  (Phase C). The setup gate is green again in release scope.
+  release scope (J1–J3); `J1.quickstart-install` verified on `68729ebe4`
+  (Phase D); `J1.signin` + `J1.onboarding-completion` re-bound to the same
+  run-3b evidence.
 - `journey_contract.py --check --strict --release` → **rc=1** — UNTESTED:
-  J1 (`quickstart-install`), J2 (`tool-planning`,
-  `model-native-tool-calling`); untested items still block the strict gate.
+  J2 (`tool-planning`, `model-native-tool-calling`); untested items still
+  block the strict gate.
 - `journey_contract.py --check` (all journeys) → **rc=0** — no failing
-  journeys anywhere; untested: J1 (`quickstart-install`), J2 (2 items),
-  J7, J8, J9.
+  journeys anywhere; untested: J2, J7, J8, J9.
 
-Journey-level registry state: **J3, J4, J5, J6 = VERIFIED; J1 = UNTESTED**
-(5/6 verified — only `quickstart-install` untested); J2 = UNTESTED (9/11
-verified); J7, J8, J9 = UNTESTED.
+Journey-level registry state: **J3, J4, J5, J6 = VERIFIED; J1 = VERIFIED**
+(6/6 — `quickstart-install` verified on `68729ebe4`, Phase D); J2 = UNTESTED
+(9/11 verified); J7, J8, J9 = UNTESTED.
 
 Nothing in this document claims whole-app certification, pristine-install proof, or
 deployment readiness.

@@ -1,0 +1,23 @@
+{
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "signin": true,
+  "wizard-present": true,
+  "provider-configured-via-wizard": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "provider-readback": true,
+  "upload-succeeded": false,
+  "upload-durable": false,
+  "chat-answer-received": false,
+  "answer-uses-uploaded-source": false,
+  "answer-durable-in-history": false,
+  "reload-chat-persists": false,
+  "reload-no-wizard": true
+ }
+}
+evidence: /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/browser_quickstart_loop_20261017_101746.json

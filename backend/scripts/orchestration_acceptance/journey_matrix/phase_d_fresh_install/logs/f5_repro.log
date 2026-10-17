@@ -1,0 +1,91 @@
+{
+  "probe": "f5_repro",
+  "started": "11:03:03",
+  "ollama_pid": 23559,
+  "steps": [
+    {
+      "phase": "0_baseline"
+    },
+    {
+      "tag": "baseline",
+      "at": "11:03:12",
+      "http": 200,
+      "latency_s": 8.3,
+      "success": false,
+      "error_code": "no_llm_provider",
+      "model": null,
+      "message_head": "You need an AI provider to use chat. Add an API key in Settings to get started."
+    },
+    {
+      "phase": "1_frozen",
+      "tags_while_frozen": {
+        "http": null,
+        "error": "ReadTimeout",
+        "ms": 2010
+      }
+    },
+    {
+      "tag": "frozen",
+      "at": "11:03:24",
+      "http": 200,
+      "latency_s": 10.6,
+      "success": false,
+      "error_code": "no_llm_provider",
+      "model": null,
+      "message_head": "You need an AI provider to use chat. Add an API key in Settings to get started."
+    },
+    {
+      "phase": "2_after_resume"
+    },
+    {
+      "tag": "after_resume_immediate",
+      "at": "11:03:25",
+      "http": 200,
+      "latency_s": 0.7,
+      "success": false,
+      "error_code": "no_llm_provider",
+      "model": null,
+      "message_head": "You need an AI provider to use chat. Add an API key in Settings to get started."
+    },
+    {
+      "phase": "3_after_70s"
+    },
+    {
+      "tag": "after_70s",
+      "at": "11:04:36",
+      "http": 200,
+      "latency_s": 1.0,
+      "success": false,
+      "error_code": "no_llm_provider",
+      "model": null,
+      "message_head": "You need an AI provider to use chat. Add an API key in Settings to get started."
+    }
+  ],
+  "ollama_process": "ollama serve",
+  "login_ok": true,
+  "user_id": "27cc1e0b-25bd-45a5-9aad-9e94bb4fe56c",
+  "tags_before": {
+    "http": 200,
+    "ms": 6
+  },
+  "frozen_at": "11:03:12",
+  "resume_events": [
+    {
+      "at": "11:03:24",
+      "by": "timer_cap"
+    },
+    {
+      "at": "11:03:24",
+      "by": "main"
+    }
+  ],
+  "tags_after_resume": {
+    "http": 200,
+    "ms": 6
+  },
+  "tags_after_70s": {
+    "http": 200,
+    "ms": 6
+  },
+  "finished": "11:04:36"
+}

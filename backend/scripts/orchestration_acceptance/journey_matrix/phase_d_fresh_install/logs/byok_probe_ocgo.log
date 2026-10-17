@@ -1,0 +1,101 @@
+{
+  "probe": "byok_ocgo",
+  "started": "11:12:53",
+  "base": "http://127.0.0.1:18100",
+  "provider": "opencode-go",
+  "user": "jprobe_ocgo_1792249973@example.com",
+  "steps": [
+    {
+      "step": "providers_before",
+      "at": "11:12:54"
+    },
+    {
+      "step": "store",
+      "at": "11:12:54",
+      "ok": true
+    },
+    {
+      "step": "chat_1_greeting",
+      "at": "11:12:55"
+    },
+    {
+      "step": "chat_2_question",
+      "at": "11:13:06"
+    },
+    {
+      "step": "chat_3_repeat_after_45s",
+      "at": "11:14:06"
+    }
+  ],
+  "key_loaded": true,
+  "key_len": 67,
+  "register_http": 200,
+  "user_id": "0d872fbb-9529-4bb2-b748-78a1834f7d36",
+  "workspace_id": "d773817a-7171-4c1d-9d31-b2b5e777bdc0",
+  "providers_before": {
+    "has_api_keys": false,
+    "has_tenant_key": false,
+    "status": "inactive",
+    "env_configured": null
+  },
+  "store_http": 200,
+  "store_key_id": "tenant_9fdd7be9-1145-4e73-abee-73324ebddbc8_opencode-go_default_production",
+  "store_message": "API key stored successfully for opencode-go in Byok's Workspace",
+  "providers_after": {
+    "has_api_keys": true,
+    "has_tenant_key": true,
+    "status": "active",
+    "env_configured": null
+  },
+  "key_test": {
+    "http": 200,
+    "latency_s": 0.3,
+    "success": true,
+    "data": {
+      "ok": true,
+      "sample_models": [
+        "deepseek-v4.1-flash",
+        "deepseek-v4-pro",
+        "glm-5.1",
+        "glm-5.2",
+        "glm-5.3"
+      ]
+    }
+  },
+  "chats": [
+    {
+      "tag": "greeting",
+      "at": "11:13:06",
+      "http": 200,
+      "latency_s": 11.4,
+      "success": true,
+      "error_code": null,
+      "provider": "opencode-go",
+      "model": "glm-5.3-flash",
+      "message_head": "Hello! I'm ATOM, your business automation assistant \u2014 how can I help today?"
+    },
+    {
+      "tag": "question",
+      "at": "11:13:21",
+      "http": 200,
+      "latency_s": 15.0,
+      "success": true,
+      "error_code": null,
+      "provider": "opencode-go",
+      "model": "minimax-m3",
+      "message_head": "The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message."
+    },
+    {
+      "tag": "repeat",
+      "at": "11:14:26",
+      "http": 200,
+      "latency_s": 19.4,
+      "success": true,
+      "error_code": null,
+      "provider": "opencode-go",
+      "model": "glm-5.3-flash",
+      "message_head": "According to the ingested internal notes in your workspace (phase_d_zephyr_notes.txt and related Zephyr files), the launch code for Project Zephyr-9 is **QUARTZ-77**. The notes also list R. Parikh as the project owner with the acceptance team. Keep in mind thi"
+    }
+  ],
+  "finished": "11:14:26"
+}

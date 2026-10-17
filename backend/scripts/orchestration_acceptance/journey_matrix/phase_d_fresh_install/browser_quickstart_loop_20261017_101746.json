@@ -1,0 +1,2013 @@
+{
+ "journey": "phase-d-fresh-install-quickstart-loop",
+ "phase": "D-pristine-install",
+ "started_at": "2026-10-17T14:16:24+00:00",
+ "harness": {
+  "file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/scripts/orchestration_acceptance/browser_phase_d_quickstart_loop.py",
+  "sha256": "0041438853e7fe18ff91abf0a0f2ce9f7618f78864cfe1b80adf7257fc626767"
+ },
+ "frozen_candidate": "68729ebe4425c689832f012c3d5da23f3effc491",
+ "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine",
+ "isolation": {
+  "backend_port": 18100,
+  "frontend_port": 18101,
+  "fresh_venv": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/venv",
+  "fresh_node_modules": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules",
+  "venv_is_symlink": false,
+  "node_modules_is_symlink": false
+ },
+ "backend_health": {
+  "status": 200,
+  "identity": {
+   "pid": 99084,
+   "started_at": "2026-10-17T14:16:21.555837+00:00",
+   "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+   "git_commit": "68729ebe4425",
+   "source_id": "68729ebe4425-dirty.d58a3c7b0181",
+   "instance_id": "68729ebe4425-dirty.d58a3c7b0181.99084.1792246585",
+   "revision": "68729ebe4425c689832f012c3d5da23f3effc491",
+   "dirty": true,
+   "dirty_digest": "d58a3c7b0181",
+   "dirty_paths": [],
+   "untracked_paths": [
+    "backend/scripts/orchestration_acceptance/browser_phase_d_quickstart_loop.py",
+    "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/FREEZE.md",
+    "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/INSTALL_FINDINGS.md",
+    "logs_phase_d/isolation_applied.md"
+   ],
+   "captured_at": "2026-10-17T14:16:24.866573+00:00",
+   "port": 18100,
+   "error": null,
+   "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/atom_dev.db",
+   "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/data/byok_keys.json"
+  }
+ },
+ "backend_ownership": {
+  "tag": "attach",
+  "port": 18100,
+  "listener_pid": 96370,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+  "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18100 --reload",
+  "owned_by_worktree": true
+ },
+ "frontend_ownership_start": {
+  "tag": "attach",
+  "port": 18101,
+  "listener_pid": 96443,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+  "listener_cmd": "next-server (v16.2.2)",
+  "owned_by_worktree": true
+ },
+ "frontend_env_local": "NEXT_PUBLIC_API_URL=http://localhost:18100\nNEXTAUTH_URL=http://localhost:18101\n",
+ "db_path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/atom_dev.db",
+ "db_path_inside_worktree": true,
+ "db_before": {
+  "found": true,
+  "id": "30b24f82-3cf5-4c19-b980-f5ae181272c5",
+  "completed": false,
+  "step": "welcome",
+  "users_total": 1,
+  "workspaces_total": 1
+ },
+ "db_exists_before_run": true,
+ "admin_credentials": {
+  "email": "admin@example.com",
+  "password_file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/logs/bootstrap_admin_password.txt",
+  "password_present": true,
+  "password": "<redacted \u2014 read from the documented bootstrap file>"
+ },
+ "browser_version": "145.0.7632.6",
+ "session": {
+  "login": {
+   "url": "http://localhost:18101/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792246588}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792246589335_bybpcdexo"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792246589335_bybpcdexo"
+   },
+   "login_observed_at_backend": true,
+   "login_200_at_backend": true
+  },
+  "frontend_liveness_after_login": {
+   "tag": "after_login",
+   "port": 18101,
+   "listener_pid": 96443,
+   "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+   "listener_cmd": "next-server (v16.2.2)",
+   "owned_by_worktree": true
+  },
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Admin!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "enable_ollama_found": true,
+    "enable_clicked": true,
+    "advanced_to_ready": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "provider_after_wizard": {
+   "status": 200,
+   "auth_header_present": true,
+   "body": {
+    "success": true,
+    "data": {
+     "providers": [
+      {
+       "provider": {
+        "id": "deepseek",
+        "name": "DeepSeek V3",
+        "description": "Commoditized Intelligence (Reasoning Engine)",
+        "api_key_env_var": "DEEPSEEK_API_KEY",
+        "base_url": "https://api.deepseek.com/v1",
+        "model": "deepseek-chat",
+        "cost_per_token": 1.4e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "reasoning",
+         "vision"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "deepseek",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "openai",
+        "name": "OpenAI",
+        "description": "GPT-4 and GPT-3.5 models",
+        "api_key_env_var": "OPENAI_API_KEY",
+        "base_url": null,
+        "model": "gpt-4o",
+        "cost_per_token": 3e-05,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "vision",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "openai",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "anthropic",
+        "name": "Anthropic",
+        "description": "Claude 3 Opus, Sonnet, and Haiku",
+        "api_key_env_var": "ANTHROPIC_API_KEY",
+        "base_url": null,
+        "model": "claude-3-5-sonnet-20241022",
+        "cost_per_token": 1.5e-05,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "writing",
+         "vision",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "anthropic",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "groq",
+        "name": "Groq (Llama 3)",
+        "description": "Ultra-fast Llama 3.3/3.1 inference",
+        "api_key_env_var": "GROQ_API_KEY",
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.1-70b-versatile",
+        "cost_per_token": 8e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "realtime"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "groq",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "google",
+        "name": "Google Gemini",
+        "description": "Gemini 1.5 Pro",
+        "api_key_env_var": "GOOGLE_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-1.5-pro",
+        "cost_per_token": 1.25e-05,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "multimodal",
+         "vision",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "google",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "google_flash",
+        "name": "Google Gemini Flash",
+        "description": "Gemini 1.5 Flash - High Speed",
+        "api_key_env_var": "GOOGLE_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-1.5-flash",
+        "cost_per_token": 5e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "summary",
+         "extraction",
+         "vision",
+         "pdf_ocr"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 2
+       },
+       "usage": {
+        "provider_id": "google_flash",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "google_flash_3_5",
+        "name": "Google Gemini 3.5 Flash",
+        "description": "Gemini 3.5 Flash - Ultra High Speed",
+        "api_key_env_var": "GOOGLE_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-3.5-flash",
+        "cost_per_token": 3e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "summary",
+         "extraction",
+         "vision",
+         "pdf_ocr"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "google_flash_3_5",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "gemini",
+        "name": "Google Gemini",
+        "description": "Gemini 1.5 Pro (OpenAI-compatible)",
+        "api_key_env_var": "GOOGLE_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-1.5-pro",
+        "cost_per_token": 1.25e-05,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "multimodal",
+         "vision",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "gemini",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "gemini_flash",
+        "name": "Google Gemini Flash",
+        "description": "Gemini 1.5 Flash (OpenAI-compatible)",
+        "api_key_env_var": "GOOGLE_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-1.5-flash",
+        "cost_per_token": 5e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "summary",
+         "extraction",
+         "vision",
+         "pdf_ocr"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 2
+       },
+       "usage": {
+        "provider_id": "gemini_flash",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "gemini_flash_3_5",
+        "name": "Google Gemini 3.5 Flash",
+        "description": "Gemini 3.5 Flash (OpenAI-compatible)",
+        "api_key_env_var": "GOOGLE_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "model": "gemini-3.5-flash",
+        "cost_per_token": 3e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "summary",
+         "extraction",
+         "vision",
+         "pdf_ocr"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "gemini_flash_3_5",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "lux",
+        "name": "Lux Computer Use",
+        "description": "Lux Model for Computer Use Agents",
+        "api_key_env_var": "LUX_MODEL_API_KEY",
+        "base_url": null,
+        "model": "lux-1.0",
+        "cost_per_token": 2e-05,
+        "supported_tasks": [
+         "computer_use",
+         "agentic",
+         "desktop"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "lux",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "mistral",
+        "name": "Mistral AI",
+        "description": "Mistral Large 2 and Mixtral models",
+        "api_key_env_var": "MISTRAL_API_KEY",
+        "base_url": "https://api.mistral.ai/v1",
+        "model": "mistral-large-latest",
+        "cost_per_token": 4e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "mistral",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "glm",
+        "name": "Zhipu GLM",
+        "description": "GLM-4.6 and GLM-5.2 models (1M context, reasoning)",
+        "api_key_env_var": "GLM_API_KEY",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "model": "glm-5.2",
+        "cost_per_token": 2e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "analysis",
+         "reasoning",
+         "code"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "glm",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "moonshot",
+        "name": "Moonshot (Kimi)",
+        "description": "Kimi K2 models \u2014 256K context, vision, reasoning",
+        "api_key_env_var": "MOONSHOT_API_KEY",
+        "base_url": "https://api.moonshot.cn/v1",
+        "model": "kimi-k2.6",
+        "cost_per_token": 1e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning",
+         "analysis",
+         "vision"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "moonshot",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "qwen",
+        "name": "Qwen (Alibaba)",
+        "description": "Qwen 3.5 \u2014 high-quality open-weight model via DashScope",
+        "api_key_env_var": "QWEN_API_KEY",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-turbo",
+        "cost_per_token": 2e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "qwen",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "deepinfra",
+        "name": "DeepInfra",
+        "description": "DeepSeek-OCR and other open models",
+        "api_key_env_var": "DEEPINFRA_API_KEY",
+        "base_url": "https://api.deepinfra.com/v1/openai",
+        "model": "deepseek-ai/DeepSeek-OCR",
+        "cost_per_token": 1e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "pdf_ocr",
+         "image_comprehension"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 2
+       },
+       "usage": {
+        "provider_id": "deepinfra",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "tavily",
+        "name": "Tavily",
+        "description": "AI-native web search for agents and RAG",
+        "api_key_env_var": "TAVILY_API_KEY",
+        "base_url": "https://api.tavily.com",
+        "model": "search",
+        "cost_per_token": 1e-05,
+        "supported_tasks": [
+         "search",
+         "web_search",
+         "research",
+         "rag"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 1
+       },
+       "usage": {
+        "provider_id": "tavily",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "glm_5",
+        "name": "Zhipu GLM 5",
+        "description": "Next-generation GLM-5 model",
+        "api_key_env_var": "GLM_API_KEY",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "model": "glm-5",
+        "cost_per_token": 2.1e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "analysis"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "glm_5",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "minimax_m3",
+        "name": "MiniMax M3",
+        "description": "MiniMax M3 Flagship (512K context, image input)",
+        "api_key_env_var": "MINIMAX_API_KEY",
+        "base_url": "https://api.minimax.io/v1",
+        "model": "MiniMax-M3",
+        "cost_per_token": 7.5e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "minimax_m3",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "minimax",
+        "name": "MiniMax",
+        "description": "MiniMax M3 (512K context, OpenAI-compatible). Matches the client key in byok_handler.",
+        "api_key_env_var": "MINIMAX_API_KEY",
+        "base_url": "https://api.minimax.io/v1",
+        "model": "MiniMax-M3",
+        "cost_per_token": 7.5e-07,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning",
+         "vision"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "minimax",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "anthropic_opus_4_6",
+        "name": "Anthropic Claude Opus 4.6",
+        "description": "Advanced Reasoning and Analysis",
+        "api_key_env_var": "ANTHROPIC_API_KEY",
+        "base_url": null,
+        "model": "claude-3-opus-4-6",
+        "cost_per_token": 1.5e-05,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "analysis",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "anthropic_opus_4_6",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "openai_5_3",
+        "name": "OpenAI GPT 5.3",
+        "description": "State-of-the-art GPT 5.3 model",
+        "api_key_env_var": "OPENAI_API_KEY",
+        "base_url": null,
+        "model": "gpt-5.3",
+        "cost_per_token": 7.875e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "openai_5_3",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "xiaomi",
+        "name": "Xiaomi",
+        "description": "Xiaomi MiMo V2.5 Pro Agentic Model",
+        "api_key_env_var": "XIAOMI_API_KEY",
+        "base_url": "https://api.xiaomi.com/v1",
+        "model": "xiaomi/mimo-v2.5-pro",
+        "cost_per_token": 1e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning",
+         "analysis"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "xiaomi",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "ollama",
+        "name": "Ollama (Local)",
+        "description": "Local LLM inference via Ollama (OpenAI-compatible). No API key required.",
+        "api_key_env_var": "OLLAMA_API_KEY",
+        "base_url": "http://localhost:11434/v1",
+        "model": "llama3.1:8b",
+        "cost_per_token": 0,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "analysis",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": false,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "ollama",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "openrouter",
+        "name": "OpenRouter",
+        "description": "Unified gateway to 300+ models (OpenAI, Anthropic, Google, Meta, and more). One API key.",
+        "api_key_env_var": "OPENROUTER_API_KEY",
+        "base_url": "https://openrouter.ai/api/v1",
+        "model": "minimax/minimax-m3",
+        "cost_per_token": 3e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning",
+         "analysis",
+         "vision"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 4
+       },
+       "usage": {
+        "provider_id": "openrouter",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "xai",
+        "name": "xAI (Grok)",
+        "description": "xAI Grok models \u2014 OpenAI-compatible API.",
+        "api_key_env_var": "XAI_API_KEY",
+        "base_url": "https://api.x.ai/v1",
+        "model": "grok-3-mini",
+        "cost_per_token": 3e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "xai",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "cerebras",
+        "name": "Cerebras",
+        "description": "Cerebras Inference \u2014 ultra-fast OpenAI-compatible API.",
+        "api_key_env_var": "CEREBRAS_API_KEY",
+        "base_url": "https://api.cerebras.ai/v1",
+        "model": "llama3.1-8b",
+        "cost_per_token": 1e-06,
+        "supported_tasks": [
+         "general",
+         "chat"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 2
+       },
+       "usage": {
+        "provider_id": "cerebras",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "fireworks",
+        "name": "Fireworks AI",
+        "description": "Fireworks AI \u2014 OpenAI-compatible inference for open models.",
+        "api_key_env_var": "FIREWORKS_API_KEY",
+        "base_url": "https://api.fireworks.ai/inference/v1",
+        "model": "accounts/fireworks/models/llama-v3p1-8b-instruct",
+        "cost_per_token": 2e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "vision"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "fireworks",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "huggingface",
+        "name": "Hugging Face",
+        "description": "Hugging Face Inference Router \u2014 OpenAI-compatible API.",
+        "api_key_env_var": "HUGGINGFACE_API_KEY",
+        "base_url": "https://router.huggingface.co/v1",
+        "model": "meta-llama/Llama-3.3-70B-Instruct",
+        "cost_per_token": 0,
+        "supported_tasks": [
+         "general",
+         "chat"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "huggingface",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "nvidia_nim",
+        "name": "NVIDIA NIM",
+        "description": "NVIDIA NIM \u2014 OpenAI-compatible API for self-hosted models.",
+        "api_key_env_var": "NVIDIA_NIM_API_KEY",
+        "base_url": "https://integrate.api.nvidia.com/v1",
+        "model": "meta/llama-3.1-8b-instruct",
+        "cost_per_token": 0,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "nvidia_nim",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "zai",
+        "name": "Z.AI",
+        "description": "Z.AI (z.ai) \u2014 OpenAI-compatible API (DeepSeek/GLM families).",
+        "api_key_env_var": "ZAI_API_KEY",
+        "base_url": "https://api.z.ai/api/paas/v4",
+        "model": "glm-4.5",
+        "cost_per_token": 3e-06,
+        "supported_tasks": [
+         "general",
+         "chat",
+         "code",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "zai",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "opencode",
+        "name": "OpenCode",
+        "description": "OpenCode Zen gateway \u2014 tested open coding models (DeepSeek, Kimi) via one API key.",
+        "api_key_env_var": "OPENCODE_API_KEY",
+        "base_url": "https://opencode.ai/zen/v1",
+        "model": "deepseek-v4.1-flash",
+        "cost_per_token": 0,
+        "supported_tasks": [
+         "code",
+         "general",
+         "chat",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "opencode",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "opencode-go",
+        "name": "OpenCode Go",
+        "description": "OpenCode Go subscription \u2014 flat-rate access to the Zen model catalog (~90% cheaper than direct APIs).",
+        "api_key_env_var": "OPENCODE_API_KEY",
+        "base_url": "https://opencode.ai/zen/v1",
+        "model": "deepseek-v4.1-flash",
+        "cost_per_token": 0,
+        "supported_tasks": [
+         "code",
+         "general",
+         "chat",
+         "reasoning"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "opencode-go",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "perplexity",
+        "name": "Perplexity",
+        "description": "Perplexity Sonar online models",
+        "api_key_env_var": "PERPLEXITY_API_KEY",
+        "base_url": "https://api.perplexity.ai",
+        "model": "llama-3.1-sonar-large-128k-online",
+        "cost_per_token": 5e-06,
+        "supported_tasks": [
+         "search",
+         "chat",
+         "analysis"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "perplexity",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "cohere",
+        "name": "Cohere",
+        "description": "Command R and Command R+ models",
+        "api_key_env_var": "COHERE_API_KEY",
+        "base_url": "https://api.cohere.ai/v1",
+        "model": "command-r-plus",
+        "cost_per_token": 1.5e-05,
+        "supported_tasks": [
+         "chat",
+         "rag",
+         "analysis"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 3
+       },
+       "usage": {
+        "provider_id": "cohere",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "deepgram",
+        "name": "Deepgram",
+        "description": "High-speed audio transcription and voice AI",
+        "api_key_env_var": "DEEPGRAM_API_KEY",
+        "base_url": null,
+        "model": "nova-2",
+        "cost_per_token": 0.0001,
+        "supported_tasks": [
+         "transcription",
+         "text_to_speech",
+         "audio_analysis"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 2
+       },
+       "usage": {
+        "provider_id": "deepgram",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      },
+      {
+       "provider": {
+        "id": "brightdata",
+        "name": "Bright Data",
+        "description": "Web scraping and data collection with anti-bot protection",
+        "api_key_env_var": "BRIGHTDATA_API_KEY",
+        "base_url": "https://api.brightdata.com",
+        "model": "mcp-server",
+        "cost_per_token": 0,
+        "supported_tasks": [
+         "search",
+         "crawl",
+         "access",
+         "navigate",
+         "scraping"
+        ],
+        "max_requests_per_minute": 60,
+        "rate_limit_window": 60,
+        "is_active": true,
+        "requires_encryption": true,
+        "reasoning_level": 2
+       },
+       "usage": {
+        "provider_id": "brightdata",
+        "total_requests": 0,
+        "successful_requests": 0,
+        "failed_requests": 0,
+        "total_tokens_used": 0,
+        "cost_accumulated": 0,
+        "last_used": null,
+        "rate_limit_remaining": 0,
+        "rate_limit_reset": null
+       },
+       "has_api_keys": false,
+       "has_tenant_key": false,
+       "status": "inactive"
+      }
+     ],
+     "total_providers": 37,
+     "active_providers": 0,
+     "ai_mode": "byok"
+    },
+    "error": null,
+    "message": null,
+    "timestamp": "2026-10-17T14:16:35.965066Z"
+   }
+  },
+  "status_api_mid": {
+   "status": 200,
+   "auth_header_present": true,
+   "body": {
+    "success": true,
+    "data": {
+     "onboarding_step": "welcome",
+     "onboarding_completed": false
+    },
+    "timestamp": "2026-10-17T14:16:36.007043+00:00"
+   }
+  },
+  "frontend_liveness_before_click": {
+   "tag": "before_click",
+   "port": 18101,
+   "listener_pid": 96443,
+   "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+   "listener_cmd": "next-server (v16.2.2)",
+   "owned_by_worktree": true
+  },
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 11.71,
+   "overlay_closed_at": 12.74,
+   "overlay_closed_seconds_after_click": 1.03,
+   "toasts_seen": [
+    "Ollama connected",
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 11.72,
+     "method": "POST",
+     "url": "http://localhost:18100/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 11.74,
+     "status": 200,
+     "url": "http://localhost:18100/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T14:16:36.377255+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 11.72,
+      "method": "POST",
+      "url": "http://localhost:18100/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     }
+    ],
+    "responses": [
+     {
+      "t": 11.74,
+      "status": 200,
+      "url": "http://localhost:18100/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T14:16:36.377255+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:18101/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"span-end\",\"startTime\":1792246587038.9,\"endTime\":1792246587383.5999,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10707:13)\\n    at http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5D__07yy\u2026(+1053)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"10:16:29.339\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"10:16:29.345\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}",
+       "{\"event\":\"client-success\",\"clientId\":1792246587292}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":1492341815228525}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"built\",\"hash\":\"2\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"3\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"4\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true}}",
+       "{\"type\":\"built\",\"hash\":\"5\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"6\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"7\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/documents\":true,\"/dashboard\":true,\"/login\":true}}",
+       "{\"type\":\"built\",\"hash\":\"8\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}"
+      ]
+     },
+     {
+      "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+      "frames_sent": [],
+      "frames_received": []
+     },
+     {
+      "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "post_click": {
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T14:17:06.554163+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "30b24f82-3cf5-4c19-b980-f5ae181272c5",
+    "completed": true,
+    "step": "completed",
+    "users_total": 1,
+    "workspaces_total": 1
+   },
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792246588}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792246589335_bybpcdexo"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792246589335_bybpcdexo"
+   }
+  },
+  "upload": {
+   "page_loaded": true,
+   "file_input_found": true,
+   "upload_requests": [
+    {
+     "t": 46.35,
+     "method": "POST",
+     "url": "http://localhost:18100/api/documents/upload",
+     "authorization_present": true,
+     "content_type": "multipart/form-data; boundary=----WebKitFormBoundaryzvLpoeuAtgYQQAOJ",
+     "post_data": null
+    },
+    {
+     "t": 46.39,
+     "method": "POST",
+     "url": "http://localhost:18100/api/documents/upload",
+     "authorization_present": true,
+     "content_type": "multipart/form-data; boundary=----WebKitFormBoundaryYhvFaBtUk5kSaKDB",
+     "post_data": null
+    },
+    {
+     "t": 47.15,
+     "method": "POST",
+     "url": "http://localhost:18100/api/documents/upload",
+     "authorization_present": true,
+     "content_type": "multipart/form-data; boundary=----WebKitFormBoundaryAouIec4eFxOBTidv",
+     "post_data": null
+    }
+   ],
+   "upload_responses": [
+    {
+     "t": 46.39,
+     "status": 500,
+     "url": "http://localhost:18100/api/documents/upload",
+     "body_head": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal error\",\"timestamp\":\"2026-10-17T14:17:11.026526+00:00\"}}"
+    },
+    {
+     "t": 46.42,
+     "status": 500,
+     "url": "http://localhost:18100/api/documents/upload",
+     "body_head": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal error\",\"timestamp\":\"2026-10-17T14:17:11.054670+00:00\"}}"
+    },
+    {
+     "t": 47.18,
+     "status": 500,
+     "url": "http://localhost:18100/api/documents/upload",
+     "body_head": "{\"success\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"Internal error\",\"timestamp\":\"2026-10-17T14:17:11.816412+00:00\"}}"
+    }
+   ],
+   "documents_list": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": [],
+     "timestamp": "2026-10-17T14:17:12.018531+00:00",
+     "metadata": {
+      "total": 0,
+      "limit": 100,
+      "offset": 0
+     }
+    }
+   },
+   "fixture_in_list": false
+  },
+  "chat": {
+   "input_found": true,
+   "sent_at": 53.45,
+   "assistant_text": "Reasoning Process (2 steps)",
+   "answer_contains_fact": false,
+   "waited_seconds": 9.1,
+   "message_requests": [
+    {
+     "t": 53.44,
+     "method": "POST",
+     "url": "http://localhost:18100/api/chat/message",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"message\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\",\"session_id\":\"session_1792246589335_bybpcdexo\",\"user_id\":\"30b24f82-3cf5-4c19-b980-f5ae181272c5\",\"request_id\":\"1767986d-2a70-4db7-92d9-d04c83136ee4\",\"context\":{\"current_page\":\"/chat\",\"agent_id\":null,\"conversation_history\":[],\"attachments\":[]}}"
+    }
+   ],
+   "message_responses": [],
+   "ws_tail": [
+    {
+     "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"f76a47a2-61cf-4fb2-9d06-81b3d3292976\",\"session_id\":\"session_1792246589335_bybpcdexo\"},\"timestamp\":\"2026-10-17T10:17:18.183103\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)"
+     ]
+    },
+    {
+     "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"f76a47a2-61cf-4fb2-9d06-81b3d3292976\",\"session_id\":\"session_1792246589335_bybpcdexo\"},\"timestamp\":\"2026-10-17T10:17:18.183103\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)"
+     ]
+    },
+    {
+     "url": "ws://localhost:18100/ws?token=<redacted-scratch-jwt>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"f76a47a2-61cf-4fb2-9d06-81b3d3292976\",\"session_id\":\"session_1792246589335_bybpcdexo\"},\"timestamp\":\"2026-10-17T10:17:18.183103\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)"
+     ]
+    }
+   ],
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792246635}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792246589335_bybpcdexo"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792246589335_bybpcdexo"
+   }
+  },
+  "chat_durable": {
+   "session_id_from_storage": "session_1792246589335_bybpcdexo",
+   "user_id_present": true,
+   "history": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "session_id": "session_1792246589335_bybpcdexo",
+     "messages": [],
+     "timestamp": ""
+    }
+   },
+   "history_contains_fact": false
+  },
+  "reload": {
+   "chat_text_after_reload": "",
+   "fact_persists_after_reload": false,
+   "wizard_present_after_reload": false,
+   "wizard_present_after_dashboard_load": false,
+   "host_status_fetches": [
+    {
+     "t": 76.41,
+     "status": 200,
+     "url": "http://localhost:18100/api/onboarding/status",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T14:17:40.945160+00:00\"}"
+    },
+    {
+     "t": 76.48,
+     "status": 200,
+     "url": "http://localhost:18100/api/onboarding/status",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T14:17:41.098653+00:00\"}"
+    }
+   ],
+   "host_fetch_shows_completed": true,
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T14:17:45.959996+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "30b24f82-3cf5-4c19-b980-f5ae181272c5",
+    "completed": true,
+    "step": "completed",
+    "users_total": 1,
+    "workspaces_total": 1
+   },
+   "frontend_liveness_at_end": {
+    "tag": "end",
+    "port": 18101,
+    "listener_pid": 96443,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+    "listener_cmd": "next-server (v16.2.2)",
+    "owned_by_worktree": true
+   },
+   "backend_ownership_at_end": {
+    "tag": "end",
+    "port": 18100,
+    "listener_pid": 96370,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+    "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18100 --reload",
+    "owned_by_worktree": true
+   }
+  }
+ },
+ "console_tail": [
+  {
+   "t": 63.24,
+   "type": "log",
+   "text": "[Fast Refresh] rebuilding"
+  },
+  {
+   "t": 63.6,
+   "type": "log",
+   "text": "[Fast Refresh] done in 465ms"
+  },
+  {
+   "t": 68.12,
+   "type": "error",
+   "text": "[API Error] {code: ECONNABORTED, status: undefined, message: timeout of 5000ms exceeded, url: /api/chat/sessions?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5}"
+  },
+  {
+   "t": 68.12,
+   "type": "error",
+   "text": "Error fetching chat history: AxiosError: timeout of 5000ms exceeded\n    at XMLHttpRequest.handleTimeout (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:2608:20)\n    at Axios.request (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:3357:49)\n    at async fetchChatHistory (http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5\u2026(+23)"
+  },
+  {
+   "t": 68.12,
+   "type": "error",
+   "text": "[API Error] {code: ECONNABORTED, status: undefined, message: timeout of 5000ms exceeded, url: /api/chat/sessions?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5}"
+  },
+  {
+   "t": 68.12,
+   "type": "error",
+   "text": "Error fetching chat history: AxiosError: timeout of 5000ms exceeded\n    at XMLHttpRequest.handleTimeout (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:2608:20)\n    at Axios.request (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:3357:49)\n    at async fetchChatHistory (http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5\u2026(+23)"
+  },
+  {
+   "t": 68.12,
+   "type": "error",
+   "text": "[API Error] {code: ECONNABORTED, status: undefined, message: timeout of 5000ms exceeded, url: /api/chat/sessions/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5}"
+  },
+  {
+   "t": 68.12,
+   "type": "log",
+   "text": "Bg fetch title error AxiosError: timeout of 5000ms exceeded\n    at XMLHttpRequest.handleTimeout (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:2608:20)\n    at Axios.request (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:3357:49)"
+  },
+  {
+   "t": 68.14,
+   "type": "error",
+   "text": "[API Error] {code: ECONNABORTED, status: undefined, message: timeout of 5000ms exceeded, url: /api/chat/sessions/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5}"
+  },
+  {
+   "t": 68.14,
+   "type": "log",
+   "text": "Bg fetch title error AxiosError: timeout of 5000ms exceeded\n    at XMLHttpRequest.handleTimeout (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:2608:20)\n    at Axios.request (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:3357:49)"
+  },
+  {
+   "t": 68.23,
+   "type": "log",
+   "text": "[Fast Refresh] rebuilding"
+  },
+  {
+   "t": 68.23,
+   "type": "log",
+   "text": "[Fast Refresh] done in 109ms"
+  },
+  {
+   "t": 71.12,
+   "type": "error",
+   "text": "[API Error] {code: ECONNABORTED, status: undefined, message: timeout of 8000ms exceeded, url: /api/chat/history/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5}"
+  },
+  {
+   "t": 71.12,
+   "type": "error",
+   "text": "Failed to load history: AxiosError: timeout of 8000ms exceeded\n    at XMLHttpRequest.handleTimeout (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:2608:20)\n    at Axios.request (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:3357:49)\n    at async useChatInterface.useCallback[loadSessionHistory] (http://localhost:18101/_next/static/chu\u2026(+51)"
+  },
+  {
+   "t": 71.14,
+   "type": "error",
+   "text": "[API Error] {code: ECONNABORTED, status: undefined, message: timeout of 8000ms exceeded, url: /api/chat/history/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5}"
+  },
+  {
+   "t": 71.14,
+   "type": "error",
+   "text": "Failed to load history: AxiosError: timeout of 8000ms exceeded\n    at XMLHttpRequest.handleTimeout (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:2608:20)\n    at Axios.request (http://localhost:18101/_next/static/chunks/node_modules_axios_lib_07q4_l1._.js:3357:49)\n    at async useChatInterface.useCallback[loadSessionHistory] (http://localhost:18101/_next/static/chu\u2026(+51)"
+  },
+  {
+   "t": 72.28,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 72.3,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 72.35,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<redacted-scratch-jwt>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 72.35,
+   "type": "error",
+   "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+  },
+  {
+   "t": 72.35,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 76.46,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 76.46,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 76.49,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 76.49,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ],
+ "page_errors": [],
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "signin": true,
+  "wizard-present": true,
+  "provider-configured-via-wizard": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "provider-readback": true,
+  "upload-succeeded": false,
+  "upload-durable": false,
+  "chat-answer-received": false,
+  "answer-uses-uploaded-source": false,
+  "answer-durable-in-history": false,
+  "reload-chat-persists": false,
+  "reload-no-wizard": true
+ },
+ "pass": false,
+ "finished_at": "2026-10-17T14:17:46+00:00"
+}

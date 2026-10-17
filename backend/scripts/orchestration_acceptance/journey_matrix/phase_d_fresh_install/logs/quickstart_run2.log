@@ -1,0 +1,44 @@
+=== Phase D quickstart install log — RUN 2 (after recorded intervention F1) ===
+Sat Oct 17 10:04:05 EDT 2026
+intervention: python3.11 venv per docs/getting_started/quick-start.md (manual path) — see INSTALL_FINDINGS.md F1
+commands:
+  rm -rf backend/venv
+  python3.11 -m venv backend/venv
+  bash scripts/quickstart.sh
+--- intervention ---
+Python 3.11.16
+--- documented setup, unchanged ---
+🚀 Atom Quick Start
+====================
+✅ Node v20.19.6
+✅ Python 3.14
+
+📦 Setting up backend...
+  error: subprocess-exited-with-error
+  
+  × Preparing metadata (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─> [12 lines of output]
+      error: process didn't exit successfully: `rustc -vV` (signal: 6, SIGABRT: process abort signal)
+      --- stderr
+      dyld[94359]: Library not loaded: /usr/local/opt/z3/lib/libz3.4.15.dylib
+        Referenced from: <E4733227-D642-30D3-8D55-5DA2ED4E449F> /usr/local/Cellar/llvm/21.1.5/lib/libLLVM.dylib
+        Reason: tried: '/usr/local/opt/z3/lib/libz3.4.15.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/usr/local/opt/z3/lib/libz3.4.15.dylib' (no such file), '/usr/local/opt/z3/lib/libz3.4.15.dylib' (no such file), '/usr/local/Cellar/z3/5.1.0/lib/libz3.4.15.dylib' (no such file), '/System/Volumes/Preboot/Cryptexes/OS/usr/local/Cellar/z3/5.1.0/lib/libz3.4.15.dylib' (no such file), '/usr/local/Cellar/z3/5.1.0/lib/libz3.4.15.dylib' (no such file)
+      
+      💥 maturin failed
+        Caused by: Cargo metadata failed. Does your crate compile with `cargo build`?
+        Caused by: `cargo metadata` exited with an error:
+      Error running maturin: Command '['maturin', 'pep517', 'write-dist-info', '--metadata-directory', '/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/pip-modern-metadata-m7wulibc', '--interpreter', '/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/venv/bin/python3.11']' returned non-zero exit status 1.
+      Checking for Rust toolchain....
+      Running `maturin pep517 write-dist-info --metadata-directory /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/pip-modern-metadata-m7wulibc --interpreter /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/venv/bin/python3.11`
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+error: metadata-generation-failed
+
+× Encountered error while generating package metadata.
+╰─> cryptography
+
+note: This is an issue with the package mentioned above, not pip.
+hint: See above for details.
+=== quickstart rc=1 ===

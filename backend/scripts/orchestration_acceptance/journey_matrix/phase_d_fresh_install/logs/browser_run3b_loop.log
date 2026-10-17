@@ -1,0 +1,30 @@
+{
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "admin-signin": true,
+  "product-user-registered": true,
+  "fresh-user-signin": true,
+  "wizard-present": true,
+  "wizard-api-key-posted": true,
+  "wizard-key-left-provider-inactive": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "settings-ai-configured-provider": true,
+  "settings-save-used-default-key-name": true,
+  "upload-succeeded": true,
+  "upload-durable": true,
+  "chat-answer-received": true,
+  "chat-no-no-llm-provider": true,
+  "answer-not-unusable-output": false,
+  "answer-uses-uploaded-source": false,
+  "answer-durable-in-history": false,
+  "answer-provider-opencode-go": true,
+  "reload-chat-persists": true,
+  "reload-no-wizard": true
+ }
+}
+evidence: /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json
