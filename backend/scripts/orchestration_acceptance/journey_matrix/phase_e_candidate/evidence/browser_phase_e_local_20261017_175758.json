@@ -1,0 +1,867 @@
+{
+ "journey": "phase-e-unified-candidate-loop",
+ "phase": "E",
+ "mode": "local",
+ "started_at": "2026-10-17T21:56:09+00:00",
+ "harness": {
+  "file": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/browser_phase_e_loop.py",
+  "sha256": "f6cdee0c75428a76c88b73b3954d6d45d8b80e678d7cd5f05c4110332be4d921",
+  "carries": "browser_phase_d_quickstart_loop.py machinery"
+ },
+ "frozen_candidate": "e207494af4c7",
+ "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate",
+ "effective_config": {
+  "atom_local_only": true,
+  "provider_under_test": "ollama",
+  "opencode_api_key_env": "n/a",
+  "byok_store": "wizard Card A (ollama), canonical key_name=default + label"
+ },
+ "go_key_loaded": false,
+ "versions": {
+  "pyarrow": "25.0.1",
+  "numpy": "1.26.4",
+  "lancedb": "0.24.3",
+  "playwright": "1.58.0",
+  "cryptography": "42.0.8"
+ },
+ "backend_health_identity": {
+  "pid": 43868,
+  "started_at": "2026-10-17T21:14:31.081258+00:00",
+  "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend",
+  "git_commit": "e207494af4c7",
+  "source_id": "e207494af4c7-dirty.df12d0abd2e0",
+  "instance_id": "e207494af4c7-dirty.df12d0abd2e0.43868.1792271673",
+  "revision": "e207494af4c7de5f4b2ef85618c7eced64c18162",
+  "dirty": true,
+  "dirty_digest": "df12d0abd2e0",
+  "dirty_paths": [],
+  "untracked_paths": [
+   "evidence/phase_e_cloud/browser_phase_e_cloud_20261017_164154.json",
+   "evidence/phase_e_cloud/phase_d_after_click.png",
+   "evidence/phase_e_cloud/phase_d_ready_before_click.png",
+   "evidence/phase_e_cloud/phase_e_admin_signed_in.png",
+   "evidence/phase_e_cloud/phase_e_after_reload.png",
+   "evidence/phase_e_cloud/phase_e_chat_answer.png",
+   "evidence/phase_e_cloud/phase_e_documents_uploaded.png",
+   "evidence/phase_e_cloud/phase_e_user_signed_in.png"
+  ],
+  "captured_at": "2026-10-17T21:14:33.367584+00:00",
+  "port": 18300,
+  "error": null,
+  "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/atom_dev.db",
+  "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/data/byok_keys.json"
+ },
+ "backend_ownership": {
+  "tag": "attach",
+  "port": 18300,
+  "listener_pid": 43493,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend",
+  "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18300 --reload",
+  "owned_by_worktree": true
+ },
+ "frontend_ownership": {
+  "tag": "attach",
+  "port": 18301,
+  "listener_pid": 38826,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/frontend-nextjs",
+  "listener_cmd": "next-server (v16.2.2)",
+  "owned_by_worktree": true
+ },
+ "db_path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/atom_dev.db",
+ "db_path_inside_worktree": true,
+ "db_before": {
+  "found": true,
+  "id": "a61b6acd-c41a-41bc-9356-6979e63aced3",
+  "completed": false,
+  "step": "welcome",
+  "users_total": 12,
+  "workspaces_total": 12
+ },
+ "product_user": {
+  "registered": true,
+  "register_http": 200,
+  "email": "jprobe_42f91e9c1a@example.com",
+  "id": "48145ef9-c9d3-4827-987c-bc3ac6ed9919"
+ },
+ "admin_credentials": {
+  "email": "admin@example.com",
+  "password_present": true,
+  "password": "<redacted>"
+ },
+ "browser_version": "145.0.7632.6",
+ "admin_signin": {
+  "login": {
+   "url": "http://localhost:18301/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792274184}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792274184594_b4l03i5q3"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792274184594_b4l03i5q3"
+   }
+  },
+  "login_200": true
+ },
+ "session": {
+  "login": {
+   "url": "http://localhost:18301/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792274187}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_42f91e9c1a@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792274187961_h0hnktwme"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792274187961_h0hnktwme"
+   }
+  },
+  "login_200": true,
+  "provider_before_wizard": {
+   "has_api_keys": false,
+   "has_tenant_key": false,
+   "status": "inactive"
+  },
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Journey!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "enable_ollama_found": true,
+    "enable_clicked": true,
+    "advanced_to_ready": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "wizard_store_posts": [
+   {
+    "t": 23.12,
+    "method": "POST",
+    "url": "http://localhost:18300/api/ai/providers/ollama/keys",
+    "authorization_present": true,
+    "content_type": "application/json",
+    "post_data": "{\"api_key\":\"ollama-local-no-key-required\",\"key_name\":\"default\",\"label\":\"Ollama (local)\",\"environment\":\"production\"}"
+   }
+  ],
+  "wizard_store_responses": [
+   {
+    "t": 23.14,
+    "status": 200,
+    "url": "http://localhost:18300/api/ai/providers/ollama/keys",
+    "body_head": "{\"success\":true,\"data\":{\"key_id\":\"tenant_9ac20a47-4697-4894-9d2a-1e46ec9ce34e_ollama_default_production\",\"message\":\"API key stored successfully for ollama in Journey's Workspace\"},\"error\":null,\"message\":null,\"timestamp\":\"2026-10-17T21:56:32.248800Z\"}"
+   }
+  ],
+  "wizard_store_status_200": true,
+  "wizard_payload_canonical": true,
+  "provider_after_wizard": {
+   "has_api_keys": true,
+   "has_tenant_key": true,
+   "status": "active"
+  },
+  "wizard_activated_provider": true,
+  "store_post_count_before_chat": 1,
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 25.71,
+   "overlay_closed_at": 26.74,
+   "overlay_closed_seconds_after_click": 1.03,
+   "toasts_seen": [
+    "Ollama connected",
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 25.73,
+     "method": "POST",
+     "url": "http://localhost:18300/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 25.74,
+     "status": 200,
+     "url": "http://localhost:18300/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T21:56:34.850459+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 25.73,
+      "method": "POST",
+      "url": "http://localhost:18300/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     }
+    ],
+    "responses": [
+     {
+      "t": 25.74,
+      "status": 200,
+      "url": "http://localhost:18300/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T21:56:34.850459+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:18301/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"client-success\",\"clientId\":1792274187558}",
+       "{\"event\":\"span-end\",\"startTime\":1792274187397.1,\"endTime\":1792274187581.6,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792274187558}",
+       "{\"event\":\"client-success\",\"clientId\":1792274187558}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:18301/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10716:13)\\n    at http://localhost:18301/_next/static/chunks/%5Broot-of-the-server%5D__07yy\u2026(+1053)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"17:56:27.964\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"17:56:27.968\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792274187558}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"console\",\"consoleMethodStack\":\"    at console.warn (http://localhost:18301/_next/static/chunks/node_modules_next_dist_08w_b42._.js:1380:13)\\n    at GlobalChatWidget.useEffect.fetchPendingApprovals (http://localhost:18301/_next/static/chunks/%5Broot-of-the-\u2026(+219)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"17:56:28.032\",\"level\":\"WARN\",\"message\":\"[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown.\"}]}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true,\"/dashboard\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":195617872536327}}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"84\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"86\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"built\",\"hash\":\"88\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/documents\":true,\"/dashboard\":true,\"/login\":true,\"/chat\":true}}"
+      ]
+     },
+     {
+      "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+      "frames_sent": [],
+      "frames_received": []
+     },
+     {
+      "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "post_click": {
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T21:57:05.135031+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "48145ef9-c9d3-4827-987c-bc3ac6ed9919",
+    "completed": true,
+    "step": "completed",
+    "users_total": 13,
+    "workspaces_total": 13
+   },
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792274187}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_42f91e9c1a@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792274187961_h0hnktwme"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792274187961_h0hnktwme"
+   }
+  },
+  "upload": {
+   "file_input_found": true,
+   "success_text_seen": true,
+   "upload_responses": [
+    {
+     "t": 60.23,
+     "status": 200,
+     "url": "http://localhost:18300/api/documents/upload",
+     "body_head": "{\"id\":\"doc_ee4153d4a4ff67b28359e186\",\"title\":\"phase_e_zephyr_notes.txt\",\"type\":\"text/plain\",\"metadata\":{\"source\":\"upload\",\"size\":221,\"title\":\"phase_e_zephyr_notes.txt\",\"filename\":\"phase_e_zephyr_notes.txt\",\"file_type\":\"txt\",\"ingested_at\":\"2026-10-17T17:57:09.278666\",\"doc_id\":\"doc_ee4153d4a4ff67b28359e186\",\"pg_document_id\":\"doc_ee4153d4a4ff67b28359e186\",\"source_type\":\"upload\",\"integration_id\":\"manual_upload\",\"author\":\"jprobe_42f91e9c1a@example.com\"},\"ingested_at\":\"2026-10-17T17:57:09.278666\",\"chu\u2026(+12)"
+    }
+   ],
+   "documents_list": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": [
+      {
+       "id": "doc_ee4153d4a4ff67b28359e186",
+       "title": "phase_e_zephyr_notes.txt",
+       "text_preview": "ATOM PHASE D FIXTURE \u2014 internal notes.\nProject Zephyr-9 launch planning.\nThe launch code for project Zephyr-9 is QUARTZ-77.\nOwner: R. Parikh. Team: acceptance.\nDecoy: the archive key for project Halcy",
+       "metadata": {
+        "source": "upload",
+        "size": 221,
+        "title": "phase_e_zephyr_notes.txt",
+        "filename": "phase_e_zephyr_notes.txt",
+        "file_type": "txt",
+        "ingested_at": "2026-10-17T17:57:09.278666",
+        "doc_id": "doc_ee4153d4a4ff67b28359e186",
+        "pg_document_id": "doc_ee4153d4a4ff67b28359e186",
+        "source_type": "upload",
+        "integration_id": "manual_upload",
+        "author": "jprobe_42f91e9c1a@example.com",
+        "source_content_hash": "ev4:ee4153d4a4ff67b28359e18665a669cab4afc0a6363572630cddc3155d3c5cd7"
+       },
+       "created_at": "2026-10-17T21:57:09.321599+00:00"
+      }
+     ],
+     "timestamp": "2026-10-17T21:57:10.297126+00:00",
+     "metadata": {
+      "total": 1,
+      "limit": 100,
+      "offset": 0
+     }
+    }
+   },
+   "fixture_in_list": true
+  },
+  "chat": {
+   "input_found": true,
+   "attempts": [
+    {
+     "prompt": "Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.",
+     "sent_at": 64.35,
+     "last_history_status": 200,
+     "session_id": "session_1792274187961_h0hnktwme",
+     "history_msgs_count": 2,
+     "answer_text": "The live tool results are:\n\n- [ingested] phase_e_zephyr_notes.txt: \nThe launch code for project Zephyr-9 is QUARTZ-77.\n\nThis document was found in the uploaded documents section of your workspace.",
+     "dom_text": "The live tool results are:\n\n[ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis document was found in the uploaded documents section of your workspace.\n\nReasoning Process (3 steps)",
+     "non_answer_reason": null,
+     "history_contains_fact": true,
+     "waited_seconds": 26.4
+    }
+   ],
+   "retried": false,
+   "first_attempt_clean": true,
+   "final_answer_text": "The live tool results are:\n\n- [ingested] phase_e_zephyr_notes.txt: \nThe launch code for project Zephyr-9 is QUARTZ-77.\n\nThis document was found in the uploaded documents section of your workspace.",
+   "history_msgs_count": 2,
+   "assistant_text_dom": "The live tool results are:\n\n[ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis document was found in the uploaded documents section of your workspace.\n\nReasoning Process (3 steps)",
+   "answer_contains_fact": true,
+   "history_contains_fact": true,
+   "non_answer_reason": null,
+   "message_responses": [
+    {
+     "t": 74.56,
+     "status": 200,
+     "url": "http://localhost:18300/api/chat/message",
+     "body_head": "{\"success\":true,\"message\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for project Zephyr-9 is QUARTZ-77.\\n\\nThis document was found in the uploaded documents section of your workspace.\",\"session_id\":\"session_1792274187961_h0hnktwme\",\"intent\":\"search_request\",\"confidence\":0.8,\"suggested_actions\":[\"Open Search UI for detailed results\",\"Save this search for later\",\"Set up alert for similar content\"],\"requires_confirmation\":false,\"next_steps\":[\"Refine your\u2026(+2270)"
+    }
+   ],
+   "no_llm_provider_seen": false,
+   "answer_says_provider_needed": false,
+   "usage_calls_recent": [
+    {
+     "timestamp": "2026-10-17T21:57:23.540615Z",
+     "provider": "ollama",
+     "model": "llama3.1:8b",
+     "success": true,
+     "latency_ms": 9413.274049758911,
+     "input_tokens": 0,
+     "output_tokens": 50,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": null
+    }
+   ],
+   "provider_used_under_test": true,
+   "ws_tail": [
+    {
+     "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"session_id\":\"session_1792274187961_h0hnktwme\"},\"timestamp\":\"2026-10-17T17:57:13.561121\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+581)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" live\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" tool\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" results\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" are\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" [\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\":\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" \\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" for\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" project\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" is\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" QU\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ART\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"77\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"This\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" was\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" in\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" section\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" of\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" workspace\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"content\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for project Zephyr-9 is QUARTZ-77.\\n\\nThis document was found in th\u2026(+66)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for pro\u2026(+413)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"session_id\":\"session_1792274187961_h0hnktwme\"},\"timestamp\":\"2026-10-17T17:57:23.646145\"}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"session_id\":\"session_1792274187961_h0hnktwme\"},\"timestamp\":\"2026-10-17T17:57:13.561121\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+581)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" live\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" tool\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" results\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" are\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" [\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\":\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" \\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" for\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" project\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" is\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" QU\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ART\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"77\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"This\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" was\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" in\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" section\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" of\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" workspace\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"content\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for project Zephyr-9 is QUARTZ-77.\\n\\nThis document was found in th\u2026(+66)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for pro\u2026(+413)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"session_id\":\"session_1792274187961_h0hnktwme\"},\"timestamp\":\"2026-10-17T17:57:23.646145\"}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"session_id\":\"session_1792274187961_h0hnktwme\"},\"timestamp\":\"2026-10-17T17:57:13.561121\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+581)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" live\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" tool\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" results\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" are\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" [\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\":\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" \\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" for\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" project\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" is\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" QU\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"ART\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"77\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\"This\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" was\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" in\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" uploaded\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" section\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" of\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\" workspace\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792274187961_h0hnktwme\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"content\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for project Zephyr-9 is QUARTZ-77.\\n\\nThis document was found in th\u2026(+66)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"The live tool results are:\\n\\n- [ingested] phase_e_zephyr_notes.txt: \\nThe launch code for pro\u2026(+413)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"34adb7a0-98b9-4c8d-9b01-98d96e26ad7d\",\"session_id\":\"session_1792274187961_h0hnktwme\"},\"timestamp\":\"2026-10-17T17:57:23.646145\"}"
+     ]
+    }
+   ]
+  },
+  "reload": {
+   "chat_text_after_reload": "The live tool results are:\n\n[ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis document was found in the uploaded documents section of your workspace.",
+   "fact_persists_after_reload": true,
+   "wizard_present_after_reload": false,
+   "wizard_present_after_dashboard_load": false,
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T21:57:58.191462+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "48145ef9-c9d3-4827-987c-bc3ac6ed9919",
+    "completed": true,
+    "step": "completed",
+    "users_total": 13,
+    "workspaces_total": 13
+   },
+   "status_api_completed": true,
+   "db_completed": true,
+   "frontend_ownership_end": {
+    "tag": "end",
+    "port": 18301,
+    "listener_pid": 38826,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/frontend-nextjs",
+    "listener_cmd": "next-server (v16.2.2)",
+    "owned_by_worktree": true
+   },
+   "backend_ownership_end": {
+    "tag": "end",
+    "port": 18300,
+    "listener_pid": 43493,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend",
+    "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18300 --reload",
+    "owned_by_worktree": true
+   },
+   "console_tail": [
+    {
+     "t": 100.03,
+     "type": "info",
+     "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+     "t": 100.06,
+     "type": "log",
+     "text": "[HMR] connected"
+    },
+    {
+     "t": 100.09,
+     "type": "warning",
+     "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+    },
+    {
+     "t": 100.09,
+     "type": "error",
+     "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+    },
+    {
+     "t": 100.1,
+     "type": "debug",
+     "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+    },
+    {
+     "t": 100.18,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+     "t": 100.18,
+     "type": "warning",
+     "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+    },
+    {
+     "t": 100.19,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 100.19,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 100.21,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 100.21,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+   ]
+  }
+ },
+ "console_tail": [
+  {
+   "t": 62.04,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 62.04,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 62.05,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 62.05,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 90.89,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 90.93,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 90.96,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 90.96,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 90.96,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 90.97,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 90.97,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 90.97,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 91.04,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 91.04,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 100.03,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 100.06,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 100.09,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 100.09,
+   "type": "error",
+   "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+  },
+  {
+   "t": 100.1,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 100.18,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 100.18,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 100.19,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 100.19,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 100.21,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 100.21,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ],
+ "page_errors": [],
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "admin-signin": true,
+  "product-user-registered": true,
+  "fresh-user-signin": true,
+  "wizard-present": true,
+  "wizard-store-200": true,
+  "wizard-store-canonical-payload": true,
+  "wizard-activates-provider": true,
+  "no-settings-resave-needed": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "upload-succeeded": true,
+  "upload-durable": true,
+  "chat-answer-received": true,
+  "chat-no-no-llm-provider": true,
+  "answer-not-unusable-output": true,
+  "answer-uses-uploaded-source": true,
+  "answer-durable-in-history": true,
+  "answer-provider-attributed": true,
+  "reload-chat-persists": true,
+  "reload-no-wizard": true
+ },
+ "pass": true,
+ "finished_at": "2026-10-17T21:57:58+00:00"
+}

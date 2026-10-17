@@ -52,6 +52,26 @@ installation **on this host**, not on a clean machine or another OS. Archive:
 CHECKSUMS). A second independent stream (`atom-phase-d`, ports 18200/18201) reproduced
 F1/F2; two-stream reconciliation pending (Phase C Y-pattern).
 
+**Rev 5 (2026-10-17, Phase E).** The unified-candidate cycle closed the
+Phase D blockers and re-ran the loop on `e207494af4c7` (F4/F5/F6 repairs +
+independent-review fixes + installer fixes + retrieval-scope repairs the loop
+exposed). **Local world: 25/25 browser assertions** — wizard Card A stores the
+canonical identity (`key_name="default"`, label separate), the provider
+activates with **no Settings re-save**, the grounded answer uses the uploaded
+source (QUARTZ-77), is attributed to ollama, durable and reload-persistent.
+`J1.quickstart-install`, `J1.signin`, `J1.onboarding-completion` re-bound to
+this run. **Installation:** with the supported interpreter (documented manual
+venv) the unchanged quickstart reaches rc=0 with **zero interventions**;
+the same script with the host default python3 3.14 refuses up front (F1 fix).
+F1–F3 original failures stay preserved in the Phase D archive. **Cloud
+supplementary:** wizard Card B activated `opencode-go` with NO env key (F4
+cloud leg); the operator's Go key expired mid-campaign (verified 401), so the
+cloud answer leg is **NOT promoted** and no further cloud runs were attempted.
+F6 is verified by 23 controlled-response tests (no live quarantine
+reproduction; no live MiniMax pick remained). Archive:
+`journey_matrix/phase_e_candidate/` (README, evidence, logs, screenshots,
+CHECKSUMS).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -100,10 +120,10 @@ against the `/tmp` originals; credential scans clean before archiving).
 |---|-----------------------------|--------|----------------|-------------------------------|----------|----------------------|-------------|
 | 1 | **J1.config-parity** — required gates (lifecycle, finalization M1/M2) are EFFECTIVE in the serving process after quickstart env generation | verified | mechanism (load-order-faithful subprocess from code export) | `d6fbcd846`, allowlisted export world, 2026-10-12 | `journey_matrix/parity_pristine_20261012_20261012_104240_de7328.json` | dependency installation not exercised (export reuses interpreter) | Phase D fresh-install proof (acceptance) |
 | 2 | **J1.boot** — backend boots healthy on the generated env (scratch DB) | verified | mechanism + public API (`/api/health`) | `d6fbcd846` | same as 1 | clean-machine boot unproven | Phase D |
-| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `68729ebe4` (Phase D fresh-install run-3b; bootstrap admin + freshly registered user) | `journey_matrix/phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json`; prior lineage `browser_j2_chain_20261012_112631_9258b4.json` (`d6fbcd846`) | re-bound to the Phase D candidate; onboarding completion remains row 6 | none (Phase D) |
+| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `e207494af4c7` (Phase E local run, 25/25; bootstrap admin + freshly registered user) | `journey_matrix/phase_e_candidate/evidence/browser_phase_e_local_20261017_175758.json`; prior lineage `phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json` (`68729ebe4`) | cloud world supplementary only (key expired mid-campaign) | none (Phase E) |
 | 4 | **J1.workspace** — workspace created/used through the product | verified | public API | `d6fbcd846` | parity JSON | not re-run on any later lineage | Phase D/E |
-| 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **verified** | fresh install + browser loop | `68729ebe4` (detached worktree, isolated data, ports 18100/18101), genuinely new venv + node_modules, documented `scripts/quickstart.sh` run unchanged; rc=0 after 2 documented interventions (F1/F2) + F3 dependency pin | `journey_matrix/phase_d_fresh_install/` — run-3b `browser_complete_loop_r3_20261017_113656.json` (22/25; all failures are the blocked answer leg), `INSTALL_FINDINGS.md` F1–F6, logs, `CHECKSUMS.sha256` | fresh venv on the EXISTING HOST only — not a clean-machine/other-OS proof; F2 partly host-toolchain; answer leg blocked by F5 (local) / F6 (cloud) and NOT promoted | none — Phase D closed; Phase E carries the unified-candidate re-run |
-| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `68729ebe4` (Phase D fresh-install run-3b), fresh product-created user, installed product; prior lineage `cca1fb13d` (Phase C, tree `4e8329d4…`, harness `43c1dc43…`) | `journey_matrix/phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json` (completion persisted: DB `onboarding_completed=1`, `/api/onboarding/status` completed, reload shows no wizard); Phase C evidence retained at `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256 `657943f3…`; 13/13) | re-bound to the installed product; same run recorded F4 (wizard Card B key inactive until Settings→AI) | none — Phase D closed |
+| 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **verified** | fresh install + browser loop | `e207494af4c7` (detached worktree, isolated data, ports 18300/18301); supported-interpreter path: documented manual venv + unchanged `scripts/quickstart.sh` rc=0 with ZERO interventions; host-default 3.14 refused up front (F1 fix) | `journey_matrix/phase_e_candidate/` — local run `evidence/browser_phase_e_local_20261017_175758.json` (25/25), `logs/f1_refusal.log`, `logs/install_supported.log`, README, CHECKSUMS; prior Phase D archive retained (`phase_d_fresh_install/`) | fresh venv on the EXISTING HOST only; F1–F3 original failures preserved in the Phase D archive; cloud answer leg not promoted (operator key expired) | none — Phase E closed |
+| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `e207494af4c7` (Phase E local run), fresh product-created user, installed product; prior lineage `68729ebe4` (Phase D) and `cca1fb13d` (Phase C, harness `43c1dc43…`) | `journey_matrix/phase_e_candidate/evidence/browser_phase_e_local_20261017_175758.json` (completion persisted: DB `onboarding_completed=1`, `/api/onboarding/status` completed, reload shows no wizard); Phase C/D evidence retained | re-bound to the installed product; the same run records the F4 regression green (configure once → first request uses that provider, no re-save) | none — Phase E closed |
 | 7 | **J2.provider-setup-first-reply** — provider added via product; first request served by it | verified | public API (+ Oct-12 browser chain on earlier lineage) | pin `cf6e31e26` (digests `177ef2a1…`/`5945c832…`), r14b, local ollama `llama3.1:8b` | `journey_matrix/j2_model_setup_20261013_182933_e7f609.json` | bound to `cf6e31e26`; not re-run on later lineage | unified-candidate re-run (Phase E) |
 | 8 | **J2.real-reply** — counted first request served (no warm-up) | verified | public API | same as 7 | same as 7 (PONG 4.609 s) | same as 7 | Phase E |
 | 9 | **J2.byok-add-product-path** — BYOK key stored via product, decrypts | verified | public API | same as 7 | same as 7 | same as 7 | Phase E |
@@ -158,10 +178,11 @@ against the `/tmp` originals; credential scans clean before archiving).
    (sha256 `657943f3…`; 13/13). Historical Oct-12 failure preserved
    (`browser_j2_chain_20261012_112631_9258b4.json`); its cause stays
    unestablished on this lineage. Owner: frontend + acceptance.
-2. **Prove pristine installation + the browser loop on a fresh install** (row 5 untested;
+2. ~~**Prove pristine installation + the browser loop on a fresh install** (row 5 untested;
    rows 3–4 carry Oct-12 browser evidence). Quickstart on a clean venv/machine, then
    login → configure/connect → request → result/approval → reload in the browser.
-   Owner: acceptance. *(Phase D.)*
+   Owner: acceptance. *(Phase D; re-run and closed by Phase E — see rev 5:
+   zero-intervention supported install + 25/25 local loop on `e207494af4c7`.)*~~
 3. **Prove the remaining advertised stages** — J7 background/continuation (rows 32–34),
    J8 automation (35–36), J9 failure recovery (37–39), all untested; R3/R4 cover slices
    only. Phase E composed job (reload + interruption) first, then bounded campaigns.
@@ -191,12 +212,12 @@ against the `/tmp` originals; credential scans clean before archiving).
 
 ---
 
-## Gate status (computed 2026-10-17 rev 4, after Phase D verified row 5)
+## Gate status (computed 2026-10-17 rev 5, after Phase E verified the unified candidate)
 
 - `journey_contract.py --check --release` → **rc=0** — no failing journeys in
-  release scope (J1–J3); `J1.quickstart-install` verified on `68729ebe4`
-  (Phase D); `J1.signin` + `J1.onboarding-completion` re-bound to the same
-  run-3b evidence.
+  release scope (J1–J3); `J1.quickstart-install` verified on `e207494af4c7`
+  (Phase E, zero-intervention supported install + 25/25 local browser loop);
+  `J1.signin` + `J1.onboarding-completion` re-bound to the same run.
 - `journey_contract.py --check --strict --release` → **rc=1** — UNTESTED:
   J2 (`tool-planning`, `model-native-tool-calling`); untested items still
   block the strict gate.
@@ -204,7 +225,7 @@ against the `/tmp` originals; credential scans clean before archiving).
   journeys anywhere; untested: J2, J7, J8, J9.
 
 Journey-level registry state: **J3, J4, J5, J6 = VERIFIED; J1 = VERIFIED**
-(6/6 — `quickstart-install` verified on `68729ebe4`, Phase D); J2 = UNTESTED
+(6/6 — `quickstart-install` verified on `e207494af4c7`, Phase E); J2 = UNTESTED
 (9/11 verified); J7, J8, J9 = UNTESTED.
 
 Nothing in this document claims whole-app certification, pristine-install proof, or
