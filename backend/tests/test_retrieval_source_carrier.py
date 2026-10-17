@@ -60,12 +60,22 @@ async def test_knowledge_leg_lines_only_observations_via_out_param():
     # evidence: the hybrid search returns source="ingested" — a category
     # — for ingested docs; the title is the real document identity);
     # absent hash stays empty — never a source-category echo.
-    assert observations == [
+    identity = [{k: o[k] for k in ("source", "title", "file_name",
+                                   "content_hash")}
+                for o in observations]
+    assert identity == [
         {"source": "knowledge/spec.md", "title": "Spec",
          "file_name": "spec.md", "content_hash": "hash-1"},
         {"source": "knowledge/notes.md", "title": "Notes",
          "file_name": "Notes", "content_hash": ""},
     ]
+    # F-C2 extension (2026-10-17): each observation additionally carries
+    # the authenticated workspace, the bounded excerpt that reached the
+    # answer context, and the requested-field coverage.
+    assert all(o["workspace_id"] == "ws-1" for o in observations)
+    assert observations[0]["excerpt"].startswith("rated capacity")
+    assert observations[0]["requested_fields"] == []
+    assert observations[0]["supplied_fields"] == []
 
 
 @pytest.mark.asyncio

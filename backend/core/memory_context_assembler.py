@@ -168,20 +168,19 @@ async def _knowledge_leg(
         return []
     if not (result or {}).get("results"):
         return []
-    # STRUCTURED SOURCE OBSERVATIONS (owner directive R4): the actual
-    # retrieval records carry the source identities — file names,
-    # titles — captured before they're formatted into display text.
-    if source_observations_out is not None:
-        for hit in (result or {}).get("results", []) or []:
-            if isinstance(hit, dict):
-                source_observations_out.append({
-                    "source": str(hit.get("source") or "")[:100],
-                    "title": str(hit.get("title") or "")[:200],
-                    "file_name": str(hit.get("file_name")
-                                     or hit.get("title")
-                                     or hit.get("source") or "")[:200],
-                    "content_hash": str(hit.get("content_hash") or "")[:100],
-                })
+    # REQUESTED FIELDS (F-C2, 2026-10-17): the deterministic typed-field
+    # requests of THIS message ("Valid until date" → expiration_date). The
+    # per-hit observations record which of them the supplied excerpt
+    # actually contains — retrieval proves the source was available; field
+    # presence is the fulfillment half the settlement requires.
+    _requested_fields: List[str] = []
+    try:
+        from core.workbook_read_artifact import extract_field_requests
+
+        _requested_fields = list(
+            dict.fromkeys(extract_field_requests([str(message or "")])))[:6]
+    except Exception:  # noqa: BLE001 — coverage is additive
+        _requested_fields = []
     lines: List[str] = [
         # Provenance spotlighting (core/provenance.py lattice): ingested
         # email/drive/app content is attacker-influenceable RETRIEVED data —
@@ -236,8 +235,73 @@ async def _knowledge_leg(
             markers.append(f"as of {as_of}")
         marker_str = f" [{' | '.join(markers)}]" if markers else ""
         lines.append(f"[{source}: {label}]{marker_str} {preview}")
+        # STRUCTURED SOURCE OBSERVATION (owner directive R4; F-C2 2026-10-17):
+        # the retrieval record carries the source identity, the authenticated
+        # workspace the retrieval ran under, the bounded excerpt that reached
+        # the answer context, and which REQUESTED fields that excerpt
+        # supplies. Captured only for hits actually supplied to narration
+        # (non-empty preview) — a skipped/empty hit donates nothing.
+        if source_observations_out is not None:
+            source_observations_out.append({
+                "source": str(hit.get("source") or "")[:100],
+                "title": str(hit.get("title") or "")[:200],
+                "file_name": str(hit.get("file_name")
+                                 or hit.get("title")
+                                 or hit.get("source") or "")[:200],
+                "content_hash": str(hit.get("content_hash") or "")[:100],
+                "workspace_id": (str(workspace_id)[:100]
+                                 if workspace_id else None),
+                "excerpt": preview[:KNOWLEDGE_PREVIEW_CHAR_CAP + 1],
+                "requested_fields": list(_requested_fields),
+                "supplied_fields": [
+                    f for f in _requested_fields
+                    if field_present_in_excerpt(preview, f)],
+            })
     lines.append("</provenance>")
     return lines
+
+
+# Field families whose presence in an excerpt needs a matching VALUE shape,
+# not just the field's own words ("we discussed the expiration date" is not
+# a supplied expiration date).
+_TEMPORAL_FIELDS = {"date", "expiration_date", "certification_date"}
+_NUMERIC_FIELDS = {"price", "quantity", "weight", "lead_time", "version",
+                   "required_version"}
+_DATE_SHAPE_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}"                       # 2026-12-31
+    r"|\b\d{4}/\d{1,2}/\d{1,2}\b"              # 2026/12/31
+    r"|\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b"      # 31/12/2026, 12-31-26
+    r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
+    r"\s+\d{1,2}\b",                           # Dec 31
+    re.IGNORECASE)
+
+
+def field_present_in_excerpt(excerpt: str, canonical: str) -> bool:
+    """Whether ``excerpt`` supplies a value for the canonical field.
+
+    F-C2 (2026-10-17): the fulfillment half of a context-backed answer —
+    the requested field's anchor plus a plausible value shape. Absence is
+    NEVER read as the field being missing from the source (the excerpt is
+    bounded and may be truncated): callers treat a missing anchor as
+    "not supplied to narration", which stays partial/unknown.
+    """
+    low = str(excerpt or "").casefold()
+    if not low:
+        return False
+    try:
+        from core.workbook_read_artifact import _FIELD_ALIASES
+    except Exception:  # noqa: BLE001 — reverts to the bare canonical name
+        _FIELD_ALIASES = {}
+    aliases = list(_FIELD_ALIASES.get(canonical) or ())
+    if canonical not in aliases:
+        aliases.append(canonical.replace("_", " "))
+    if not any(str(a).casefold() in low for a in aliases if a):
+        return False
+    if canonical in _TEMPORAL_FIELDS:
+        return bool(_DATE_SHAPE_RE.search(low))
+    if canonical in _NUMERIC_FIELDS:
+        return bool(re.search(r"\d", low))
+    return True
 
 
 async def _episodes_leg(message: str, agent_id: str) -> List[str]:

@@ -5753,6 +5753,140 @@ def record_canvas_context_source(
         pass
 
 
+# ---------------------------------------------------------------------------
+# CONTEXT-BACKED FULFILLMENT (F-C2 repair, 2026-10-17)
+#
+# The request required live evidence naming a source; THIS execution's
+# verified context retrieval supplied a source matching that requirement.
+# The matcher uses STABLE IDENTITY and AUTHENTICATED SCOPE only — the
+# observation's source identity (kind) and the workspace the retrieval ran
+# under — never filename substring overlap, reply wording, or "some context
+# exists". The fulfillment verdict (fields the retrieved excerpt supplied)
+# is computed from the assembler's per-observation record.
+# ---------------------------------------------------------------------------
+_KIND_FAMILIES: Dict[str, set] = {
+    # observation source → the request-noun families it can satisfy
+    "documents": {
+        "document", "documents", "doc", "docs", "file", "files",
+        "folder", "folders", "drive", "drives", "pdf", "pdfs",
+        "knowledge base", "knowledgebase", "upload", "uploads",
+    },
+    "communications": {
+        "email", "emails", "e-mail", "mail", "mails", "inbox",
+        "thread", "threads", "dm", "dms", "chat", "chats",
+        "message", "messages", "text", "texts", "calendar",
+        "ticket", "tickets", "note", "notes", "memo", "memos",
+        "letter", "letters", "comment", "comments", "post", "posts",
+    },
+}
+
+
+def _observation_kind_family(obs: Dict[str, Any]) -> Optional[str]:
+    src = str((obs or {}).get("source") or "").strip().lower()
+    if src in ("ingested", "vector"):
+        return "documents"
+    if src in ("communication", "communications", "comms"):
+        return "communications"
+    return None
+
+
+def _observation_satisfies_kind(obs: Dict[str, Any],
+                                kinds: List[str]) -> bool:
+    family = _observation_kind_family(obs)
+    if family is None:
+        return False
+    allowed = _KIND_FAMILIES.get(family) or set()
+    return any(str(k).strip().lower() in allowed for k in kinds if k)
+
+
+def _context_backed_fulfillment(
+    session: Any,
+    execution_id: Any,
+    workspace_id: Any = None,
+) -> Optional[Dict[str, Any]]:
+    """Resolve the context-backed fulfillment verdict for THIS execution.
+
+    Returns None when the shape does not apply (no requirement recorded, no
+    observations, no kind match, scope unverifiable) — callers then leave
+    the existing resolution untouched. Returns a verdict dict otherwise:
+    ``completed`` (every requested field supplied by the matching retrieval),
+    ``partial`` (some supplied, the rest named as missing), or
+    ``retrieval_only``/``unsupplied`` (availability without the requested
+    finding — never completion).
+    """
+    if not isinstance(session, dict) or not execution_id:
+        return None
+    req = session.get(f"_evidence_requirement_{execution_id}")
+    if not isinstance(req, dict) or req.get("required") is not True:
+        return None
+    obs = session.get(f"_retrieval_source_observations_{execution_id}")
+    if not isinstance(obs, list) or not obs:
+        return None
+    kinds = [str(k) for k in (req.get("sources") or []) if str(k or "").strip()]
+    if not kinds:
+        return None
+    try:
+        _turn_ws = workspace_id or resolve_user_workspace(
+            session.get("user_id") if isinstance(session, dict) else None)
+    except Exception:  # noqa: BLE001
+        _turn_ws = workspace_id or None
+    matching: List[Dict[str, Any]] = []
+    for o in obs:
+        if not isinstance(o, dict):
+            continue
+        o_ws = o.get("workspace_id")
+        if _turn_ws:
+            if str(o_ws or "") != str(_turn_ws):
+                continue  # scope mismatch / unscoped — never promotes
+        elif o_ws:
+            continue  # a stamped workspace the turn cannot authenticate
+        if _observation_satisfies_kind(o, kinds):
+            matching.append(o)
+    if not matching:
+        return None
+    fields = [str(f) for f in (req.get("fields") or []) if f][:6]
+    if not fields:
+        # the retrieval proves the source was available, nothing more
+        return {"state": "retrieval_only", "sources": len(matching)}
+    supplied: List[str] = []
+    for o in matching:
+        for f in (o.get("supplied_fields") or []):
+            if str(f) not in supplied:
+                supplied.append(str(f))
+    missing = [f for f in fields if f not in supplied]
+    if not missing:
+        return {"state": "completed", "supplied_fields": supplied}
+    if supplied:
+        return {"state": "partial", "supplied_fields": supplied,
+                "missing_fields": missing}
+    return {"state": "unsupplied", "missing_fields": missing}
+
+
+def _recorded_context_fulfillment(
+    response: Any,
+    execution_id: Any,
+) -> Optional[Dict[str, Any]]:
+    """The durable builder's CONSUMPTION of the resolver's single decision.
+
+    Never re-derives a completion predicate: it requires the recorded
+    outcome to be ``completed``, to bind THIS execution, to carry a
+    recorded delivery, and to name the context-fulfillment basis that was
+    completed. Anything else returns None.
+    """
+    rec = (response or {}).get("_recorded_outcome")
+    if not isinstance(rec, dict):
+        return None
+    if rec.get("state") != "completed" or rec.get("delivered") is not True:
+        return None
+    ids = {str(e) for e in (rec.get("execution_ids") or []) if e}
+    if not execution_id or str(execution_id) not in ids:
+        return None
+    cf = rec.get("context_fulfillment")
+    if not isinstance(cf, dict) or cf.get("state") != "completed":
+        return None
+    return cf
+
+
 def _fallback_turn_outcome(
     session: Any,
     execution_id: Any,
@@ -6044,6 +6178,41 @@ def _fallback_turn_outcome(
                     validated = True
                     break
 
+        # CONTEXT-BACKED FULFILLMENT (F-C2 repair, 2026-10-17): the request
+        # required live evidence (a named source) and THIS execution's
+        # verified context retrieval supplied a source matching the
+        # requirement — kind-compatible AND under the turn's authenticated
+        # workspace. Retrieval alone proves the source was AVAILABLE to
+        # narration; completion additionally needs the requested fields to
+        # have been supplied by the retrieved excerpt (recorded by the
+        # assembler). A partial supply names the missing fields and stays
+        # partial; a retrieval without the requested finding never
+        # certifies completion. The verdict is computed ONCE here and
+        # carried on the outcome (`context_fulfillment`) for the durable
+        # builder to consume — never re-derived there.
+        context_fulfillment: Optional[Dict[str, Any]] = None
+        try:
+            context_fulfillment = _context_backed_fulfillment(
+                session, execution_id, workspace_id)
+        except Exception:  # noqa: BLE001 — additive; never blocks the turn
+            context_fulfillment = None
+        if context_fulfillment and not validated:
+            _cf_state = str(context_fulfillment.get("state") or "")
+            if _cf_state == "completed":
+                validated = True
+            elif _cf_state == "partial":
+                # Delivered answer with a named gap: the supplied fields
+                # are usable work; the missing ones stay obligations.
+                validated = True
+                _cf_missing = [
+                    str(f) for f in (
+                        context_fulfillment.get("missing_fields") or [])][:3]
+                if _cf_missing:
+                    open_work.append(
+                        "the requested " + ", ".join(_cf_missing)
+                        + " — not present in the retrieved source "
+                          "excerpt this turn")
+
         # 4. RELEVANT OPEN OBLIGATIONS — actions, owner decisions, and
         #    exhausted questions are all unfinished requested work.
         #    EXCEPT the DISCLOSED LIMITATION (owner example): a
@@ -6249,6 +6418,10 @@ def _fallback_turn_outcome(
         if continuation_id:
             state["continuation_id"] = continuation_id
         state["delivered"] = bool(validated)
+        if context_fulfillment:
+            # the single computed verdict rides the outcome for the durable
+            # builder + evidence refs (never re-derived downstream)
+            state["context_fulfillment"] = context_fulfillment
         # UNMET OBLIGATION (owner work order 2026-10-10): an unconfirmed
         # turn names WHERE it stopped, derived from the records above —
         # never invented. A completed/partial/failed token already
@@ -8041,7 +8214,27 @@ class ChatOrchestrator:
                 tool_outcomes = list(tool_outcomes) + _calc_evidence
             # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the assembler's
             # retrieval observations become attributable evidence refs —
-            # retrieved observations, not verified answer support.
+            # retrieved observations, not verified answer support. The
+            # F-C2 fulfillment verdict (computed ONCE by the resolver)
+            # rides the same entry; the raw excerpt is NOT embedded —
+            # refs carry identity + the supplied-field coverage.
+            _cf_record = _recorded_context_fulfillment(response, execution_id)
+            if _cf_record:
+                # F-C2 basis as a CRITERION (contract-normalized, so it
+                # survives settlement): the completion claim is auditable
+                # against the identity-projected source refs it rests on.
+                criterion_results.append({
+                    "criterion": "context_source_fulfillment",
+                    "met": True,
+                    "verifier": "context_assembly",
+                    "evidence_refs": [
+                        {k: v for k, v in
+                         {"kind": "context_source", **s}.items()
+                         if k in ("kind", "source", "file_name",
+                                  "content_hash", "workspace_id")}
+                        for s in _context_sources
+                    ],
+                })
             if _context_sources:
                 tool_outcomes.append({
                     "tool": "context_assembly",
@@ -8051,9 +8244,12 @@ class ChatOrchestrator:
                         f"into context"),
                     "required": False,
                     "evidence_refs": [
-                        {"kind": "context_source", **s}
+                        {k: v for k, v in
+                         {"kind": "context_source", **s}.items()
+                         if k != "excerpt"}
                         for s in _context_sources
                     ],
+                    **({"fulfillment": _cf_record} if _cf_record else {}),
                 })
             objective_met = None
             if status in {"failed", "cancelled"} or response.get("success") is False:
@@ -8079,6 +8275,13 @@ class ChatOrchestrator:
                     session.get(f"_planner_tool_receipts_{execution_id}")
                     if isinstance(session, dict) else None)
             ):
+                objective_met = True
+            elif _cf_record:
+                # CONTEXT-BACKED FULFILLMENT (F-C2 repair, 2026-10-17):
+                # CONSUME the resolver's single decided verdict — recorded
+                # outcome completed, THIS execution bound, delivered, with
+                # the context-fulfillment basis completed. The builder
+                # never re-derives a completion predicate.
                 objective_met = True
             elif (
                 # CALCULATION COMPLETION (owner R3): a succeeded
@@ -8123,6 +8326,8 @@ class ChatOrchestrator:
                     ([{"kind": "source_comparison"}] if comparison else
                      [{"kind": "source_scoped_retrieval"}] if mentions else [])
                     + ([{"kind": "mutation"}] if canvas_edit else [])
+                    + ([{"kind": "context_source_fulfillment"}]
+                       if _cf_record else [])
                 ),
                 criterion_results=criterion_results,
                 requested={
@@ -13427,6 +13632,39 @@ class ChatOrchestrator:
                     _evidence_required = _ter_fn(_td_decision)
                 except Exception:  # noqa: BLE001 — carry is additive
                     _evidence_required = None
+            # F-C2 CONTEXT-BACKED FULFILLMENT (2026-10-17): stash the
+            # accepted request's evidence requirement — source kinds, file
+            # reference and the deterministic typed-field requests — keyed
+            # by THIS execution. The outcome resolver matches it against
+            # this turn's retrieval observations (kind + authenticated
+            # scope) and the fields those excerpts actually supplied.
+            # Execution-keyed: another/later turn's requirement can never
+            # donate, and a failed stash leaves the needle untouched.
+            try:
+                if (isinstance(_td_decision, dict)
+                        and isinstance(session, dict) and _execution_id):
+                    _td_refs = _td_decision.get("references") or {}
+                    _req_fields: List[str] = []
+                    try:
+                        from core.workbook_read_artifact import (
+                            extract_field_requests as _efr,
+                        )
+
+                        _req_fields = list(dict.fromkeys(
+                            _efr([str(message or "")])))[:6]
+                    except Exception:  # noqa: BLE001 — fields additive
+                        _req_fields = []
+                    session[f"_evidence_requirement_{_execution_id}"] = {
+                        "required": _evidence_required is True,
+                        "sources": [
+                            str(s).strip().lower()
+                            for s in (_td_refs.get("sources") or [])
+                            if str(s or "").strip()][:4],
+                        "file": _td_refs.get("file") or None,
+                        "fields": _req_fields,
+                    }
+            except Exception:  # noqa: BLE001 — additive, never blocks
+                pass
             _shared_tool: Dict[str, Any] = {
                 "plan_task": _tool_plan_task,
                 "block": None,
