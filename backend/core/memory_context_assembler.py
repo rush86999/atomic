@@ -53,6 +53,14 @@ EPISODES_CHAR_CAP = 1_200
 FACTS_CHAR_CAP = 1_600
 EXCHANGE_CHAR_CAP = 1_200           # rated exchange examples (Phase 56)
 SNIPPET_CHAR_CAP = 220
+# Knowledge-leg per-hit excerpt budget. The ingested body is bounded
+# (``content_preview`` stores 500 chars) and SNIPPET_CHAR_CAP=220 hid a
+# small document's LATER fields — an "Approved valid until" line at char
+# 232 of a 270-char upload was invisible and the reply truthfully reported
+# a present value as absent (composed-job finding 2026-10-17). The leg
+# prefers the search hit's bounded body (``content``) up to this cap;
+# other legs keep SNIPPET_CHAR_CAP.
+KNOWLEDGE_PREVIEW_CHAR_CAP = 500
 
 # P1.4 rerank: budget-gated second pass over each leg's candidates before
 # the per-block caps truncate them — keeps the most relevant lines, not the
@@ -195,11 +203,12 @@ async def _knowledge_leg(
     for hit in (result or {}).get("results", []) or []:
         source = _escape_meta(hit.get("source") or "doc")
         title = str(hit.get("title") or "").strip()
-        preview = str(hit.get("preview") or "").strip().replace("\n", " ")
+        preview = str(hit.get("content") or hit.get("preview")
+                      or "").strip().replace("\n", " ")
         if not preview:
             continue
-        if len(preview) > SNIPPET_CHAR_CAP:
-            preview = preview[:SNIPPET_CHAR_CAP] + "…"
+        if len(preview) > KNOWLEDGE_PREVIEW_CHAR_CAP:
+            preview = preview[:KNOWLEDGE_PREVIEW_CHAR_CAP] + "…"
         # Escape provenance-tag-shaped text so an untrusted hit cannot close
         # the spotlight early and re-open it as a trusted type (indirect
         # prompt-injection escape; same rule as ProvenanceTag.render).

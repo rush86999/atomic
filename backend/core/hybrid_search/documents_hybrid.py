@@ -543,6 +543,14 @@ class DocumentsHybridSearch:
                     "legs": [],
                 },
             )
+            # Bounded body text for LEXICAL hits (the vector lane already
+            # carries text[:4000]): the 200-char preview hides a small
+            # document's later fields and the chat then truthfully reports a
+            # present value as absent (composed-job finding 2026-10-17 —
+            # "Approved valid until: 2026-12-31" at char 232 of a 270-char
+            # upload; the reply said it could not find the date).
+            if hit.get("text"):
+                entry.setdefault("content", str(hit.get("text"))[:4000])
             entry["rrf"] += 1.0 / (RRF_K + rank)
             entry["legs"].append("lexical")
 
