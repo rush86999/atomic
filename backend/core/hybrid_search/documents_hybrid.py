@@ -189,9 +189,15 @@ def _vector_leg_enabled() -> bool:
 class DocumentsHybridSearch:
     """Hybrid document search service (documents leg)."""
 
-    def __init__(self, db: Any = None, lancedb: Any = None):
+    def __init__(self, db: Any = None, lancedb: Any = None,
+                 workspace_id: Optional[str] = None):
         self._db = db
         self._lancedb = lancedb
+        # WORKSPACE SCOPE (2026-10-17): uploads write to the caller's
+        # per-workspace LanceDB store; the vector leg must read THAT store or
+        # every uploaded document is invisible to chat (observed: upload to
+        # workspace <uuid>, search on the base atom_memory store, 0 hits).
+        self._workspace_id = workspace_id
 
     # -- public API -----------------------------------------------------------
 
@@ -446,6 +452,7 @@ class DocumentsHybridSearch:
             return search_documents_lexical(
                 db, query, limit=limit * _VECTOR_LIMIT_MULTIPLIER,
                 since=since, source=source, author=author, raise_on_error=True,
+                workspace_id=self._workspace_id,
             )
 
     async def _vector_leg(self, query: str, limit: int, source: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -461,7 +468,7 @@ class DocumentsHybridSearch:
         if lancedb is None:
             from core.lancedb_handler import get_lancedb_handler
 
-            lancedb = get_lancedb_handler("default")
+            lancedb = get_lancedb_handler(self._workspace_id or "default")
         if lancedb is None:
             raise RuntimeError("LanceDB handler unavailable for the vector leg")
         # to_thread: LanceDBHandler.search embeds via sync embed_text, which

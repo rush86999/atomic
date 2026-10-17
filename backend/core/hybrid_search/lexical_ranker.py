@@ -110,6 +110,7 @@ def _search_ingested_sqlite(
     limit: int,
     since: Optional[datetime],
     author: Optional[str],
+    workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     sql = (
         "SELECT d.id, d.file_name, d.content_preview, d.external_modified_at, "
@@ -119,6 +120,12 @@ def _search_ingested_sqlite(
         "WHERE ingested_documents_fts MATCH :q"
     )
     params: Dict[str, Any] = {"q": fts_query, "lim": limit}
+    if workspace_id:
+        # WORKSPACE SCOPE (2026-10-17): the chat documents leg must see the
+        # SAME per-workspace store the upload wrote to. IngestedDocument is
+        # workspace-scoped (nullable=False), so a strict filter is correct.
+        sql += " AND d.workspace_id = :ws"
+        params["ws"] = workspace_id
     if since:
         sql += " AND (d.created_at >= :since OR d.external_modified_at >= :since)"
         params["since"] = since
@@ -148,6 +155,7 @@ def _search_knowledge_sqlite(
     fts_query: str,
     limit: int,
     since: Optional[datetime],
+    workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     sql = (
         "SELECT d.id, d.title, d.content, "
@@ -157,6 +165,12 @@ def _search_knowledge_sqlite(
         "WHERE knowledge_documents_fts MATCH :q"
     )
     params: Dict[str, Any] = {"q": fts_query, "lim": limit}
+    if workspace_id:
+        # KnowledgeDocument workspace scoping is nullable (tenant-level rows
+        # predate it): include the workspace's own rows AND unscoped ones,
+        # never another workspace's.
+        sql += " AND (d.workspace_id = :ws OR d.workspace_id IS NULL)"
+        params["ws"] = workspace_id
     if since:
         sql += " AND (d.created_at >= :since OR d.updated_at >= :since)"
         params["since"] = since
@@ -184,6 +198,7 @@ def _search_ingested_pg(
     limit: int,
     since: Optional[datetime],
     author: Optional[str],
+    workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     sql = (
         "SELECT d.id, d.file_name, d.content_preview, d.external_modified_at, "
@@ -192,6 +207,9 @@ def _search_ingested_pg(
         "WHERE d.search_vector @@ plainto_tsquery('english', :q)"
     )
     params: Dict[str, Any] = {"q": query, "lim": limit}
+    if workspace_id:
+        sql += " AND d.workspace_id = :ws"
+        params["ws"] = workspace_id
     if since:
         sql += " AND (d.created_at >= :since OR d.external_modified_at >= :since)"
         params["since"] = since
@@ -221,6 +239,7 @@ def _search_knowledge_pg(
     query: str,
     limit: int,
     since: Optional[datetime],
+    workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     sql = (
         "SELECT d.id, d.title, d.content, "
@@ -229,6 +248,9 @@ def _search_knowledge_pg(
         "WHERE d.search_vector @@ plainto_tsquery('english', :q)"
     )
     params: Dict[str, Any] = {"q": query, "lim": limit}
+    if workspace_id:
+        sql += " AND (d.workspace_id = :ws OR d.workspace_id IS NULL)"
+        params["ws"] = workspace_id
     if since:
         sql += " AND (d.created_at >= :since OR d.updated_at >= :since)"
         params["since"] = since
@@ -257,6 +279,7 @@ def _search_iliike_fallback(
     since: Optional[datetime],
     source: Optional[str],
     author: Optional[str],
+    workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Legacy ILIKE prefilter + title-3x/content-1x weighting (no FTS tables).
 
@@ -282,6 +305,8 @@ def _search_iliike_fallback(
 
     def _ingested_rows(clause) -> list:
         qi = db.query(IngestedDocument).filter(clause)
+        if workspace_id:
+            qi = qi.filter(IngestedDocument.workspace_id == workspace_id)
         if since:
             qi = qi.filter(
                 or_(
@@ -295,6 +320,13 @@ def _search_iliike_fallback(
 
     def _knowledge_rows(clause) -> list:
         qk = db.query(KnowledgeDocument).filter(clause)
+        if workspace_id:
+            qk = qk.filter(
+                or_(
+                    KnowledgeDocument.workspace_id == workspace_id,
+                    KnowledgeDocument.workspace_id.is_(None),
+                )
+            )
         if since:
             qk = qk.filter(
                 or_(
@@ -417,6 +449,7 @@ def search_documents_lexical(
     author: Optional[str] = None,
     *,
     raise_on_error: bool = False,
+    workspace_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """BM25 lexical search over ingested + knowledge documents.
 
@@ -442,12 +475,14 @@ def search_documents_lexical(
         # the ILIKE fallback matches. Route to ILIKE so the same query gives
         # the same answer whether or not the FTS tables exist.
         if all(t in _ENGLISH_STOPWORDS for t in tokens):
-            return _search_iliike_fallback(db, query, limit, since, source, author)
+            return _search_iliike_fallback(db, query, limit, since, source, author,
+                                           workspace_id=workspace_id)
         fts_query = " ".join(f"{t}*" for t in tokens)
 
         bind = db.bind
         if bind is None:
-            return _search_iliike_fallback(db, query, limit, since, source, author)
+            return _search_iliike_fallback(db, query, limit, since, source, author,
+                                           workspace_id=workspace_id)
         dialect = bind.dialect.name
         if dialect == "sqlite":
             fts_ingested = _fts_table_exists(db, "ingested_documents_fts")
@@ -467,9 +502,11 @@ def search_documents_lexical(
                 def _run_sqlite(fts_q: str) -> List[Dict[str, Any]]:
                     out: List[Dict[str, Any]] = []
                     if source in (None, "", "ingested"):
-                        out.extend(_search_ingested_sqlite(db, fts_q, limit, since, author))
+                        out.extend(_search_ingested_sqlite(db, fts_q, limit, since, author,
+                                                        workspace_id=workspace_id))
                     if source in (None, "", "knowledge"):
-                        out.extend(_search_knowledge_sqlite(db, fts_q, limit, since))
+                        out.extend(_search_knowledge_sqlite(db, fts_q, limit, since,
+                                                         workspace_id=workspace_id))
                     out.sort(key=lambda r: r.get("score", 0.0), reverse=True)
                     return out[:limit]
 
@@ -486,7 +523,8 @@ def search_documents_lexical(
                         results = _run_sqlite(or_query)
                 return results
             # Fall through to ILIKE when any FTS table is missing.
-            return _search_iliike_fallback(db, query, limit, since, source, author)
+            return _search_iliike_fallback(db, query, limit, since, source, author,
+                                           workspace_id=workspace_id)
 
         if dialect == "postgresql":
             has_vector = _fts_table_exists(db, "ingested_documents") and _column_exists_pg(
@@ -505,14 +543,18 @@ def search_documents_lexical(
             if has_vector:
                 results = []
                 if source in (None, "", "ingested"):
-                    results.extend(_search_ingested_pg(db, query, limit, since, author))
+                    results.extend(_search_ingested_pg(db, query, limit, since, author,
+                                                    workspace_id=workspace_id))
                 if source in (None, "", "knowledge"):
-                    results.extend(_search_knowledge_pg(db, query, limit, since))
+                    results.extend(_search_knowledge_pg(db, query, limit, since,
+                                                     workspace_id=workspace_id))
                 results.sort(key=lambda r: r.get("score", 0.0), reverse=True)
                 return results[:limit]
-            return _search_iliike_fallback(db, query, limit, since, source, author)
+            return _search_iliike_fallback(db, query, limit, since, source, author,
+                                           workspace_id=workspace_id)
 
-        return _search_iliike_fallback(db, query, limit, since, source, author)
+        return _search_iliike_fallback(db, query, limit, since, source, author,
+                                           workspace_id=workspace_id)
     except Exception as e:
         logger.error("search_documents_lexical failed: %s", e)
         if raise_on_error:

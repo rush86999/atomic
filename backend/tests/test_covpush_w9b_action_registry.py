@@ -365,15 +365,16 @@ class TestLegacyAndWrappers:
         ingested_q = MagicMock()
         ingested_q.all.return_value = [ingested_doc]
         ingested_q.limit.return_value = ingested_q
+        # The workspace-scope filter is a SECOND chained .filter() call on the
+        # query (the legacy path now scopes to the caller's workspace).
+        ingested_q.filter.return_value = ingested_q
         knowledge_q = MagicMock()
         knowledge_q.all.return_value = [knowledge_doc]
         knowledge_q.limit.return_value = knowledge_q
+        knowledge_q.filter.return_value = knowledge_q
 
         db = MagicMock()
-        db.query.side_effect = [
-            MagicMock(filter=MagicMock(return_value=ingested_q)),
-            MagicMock(filter=MagicMock(return_value=knowledge_q)),
-        ]
+        db.query.side_effect = [ingested_q, knowledge_q]
         ctx_manager = MagicMock()
         ctx_manager.return_value.__enter__.return_value = db
         ctx_manager.return_value.__exit__.return_value = False

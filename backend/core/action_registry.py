@@ -333,6 +333,28 @@ def _context_user_id(context: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _context_workspace_id(context: Dict[str, Any]) -> Optional[str]:
+    """Best-effort workspace extraction for workspace-scoped actions.
+
+    The explicit dispatch context wins; otherwise the turn's published
+    request scope (the same contextvar the LLM dispatch consumes). ``None``
+    means "no workspace known" — callers then keep the historical
+    default-store behavior rather than guessing.
+    """
+    if context:
+        for key in ("workspace_id", "workspaceId"):
+            val = context.get(key)
+            if val:
+                return str(val)
+    try:
+        from core.request_scope import current_request_scope
+
+        ws = current_request_scope().get("workspace_id")
+        return str(ws) if ws else None
+    except Exception:  # noqa: BLE001 — scope read must never break search
+        return None
+
+
 @register_action(
     "documents.search",
     description="Hybrid (BM25 + vector) search over ingested and knowledge documents. "
@@ -358,7 +380,7 @@ async def _documents_search(args: Dict[str, Any], context: Dict[str, Any]) -> Di
         source = (args.get("source") or "").strip().lower() or None
         author = (args.get("author") or "").strip().lower() or None
 
-        svc = DocumentsHybridSearch()
+        svc = DocumentsHybridSearch(workspace_id=_context_workspace_id(context))
         resp = await svc.search(
             query=query, limit=limit, since=since, source=source, author=author,
         )
@@ -531,19 +553,19 @@ async def _documents_search_legacy(args: Dict[str, Any], context: Dict[str, Any]
         from core.models import IngestedDocument, KnowledgeDocument
         from sqlalchemy import or_
 
+        ws_id = _context_workspace_id(context)
         results: List[Dict[str, Any]] = []
         with get_db_session() as db:
-            ingested = (
-                db.query(IngestedDocument)
-                .filter(
-                    or_(
-                        IngestedDocument.file_name.ilike(f"%{query}%"),
-                        IngestedDocument.content_preview.ilike(f"%{query}%"),
-                    )
+            ingested_q = db.query(IngestedDocument).filter(
+                or_(
+                    IngestedDocument.file_name.ilike(f"%{query}%"),
+                    IngestedDocument.content_preview.ilike(f"%{query}%"),
                 )
-                .limit(limit)
-                .all()
             )
+            if ws_id:
+                ingested_q = ingested_q.filter(
+                    IngestedDocument.workspace_id == ws_id)
+            ingested = ingested_q.limit(limit).all()
             for d in ingested:
                 results.append({
                     "source": "ingested",
@@ -554,17 +576,20 @@ async def _documents_search_legacy(args: Dict[str, Any], context: Dict[str, Any]
 
             remaining = max(0, limit - len(results))
             if remaining:
-                knowledge = (
-                    db.query(KnowledgeDocument)
-                    .filter(
+                knowledge_q = db.query(KnowledgeDocument).filter(
+                    or_(
+                        KnowledgeDocument.title.ilike(f"%{query}%"),
+                        KnowledgeDocument.content.ilike(f"%{query}%"),
+                    )
+                )
+                if ws_id:
+                    knowledge_q = knowledge_q.filter(
                         or_(
-                            KnowledgeDocument.title.ilike(f"%{query}%"),
-                            KnowledgeDocument.content.ilike(f"%{query}%"),
+                            KnowledgeDocument.workspace_id == ws_id,
+                            KnowledgeDocument.workspace_id.is_(None),
                         )
                     )
-                    .limit(remaining)
-                    .all()
-                )
+                knowledge = knowledge_q.limit(remaining).all()
                 for d in knowledge:
                     results.append({
                         "source": "knowledge",
