@@ -18,6 +18,7 @@ from core.auth import get_current_user, User
 from core.models import Tenant, TenantSetting
 from core.database import get_db
 from core.auth import get_current_tenant
+from core.byok_endpoints import sanitize_key_label
 from sqlalchemy.orm import Session
 from cryptography.fernet import Fernet
 from core.schemas import ApiResponse
@@ -143,6 +144,14 @@ class APIKey:
     usage_count: int = 0
     environment: str = "production"
     tenant_id: Optional[str] = None
+    # Friendly display label (e.g. "Ollama (local)", "<provider> (onboarding)").
+    # NEVER part of the lookup identity — resolution keys on
+    # (tenant_id, provider_id, key_name, environment), so the canonical
+    # key_name="default" written by the wizard and Settings resolves through
+    # every reader while the human label lives only here. Round-trips through
+    # the shared byok_keys.json via the dataclass fields (see the matching
+    # field in core.byok_endpoints, whose loader filters by field names).
+    label: Optional[str] = None
 
 
 class BYOKManager:
@@ -209,35 +218,64 @@ class BYOKManager:
                 logger.error(f"Failed to load BYOK keys: {e}")
 
     def _save_configuration(self):
-        """Save configuration to disk"""
+        """Save configuration to disk — ATOMICALLY.
+
+        Same-file contract with ``core.byok_endpoints``: the runtime manager
+        re-reads whenever the file signature changes (lazy refresh), so a
+        torn non-atomic write here would make the runtime see a half-written
+        store. ``os.replace`` means readers observe the old or the new file,
+        never a partially flushed one.
+        """
         # Ensure data directory exists
         os.makedirs(os.path.dirname(BYOK_CONFIG_FILE), exist_ok=True)
         
         # Save providers
         try:
-            with open(BYOK_CONFIG_FILE, "w") as f:
-                json.dump({
-                    "providers": [asdict(p) for p in self.providers.values()]
-                }, f, indent=2)
+            self._atomic_write_json(BYOK_CONFIG_FILE, {
+                "providers": [asdict(p) for p in self.providers.values()]
+            })
         except Exception as e:
             logger.error(f"Failed to save BYOK config: {e}")
 
         # Save API keys
         try:
-            with open(BYOK_KEYS_FILE, "w") as f:
-                # Convert datetime objects to ISO strings for JSON serialization
-                keys_data = {}
-                for k_id, k_obj in self.api_keys.items():
-                    k_dict = asdict(k_obj)
-                    if k_dict.get("created_at"):
-                        k_dict["created_at"] = k_dict["created_at"].isoformat()
-                    if k_dict.get("last_used"):
-                        k_dict["last_used"] = k_dict["last_used"].isoformat()
-                    keys_data[k_id] = k_dict
-                    
-                json.dump({"keys": keys_data}, f, indent=2)
+            # Convert datetime objects to ISO strings for JSON serialization
+            keys_data = {}
+            for k_id, k_obj in self.api_keys.items():
+                k_dict = asdict(k_obj)
+                if k_dict.get("created_at"):
+                    k_dict["created_at"] = k_dict["created_at"].isoformat()
+                if k_dict.get("last_used"):
+                    k_dict["last_used"] = k_dict["last_used"].isoformat()
+                keys_data[k_id] = k_dict
+
+            self._atomic_write_json(BYOK_KEYS_FILE, {"keys": keys_data})
         except Exception as e:
             logger.error(f"Failed to save BYOK keys: {e}")
+
+    @staticmethod
+    def _atomic_write_json(path: str, payload: Dict[str, Any]) -> None:
+        """Write JSON to ``path`` via a same-directory temp file + replace.
+
+        Mirrors ``core.byok_endpoints.BYOKManager._atomic_write_json`` (the
+        two managers share one durable file; keep the write discipline
+        identical).
+        """
+        import tempfile
+
+        directory = os.path.dirname(path) or "."
+        fd, tmp_path = tempfile.mkstemp(prefix=".tmp_", suffix=".json", dir=directory)
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(payload, f, indent=2)
+                f.write("\n")
+            os.replace(tmp_path, path)
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def _initialize_default_providers(self):
         """Initialize default AI providers"""
@@ -603,8 +641,13 @@ class BYOKManager:
         api_key: str,
         key_name: str = "default",
         environment: str = "production",
+        label: Optional[str] = None,
     ) -> str:
-        """Store an encrypted API key"""
+        """Store an encrypted API key.
+
+        ``label`` is display-only (bounded, sanitised); ``key_name`` is the
+        lookup identity and defaults to the canonical ``"default"``.
+        """
         if provider_id not in self.providers:
             raise ValueError(f"Provider {provider_id} not found")
 
@@ -619,6 +662,7 @@ class BYOKManager:
             key_hash=key_hash,
             created_at=datetime.now(),
             environment=environment,
+            label=sanitize_key_label(label),
         )
 
         self.api_keys[key_id] = api_key_obj
@@ -941,9 +985,15 @@ class BYOKManager:
         api_key: str,
         key_name: str = "default",
         environment: str = "production",
-        db: Session = None
+        db: Session = None,
+        label: Optional[str] = None,
     ) -> str:
-        """Store an encrypted API key for a specific tenant (Syncs with DB)"""
+        """Store an encrypted API key for a specific tenant (Syncs with DB).
+
+        ``key_name`` is the LOOKUP IDENTITY (wizard and Settings both write
+        the canonical ``"default"``); ``label`` is the friendly display name,
+        persisted separately and never consulted by any resolver.
+        """
         if provider_id not in self.providers:
             raise ValueError(f"Provider {provider_id} not found")
 
@@ -959,7 +1009,8 @@ class BYOKManager:
             key_hash=key_hash,
             created_at=datetime.now(),
             environment=environment,
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
+            label=sanitize_key_label(label),
         )
 
         self.api_keys[key_id] = api_key_obj
@@ -1091,6 +1142,7 @@ async def get_api_keys(
             "provider": key_obj.provider_id,
             "key_id": key_id,
             "key_name": key_obj.key_name,
+            "label": getattr(key_obj, "label", None),
             "environment": key_obj.environment,
             "masked_key": masked,
             "status": "active" if key_obj.is_active else "inactive",
@@ -1218,6 +1270,7 @@ async def store_api_key(
     api_key: Optional[str] = Query(None),
     key_name: str = "default",
     environment: str = "production",
+    label: Optional[str] = Query(None),
     body: Optional[Dict[str, Any]] = None,
     current_user: User = Depends(get_current_user),
     tenant: Tenant = Depends(get_current_tenant),
@@ -1230,18 +1283,27 @@ async def store_api_key(
     body form the frontend actually sends ({api_key, key_name, environment}).
     Body-only callers previously got a guaranteed 422 (query param missing),
     dead-ending onboarding step 1 on both the wizard and Settings→AI.
+
+    F4 (2026-10-17): ``key_name`` is the LOOKUP IDENTITY and both the wizard
+    and Settings→AI now write the canonical ``"default"``. The friendly label
+    ("Ollama (local)", "<provider> (onboarding)") is a separate display-only
+    field with no role in resolution: the resolver is unchanged, and existing
+    keys stored under other key names keep working exactly as before.
     """
     if body and isinstance(body, dict):
         api_key = api_key or body.get("api_key")
         key_name = body.get("key_name") or key_name
         environment = body.get("environment") or environment
+        label = body.get("label") or label
     if not api_key or len(api_key) < 10:
         raise HTTPException(
             status_code=422,
             detail="Invalid API key: must be at least 10 characters"
         )
     try:
-        key_id = byok_manager.store_tenant_api_key(tenant.id, provider_id, api_key, key_name, environment, db=db)
+        key_id = byok_manager.store_tenant_api_key(
+            tenant.id, provider_id, api_key, key_name, environment,
+            db=db, label=label)
         return ApiResponse(success=True, data={
             "key_id": key_id,
             "message": f"API key stored successfully for {provider_id} in {tenant.name}",
@@ -1277,6 +1339,7 @@ async def get_api_key_status(
         "key_id": key_id,
         "provider_id": key_info.provider_id,
         "key_name": key_info.key_name,
+        "label": getattr(key_info, "label", None),
         "environment": key_info.environment,
         "is_active": key_info.is_active,
         "usage_count": key_info.usage_count,

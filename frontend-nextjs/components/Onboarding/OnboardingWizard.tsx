@@ -165,7 +165,12 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 },
                 body: JSON.stringify({
                     api_key: "ollama-local-no-key-required",
-                    key_name: "Ollama (local)",
+                    // F4: key_name is the LOOKUP IDENTITY every resolver
+                    // (status, chat dispatch) asks for — Settings→AI already
+                    // writes "default". The friendly name is a separate
+                    // display-only label and is never consulted for lookups.
+                    key_name: "default",
+                    label: "Ollama (local)",
                     environment: "production",
                 }),
             });
@@ -213,7 +218,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 },
                 body: JSON.stringify({
                     api_key: apiKeyValue.trim(),
-                    key_name: `${apiKeyProvider} (onboarding)`,
+                    // F4: the canonical lookup identity (same value
+                    // Settings→AI posts); the friendly "<provider>
+                    // (onboarding)" text is stored as a separate label.
+                    key_name: "default",
+                    label: `${apiKeyProvider} (onboarding)`,
                     environment: "production",
                 }),
             });
