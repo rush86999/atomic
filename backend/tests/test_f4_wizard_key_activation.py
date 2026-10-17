@@ -147,6 +147,26 @@ def test_credential_service_resolves_wizard_key(stores, monkeypatch):
     assert service._try_byok_credential("opencode-go") == "C" * 24
 
 
+def test_peer_writer_entries_survive_a_stale_manager_save(stores):
+    """Lost-update guard: a manager that loaded before a peer's save must
+    adopt the peer's entries before its next save (review finding 3)."""
+    runtime, admin, keys_file = stores
+    admin.store_tenant_api_key("tenant-a", "opencode-go", "A" * 24)
+    # A peer writer (a fresh runtime manager, as tools construct) saves a
+    # global key after the admin manager loaded.
+    peer = be.BYOKManager()
+    peer_key = "sk-peer-" + "P" * 30
+    peer.store_api_key("openai", peer_key, label="Peer")
+
+    # The admin manager now performs a later write from its stale view.
+    admin.store_tenant_api_key("tenant-b", "opencode-go", "B" * 24)
+
+    data = json.loads(keys_file.read_text())
+    providers = {v["provider_id"] for v in data["keys"].values()}
+    assert "openai" in providers, "the peer entry must survive the admin save"
+    assert runtime.get_api_key("openai") == peer_key
+
+
 def test_label_sanitised_bounded_and_optional():
     assert be.sanitize_key_label(None) is None
     assert be.sanitize_key_label("   ") is None

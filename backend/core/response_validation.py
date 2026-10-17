@@ -30,8 +30,7 @@ _TOOL_CALL_TAG_RE = re.compile(
 #: text whose provenance (reasoning vs answer) cannot be established.
 _REASONING_TAG_RE = re.compile(
     r"<think\b"
-    r"|</?(?:mm:)?think\s*>"
-    r"|</?(?:mm:)?thinking\s*>",
+    r"|</?(?:mm:)?think(?:ing)?\b[^>]*>",
     re.IGNORECASE,
 )
 #: COMPLETE reasoning wrapper blocks (open+close, attributes tolerated on the

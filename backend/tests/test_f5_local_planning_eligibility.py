@@ -171,6 +171,41 @@ class TestUnavailableNegatives:
         assert not handler._provider_serves_model(LOCAL_PROVIDER, LOCAL_MODEL)
 
 
+class TestDocumentedDefaultModel:
+    def test_ollama_model_unset_admits_the_documented_default(self, monkeypatch):
+        """The quickstart-generated .env does not set OLLAMA_MODEL; the
+        product's documented default for the auto runtime is llama3:8b
+        (settings_catalog / byok_endpoints). With that model pulled and
+        OLLAMA_MODEL unset, the planning pool must contain it — the exact
+        documented configuration the F5 regression covers."""
+        _set_local_only(True)
+        monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+        handler = _handler()
+        _freeze_pool(handler, monkeypatch)
+        handler.clients[LOCAL_PROVIDER] = MagicMock()
+        _set_probe(handler, monkeypatch, "up", {"llama3", "llama3:8b"})
+
+        pairs = [(p, m) for p, m in _plan(handler)]
+        assert (LOCAL_PROVIDER, "llama3:8b") in pairs, (
+            f"the documented default must be admitted when pulled; got {pairs}")
+
+    def test_fallback_never_returns_an_unserved_local_pair(self, monkeypatch):
+        """Probe up but the declared model NOT pulled: the absolute fallback
+        must skip the pair (a local probe is authoritative — 'unserved', not
+        'unknown'), so the turn reports truthful unavailability."""
+        _set_local_only(True)
+        monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+        handler = _handler()
+        _freeze_pool(handler, monkeypatch)
+        handler.clients[LOCAL_PROVIDER] = MagicMock()
+        _set_probe(handler, monkeypatch, "up", {"qwen3:4b"})
+
+        with pytest.raises(NoProvidersConfiguredError):
+            tuple(handler.get_optimal_provider(
+                QueryComplexity.SIMPLE, "planning", True, "free", True,
+                requires_tools=False, requires_structured=False))
+
+
 class TestMixedModeUnchanged:
     def test_no_admission_outside_local_only(self, monkeypatch):
         _set_local_only(False)
@@ -213,3 +248,24 @@ class TestMixedModeUnchanged:
                 requires_tools=False, requires_structured=False)), (
                 "with the local runtime down, the fallback path must not "
                 "re-admit a cloud provider under local-only policy")
+
+    def test_local_route_is_plan_exempt_in_mixed_mode(self, monkeypatch):
+        """Local hardware bills nobody: the free-plan allowlist must not
+        hide it — the registered-local rule, applied to the auto runtime
+        (pinned; review finding 10)."""
+        _set_local_only(False)
+        handler = _handler()
+        _freeze_pool(handler, monkeypatch, models={
+            "llama-3.3-70b-versatile": {
+                "litellm_provider": "ollama",
+                "max_input_tokens": 128000,
+                "supports_tools": True,
+            },
+        })
+        handler.clients[LOCAL_PROVIDER] = MagicMock()
+        _set_probe(handler, monkeypatch, "up", {"llama-3.3-70b-versatile"})
+
+        pairs = [(p, m) for p, m in _plan(handler)]
+        assert (LOCAL_PROVIDER, "llama-3.3-70b-versatile") in pairs, (
+            "the free-plan allowlist must not hide the workspace's own "
+            f"local hardware; got {pairs}")

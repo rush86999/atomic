@@ -167,16 +167,23 @@ class APIKey:
 class BYOKManager:
     """BYOK (Bring Your Own Key) Management System"""
 
+    #: Serialises key-store mutations against the lazy disk refresh below.
+    #: CLASS-level so managers constructed via ``BYOKManager.__new__`` (an
+    #: established test/tooling pattern that bypasses ``__init__``'s disk
+    #: access) still have it; an instance lock is created in ``__init__``
+    #: and shared semantics are identical.
+    _store_lock: "threading.RLock" = threading.RLock()
+    #: File signature (mtime_ns, size) of the last key-store read/write —
+    #: drives the lazy refresh that lets this runtime manager see writes
+    #: made by the admin manager (api/byok_routes) without a restart.
+    #: Class-level default for ``__new__``-constructed instances.
+    _keys_file_signature: Optional[tuple] = None
+
     def __init__(self):
         self.providers: Dict[str, AIProviderConfig] = {}
         self.usage_stats: Dict[str, ProviderUsage] = {}
         self.api_keys: Dict[str, APIKey] = {}
-        # Serialises key-store mutations against the lazy disk refresh below
-        # (RLock: store_api_key holds it while _save_configuration runs).
         self._store_lock = threading.RLock()
-        # File signature (mtime_ns, size) of the last key-store read/write —
-        # drives the lazy refresh that lets this runtime manager see writes
-        # made by the admin manager (api/byok_routes) without a restart.
         self._keys_file_signature: Optional[tuple] = None
         # R61: env override wins; otherwise reuse the persisted key (same file
         # as the admin manager) so stored ciphertext survives restarts and is
@@ -273,6 +280,44 @@ class BYOKManager:
         read/write — the runtime-visible half of the wizard/Settings writes."""
         self._refresh_api_keys_from_disk(force=False)
 
+    def _merge_disk_entries(self) -> None:
+        """Adopt entries another writer saved since our last read/write.
+
+        LOST-UPDATE GUARD (review finding 3): every writer serialises its
+        in-memory view over the SAME file, so a writer that loaded before a
+        peer's save would drop the peer's entries on its next save. Disk-only
+        entries are adopted here; entries this writer already holds win (they
+        are its current truth). Called before every save.
+        """
+        with self._store_lock:
+            try:
+                stamp = os.stat(BYOK_KEYS_FILE)
+                signature = (stamp.st_mtime_ns, stamp.st_size)
+            except OSError:
+                return
+            if signature == self._keys_file_signature:
+                return
+            try:
+                with open(BYOK_KEYS_FILE, "r") as f:
+                    data = json.load(f)
+                from dataclasses import fields
+                key_fields = {f.name for f in fields(APIKey)}
+                for k_id, k_data in (data.get("keys") or {}).items():
+                    if k_id in self.api_keys:
+                        continue
+                    row = dict(k_data)
+                    if row.get("created_at"):
+                        row["created_at"] = datetime.fromisoformat(row["created_at"])
+                    if row.get("last_used"):
+                        row["last_used"] = datetime.fromisoformat(row["last_used"])
+                    filtered = {k: v for k, v in row.items() if k in key_fields}
+                    self.api_keys[k_id] = APIKey(**filtered)
+                self._keys_file_signature = signature
+            except Exception as e:
+                # Never drop this writer's entries because of a foreign read;
+                # the next save retries the merge.
+                logger.error(f"Failed to merge BYOK keys from disk: {e}")
+
     def _save_configuration(self):
         """Save configuration to disk"""
         # Ensure data directory exists
@@ -289,6 +334,10 @@ class BYOKManager:
 
         # Save API keys
         try:
+            # LOST-UPDATE GUARD: adopt entries a peer writer saved since our
+            # last read/write before serialising our view (see
+            # _merge_disk_entries).
+            self._merge_disk_entries()
             keys_data = {
                 k_id: self._api_key_to_dict(k_obj)
                 for k_id, k_obj in self.api_keys.items()

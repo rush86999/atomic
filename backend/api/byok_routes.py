@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -157,10 +158,17 @@ class APIKey:
 class BYOKManager:
     """BYOK (Bring Your Own Key) Management System"""
 
+    #: See core.byok_endpoints.BYOKManager: class-level so __new__-constructed
+    #: instances (tests/tooling) still have the store-state contract.
+    _store_lock: "threading.RLock" = threading.RLock()
+    _keys_file_signature: Optional[tuple] = None
+
     def __init__(self):
         self.providers: Dict[str, AIProviderConfig] = {}
         self.usage_stats: Dict[str, Dict[str, ProviderUsage]] = {}  # tenant_id -> provider_id -> ProviderUsage
         self.api_keys: Dict[str, APIKey] = {}
+        self._store_lock = threading.RLock()
+        self._keys_file_signature: Optional[tuple] = None
         # R59: env override wins; otherwise reuse the persisted key so stored
         # ciphertext survives process restarts (previously a fresh random key
         # per start made every stored key undecryptable).
@@ -172,6 +180,11 @@ class BYOKManager:
             # survive even if .env is later lost or regenerated (see mirror).
             self._mirror_encryption_key_file(self.encryption_key)
         self._load_configuration()
+        try:
+            stamp = os.stat(BYOK_KEYS_FILE)
+            self._keys_file_signature = (stamp.st_mtime_ns, stamp.st_size)
+        except OSError:
+            self._keys_file_signature = None
         self._initialize_default_providers()
 
     def _load_configuration(self):
@@ -239,6 +252,11 @@ class BYOKManager:
 
         # Save API keys
         try:
+            # LOST-UPDATE GUARD (review finding 3): a peer writer (the runtime
+            # manager, a tool constructing its own manager) may have saved
+            # since our last read/write; adopt its entries before serialising
+            # our view, or the next save silently drops them.
+            self._merge_disk_entries()
             # Convert datetime objects to ISO strings for JSON serialization
             keys_data = {}
             for k_id, k_obj in self.api_keys.items():
@@ -250,8 +268,50 @@ class BYOKManager:
                 keys_data[k_id] = k_dict
 
             self._atomic_write_json(BYOK_KEYS_FILE, {"keys": keys_data})
+            try:
+                stamp = os.stat(BYOK_KEYS_FILE)
+                self._keys_file_signature = (stamp.st_mtime_ns, stamp.st_size)
+            except OSError:
+                self._keys_file_signature = None
         except Exception as e:
             logger.error(f"Failed to save BYOK keys: {e}")
+
+    def _merge_disk_entries(self) -> None:
+        """Adopt entries another writer saved since our last read/write.
+
+        Mirror of ``core.byok_endpoints.BYOKManager._merge_disk_entries``:
+        entries this manager already holds win; disk-only entries are
+        adopted. Called before every save and before reads, so wizard/
+        Settings writes never clobber a peer's key and admin status reads
+        see keys written through the runtime manager.
+        """
+        with self._store_lock:
+            try:
+                stamp = os.stat(BYOK_KEYS_FILE)
+                signature = (stamp.st_mtime_ns, stamp.st_size)
+            except OSError:
+                return
+            if signature == self._keys_file_signature:
+                return
+            try:
+                with open(BYOK_KEYS_FILE, "r") as f:
+                    data = json.load(f)
+                from dataclasses import fields
+                key_fields = {f.name for f in fields(APIKey)}
+                for k_id, k_data in (data.get("keys") or {}).items():
+                    if k_id in self.api_keys:
+                        continue
+                    row = dict(k_data)
+                    if row.get("created_at"):
+                        row["created_at"] = datetime.fromisoformat(row["created_at"])
+                    if row.get("last_used"):
+                        row["last_used"] = datetime.fromisoformat(row["last_used"])
+                    filtered = {k: v for k, v in row.items() if k in key_fields}
+                    self.api_keys[k_id] = APIKey(**filtered)
+                self._keys_file_signature = signature
+            except Exception as e:
+                # Never drop this manager's entries because of a foreign read.
+                logger.error(f"Failed to merge BYOK keys from disk: {e}")
 
     @staticmethod
     def _atomic_write_json(path: str, payload: Dict[str, Any]) -> None:
@@ -762,7 +822,11 @@ class BYOKManager:
         Match by FIELDS, never by the dict id (id shapes differ per writer).
         ``tenant_id`` binds the lookup to that owner; without it, only global
         entries are candidates — see :meth:`get_api_key`.
+
+        A peer writer's save since our last read/write is adopted first
+        (lost-update guard), so admin status reads see runtime-written keys.
         """
+        self._merge_disk_entries()
         global_entry: Optional[APIKey] = None
         scoped: Dict[str, APIKey] = {}
         for key_id, obj in self.api_keys.items():

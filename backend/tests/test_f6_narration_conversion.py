@@ -116,6 +116,24 @@ class TestIncompleteRejection:
         normalized, reject = normalize_final_text(raw)
         assert reject is not None
 
+    def test_unpaired_marker_with_attributes_is_rejected(self):
+        """Attribute-bearing variants must not slip through as 'not a
+        marker' (review finding 11) — the block regex already treats them
+        as protocol, so the unpaired form is incomplete protocol."""
+        raw = 'Final answer. <mm:thinking attr="x">I should check the notes first.'
+        normalized, reject = normalize_final_text(raw)
+        assert reject is not None
+        assert "reasoning" in reject.lower()
+
+    def test_unpaired_namespaced_think_with_attributes_is_rejected(self):
+        raw = 'Final answer. <mm:think reasoning="deep">secret chain of thought'
+        _, reject = normalize_final_text(raw)
+        assert reject is not None
+
+    def test_streaming_holds_attribute_variant_residue(self):
+        safe, held, residue = split_safe_prefix('hello <mm:thinking attr="x">')
+        assert safe == "hello " and residue is True
+
     def test_reasoning_only_reply_is_rejected_not_empty_success(self):
         normalized, reject = normalize_final_text(
             "<mm:thinking>only reasoning</mm:thinking>")

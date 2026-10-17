@@ -24771,8 +24771,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         present_from_record,
                         validate_rendered_against_record,
                     )
-                    _narration_check = validate_rendered_against_record(
-                        _content, _turn_structured_record)
+                    # F6: the final-answer boundary applies to THIS branch
+                    # too — complete wrappers are converted and unpaired/
+                    # partial markers must not ship through the evidence
+                    # path (the deterministic render below stays the valid
+                    # delivery).
+                    _content, _record_reject = _normalize_final_text(_content)
+                    _narration_check = (
+                        {"ok": False, "violations": [_record_reject]}
+                        if _record_reject else
+                        validate_rendered_against_record(
+                            _content, _turn_structured_record))
                     if not _narration_check.get("ok"):
                         _repaired = None
                         _repair_check = None

@@ -3449,23 +3449,45 @@ class BYOKHandler:
         for provider_id in ("ollama",):
             if provider_id not in self.clients:
                 continue
-            model = (
-                os.getenv("OLLAMA_MODEL", "").strip()
-                or (COST_EFFICIENT_MODELS.get(provider_id) or {}).get(
-                    QueryComplexity.SIMPLE)
-                or ""
-            ).strip()
-            if not model:
-                continue
-            if model in (self._local_routes or {}):
-                # A workspace registration for this model is authoritative.
-                continue
+            # Declared-model candidates, in precedence order: the operator's
+            # OLLAMA_MODEL, the product's cost-efficient default, then the
+            # documented settings default for the auto-initialized runtime
+            # (settings_catalog / byok_endpoints: "llama3:8b"). The FIRST
+            # candidate the runtime probe confirms it actually serves wins —
+            # a documented default must work with the documented
+            # configuration (OLLAMA_MODEL unset), and nothing is admitted
+            # that the probe does not confirm.
+            declared_candidates = []
+            env_model = os.getenv("OLLAMA_MODEL", "").strip()
+            if env_model:
+                declared_candidates.append(env_model)
+            declared_candidates.append(
+                (COST_EFFICIENT_MODELS.get(provider_id) or {}).get(
+                    QueryComplexity.SIMPLE) or "")
+            declared_candidates.append("llama3:8b")
             served = self._served_local_models_for(provider_id)
             if not served:
                 continue
             served_norm = {str(s).strip().lower() for s in served}
-            if model.lower() not in served_norm and \
-                    model.lower().split(":", 1)[0] not in served_norm:
+
+            def _served_by_runtime(name: str) -> bool:
+                if not name:
+                    return False
+                low = name.lower()
+                return (
+                    low in served_norm
+                    or low.split(":", 1)[0] in served_norm
+                )
+
+            model = next(
+                (m.strip() for m in declared_candidates
+                 if _served_by_runtime(m.strip())),
+                "",
+            )
+            if not model:
+                continue
+            if model in (self._local_routes or {}):
+                # A workspace registration for this model is authoritative.
                 continue
             try:
                 quality = float(os.getenv("OLLAMA_QUALITY_SCORE", "0.9"))
@@ -4044,8 +4066,19 @@ class BYOKHandler:
                 continue
             if self._model_cooldown_active(_fb_provider, _tier_default):
                 continue
-            if self._provider_serves_model(
-                    _fb_provider, _tier_default) or not (
+            _serves = self._provider_serves_model(
+                _fb_provider, _tier_default)
+            _pid_low = str(_fb_provider or "").strip().lower()
+            if not _serves and (
+                    _pid_low in _LOCAL_PROVIDER_IDS
+                    or _pid_low.startswith("local")):
+                # A LOCAL runtime's probe is authoritative: a model it does
+                # not advertise is UNSERVED, never "unknown" — the fallback
+                # must not return a pair the dispatch gate will reject
+                # (documented-default gap: the probe said llama3:8b served,
+                # the fallback named llama3.1:8b).
+                continue
+            if _serves or not (
                     self._ranked_model_is_known_unserved(
                         _fb_provider, _tier_default)):
                 return AwaitableResult((_fb_provider, _tier_default))

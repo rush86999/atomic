@@ -209,7 +209,10 @@ class TestConfigPersistence:
 
     def test_save_config_write_failure_tolerated(self, paths, caplog):
         m = BYOKManager()
-        with patch("builtins.open", side_effect=OSError("disk full")):
+        # The write is atomic now (temp file + os.replace): the commit step
+        # is where a failed write surfaces, so the failure is injected there
+        # (the old builtins.open patch no longer intercepts this writer).
+        with patch("os.replace", side_effect=OSError("disk full")):
             m._save_configuration()
         assert any("Failed to save" in r.message for r in caplog.records)
 
