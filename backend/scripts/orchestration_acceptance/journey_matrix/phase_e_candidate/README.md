@@ -57,8 +57,43 @@ store (canonical identity) activated `opencode-go` immediately with NO
 to opencode-go — the cloud F4 leg. Its answer leg then missed the uploaded
 source (the retrieval-scope defects later repaired), and the operator's
 OpenCode Go key **expired mid-campaign** (verified 401 `api_key_expired`), so
-no further cloud runs were attempted. The cloud answer leg is therefore NOT
-promoted; the local run is the unified-loop evidence.
+at that time no further cloud runs were attempted and the cloud answer leg was
+NOT promoted. *(Superseded for the repaired candidate by the re-attempt section
+below: with an operator-provided fresh key, run 6's failure is preserved and
+run 7 completes the full cloud loop green — variance disclosed.)*
+
+## Cloud re-attempt on the repaired candidate (2026-10-17 late, operator-provided fresh key)
+
+After the operator supplied a replacement Go key, two fresh-world cloud
+attempts ran on the same frozen candidate (`e207494af4c7`), key typed into the
+wizard only (no `OPENCODE_API_KEY` in the backend env; credential scans of both
+JSONs clean):
+
+- **Run 6** (`evidence/browser_phase_e_cloud_20261017_183521.json`, preserved
+  failure): setup, wizard Card B activation (canonical payload, provider
+  active, no re-save), completion, upload, and a provider-attributed turn all
+  TRUE — but the turn settled **`success=false`**: the planner selected the
+  **memory** service for the documents ask, its search yielded no verifiable
+  evidence, and the delivered narration was an honest non-retrieval ("I did
+  not find one in what this turn actually searched… I can't rule out places
+  that were not searched"). 22/25 assertions; `answer-uses-uploaded-source`,
+  `answer-durable-in-history`, `reload-chat-persists` false. No false success,
+  no fabricated answer. (Run 6's screenshots were overwritten by run 7; its
+  run JSON carries the recorded facts.)
+- **Run 7** (`evidence/browser_phase_e_cloud_20261017_184029.json`): fresh
+  world, same script — **25/25 all green**. The grounded turn dispatched
+  `documents.search` (`match_count=1`); the reply uses the uploaded source
+  (QUARTZ-77), is attributed to opencode-go, durable in history, and survives
+  reload. Screenshots: `screenshots/cloud_run7/`.
+- **Recorded observation (follow-up, not repaired here):** planner
+  tool-selection variance on the cloud lane — `glm-5.3-flash` chose
+  `documents.search` here (and in the local-lane lineage) but `memory` in run
+  6. The outcome is honest either way; the mis-selection is tracked as a
+  follow-up (source-constraint extraction / zero-match fallback), not fixed in
+  this archive.
+
+With run 6 preserved and run 7 green, the cloud answer leg is **promoted on
+`e207494af4c7` with this variance disclosed**.
 
 ## Findings status after this cycle
 
@@ -92,4 +127,10 @@ python backend/scripts/orchestration_acceptance/browser_phase_e_loop.py \
     --mode local --wt <worktree> --sha e207494af4c7
 ```
 
-Harness: `browser_phase_e_loop.py` (copied here; sha256 in the run JSON).
+Harness: `browser_phase_e_loop.py` (copied here). The copy is the revision used
+for the cloud re-attempts (runs 6/7); its only change over the local-run
+revision is `_load_go_key()` now resolving the operator-session env key
+(`ATOM_E2E_GO_KEY`) first, falling through to the same store/env sources. The
+local-run revision's sha256 (`f6cdee0c…`) is recorded inside
+`evidence/browser_phase_e_local_20261017_175758.json`; the cloud run JSONs
+record the sha of the revision that produced them (`b1098cab…`).

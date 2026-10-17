@@ -24,6 +24,7 @@ import argparse
 import hashlib
 import importlib.metadata as md
 import json
+import os
 import re
 import sys
 import time
@@ -49,7 +50,17 @@ MAIN_ENV = Path("/Users/rushiparikh/projects/atom/backend/.env")
 
 
 def _load_go_key() -> str:
-    """Operator OpenCode Go key (never printed / never written to evidence)."""
+    """Operator OpenCode Go key (never printed / never written to evidence).
+
+    Resolution order: the session-provided env key (ATOM_E2E_GO_KEY — the
+    operator handed a FRESH key after the prior one expired mid-campaign),
+    then the opencode auth store, then the dev backend env file. The key is
+    only ever typed into the onboarding wizard (Card B); it is scrubbed from
+    every recorded string.
+    """
+    key = (os.environ.get("ATOM_E2E_GO_KEY") or "").strip()
+    if len(key) >= 10:
+        return key
     try:
         doc = json.loads(OPENCODE_KEY_STORE.read_text())
         key = (doc.get("opencode-go") or {}).get("key") or ""

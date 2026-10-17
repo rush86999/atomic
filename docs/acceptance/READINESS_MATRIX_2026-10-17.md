@@ -72,6 +72,24 @@ reproduction; no live MiniMax pick remained). Archive:
 `journey_matrix/phase_e_candidate/` (README, evidence, logs, screenshots,
 CHECKSUMS).
 
+**Rev 6 (2026-10-17 late, cloud re-attempt).** With an operator-provided
+replacement OpenCode Go key, the cloud supplementary loop was re-run on the
+same frozen candidate (`e207494af4c7`): **run 7 completes 25/25 green** —
+wizard Card B activation (canonical payload, provider active, no re-save),
+upload durable, the grounded turn dispatched `documents.search`
+(`match_count=1`), the reply uses the uploaded source (QUARTZ-77), is
+attributed to `opencode-go`, durable in history and survives reload. **Run 6 is
+preserved as a failure**: the same script in a fresh world settled
+`success=false` because the planner selected the **memory** service for the
+documents ask (no verifiable evidence) and delivered an honest non-retrieval —
+no false success. The divergence is planner tool-selection variance on the
+cloud lane (`glm-5.3-flash` chose `memory` in run 6, `documents.search` in run
+7); it is recorded as a **follow-up** (source-constraint extraction / zero-match
+fallback), not repaired here. The cloud answer leg is promoted on
+`e207494af4c7` **with this variance disclosed**. Archive:
+`journey_matrix/phase_e_candidate/` (run 6 + run 7 JSONs, run-7 screenshots,
+updated CHECKSUMS).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -120,9 +138,9 @@ against the `/tmp` originals; credential scans clean before archiving).
 |---|-----------------------------|--------|----------------|-------------------------------|----------|----------------------|-------------|
 | 1 | **J1.config-parity** — required gates (lifecycle, finalization M1/M2) are EFFECTIVE in the serving process after quickstart env generation | verified | mechanism (load-order-faithful subprocess from code export) | `d6fbcd846`, allowlisted export world, 2026-10-12 | `journey_matrix/parity_pristine_20261012_20261012_104240_de7328.json` | dependency installation not exercised (export reuses interpreter) | Phase D fresh-install proof (acceptance) |
 | 2 | **J1.boot** — backend boots healthy on the generated env (scratch DB) | verified | mechanism + public API (`/api/health`) | `d6fbcd846` | same as 1 | clean-machine boot unproven | Phase D |
-| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `e207494af4c7` (Phase E local run, 25/25; bootstrap admin + freshly registered user) | `journey_matrix/phase_e_candidate/evidence/browser_phase_e_local_20261017_175758.json`; prior lineage `phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json` (`68729ebe4`) | cloud world supplementary only (key expired mid-campaign) | none (Phase E) |
+| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `e207494af4c7` (Phase E local run, 25/25; bootstrap admin + freshly registered user) | `journey_matrix/phase_e_candidate/evidence/browser_phase_e_local_20261017_175758.json`; prior lineage `phase_d_fresh_install/browser_complete_loop_r3_20261017_113656.json` (`68729ebe4`) | cloud world supplementary re-run green (run 7 25/25; run 6 preserved — planner tool-selection variance disclosed, rev 6) | none (Phase E) |
 | 4 | **J1.workspace** — workspace created/used through the product | verified | public API | `d6fbcd846` | parity JSON | not re-run on any later lineage | Phase D/E |
-| 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **verified** | fresh install + browser loop | `e207494af4c7` (detached worktree, isolated data, ports 18300/18301); supported-interpreter path: documented manual venv + unchanged `scripts/quickstart.sh` rc=0 with ZERO interventions; host-default 3.14 refused up front (F1 fix) | `journey_matrix/phase_e_candidate/` — local run `evidence/browser_phase_e_local_20261017_175758.json` (25/25), `logs/f1_refusal.log`, `logs/install_supported.log`, README, CHECKSUMS; prior Phase D archive retained (`phase_d_fresh_install/`) | fresh venv on the EXISTING HOST only; F1–F3 original failures preserved in the Phase D archive; cloud answer leg not promoted (operator key expired) | none — Phase E closed |
+| 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **verified** | fresh install + browser loop | `e207494af4c7` (detached worktree, isolated data, ports 18300/18301); supported-interpreter path: documented manual venv + unchanged `scripts/quickstart.sh` rc=0 with ZERO interventions; host-default 3.14 refused up front (F1 fix) | `journey_matrix/phase_e_candidate/` — local run `evidence/browser_phase_e_local_20261017_175758.json` (25/25), `logs/f1_refusal.log`, `logs/install_supported.log`, README, CHECKSUMS; prior Phase D archive retained (`phase_d_fresh_install/`) | fresh venv on the EXISTING HOST only; F1–F3 original failures preserved in the Phase D archive; cloud answer leg promoted on this candidate with the rev-6 variance disclosed | none — Phase E closed |
 | 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `e207494af4c7` (Phase E local run), fresh product-created user, installed product; prior lineage `68729ebe4` (Phase D) and `cca1fb13d` (Phase C, harness `43c1dc43…`) | `journey_matrix/phase_e_candidate/evidence/browser_phase_e_local_20261017_175758.json` (completion persisted: DB `onboarding_completed=1`, `/api/onboarding/status` completed, reload shows no wizard); Phase C/D evidence retained | re-bound to the installed product; the same run records the F4 regression green (configure once → first request uses that provider, no re-save) | none — Phase E closed |
 | 7 | **J2.provider-setup-first-reply** — provider added via product; first request served by it | verified | public API (+ Oct-12 browser chain on earlier lineage) | pin `cf6e31e26` (digests `177ef2a1…`/`5945c832…`), r14b, local ollama `llama3.1:8b` | `journey_matrix/j2_model_setup_20261013_182933_e7f609.json` | bound to `cf6e31e26`; not re-run on later lineage | unified-candidate re-run (Phase E) |
 | 8 | **J2.real-reply** — counted first request served (no warm-up) | verified | public API | same as 7 | same as 7 (PONG 4.609 s) | same as 7 | Phase E |
