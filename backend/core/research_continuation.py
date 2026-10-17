@@ -50,6 +50,80 @@ _CLAIM_TTL_SECONDS = float(
 _RECOVERY_TASK: "asyncio.Task | None" = None
 _WORKER_ID = f"research-worker-{os.getpid()}"
 
+
+async def r4_delivery_latch(
+    lane: str,
+    checkpoint: Dict[str, Any],
+    *,
+    enabled: bool,
+    expired_record: Dict[str, Any],
+    dir_path: Any = None,
+    deadline_seconds: float = 300.0,
+    on_expiry: Any = None,
+) -> bool:
+    """ONE shared post-commit, pre-delivery latch boundary (R4
+    2026-10-16).
+
+    Both lanes (the research continuation settle and the direct lane's
+    retrieve completion) used an INLINE copy of the same latch; the
+    duplication is what shipped the _r4json2 alias bug. This boundary
+    makes the contract explicit and single:
+
+    - publishes ``r4_checkpoint.json`` AFTER the persistence transaction
+      committed (the checkpoint is written right here, between the
+      durable commit and the delivery call at the call sites);
+    - BLOCKS while ``r4_delivery_block`` exists, bounded by
+      ``deadline_seconds`` (the driver publishes the block file at
+      process start, then terminates the process at the proven
+      post-commit, pre-delivery boundary);
+    - on expiry records the invalid diagnostic explicitly
+      (``r4_latch_expired.json``, the call site's identity shape) and
+      runs the call site's withhold, so delivery never ships for an
+      attempt the diagnostic world invalidates.
+
+    ONE canonical explicit scratch directory (no cwd fallback): a
+    missing/invalid ATOM_DATA_DIR invalidates the diagnostic without
+    writing into any repo or dev-data path. When ``enabled`` is False
+    (the production default - only the diagnostic world sets its flag),
+    nothing at all is written and behavior is byte-for-byte the
+    pre-diagnostic path.
+    """
+    import json as _r4json
+    dir_value = os.environ.get("ATOM_DATA_DIR") if dir_path is None \
+        else str(dir_path)
+    if not enabled:
+        return False
+    if not (dir_value and os.path.isdir(str(dir_value))):
+        logger.warning(
+            "[r4-latch][%s] invalidated - missing/invalid ATOM_DATA_DIR "
+            "(%r); no checkpoint written", lane, dir_value)
+        return False
+    # PUBLISH the checkpoint first: whatever happens below, the driver
+    # must be able to observe the PROVEN committed state.
+    with open(os.path.join(dir_value, "r4_checkpoint.json"), "w") as rf:
+        _r4json.dump(checkpoint, rf, default=str)
+    _block = os.path.join(dir_value, "r4_delivery_block")
+    logger.warning(
+        "[r4-latch][%s] findings committed; delivery BLOCKED while %s "
+        "exists", lane, _block)
+    deadline = time.monotonic() + float(deadline_seconds)
+    while os.path.exists(_block) and time.monotonic() < deadline:
+        await asyncio.sleep(0.2)
+    if not os.path.exists(_block):
+        return False
+    with open(os.path.join(dir_value, "r4_latch_expired.json"), "w") as rf:
+        _r4json.dump(expired_record, rf, default=str)
+    logger.warning(
+        "[r4-latch][%s] EXPIRED - withheld, diagnostic invalid", lane)
+    if on_expiry is not None:
+        try:
+            on_expiry()
+        except Exception as exp_err:  # noqa: BLE001 - diagnostic only
+            logger.warning(
+                "[r4-latch][%s] expiry withhold failed: %r",
+                lane, exp_err)
+    return True
+
 # FIELD SYNONYMS (round 56): requested fields bind to columns by NAME
 # meaning — business-neutral. "price" is THIS job's requested field;
 # another business passes its own ("lead_time", "labor_rate", ...) and
@@ -442,31 +516,18 @@ async def _execute_document_read(
     # workspace, run, operation, file, source version - and delivery
     # BLOCKS while the latch file exists, so the driver can terminate
     # the process at the PROVEN post-commit, pre-delivery boundary.
-    # A missing env is production behavior, byte-for-byte unchanged.
-    # ONE canonical explicit scratch directory (no cwd fallback).
-    # Missing/invalid config invalidates the diagnostic without writing
-    # into repo or dev-data paths. The checkpoint is published AFTER the
-    # persistence transaction commits; delivery blocks on the awaited
-    # latch; expiry withholds and loudly invalidates.
-    _r4_diag_on = os.getenv("ATOM_R4_DIAG") == "1"
-    _r4_dir_ok = bool(
-        os.environ.get("ATOM_DATA_DIR")
-        and os.path.isdir(str(os.environ.get("ATOM_DATA_DIR"))))
-    if _r4_diag_on and not _r4_dir_ok:
-        logger.warning(
-            "[r4-latch] invalidated - missing/invalid ATOM_DATA_DIR (%r); "
-            "no checkpoint written", os.environ.get("ATOM_DATA_DIR"))
-    if _r4_diag_on and _r4_dir_ok:
-        import asyncio as _r4aio
-        import json as _r4json
-        import time as _r4time
-        _r4_dir = str(os.environ.get("ATOM_DATA_DIR"))
-        _r4_record = lifecycle.get_task(run_id) or {}
-        _r4_ckpt = {
+    # A disabled flag is production behavior, byte-for-byte unchanged.
+    # The boundary is the SHARED r4_delivery_latch helper: it publishes
+    # the checkpoint, blocks on the awaited latch, and on expiry records
+    # the invalid diagnostic explicitly (no inline duplication left).
+    await r4_delivery_latch(
+        "research_continuation",
+        {
             "lane": "research_continuation",
             "run_id": run_id,
             "operation_id": op["operation_id"],
-            "conversation_id": _r4_record.get("conversation_id"),
+            "conversation_id": (lifecycle.get_task(run_id) or {}).get(
+                "conversation_id"),
             "workspace_id": str(workspace_id or ""),
             "file_name": file_name,
             "source_version": _scan_identity,
@@ -476,29 +537,18 @@ async def _execute_document_read(
             "note": ("findings are durably committed; DURABLE persistence "
                      "is verified by the driver from goal_runs before the "
                      "kill"),
-            "latched_at": _r4time.time(),
-        }
-        with open(os.path.join(_r4_dir, "r4_checkpoint.json"), "w") as rf:
-            _r4json.dump(_r4_ckpt, rf, default=str)
-        _r4_block = os.path.join(_r4_dir, "r4_delivery_block")
-        logger.warning(
-            "[r4-latch] findings committed; delivery BLOCKED while %s "
-            "exists", _r4_block)
-        _r4_deadline = _r4time.monotonic() + 300
-        while os.path.exists(_r4_block) \
-                and _r4time.monotonic() < _r4_deadline:
-            await _r4aio.sleep(0.2)
-        if os.path.exists(_r4_block):
-            _r4_expired = os.path.join(_r4_dir, "r4_latch_expired.json")
-            with open(_r4_expired, "w") as rf:
-                _r4json.dump({
-                    "lane": "research_continuation",
-                    "run_id": run_id,
-                    "operation_id": op["operation_id"],
-                }, rf, default=str)
-            logger.warning(
-                "[r4-latch] EXPIRED - diagnostic recorded invalid "
-                "(%s)", _r4_expired)
+            "latched_at": time.time(),
+        },
+        enabled=bool(
+            os.getenv("ATOM_R4_DIAG") == "1"
+            and bool(os.environ.get("ATOM_DATA_DIR"))
+            and os.path.isdir(str(os.environ.get("ATOM_DATA_DIR")))),
+        expired_record={
+            "lane": "research_continuation",
+            "run_id": run_id,
+            "operation_id": op["operation_id"],
+        },
+    )
     return {"file": file_name, "statuses": statuses,
             "evidence": evidence}
 

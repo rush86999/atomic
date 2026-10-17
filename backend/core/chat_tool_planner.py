@@ -6533,6 +6533,64 @@ _RETRIEVAL_REFERENCE_RE = re.compile(
     re.IGNORECASE)
 
 
+def _record_r4_source_counter(
+    *, plan: Any, prov: Optional[Dict[str, Any]],
+    recs: Any, read_status: str, scan_action: str,
+) -> str:
+    """ONE attributable source-counter event pair (R4 diagnostic world).
+
+    Emits exactly one read_invoked + one read_completed line to
+    $ATOM_DATA_DIR/r4_source_invocations.jsonl when ATOM_R4_DIAG=1
+    with an explicit, existing scratch dir and a non-null plan execution
+    identity. Returns "written" or the invalidation reason:
+    "skipped-disabled" (not the diagnostic world), "invalid-dir"
+    (missing/invalid scratch config - nothing written anywhere, never a
+    cwd fallback), "invalid-identity" (missing plan execution identity -
+    no null-keyed event, never attributable). Invocation and completion
+    stay distinct events; the mapping is documented on the record
+    (plan_execution_id keys the authorizing planner execution,
+    content_hash keys the served copy's identity).
+    """
+    if os.getenv("ATOM_R4_DIAG") != "1":
+        return "skipped-disabled"
+    _dir = os.environ.get("ATOM_DATA_DIR")
+    if not (_dir and os.path.isdir(str(_dir))):
+        logger.warning(
+            "[r4-counter] invalidated - missing/invalid ATOM_DATA_DIR "
+            "(%r); no counter event written", _dir)
+        return "invalid-dir"
+    _pid = getattr(plan, "id", None) or getattr(
+        plan, "execution_id", None)
+    if not _pid:
+        logger.warning(
+            "[r4-counter] invalidated - missing plan execution identity; "
+            "no counter event written (null-keyed events are never "
+            "attributable)")
+        return "invalid-identity"
+    import json as _r4json
+    import time as _r4time
+    _base = {
+        "plan_execution_id": _pid,
+        "content_hash": (prov or {}).get("content_hash"),
+    }
+    with open(os.path.join(
+            str(_dir), "r4_source_invocations.jsonl"), "a") as rf:
+        rf.write(_r4json.dumps({**_base, "event": "read_invoked",
+                                "read_status": read_status,
+                                "rows": len(recs) if recs else 0,
+                                "at": _r4time.time()},
+                               default=str) + chr(10))
+    if scan_action:
+        with open(os.path.join(
+                str(_dir), "r4_source_invocations.jsonl"), "a") as rf:
+            rf.write(_r4json.dumps({**_base, "event": "read_completed",
+                                    "scan_action": scan_action,
+                                    "rows": len(recs) if recs else 0,
+                                    "at": _r4time.time()},
+                                   default=str) + chr(10))
+    return "written"
+
+
 async def _datasets_named_file_block(
     user_id: Optional[str], query: str, context: Optional[Dict[str, Any]],
     plan: Any = None,
@@ -7386,13 +7444,6 @@ async def _datasets_named_file_block(
     # rendered as a confident absence for a source nobody had read. The scan's
     # per-source verdict is the observation that can actually tell them apart.
     # R4 SCRATCH SOURCE COUNTER (env-gated; only the diagnostic world
-    # sets ATOM_R4_DIAG=1): an attributable source-executor event per
-    # read ATTEMPT (invoked) and per read COMPLETION (with the verdict
-    # and row count) — so "no second source call" is proven by the
-    # counter, not by log silence, and a FAILED second read does not
-    # disappear from the record (owner item: keep invocation and
-    # completion distinct).
-    # R4 SCRATCH SOURCE COUNTER (env-gated; only the diagnostic world
     # sets ATOM_R4_DIAG=1): ONE attributable source-executor event per
     # read ATTEMPT (read_invoked) and ONE per read COMPLETION
     # (read_completed with verdict + row count). Invocation and completion
@@ -7412,42 +7463,9 @@ async def _datasets_named_file_block(
         _scan_action = "unverified"
     else:
         _scan_action = "read_failed"
-    _r4_diag = os.getenv("ATOM_R4_DIAG") == "1"
-    _r4_dir = os.environ.get("ATOM_DATA_DIR")
-    _r4_dir_ok = bool(_r4_dir and os.path.isdir(str(_r4_dir)))
-    if _r4_diag and not _r4_dir_ok:
-        logger.warning(
-            "[r4-counter] invalidated - missing/invalid ATOM_DATA_DIR "
-            "(%r); no counter event written", _r4_dir)
-    _r4_plan_id = getattr(plan, "id", None) or getattr(
-        plan, "execution_id", None)
-    if _r4_diag and _r4_dir_ok and not _r4_plan_id:
-        logger.warning(
-            "[r4-counter] invalidated - missing plan execution identity; "
-            "no counter event written (null-keyed events are never "
-            "attributable)")
-    if _r4_diag and _r4_dir_ok and _r4_plan_id:
-        import json as _r4json
-        import time as _r4time
-        _r4_base = {
-            "plan_execution_id": _r4_plan_id,
-            "content_hash": (prov or {}).get("content_hash"),
-        }
-        with open(os.path.join(
-                str(_r4_dir), "r4_source_invocations.jsonl"), "a") as rf:
-            rf.write(_r4json.dumps({**_r4_base, "event": "read_invoked",
-                                    "read_status": _read_status,
-                                    "rows": len(recs) if recs else 0,
-                                    "at": _r4time.time()},
-                                   default=str) + "\n")
-        if _scan_action:
-            with open(os.path.join(
-                    str(_r4_dir), "r4_source_invocations.jsonl"), "a") as rf:
-                rf.write(_r4json.dumps({**_r4_base, "event": "read_completed",
-                                        "scan_action": _scan_action,
-                                        "rows": len(recs) if recs else 0,
-                                        "at": _r4time.time()},
-                                       default=str) + "\n")
+    _record_r4_source_counter(
+        plan=plan, prov=prov, recs=recs,
+        read_status=_read_status, scan_action=_scan_action)
     _scan_revision = (
         f"{prov.get('content_hash') or '?'}:"
         f"{prov.get('ingested_at') or '?'}"

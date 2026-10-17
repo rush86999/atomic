@@ -12112,27 +12112,26 @@ class ChatOrchestrator:
                             # published AFTER the persistence transaction
                             # commits; delivery blocks on the awaited latch;
                             # expiry withholds and loudly invalidates.
+                            # The boundary is the SHARED
+                            # r4_delivery_latch helper (the direct lane's
+                            # inline copy is what shipped the _r4json2
+                            # alias bug): it publishes the checkpoint
+                            # AFTER the persistence transaction commits,
+                            # blocks on the awaited latch, and on expiry
+                            # records the invalid diagnostic explicitly
+                            # and withholds the stored result - never a
+                            # silent fall-through to delivery.
                             _r4_latch_dir_ok = bool(
                                 os.environ.get("ATOM_DATA_DIR")
                                 and os.path.isdir(
                                     str(os.environ.get("ATOM_DATA_DIR"))))
-                            if os.getenv("ATOM_R4_LATCH") == "1" and not (
-                                    _r4_latch_dir_ok):
-                                logger.warning(
-                                    "[r4-latch][direct] invalidated - "
-                                    "missing/invalid ATOM_DATA_DIR (%r); no "
-                                    "checkpoint written",
-                                    os.environ.get("ATOM_DATA_DIR"))
-                            if os.getenv("ATOM_R4_LATCH") == "1" and (
-                                    _r4_latch_dir_ok):
-                                import json as _r4json2
-                                _r4_dir2 = str(
-                                    os.environ.get("ATOM_DATA_DIR"))
-                                _r4_task = session.get(FILE_TASK_SESSION_KEY) or {}
-                                with open(os.path.join(
-                                        _r4_dir2, "r4_checkpoint.json"),
-                                        "w") as rf2:
-                                    _r4json2.dump({
+                            try:
+                                from core.research_continuation import (
+                                    r4_delivery_latch,
+                                )
+                                await r4_delivery_latch(
+                                    "direct_complete",
+                                    {
                                         "lane": "direct_complete",
                                         "execution_id": execution_id,
                                         "session_id": session_id,
@@ -12149,36 +12148,33 @@ class ChatOrchestrator:
                                             _tl_execution, dict) else 0,
                                         "source_version": (
                                             _tl_execution or {}).get(
-                                            "source_version"),
+                                                "source_version"),
                                         "task_state": {
                                             k: str(v)[:120] for k, v in
-                                            _r4_task.items() if k in (
+                                            (session.get(
+                                                FILE_TASK_SESSION_KEY)
+                                             or {}).items() if k in (
                                                 "status", "original_message",
-                                                "attempt", "confirmed_mention")
+                                                "attempt",
+                                                "confirmed_mention")
                                         },
                                         "latched_at": time.time(),
-                                    }, rf2, default=str)
-                                _r4_block2 = os.path.join(
-                                    _r4_dir2, "r4_delivery_block")
+                                    },
+                                    enabled=bool(
+                                        os.getenv("ATOM_R4_LATCH") == "1"
+                                        and _r4_latch_dir_ok),
+                                    expired_record={
+                                        "lane": "direct_complete",
+                                        "execution_id": execution_id,
+                                    },
+                                    on_expiry=lambda: session.pop(
+                                        "_pending_file_result", None),
+                                )
+                            except Exception as _r4_latch_err: \
+                                    # noqa: BLE001 - diagnostic only
                                 logger.warning(
-                                    "[r4-latch][direct] retrieval committed; "
-                                    "delivery BLOCKED while %s exists",
-                                    _r4_block2)
-                                _r4_deadline2 = time.monotonic() + 300
-                                while os.path.exists(_r4_block2)                                         and time.monotonic() < _r4_deadline2:
-                                    await asyncio.sleep(0.2)
-                                if os.path.exists(_r4_block2):
-                                    session.pop("_pending_file_result", None)
-                                    _r4_expired2 = os.path.join(
-                                        _r4_dir2, "r4_latch_expired.json")
-                                    with open(_r4_expired2, "w") as rf3:
-                                        _r4json2.dump({
-                                            "lane": "direct_complete",
-                                            "execution_id": execution_id,
-                                        }, rf3, default=str)
-                                    logger.warning(
-                                        "[r4-latch][direct] EXPIRED - "
-                                        "withheld, diagnostic invalid")
+                                    "[r4-latch][direct] diagnostic latch "
+                                    "failed: %r", _r4_latch_err)
                         else:
                             session[FILE_TASK_SESSION_KEY] = merge_pending_task(
                                 session.get(FILE_TASK_SESSION_KEY),
@@ -12798,14 +12794,18 @@ class ChatOrchestrator:
                         "timestamp": datetime.now().isoformat(),
                     }
                     # Persist the selected source-result reference through
-                    # the existing delivery mechanism (session carrier +
-                    # lifecycle delivery ledger via chat_routes). Keep the
-                    # recovery execution separate from the original read's
-                    # execution; never create a fake retrieve operation.
+                    # the existing delivery mechanism. The session carrier
+                    # stages it for _update_session; the delivery LEDGER has
+                    # ONE owner - the route-layer persistence
+                    # (_record_lifecycle_delivery), which binds the actual
+                    # persisted message identity plus the selected
+                    # source-operation reference. This handler records
+                    # nothing itself: a placeholder entry here would fork a
+                    # second ledger record for the same execution+bytes.
+                    # Keep the recovery execution separate from the original
+                    # read's execution; never create a fake retrieve
+                    # operation.
                     try:
-                        from core.pending_file_task import (
-                            FILE_TASK_SESSION_KEY as _R4_FTSK,
-                        )
                         _r4_stored = dict(_recovery_payload)
                         _r4_stored["status"] = "delivered"
                         try:
@@ -12816,52 +12816,6 @@ class ChatOrchestrator:
                         _r4_stored["delivery_execution_id"] = _execution_id
                         _r4_stored["execution_id"] = _execution_id
                         session["_pending_file_result"] = _r4_stored
-                        # Record the delivery on the durable task ledger
-                        # (idempotent on execution/message/content). The
-                        # route-layer persistence will also ledger this
-                        # turn via task_run_id; this direct record covers
-                        # the recovery path even when that layer is
-                        # bypassed in tests.
-                        try:
-                            _r4_lifecycle = _task_lifecycle_for(
-                                (_turn_scope.get("tenant_id")
-                                 if isinstance(_turn_scope, dict)
-                                 else getattr(self, "tenant_id", None)),
-                                (_turn_scope.get("workspace_id")
-                                 if isinstance(_turn_scope, dict)
-                                 else None))
-                            if _r4_lifecycle is not None and (
-                                    _recovery_payload.get("run_id")):
-                                import hashlib as _r4_hl
-                                _r4_bytes = _r4_message.encode()
-                                _r4_hash = _r4_hl.sha256(
-                                    _r4_bytes).hexdigest()
-                                # message_id is allocated by
-                                # _update_session below; record with the
-                                # execution-bound placeholder and let the
-                                # route layer bind the exact row id. A
-                                # same-execution retry replays (same
-                                # execution + same bytes).
-                                try:
-                                    _r4_lifecycle.record_delivery(
-                                        str(_recovery_payload.get(
-                                            "run_id")),
-                                        execution_id=str(_execution_id),
-                                        operation_ids=[
-                                            str(_recovery_payload.get(
-                                                "recovery_operation_id"))]
-                                        if _recovery_payload.get(
-                                            "recovery_operation_id")
-                                        else [],
-                                        message_id=(
-                                            f"recovery-{_execution_id}"),
-                                        content_sha256=_r4_hash)
-                                except Exception:
-                                    pass
-                        except Exception as _r4_rec_err:  # noqa: BLE001
-                            logger.debug(
-                                "[r4-recovery] delivery ledger skipped: %r",
-                                _r4_rec_err)
                     except Exception as _r4_persist_err:  # noqa: BLE001
                         logger.warning(
                             "[r4-recovery] recovery persistence failed: %r",
@@ -30854,6 +30808,110 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         except Exception:
             return None
 
+    def _stored_covers_request(
+        self, payload: Dict[str, Any], message: str,
+    ) -> bool:
+        """Whether the stored result covers what the message asks for.
+
+        Compares the request's own target/source scope (via the existing
+        extract_targets + file-mention resolvers) against the stored
+        payload's findings/coverage/file identity. A request naming items
+        the saved result does not contain - or a different file - is NOT
+        covered: serving another target's evidence as fulfillment is a
+        wrong-target donation. A message naming no specific items stays
+        covered (generic "show me what you found" re-displays). Digit
+        presence alone never decides: a matching-target digit-bearing
+        request ("machine 381" with stored "No. 381") still delivers.
+        """
+        try:
+            msg = str(message or "")
+            try:
+                from core.agent_file_context import (
+                    detect_file_task_mentions,
+                )
+                mentions = detect_file_task_mentions(msg) or []
+            except Exception:
+                mentions = []
+            try:
+                from core.workbook_read_artifact import extract_targets
+                # File references carry their own identity (a year, a
+                # code): the target items are whatever the ask names
+                # OUTSIDE those references - otherwise "the price list
+                # of 2019" would license a phantom machine "2019".
+                import re as _re3
+                residue = msg
+                for _m in (mentions or []):
+                    residue = _re3.sub(
+                        _re3.escape(str(_m).strip()), " ", residue,
+                        flags=_re3.IGNORECASE)
+                req = [str(x) for x in (extract_targets(
+                    residue, [residue]) or []) if str(x).strip()]
+            except Exception:
+                return True
+            if mentions:
+                import re as _re2
+
+                def _sep(s: str) -> str:
+                    return _re2.sub(r"[^a-z0-9]", "", str(s).lower())
+
+                def _toks(s: str) -> list:
+                    return _re2.findall(r"[a-z0-9]+", str(s).lower())
+
+                stored_file = str(
+                    (payload.get("identity") or {}).get("file_name")
+                    or "")
+                if _sep(stored_file):
+                    stored_toks = set(_toks(stored_file))
+                    _generic = {
+                        "the", "of", "from", "show", "me", "saved",
+                        "prices", "price", "values", "results", "found",
+                        "earlier", "rows", "items", "them", "list",
+                        "sheet", "workbook", "file", "document", "tab",
+                    }
+                    for m in mentions:
+                        m_toks = _toks(m)
+                        # Digit-bearing tokens (years, model codes) are
+                        # the discriminators a paraphrase must carry:
+                        # "the price list of 2019" matches the 2019
+                        # stored list, "price list 2020" does not.
+                        digit_toks = [
+                            t for t in m_toks
+                            if any(ch.isdigit() for ch in t)]
+                        if digit_toks and not all(
+                                t in stored_toks for t in digit_toks):
+                            return False
+                        substantial = [
+                            t for t in m_toks
+                            if len(t) >= 3 and t not in _generic
+                            and not any(ch.isdigit() for ch in t)]
+                        if substantial and not any(
+                                t in stored_toks for t in substantial):
+                            # No digit pin, and every substantive word
+                            # the ask used is absent from the stored
+                            # file's name: a different source, not a
+                            # paraphrase of it.
+                            return False
+            if not req:
+                return True
+            stored: set = set()
+            try:
+                for f in (payload.get("findings") or []):
+                    if isinstance(f, dict) and f.get("item"):
+                        stored.add(str(f["item"]).lower())
+                for k in ((payload.get("coverage") or {}).keys()):
+                    stored.add(str(k).lower())
+            except Exception:
+                return True
+            if not stored:
+                return True
+            for r in req:
+                rl = r.lower()
+                if any(rl == s or rl in s or s in rl for s in stored):
+                    return True
+            return False
+        except Exception:
+            return True
+
     def _decide_file_recovery(
         self, message: str, session_id: Optional[str],
         turn_scope: Optional[Dict[str, Any]],
@@ -30867,9 +30925,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         selected payload or candidate identities with the decision.
         Order: explicit refresh stays new retrieval; a genuine R3 answer
         stays with R3; a non-recovery-shaped or extending request stays
-        normal work; otherwise a single resolved payload delivers and
-        multiple plausible results clarify. Never classifies every
-        message as recovery merely because stored findings exist.
+        normal work; a stored result that does not cover the requested
+        target/source stays normal work for a new retrieval (never donate
+        another target's evidence as fulfillment); otherwise a single
+        resolved payload delivers and multiple plausible results clarify.
+        Never classifies every message as recovery merely because stored
+        findings exist.
         """
         try:
             from core.pending_file_task import (
@@ -30959,6 +31020,15 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         if _open.get("__ambiguous__"):
             return ("clarify_result_selection",
                     None, list(_open.get("candidates") or []))
+        # Target/scope coverage: the stored result must cover what the
+        # message asks for. A request naming an uncovered target (or a
+        # different file) stays normal work for a new retrieval - never
+        # donate another target's evidence as fulfillment.
+        try:
+            if not self._stored_covers_request(_open, t):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
         # Coverage gate: an extending follow-up (new source, changed
         # requested information) stays normal work even when
         # recovery-shaped.

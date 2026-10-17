@@ -46,6 +46,22 @@ HASH_B = "b8e4d0a2f3c5b2d4"
 _SESSIONS: dict = {}
 
 
+@pytest.fixture(autouse=True)
+def _r4_lifecycle_world(monkeypatch):
+    """The lifecycle/diagnostic world EVERY test needs, set BEFORE any
+    seeding runs.
+
+    Seeding (``_seed_retrieve``) and the recovery decision run before
+    ``_turn`` would have set the flags, so the flags must live here: an
+    unset flag failing at setup (verifier control 1: 9 failed during
+    setup) can never happen again.
+    """
+    monkeypatch.setenv("TESTING", "1")
+    monkeypatch.setenv("ATOM_TASK_LIFECYCLE_ENABLED", "1")
+    monkeypatch.setenv("CHAT_FINALIZATION_M1", "1")
+    monkeypatch.setenv("ATOM_LOCAL_ONLY", "true")
+
+
 def _findings(file_name, content_hash, items):
     out = []
     for it, val, sheet, row in items:
@@ -266,6 +282,40 @@ def _assistant_texts(t):
 # Loader wiring: the real loader receives conversation/workspace/message
 # ---------------------------------------------------------------------------
 
+def test_stored_scope_gate_paraphrase_and_file_sensitivity():
+    """The scope gate itself: file references carry identity - a
+    paraphrase of the SAME file stays covered, a different year/file
+    stays uncovered, and no phantom item is licensed by the year a
+    file reference carries ("the price list of 2019" is not a machine
+    named 2019). Controlled executions of _stored_covers_request."""
+    orch = chat.ChatOrchestrator()
+    payload = {
+        "identity": {"file_name": "Consolidated Price List 2019.xlsx"},
+        "findings": [{"item": "Haas VF-2", "raw": "48000.00"},
+                     {"item": "Mazak QT-250", "raw": "63180.00"}],
+        "coverage": {"Haas VF-2": "matched", "Mazak QT-250": "matched"},
+    }
+    covers = lambda ask: orch._stored_covers_request(payload, ask)
+    # the same file, referenced conversationally, stays covered
+    assert covers("Show me the machine prices you found earlier from "
+                  "the price list.") is True
+    assert covers("for the machines from 'the price list of 2019' show "
+                  "the saved values") is True
+    assert covers("what did you find in the consolidated list?") is True
+    assert covers("Show the saved prices for Haas VF-2") is True
+    # a changed target or a different source file is NOT covered
+    assert covers("Show the saved prices for machine 381") is False, (
+        "a stored result must never fulfill a target it does not "
+        "contain")
+    assert covers("Show the saved prices from Consolidated Price List "
+                  "2020.xlsx") is False, (
+        "the 2019 evidence must not fulfill a 2020-sourced ask")
+
+
+# ---------------------------------------------------------------------------
+# Loader wiring: the real loader receives conversation/workspace/message
+# ---------------------------------------------------------------------------
+
 @pytest.mark.asyncio
 async def test_loader_receives_expected_scope_and_message(
         monkeypatch, tmp_path):
@@ -374,12 +424,19 @@ async def test_single_result_delivers_with_zero_calls(
     assert sess_pfr.get("run_id") == run_id or \
         sess_pfr.get("recovery_operation_id") == op_id or \
         data.get("task_run_id") == run_id
-    # delivery records: lifecycle deliveries contain this recovery execution
+    # delivery records: SINGLE OWNERSHIP (verifier F2). The turn itself
+    # records nothing - the orchestrator's old in-turn placeholder
+    # produced exactly the two-record defect (recovery-<exec> + real
+    # row) for one response. The real route hook owns the ledger and
+    # binds the persisted message identity; that contract is exercised
+    # end-to-end in
+    # test_recovered_delivery_records_once_via_real_route_boundary.
     rec = t["record"]
     assert rec is not None
     deliveries = rec.get("deliveries") or []
-    assert any(str(d.get("execution_id") or "") == str(resp.get("execution_id"))
-               for d in deliveries), f"no delivery for {resp.get('execution_id')}"
+    assert deliveries == [], (
+        "the turn must not append placeholder ledger records for its "
+        "own delivery (the route boundary owns recording)")
     # task outcome agrees (completed, not hardcoded partial)
     assert resp.get("success") is True
 
@@ -406,6 +463,59 @@ async def test_digits_still_recover(monkeypatch, tmp_path):
     assert "No. 381" in body
     assert "3297" in body
 
+
+@pytest.mark.asyncio
+async def test_changed_target_does_not_donate_saved_other_machine(
+        monkeypatch, tmp_path):
+    """Verifier control F1: a request scoped to machine 381 must not
+    present a DIFFERENT machine's saved price (Haas VF-2, $48,000) as
+    recovered fulfillment.
+
+    The submitted suite's previous positive expectation pinned exactly
+    this defect (it seeded Haas and asserted it for the 381 ask). The
+    matching-target digit-bearing ask stays a positive control (its own
+    test above); the mismatched target stays normal work for a new
+    retrieval, on BOTH the decision and the real process path.
+    """
+    sid = f"r4-chgtgt-{uuid.uuid4().hex[:8]}"
+    lc = _fresh_lifecycle()
+    items = [("Haas VF-2", "48000.00", "Prices", 12)]
+    _seed_retrieve(
+        lc, sid, FILE_A, HASH_A, items,
+        objective=f"Find prices for Haas VF-2 in {FILE_A}")
+    orch = chat.ChatOrchestrator()
+    ask = "Show the saved prices for machine 381"
+    # the DECISION: the stored result does not cover the requested
+    # target -> normal work (never a wrong-target donation)
+    dec, pay, cands = orch._decide_file_recovery(
+        ask, sid, {"workspace_id": "default", "tenant_id": "default"},
+        {"id": sid, "history": []}, [], None)
+    assert dec == "normal_work", (
+        f"a changed target must not be fulfilled from another machine's "
+        f"saved result (decision {dec})")
+    assert pay is None
+    # a message naming a DIFFERENT source file than the stored identity
+    # is likewise not covered (source scope is compared, not just items)
+    dec_file, _pay2, _ = orch._decide_file_recovery(
+        "Show the saved prices from Consolidated Price List 2020.xlsx",
+        sid, {"workspace_id": "default", "tenant_id": "default"},
+        {"id": sid, "history": []}, [], None)
+    assert dec_file == "normal_work", (
+        "a different source file must not donate the 2019 evidence")
+    # the REAL PROCESS PATH with loaders: no recovered fulfillment at
+    # all, and none of the stored facts leak into the reply
+    t = await _turn(
+        monkeypatch, tmp_path, sid, ask,
+        forbid_planner=False, forbid_source=False, allow_reply=True)
+    resp = t["response"]
+    fr = (resp.get("data") or {}).get("file_result") or {}
+    assert fr.get("recovered_from_durable") is not True, fr
+    body = str(resp.get("message") or "")
+    assert "previously retrieved" not in body.lower(), body[:200]
+    assert "48000" not in body, (
+        f"the Haas price leaked into the response: {body[:200]}")
+    assert "Haas VF-2" not in body, (
+        f"the wrong machine leaked into the response: {body[:200]}")
 
 
 # ---------------------------------------------------------------------------
@@ -530,13 +640,13 @@ async def test_explicit_refresh_stays_normal(monkeypatch, tmp_path):
         monkeypatch, tmp_path, sid,
         "Check the latest version of the workbook",
         forbid_planner=False, forbid_source=False, allow_reply=True)
-    # recovery must not have fired
+    # recovery must not have fired, and the normal flow must have run
+    # (the reply leg or the planner - one of them owns this turn)
     body = str(t["response"].get("message") or "")
-    assert "previously retrieved" not in body.lower() or \
-        "recovered after the restart" not in body.lower() or True
-    # planner was eligible (normal retrieval path taken)
-    assert t["counters"]["plan"] + t["counters"]["reply"] > 0 or \
-        t["counters"]["prov"] > 0 or True  # at least normal flow ran
+    assert "previously retrieved" not in body.lower()
+    assert t["counters"]["plan"] > 0 or t["counters"]["reply"] > 0, (
+        "a refresh must be answered by the normal flow (planner or "
+        "reply leg), not silently")
     # no new durable delivery of the old payload as recovery
     # (the response is not our R4 shape)
     data = t["response"].get("data") or {}
@@ -637,20 +747,17 @@ async def test_repeated_automatic_no_duplicate(monkeypatch, tmp_path):
     assert "previously retrieved" in str(
         t1["response"].get("message") or "").lower()
     exec1 = str(t1["response"].get("execution_id") or "")
-    ops_before = sum(len((r.get("operations") or []))
-                      for r in t1["conv_runs"])
     # fresh reload: new orchestrator + new lifecycle over same DB
     # (same process, same DB, new connections - not merely in-memory)
     t2 = await _turn(
         monkeypatch, tmp_path, sid, "What's the weather in Paris?",
         forbid_planner=False, forbid_source=False, allow_reply=True)
-    # automatic (unrelated) scan must not duplicate delivery
+    # automatic (unrelated) scan must not duplicate delivery: an
+    # unrelated turn answers as normal work and may legitimately read
+    # sources for ITS OWN question - only the recovered delivery must
+    # stay silent
     assert "previously retrieved" not in str(
         t2["response"].get("message") or "").lower()
-    assert t2["counters"]["source"] == 0 or True
-    # no new retrieve op from the unrelated turn's automatic scan
-    ops_after_unrelated = sum(len((r.get("operations") or []))
-                              for r in t2["conv_runs"])
     # unrelated may have begun its own retrieval (different objective) -
     # the R4 run itself must not have grown
     lc_fresh = _fresh_lifecycle()
@@ -659,15 +766,21 @@ async def test_repeated_automatic_no_duplicate(monkeypatch, tmp_path):
     ops_r4 = [o for o in (rec_fresh.get("operations") or [])
               if o.get("operation_id") == op_id]
     assert len(ops_r4) == 1, "original retrieve op not duplicated"
-    # second explicit display with new request -> intentional second reply,
-    # still zero source calls and zero new retrieve ops on the R4 run.
-    # After the first recovery an assistant row exists, so the second
-    # display may serve via the delivery-retry lane (persisted scan
-    # re-render) rather than the R4 lane - both are zero-call intentional
-    # replies carrying the same facts.
+    # and the turn time recorded nothing: under single ownership the
+    # intentional recovery above shows up only via the real route
+    # boundary (test_recovered_delivery_records_once_via_real_route_
+    # boundary), so an automatic scan can never surface a placeholder
+    # record for the same response
+    assert (rec_fresh.get("deliveries") or []) == [], (
+        "no turn-time placeholder record for the first recovery")
+    # second explicit display with the MATCHING target -> intentional
+    # second reply, still zero source calls and zero new retrieve ops on
+    # the R4 run. The stored target is Haas VF-2, so the re-ask names
+    # the stored machine itself (a "machine 381" ask is a changed
+    # target: normal work, see the wrong-target control).
     t3 = await _turn(
         monkeypatch, tmp_path, sid,
-        "Show the saved prices for machine 381")
+        "Show the saved prices for Haas VF-2")
     body3 = str(t3["response"].get("message") or "")
     assert "Haas VF-2" in body3 and "48000.00" in body3, body3[:300]
     assert t3["counters"]["source"] == 0
@@ -683,80 +796,296 @@ async def test_repeated_automatic_no_duplicate(monkeypatch, tmp_path):
             if str(o.get("operation_type") or "") == "retrieve"]
     assert len(ops2) == 1, \
         f"explicit re-display must not create a new retrieve op, got {len(ops2)}"
-    # durable delivery state (not in-memory): both recoveries recorded
-    deliveries = rec2.get("deliveries") or []
-    assert any(str(d.get("execution_id") or "") == exec1
-               for d in deliveries), "first recovery delivery durable"
-    assert any(str(d.get("execution_id") or "") == exec3
-               for d in deliveries), "second intentional delivery durable"
+    # single ownership again: the re-display records nothing at turn
+    # time either - the ledger contract is the route boundary's
+    assert (rec2.get("deliveries") or []) == [], (
+        "no turn-time placeholder record for the re-display")
 
 
 # ---------------------------------------------------------------------------
-# Diagnostic prerequisites (section 9)
+# F2 regression: the delivery ledger's single owner is the real route hook
 # ---------------------------------------------------------------------------
 
-def test_latch_json_alias_no_mismatch():
-    """The latch checkpoint must use the imported alias consistently.
+@pytest.mark.asyncio
+async def test_recovered_delivery_records_once_via_real_route_boundary(
+        monkeypatch, tmp_path):
+    """Verifier control F2 as a regression: one recovery response must
+    carry exactly ONE delivery-ledger record, with the real persisted
+    message identity, the selected source-operation reference, and the
+    exact bytes - and a retried boundary call must replay idempotently.
 
-    Importing json as _r4json2 while calling _r4json.dump is a NameError on
-    the first arm - not a working checkpoint. Both latch arms must dump
-    through the alias they imported.
+    The previous shape appended a turn-time placeholder (message_id
+    recovery-<execution>) AND the route hook appended its real-row
+    record: two records, same execution, same bytes, and the
+    route-made one without the source-operation reference. The turn now
+    records nothing; the route persistence boundary owns the ledger.
     """
-    import pathlib as _pl
-    co = _pl.Path(__file__).resolve().parents[1] / \
-        "integrations" / "chat_orchestrator.py"
-    text = co.read_text()
-    # direct lane imports as _r4json2 and must dump as _r4json2
-    assert "import json as _r4json2" in text
-    # no bare _r4json.dump in the direct-latch region (would be NameError)
-    # (research lane uses _r4json correctly with its own import)
-    assert "_r4json.dump" not in text or "_r4json2.dump" in text
-    # specifically, the direct lane must not call the wrong alias
-    assert text.count("_r4json2.dump") >= 2, \
-        "direct latch must checkpoint + expire through _r4json2"
+    sid = f"r4-hook-{uuid.uuid4().hex[:8]}"
+    lc = _fresh_lifecycle()
+    items = [("Haas VF-2", "48000.00", "Prices", 12)]
+    run_id, op_id, _ = _seed_retrieve(
+        lc, sid, FILE_A, HASH_A, items,
+        objective=f"Find prices for Haas VF-2 in {FILE_A}")
+    t = await _turn(
+        monkeypatch, tmp_path, sid,
+        "Show me the machine prices you found earlier from the price list.")
+    resp = t["response"]
+    exec_id = str(resp.get("execution_id") or "")
+    assert exec_id, "the recovery response carries its execution id"
+    said = str(resp.get("message") or "")
+    # the turn left NO ledger entry (no placeholder)
+    rec = lc.get_task(run_id)
+    assert (rec.get("deliveries") or []) == [], (
+        "one response's first record must come from the route "
+        "persistence boundary, never a turn-local placeholder")
+    # THE REAL ROUTE HOOK with its persisted ChatMessage (what
+    # send_chat_message runs on every reply): exactly ONE record
+    import hashlib as _hl
+
+    from core.database import get_db_session
+    from core.models import ChatMessage as ChatMessageModel
+    from integrations.chat_routes import _record_lifecycle_delivery
+    with get_db_session() as db:
+        row = ChatMessageModel(
+            conversation_id=sid, role="assistant", tenant_id="default",
+            content=said,
+            metadata_json=_json.dumps(
+                {"execution_id": exec_id,
+                 "evidence": [{"evidence_id": f"ev-{op_id}"}]}))
+        db.add(row)
+        db.commit()
+    _record_lifecycle_delivery(resp, str(row.id), exec_id, row)
+    rec = lc.get_task(run_id)
+    deliveries = rec.get("deliveries") or []
+    assert len(deliveries) == 1, deliveries
+    d = deliveries[0]
+    assert d.get("message_id") == str(row.id), (
+        "the ledger binds the real persisted message identity")
+    assert d.get("execution_id") == exec_id
+    # the selected SOURCE operation rides the record (the route hook
+    # unions response.data.task_operation) - never an entry missing the
+    # original source-operation reference
+    selected = ((resp.get("data") or {}).get("task_operation") or {})
+    assert str(selected.get("operation_id") or "") == str(op_id)
+    assert list(d.get("operation_ids") or []) == [str(op_id)], d
+    assert d.get("evidence_refs") == [f"ev-{op_id}"], d
+    assert d.get("content_sha256") == _hl.sha256(said.encode()).hexdigest()
+    # a retried boundary call for the SAME response is an idempotent
+    # replay: still exactly one record for this response/bytes
+    _record_lifecycle_delivery(resp, str(row.id), exec_id, row)
+    rec = lc.get_task(run_id)
+    assert len((rec.get("deliveries") or [])) == 1, (
+        "one response may never carry two ledger records")
 
 
-def test_scratch_dir_canonical_no_cwd_fallback(tmp_path, monkeypatch):
-    """One canonical explicit scratch dir; missing config invalidates
-    without writing into repo or dev-data paths. No cwd fallback."""
-    import pathlib as _pl
-    for rel in ["integrations/chat_orchestrator.py",
-                "core/research_continuation.py",
-                "core/chat_tool_planner.py"]:
-        text = (_pl.Path(__file__).resolve().parents[1] / rel).read_text()
-        # no latch/counter may fall back to cwd
-        assert 'or os.getcwd()' not in text, \
-            f"{rel} must not fall back to cwd"
-        assert 'or os.getcwd(' not in text, \
-            f"{rel} must not fall back to cwd"
-    # dynamic: missing ATOM_DATA_DIR with latch requested writes nothing
-    monkeypatch.delenv("ATOM_DATA_DIR", raising=False)
-    monkeypatch.setenv("ATOM_R4_LATCH", "1")
-    monkeypatch.setenv("ATOM_R4_DIAG", "1")
+# ---------------------------------------------------------------------------
+# Controlled diagnostic executions (verifier F3): the instrumentation is
+# RUN against controlled inputs - no source-string inspection.
+# ---------------------------------------------------------------------------
+
+def _diag_env(monkeypatch, tmp_path, *, diag="1", data_dir=True):
+    monkeypatch.setenv("ATOM_R4_DIAG", diag)
+    if data_dir:
+        monkeypatch.setenv("ATOM_DATA_DIR", str(tmp_path))
+    else:
+        monkeypatch.delenv("ATOM_DATA_DIR", raising=False)
+
+
+def _simple_plan(pid):
+    import types
+    return types.SimpleNamespace(id=pid)
+
+
+def test_counter_valid_read_emits_attributable_pair(tmp_path, monkeypatch):
+    """A valid read emits exactly ONE read_invoked + ONE read_completed
+    event, attributed to the authorizing plan execution and the served
+    copy's identity (controlled execution of the real helper)."""
+    _diag_env(monkeypatch, tmp_path)
+    from core.chat_tool_planner import _record_r4_source_counter
+    result = _record_r4_source_counter(
+        plan=_simple_plan("exec-diag-valid"),
+        prov={"content_hash": "sha256:served-copy"},
+        recs=[{"row": 1}], read_status="read_succeeded",
+        scan_action="new_read")
+    assert result == "written"
+    path = tmp_path / "r4_source_invocations.jsonl"
+    lines = [ln for ln in path.read_text().splitlines() if ln.strip()]
+    events = [_json.loads(ln) for ln in lines]
+    # exactly one invocation + one completion, distinct events
+    kinds = sorted(e["event"] for e in events)
+    assert kinds == ["read_completed", "read_invoked"], kinds
+    invoked = [e for e in events if e["event"] == "read_invoked"][0]
+    completed = [e for e in events if e["event"] == "read_completed"][0]
+    # attributable identities, never null-keyed
+    assert invoked["plan_execution_id"] == "exec-diag-valid"
+    assert completed["plan_execution_id"] == "exec-diag-valid"
+    assert invoked["content_hash"] == "sha256:served-copy"
+    # the completion carries the verdict + row count
+    assert completed["scan_action"] == "new_read"
+    assert completed["rows"] == 1
+    assert invoked["read_status"] == "read_succeeded"
+
+
+def test_counter_missing_config_creates_no_stray_files(
+        tmp_path, monkeypatch):
+    """Missing/invalid scratch configuration invalidates the diagnostic
+    and creates NO stray files anywhere (controlled execution)."""
+    from core.chat_tool_planner import _record_r4_source_counter
+    # snapshot the cwd to prove nothing is written there either
     cwd_before = set(os.listdir(os.getcwd()))
-    # research latch with missing dir must invalidate (no write)
-    import core.research_continuation as _rc
-    # it only writes when dir exists; with missing dir it logs + skips
-    # (verified by absence of new files in cwd)
-    assert True  # static guarantee above; dynamic covered by counter test
-    # ensure no r4 files appeared in cwd
+    # missing ATOM_DATA_DIR entirely
+    _diag_env(monkeypatch, tmp_path, data_dir=False)
+    assert _record_r4_source_counter(
+        plan=_simple_plan("exec-diag-1"), prov={"content_hash": "h"},
+        recs=[], read_status="read_succeeded",
+        scan_action="new_read") == "invalid-dir"
+    # ATOM_DATA_DIR pointing at a nonexistent path is invalid too
+    _diag_env(monkeypatch, tmp_path / "does-not-exist")
+    assert _record_r4_source_counter(
+        plan=_simple_plan("exec-diag-2"), prov={"content_hash": "h"},
+        recs=[], read_status="read_succeeded",
+        scan_action="new_read") == "invalid-dir"
+    # disabled world: no writes either
+    _diag_env(monkeypatch, tmp_path, diag="0")
+    assert _record_r4_source_counter(
+        plan=_simple_plan("exec-diag-3"), prov={"content_hash": "h"},
+        recs=[], read_status="read_succeeded",
+        scan_action="new_read") == "skipped-disabled"
     cwd_after = set(os.listdir(os.getcwd()))
     assert not any(n.startswith("r4_") for n in (cwd_after - cwd_before)), \
-        "missing config must not write into cwd"
+        "invalid configuration must not write into cwd"
+    assert not (tmp_path / "r4_source_invocations.jsonl").exists(), (
+        "invalid configuration must not write into the scratch dir")
 
 
-def test_counter_attributable_distinct_and_recovery_zero(tmp_path):
-    """Counter events carry attributable identities, invocation vs completion
-    stay distinct, and recovery adds zero invocations."""
-    import pathlib as _pl
-    text = (_pl.Path(__file__).resolve().parents[1] / "core" /
-            "chat_tool_planner.py").read_text()
-    assert "plan_execution_id" in text
-    assert "read_invoked" in text and "read_completed" in text
-    assert "null-keyed" in text or "missing plan" in text.lower() or \
-        "missing execution identity" in text.lower(), \
-        "counter must invalidate missing identities, not emit null-keyed"
-    # recovery path must not emit source events: verified by the
-    # production-path tests above (all recovery cases assert
-    # counters[source]==0 and no new retrieve ops)
-    assert True
+def test_counter_missing_identity_invalidates_attribution(
+        tmp_path, monkeypatch):
+    """A plan without an execution identity invalidates: no null-keyed
+    event is ever written (controlled execution)."""
+    _diag_env(monkeypatch, tmp_path)
+    from core.chat_tool_planner import _record_r4_source_counter
+    result = _record_r4_source_counter(
+        plan=_simple_plan(""),  # no id, no execution_id
+        prov={"content_hash": "h"}, recs=[], read_status="read_succeeded",
+        scan_action="new_read")
+    assert result == "invalid-identity"
+    assert not (tmp_path / "r4_source_invocations.jsonl").exists(), (
+        "an unattributable read must emit no events")
+
+
+@pytest.mark.asyncio
+async def test_latch_blocks_delivery_then_expires_explicitly(
+        tmp_path, monkeypatch):
+    """The post-commit, pre-delivery latch BLOCKS the real settle return
+    while the block file exists, and on expiry records the invalid
+    diagnostic explicitly (controlled execution of the real research
+    continuation latch).
+
+    The direct-lane latch (chat_orchestrator) is the same contract in
+    the other handler; the research lane is executed here because the
+    live settle path is fully drivable with a real lifecycle run."""
+    _diag_env(monkeypatch, tmp_path)
+    block = tmp_path / "r4_delivery_block"
+    block.write_text("blocked")
+    import time as _time
+
+    from core import research_continuation as rc
+    lc = _fresh_lifecycle()
+    sid = f"r4-latch-{uuid.uuid4().hex[:8]}"
+    exec_id = f"exec-latch-{uuid.uuid4().hex[:8]}"
+    # the real run through the production begin/settle pair
+    from core import task_lifecycle as tlm
+    run_id, op_id = tlm.begin_retrieval_turn(
+        lc, {"id": sid}, sid, "find prices in book.xlsx", exec_id,
+        items=["Widget A"], requested_fields=["unit price"])
+    # controlled source: one matched item (a priced column so the
+    # match classifies as "matched"); the real scan receipt shape
+    # (SYNC - the production scans run through asyncio.to_thread)
+    def _scan(item, user_id, workspace_id, file_name=None, max_matches=None):
+        return {"source_identity": {"content_hash": "sha256:latch-version"},
+                "matches": [{"sheet": "S1", "cell": "B7", "column": "U.S. LIST",
+                             "value": "1,200.00"}]}
+
+    import core.sheet_dataset_service as sds
+    monkeypatch.setattr(sds, "find_all_occurrences_sync", _scan,
+                        raising=True)
+    latch = asyncio.ensure_future(rc._execute_document_read(
+        lc, run_id, "user-latch", "default", "book.xlsx", ["Widget A"]))
+    # the checkpoint is published AFTER the persistence commit: wait for
+    # its appearance while the block holds
+    ckpt = tmp_path / "r4_checkpoint.json"
+    deadline = _time.monotonic() + 30
+    while not ckpt.exists() and _time.monotonic() < deadline:
+        await asyncio.sleep(0.05)
+    assert ckpt.exists(), "the post-commit checkpoint was never published"
+    identity = _json.loads(ckpt.read_text())
+    assert identity["run_id"] == run_id
+    assert identity["source_version"] == "sha256:latch-version"
+    assert identity["outcome"] == "read_succeeded"
+    # AND the settle has not returned: the caller cannot deliver what it
+    # does not have - the latch really blocks between commit and the
+    # result leaves the boundary
+    assert not latch.done(), (
+        "the settle result was observable WITH the block file present - "
+        "nothing is blocking at the post-commit boundary")
+    # release the latch: the settle completes and the result arrives
+    block.unlink()
+    async def _await_settle():
+        while not latch.done():
+            await asyncio.sleep(0.1)
+        exc = latch.exception()
+        assert exc is None, f"the real settle path failed: {exc!r}"
+        return latch.result()
+
+    result = await asyncio.wait_for(_await_settle(), 90)
+    assert result["statuses"] == {"Widget A": "matched"}, result
+    assert not block.exists()
+    # expiry kept the checkpoint but produced no expiration record here
+    assert not (tmp_path / "r4_latch_expired.json").exists()
+
+    # EXPIRY: the SHARED boundary is then invoked DIRECTLY (the same code
+    # the settle ran above) with a short deadline and the block held
+    # forever - expiry is explicit, bounded, and withholds through the
+    # call site's hook, instead of waiting out a production-scale
+    # deadline.
+    block.write_text("blocked")
+    withheld = []
+    result_expiry = await asyncio.wait_for(
+        rc.r4_delivery_latch(
+            "research_continuation",
+            {"lane": "research_continuation", "run_id": run_id,
+             "operation_id": op_id, "outcome": "read_succeeded"},
+            enabled=True,
+            expired_record={"lane": "research_continuation",
+                            "run_id": run_id, "operation_id": op_id},
+            deadline_seconds=0.4,
+            on_expiry=lambda: withheld.append(True),
+        ), 60)
+    assert result_expiry is True, (
+        "an unreleased block must expire through the boundary")
+    expired = tmp_path / "r4_latch_expired.json"
+    assert expired.exists(), (
+        "the expiry must be recorded explicitly, not silently dropped")
+    exp_info = _json.loads(expired.read_text())
+    assert exp_info["lane"] == "research_continuation"
+    assert exp_info["run_id"] == run_id
+    assert withheld == [True], "the expiry withhold hook must run"
+    # and a RELEASED block returns False with no expiry record: the
+    # boundary distinguishes release from expiry explicitly
+    block.unlink()
+    result_release = await asyncio.wait_for(
+        rc.r4_delivery_latch(
+            "research_continuation",
+            {"lane": "research_continuation", "run_id": run_id},
+            enabled=True,
+            expired_record={"lane": "research_continuation",
+                            "run_id": run_id, "operation_id": op_id},
+            deadline_seconds=5.0,
+        ), 60)
+    assert result_release is False
+    released_info = _json.loads(
+        (tmp_path / "r4_latch_expired.json").read_text())
+    assert released_info["run_id"] == run_id and \
+        released_info.get("operation_id") == op_id, (
+        "the expired record above belongs to the EXPIRED call only - "
+        "the released call added no second expiry record")
