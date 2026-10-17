@@ -23,6 +23,14 @@ false completion and a green recovery. Evidence
 `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json`
 (sha256 `657943f3…`; harness sha256 `43c1dc43…`). Release gate is green (rc=0;
 strict still rc=1 on untested carry items). See "Gate status" below.
+**Independent replication (same day, second Phase C stream):** the same
+candidate was re-run with a separately hardened harness (sha256 `406f1fdd…`,
+tracked at `backend/scripts/orchestration_acceptance/browser_onboarding_completion.py`)
+— `journey_matrix/phase_c_onboarding/evidence_browser_onboarding_completion_20261017_094558_3158b2.json`
+(sha256 `6b4db92b…`; 14/14, `first_failed_transition=null`), adding
+frontend-ownership verification, server-driven re-open legs (dismiss key
+cleared; host status fetch recorded), on-origin sign-out, and a CORS-clean
+injected 500 with sub-second toast polling. Same outcome, same candidate.
 
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
@@ -75,7 +83,7 @@ against the `/tmp` originals; credential scans clean before archiving).
 | 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `d6fbcd846` (browser chain carried from 2026-10-11) | parity JSON + `browser_j2_chain_20261012_112631_9258b4.json` | first-run onboarding completion is row 6 (verified on `cca1fb13d`, Phase C); this row's own chain keeps its Oct-12-era binding | carry into the unified-candidate browser re-run (Phase E) |
 | 4 | **J1.workspace** — workspace created/used through the product | verified | public API | `d6fbcd846` | parity JSON | not re-run on any later lineage | Phase D/E |
 | 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **untested** | mechanism partial (env gen + boot proven) | `d6fbcd846`-era | contract note (deliberate) | clean dependency installation never exercised | Phase D: quickstart on fresh venv/machine (acceptance) |
-| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `cca1fb13d` (clean worktree tree `4e8329d4…`), fresh product-created user + fresh browser context, scratch boot, local Ollama; harness sha256 `43c1dc43…` | `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256 `657943f3…`; 13/13 checks, `first_failed_transition=null`) | Oct-12 failure does not reproduce (reproduce-first outcome; no repair required); historical failure preserved in `browser_j2_chain_20261012_112631_9258b4.json`, cause unestablished on this lineage | none — Phase C closed; clean-state install carries with row 5 (Phase D) |
+| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `cca1fb13d` (clean worktree tree `4e8329d4…`), fresh product-created user + fresh browser context, scratch boot, local Ollama; harness sha256 `43c1dc43…` | `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256 `657943f3…`; 13/13 checks, `first_failed_transition=null`); independently replicated — `journey_matrix/phase_c_onboarding/evidence_browser_onboarding_completion_20261017_094558_3158b2.json` (sha256 `6b4db92b…`; 14/14; harness `406f1fdd…`) | Oct-12 failure does not reproduce (reproduce-first outcome; no repair required); historical failure preserved in `browser_j2_chain_20261012_112631_9258b4.json`, cause unestablished on this lineage | none — Phase C closed; clean-state install carries with row 5 (Phase D) |
 | 7 | **J2.provider-setup-first-reply** — provider added via product; first request served by it | verified | public API (+ Oct-12 browser chain on earlier lineage) | pin `cf6e31e26` (digests `177ef2a1…`/`5945c832…`), r14b, local ollama `llama3.1:8b` | `journey_matrix/j2_model_setup_20261013_182933_e7f609.json` | bound to `cf6e31e26`; not re-run on later lineage | unified-candidate re-run (Phase E) |
 | 8 | **J2.real-reply** — counted first request served (no warm-up) | verified | public API | same as 7 | same as 7 (PONG 4.609 s) | same as 7 | Phase E |
 | 9 | **J2.byok-add-product-path** — BYOK key stored via product, decrypts | verified | public API | same as 7 | same as 7 | same as 7 | Phase E |
