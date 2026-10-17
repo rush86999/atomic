@@ -15,6 +15,15 @@ now store the **tested candidate/configuration separately** from the recording c
 evidence dimensions de-laddered (rows 25/28/31 relabeled `reload-readback`); r18 + R4
 evidence archived in-repo with checksums.
 
+**Rev 3 (2026-10-17, Phase C).** `J1.onboarding-completion` flips **failing → verified**
+(reproduce-first, no repair required): on `cca1fb13d` one ordinary "Start Automating"
+click persisted (`onboarding_completed=1`), the wizard closed, reload + sign-out/sign-in
+did not reopen it, and a labeled injected-500 scenario stayed visibly failed with no
+false completion and a green recovery. Evidence
+`journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json`
+(sha256 `657943f3…`; harness sha256 `43c1dc43…`). Release gate is green (rc=0;
+strict still rc=1 on untested carry items). See "Gate status" below.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -63,10 +72,10 @@ against the `/tmp` originals; credential scans clean before archiving).
 |---|-----------------------------|--------|----------------|-------------------------------|----------|----------------------|-------------|
 | 1 | **J1.config-parity** — required gates (lifecycle, finalization M1/M2) are EFFECTIVE in the serving process after quickstart env generation | verified | mechanism (load-order-faithful subprocess from code export) | `d6fbcd846`, allowlisted export world, 2026-10-12 | `journey_matrix/parity_pristine_20261012_20261012_104240_de7328.json` | dependency installation not exercised (export reuses interpreter) | Phase D fresh-install proof (acceptance) |
 | 2 | **J1.boot** — backend boots healthy on the generated env (scratch DB) | verified | mechanism + public API (`/api/health`) | `d6fbcd846` | same as 1 | clean-machine boot unproven | Phase D |
-| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `d6fbcd846` (browser chain carried from 2026-10-11) | parity JSON + `browser_j2_chain_20261012_112631_9258b4.json` | first-run onboarding cannot COMPLETE (row 6); browser chain never re-run since Oct 12 | fix row 6, then browser re-verify (Phase C) |
+| 3 | **J1.signin** — sign in works (real login form + API session) | verified | browser + public API | `d6fbcd846` (browser chain carried from 2026-10-11) | parity JSON + `browser_j2_chain_20261012_112631_9258b4.json` | first-run onboarding completion is row 6 (verified on `cca1fb13d`, Phase C); this row's own chain keeps its Oct-12-era binding | carry into the unified-candidate browser re-run (Phase E) |
 | 4 | **J1.workspace** — workspace created/used through the product | verified | public API | `d6fbcd846` | parity JSON | not re-run on any later lineage | Phase D/E |
 | 5 | **J1.quickstart-install** — clean install from scratch (venv, deps, generated env) | **untested** | mechanism partial (env gen + boot proven) | `d6fbcd846`-era | contract note (deliberate) | clean dependency installation never exercised | Phase D: quickstart on fresh venv/machine (acceptance) |
-| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **failing** | browser | `d6fbcd846`-era, last check 2026-10-12 | browser chain + scratch DB (`onboarding_completed=0`, step `welcome`; route trivially correct → client-side) | no fix recorded or re-verified since; traps a fresh user at step one; **the setup gate now FAILS on J1 until verified** | **Phase C (earliest shared dependency): reproduce → repair only the first demonstrated failed transition → browser re-verify (frontend + acceptance)** |
+| 6 | **J1.onboarding-completion** *(registered 2026-10-17)* — "Start Automating" persists, wizard closes, reload/sign-in does not reopen | **verified** | browser | `cca1fb13d` (clean worktree tree `4e8329d4…`), fresh product-created user + fresh browser context, scratch boot, local Ollama; harness sha256 `43c1dc43…` | `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256 `657943f3…`; 13/13 checks, `first_failed_transition=null`) | Oct-12 failure does not reproduce (reproduce-first outcome; no repair required); historical failure preserved in `browser_j2_chain_20261012_112631_9258b4.json`, cause unestablished on this lineage | none — Phase C closed; clean-state install carries with row 5 (Phase D) |
 | 7 | **J2.provider-setup-first-reply** — provider added via product; first request served by it | verified | public API (+ Oct-12 browser chain on earlier lineage) | pin `cf6e31e26` (digests `177ef2a1…`/`5945c832…`), r14b, local ollama `llama3.1:8b` | `journey_matrix/j2_model_setup_20261013_182933_e7f609.json` | bound to `cf6e31e26`; not re-run on later lineage | unified-candidate re-run (Phase E) |
 | 8 | **J2.real-reply** — counted first request served (no warm-up) | verified | public API | same as 7 | same as 7 (PONG 4.609 s) | same as 7 | Phase E |
 | 9 | **J2.byok-add-product-path** — BYOK key stored via product, decrypts | verified | public API | same as 7 | same as 7 | same as 7 | Phase E |
@@ -110,14 +119,17 @@ against the `/tmp` originals; credential scans clean before archiving).
 
 **Tier 1 — what prevents a new user from completing the supported end-to-end job**
 
-1. **Fix first-run onboarding completion** (row 6 — failing, *registered*; the setup gate
-   now fails on it). The literal first step for a fresh user; blocks everything
-   downstream in the browser. Bounded task (owner directive 2026-10-17, reproduce
-   first): freeze build → fresh product-created user + browser state → capture an
-   ordinary completion click (console, request, auth, response, status read) → repair
-   only the first demonstrated failed transition (or record "already works") → verify
-   persistence across reload and sign-in; failures stay visible, never falsely
-   completed. Owner: frontend + acceptance. *(Phase C — earliest shared dependency.)*
+1. ~~**Fix first-run onboarding completion** (row 6 — failing, *registered*)~~ —
+   **done 2026-10-17 (Phase C, reproduce-first)**: on `cca1fb13d` the Oct-12
+   failure does **not** reproduce — one ordinary "Start Automating" click
+   emitted exactly one authorized POST, persisted (`onboarding_completed=1`),
+   the wizard closed, and reload + sign-out/sign-in did not reopen it; the
+   labeled injected-500 scenario stayed visibly failed with no false
+   completion and recovered on a second click; **no repair required**.
+   Evidence `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json`
+   (sha256 `657943f3…`; 13/13). Historical Oct-12 failure preserved
+   (`browser_j2_chain_20261012_112631_9258b4.json`); its cause stays
+   unestablished on this lineage. Owner: frontend + acceptance.
 2. **Prove pristine installation + the browser loop on a fresh install** (row 5 untested;
    rows 3–4 carry Oct-12 browser evidence). Quickstart on a clean venv/machine, then
    login → configure/connect → request → result/approval → reload in the browser.
@@ -151,17 +163,21 @@ against the `/tmp` originals; credential scans clean before archiving).
 
 ---
 
-## Gate status (computed 2026-10-17 rev 2, after registering row 6)
+## Gate status (computed 2026-10-17 rev 3, after Phase C verified row 6)
 
-- `journey_contract.py --check --release` → **rc=1** — FAILING: J1
-  (`onboarding-completion`, registered 2026-10-17). **The setup gate is no longer
-  green while a known new-user blocker is open.**
-- `journey_contract.py --check --strict --release` → **rc=1** — FAILING: J1.
-- `journey_contract.py --check` (all journeys) → **rc=1** — FAILING: J1.
+- `journey_contract.py --check --release` → **rc=0** — no failing journeys in
+  release scope (J1–J3); `J1.onboarding-completion` verified on `cca1fb13d`
+  (Phase C). The setup gate is green again in release scope.
+- `journey_contract.py --check --strict --release` → **rc=1** — UNTESTED:
+  J1 (`quickstart-install`), J2 (`tool-planning`,
+  `model-native-tool-calling`); untested items still block the strict gate.
+- `journey_contract.py --check` (all journeys) → **rc=0** — no failing
+  journeys anywhere; untested: J1 (`quickstart-install`), J2 (2 items),
+  J7, J8, J9.
 
-Journey-level registry state: **J3, J4, J5, J6 = VERIFIED; J1 = FAILING**
-(`onboarding-completion`; only `quickstart-install` untested there); J2 = UNTESTED
-(only `tool-planning` and `model-native-tool-calling` untested); J7, J8, J9 = UNTESTED.
+Journey-level registry state: **J3, J4, J5, J6 = VERIFIED; J1 = UNTESTED**
+(5/6 verified — only `quickstart-install` untested); J2 = UNTESTED (9/11
+verified); J7, J8, J9 = UNTESTED.
 
 Nothing in this document claims whole-app certification, pristine-install proof, or
 deployment readiness.

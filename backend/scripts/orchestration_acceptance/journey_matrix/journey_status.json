@@ -455,12 +455,17 @@
     "tested_config": "consistency run r14b at pin cf6e31e26 (same two-world config)"
   },
   "J1.onboarding-completion": {
-    "status": "failing",
-    "evidence": "journey_matrix/browser_j2_chain_20261012_112631_9258b4.json",
-    "notes": "2026-10-12 browser finding, REGISTERED 2026-10-17 (previously only a proposed addition in the Phase B matrix, so the green setup gate excluded it): 'Start Automating' clicked twice on the Ready step left the wizard open and /api/onboarding/update never persisted (scratch DB: onboarding_completed=0, onboarding_step=welcome); the backend route was trivially correct, client-side suspected. NOT re-verified since; the current handler already posts the update, closes on success and surfaces failures, so today's cause is unestablished. Phase C directive 2026-10-17: reproduce first (fresh product-created user; capture console, outgoing request, authentication, response, subsequent status read); repair only the first demonstrated failed transition; re-verify persistence across reload and sign-in. Gate consequence: J1 stays FAILING until this is verified.",
-    "campaign": "2026-10-12-j2-repair",
-    "recorded_at": "2026-10-17T12:59:21+00:00",
-    "tested_candidate": "d6fbcd846d03f2c760fbcea5532cdd9a7c82b4c8",
-    "tested_config": "2026-10-12 pristine re-bind era (d6fbcd846); real browser chain against a scratch world"
+    "status": "verified",
+    "evidence": "journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json (sha256 657943f34700c194421b473c5069196695515f900737be9a8d33634ae7f5707e; 13/13 assertions true; first_failed_transition=null; harness sha256 43c1dc43987589be8cdee2988644d78ea8f90113dfc3060d1a8fe3f7703df566)",
+    "notes": "REPRODUCE-FIRST OUTCOME on cca1fb13d: the 2026-10-12 wizard-stuck failure does NOT reproduce; no repair required. One ordinary Start Automating click emitted exactly one POST /api/onboarding/update (Bearer, body completed=true, step=completed) answered 200; wizard closed 1.04s after the click; DB readback onboarding_completed=1, step=completed; reload and sign-out/sign-in do not reopen the wizard. Injected-500 scenario (labeled, NOT a product bug): failure toast visible, wizard stayed open, completion NOT falsely marked; unroute + recovery click completed. Supersedes the 2026-10-12 failing record (historical failure preserved: browser_j2_chain_20261012_112631_9258b4.json; the cause of that observation remains unestablished on this lineage).",
+    "campaign": "2026-10-17-phasec-onboarding",
+    "recorded_at": "2026-10-17T13:43:16+00:00",
+    "tested_candidate": "cca1fb13d59536de3137bd07a382b185ba47152c",
+    "tested_config": "frozen clean worktree checkout at cca1fb13d (tree 4e8329d494511e7a0e827b0727a081a6106125cd); next dev compiled from this checkout + scratch uvicorn boot from the same checkout (health git_commit cca1fb13d595); fresh product-created user + fresh browser context; local Ollama daemon detected; node_modules a real directory (not symlinked)",
+    "evidence_path": "journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json",
+    "identity": {
+      "commit": "cca1fb13d59536de3137bd07a382b185ba47152c",
+      "dirty_tracked": "clean"
+    }
   }
 }
