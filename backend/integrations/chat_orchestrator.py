@@ -1513,7 +1513,9 @@ _INABILITY_RE = re.compile(
 # finalization (REJECT, not strip), error-turn classification, stream
 # fragment cleanup. Patterns describe protocol SHAPES, never provider names.
 from core.response_validation import (  # noqa: E402
+    ResponseValidation,
     is_malformed_output as _is_malformed_output,
+    normalize_final_text as _normalize_final_text,
     strip_protocol_fragments as _strip_protocol_tags,
     validate_response_payload as _validate_response_payload,
 )
@@ -23042,8 +23044,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         from core.chat_tool_planner import (
                             _explicit_web_research_requested,
                         )
-                        _strip_protocol_tags(_full, captured=_reasoning_parts)
-                        _streamed = _full
+                        # F6: ASSIGN the converted text — the cleaned return
+                        # value used to be discarded here, so every consumer
+                        # (validation, broadcast, persistence, history) saw
+                        # raw protocol residue.
+                        _streamed = _strip_protocol_tags(
+                            _full, captured=_reasoning_parts)
                         # ROUTE THAT PRODUCED THIS STREAM, captured BEFORE any
                         # guard regeneration runs. The handler's last-used pair
                         # is overwritten by every later call, so reading it
@@ -23482,36 +23488,52 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 )
                             except Exception:
                                 pass
-                        _stream_done_content = ""
-                        if not _stream_residue_detected:
-                            _stream_done_validation = _validate_response_payload(
-                                _streamed,
-                                channel="final_text",
-                                content_type="text/plain",
-                            )
-                            if _stream_done_validation.valid:
-                                _stream_done_content = _streamed
+                        if _stream_residue_detected:
+                            # The live loop stopped on protocol residue before
+                            # the model finished: the assembled prefix is not a
+                            # final answer (and may be reasoning-only). Fall
+                            # through to the non-streaming leg — the existing
+                            # bounded recovery — instead of delivering a
+                            # truncated or reasoning-only text. If that leg
+                            # also fails, the final boundary delivers the
+                            # honest placeholder.
+                            _streamed = None
+                            _stream_done_content = ""
+                        else:
+                            _streamed, _stream_reject = _normalize_final_text(
+                                _streamed, content_type="text/plain")
+                            _stream_done_content = ""
+                            if _stream_reject:
+                                _streamed = None
                             else:
-                                _reconciled = await self._m3_reconcile_stream_done(
-                                    _streamed, canvas_context, session_id,
-                                    user_id, async_continuation_forked,
-                                    execution_id=execution_id,
+                                _stream_done_validation = _validate_response_payload(
+                                    _streamed,
+                                    channel="final_text",
+                                    content_type="text/plain",
                                 )
-                                if _reconciled is not None:
-                                    _stream_done_content = _reconciled
-                                elif (_m3_pending and _streamed
-                                        and os.getenv("CHAT_FINALIZATION_M3") == "1"):
-                                    try:
-                                        _end_check = await self._canvas_claim_correction(
-                                            _m3_pending, canvas_context,
-                                            session_id, user_id,
-                                            async_continuation_forked,
-                                            execution_id=execution_id,
-                                        )
-                                    except Exception:
-                                        _end_check = None
-                                    if _end_check == _m3_pending:
-                                        _stream_done_content = _streamed
+                                if _stream_done_validation.valid:
+                                    _stream_done_content = _streamed
+                                else:
+                                    _reconciled = await self._m3_reconcile_stream_done(
+                                        _streamed, canvas_context, session_id,
+                                        user_id, async_continuation_forked,
+                                        execution_id=execution_id,
+                                    )
+                                    if _reconciled is not None:
+                                        _stream_done_content = _reconciled
+                                    elif (_m3_pending and _streamed
+                                            and os.getenv("CHAT_FINALIZATION_M3") == "1"):
+                                        try:
+                                            _end_check = await self._canvas_claim_correction(
+                                                _m3_pending, canvas_context,
+                                                session_id, user_id,
+                                                async_continuation_forked,
+                                                execution_id=execution_id,
+                                            )
+                                        except Exception:
+                                            _end_check = None
+                                        if _end_check == _m3_pending:
+                                            _stream_done_content = _streamed
                         await _ws_manager.broadcast(f"user:{user_id}", {
                             "type": "chat_token_done",
                             "data": {
@@ -23521,29 +23543,39 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 "elapsed_s": round(_time.monotonic() - _t0, 1),
                             },
                         })
-                        logger.info(
-                            f"[stage-timing] reply STREAMED: "
-                            f"{_time.monotonic() - _t0:.1f}s to full text "
-                            f"({_s_prov}/{_s_model}, {len(_buf)} chunks)")
-                        # Report the route that ACTUALLY answered. The stream
-                        # generator can fall back to a different provider and
-                        # model internally; reporting the ranked pair made a
-                        # fallback turn look like it came from a provider that
-                        # rejects every completion (live 2026-09-16).
-                        _actual_provider = getattr(
-                            self.llm_service.handler,
-                            "_last_used_provider", None) or _s_prov
-                        _actual_model = getattr(
-                            self.llm_service.handler,
-                            "_last_used_model", None) or _s_model
-                        response_data = {
-                            "success": True,
-                            "content": _streamed,
-                            "model": _actual_model,
-                            "provider": _actual_provider,
-                            "requested_model": _s_model,
-                            "requested_provider": _s_prov,
-                        }
+                        if _streamed is None:
+                            # Residue/reject path: the non-streaming leg below
+                            # regenerates; the streamed content is not a final
+                            # answer.
+                            logger.info(
+                                f"[stage-timing] reply stream produced no "
+                                f"deliverable final text "
+                                f"({_s_prov}/{_s_model}, {len(_buf)} chunks) — "
+                                "non-streaming fallback")
+                        else:
+                            logger.info(
+                                f"[stage-timing] reply STREAMED: "
+                                f"{_time.monotonic() - _t0:.1f}s to full text "
+                                f"({_s_prov}/{_s_model}, {len(_buf)} chunks)")
+                            # Report the route that ACTUALLY answered. The stream
+                            # generator can fall back to a different provider and
+                            # model internally; reporting the ranked pair made a
+                            # fallback turn look like it came from a provider that
+                            # rejects every completion (live 2026-09-16).
+                            _actual_provider = getattr(
+                                self.llm_service.handler,
+                                "_last_used_provider", None) or _s_prov
+                            _actual_model = getattr(
+                                self.llm_service.handler,
+                                "_last_used_model", None) or _s_model
+                            response_data = {
+                                "success": True,
+                                "content": _streamed,
+                                "model": _actual_model,
+                                "provider": _actual_provider,
+                                "requested_model": _s_model,
+                                "requested_provider": _s_prov,
+                            }
                     else:
                         logger.warning("chat streaming produced no tokens — falling back")
                         _stream_zero_visible = True
@@ -23621,7 +23653,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # (if any) plus inline <think> blocks (captured by the strip
                     # call on the next line via the shared _reasoning_parts list).
                     _reasoning_parts: List[str] = []
-                    _strip_protocol_tags(response_data.get("content"), captured=_reasoning_parts)
+                    # F6: assign the NORMALIZED content before validation.
+                    # Complete reasoning wrappers are converted here (contents
+                    # captured for the reasoning drawer) so validation and
+                    # every later consumer — persistence, history, public
+                    # response — see the same final-answer text.
+                    response_data["content"] = _strip_protocol_tags(
+                        response_data.get("content"), captured=_reasoning_parts)
                     _turn_reasoning = (
                         (response_data or {}).get("reasoning")
                         or ("\n\n".join(p.strip() for p in _reasoning_parts if p and p.strip()).strip() or None)
@@ -23973,9 +24011,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         )
                     )
                     if _retry and _retry.get("success"):
-                        _rc = str(_retry.get("content") or "").strip()
-                        _rc = re.sub(r"<tool_call>.*?</tool_call>", "", _rc, flags=re.DOTALL)
-                        _rc = re.sub(r"</?(?:mm:)?think>|\]?<\]?minimax\[>?", "", _rc).strip()
+                        # F6: use the canonical converter — the inline
+                        # think-only regex missed the thinking/mm: variants,
+                        # leaving wrappers to trip later gates.
+                        _rc = _strip_protocol_tags(
+                            str(_retry.get("content") or "")).strip()
+                        _rc = re.sub(r"\]?<\]?minimax\[>?", "", _rc).strip()
                         if len(_rc) >= 20:
                             _content = _rc
                 if not _content:
@@ -24782,11 +24823,22 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             "delivered": "narration",
                         }
                 else:
-                    _final_validation = _validate_response_payload(
-                        _content,
-                        channel="final_text",
-                        content_type="text/markdown",
-                    )
+                    # F6: assign the normalized final content BEFORE
+                    # validation (one shared boundary with the streaming leg).
+                    # Complete reasoning wrappers are converted (contents
+                    # captured); unpaired/partial markers survive conversion
+                    # and are rejected below — never exposed as an apparent
+                    # answer.
+                    _content, _final_reject = _normalize_final_text(_content)
+                    if _final_reject:
+                        _final_validation = ResponseValidation(
+                            False, _final_reject, "final_text", "text/markdown")
+                    else:
+                        _final_validation = _validate_response_payload(
+                            _content,
+                            channel="final_text",
+                            content_type="text/markdown",
+                        )
                     if not _final_validation.valid:
                         _malformed_reason = _final_validation.reason
                         _content = (
