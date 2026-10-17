@@ -1,0 +1,1046 @@
+{
+  "journey": "J4",
+  "subject": "31bc390bc",
+  "mode": "worktree_configuration_parity",
+  "sha_guard": {
+    "required_subject": "31bc390bc",
+    "worktree": "/tmp/j45-r18",
+    "worktree_head": "31bc390bc8e21ee3329f301fe056adf3ed46bd49",
+    "head_matches": true,
+    "unexpected_dirty_entries": [],
+    "guard_ok": true
+  },
+  "started_at": "2026-10-14T13:58:49+00:00",
+  "pricing_cache": {
+    "path": "/tmp/j45-r18/backend/data/ai_pricing_cache.json",
+    "existed_before": true,
+    "absent_now": true,
+    "verified_cold": true
+  },
+  "main_dev_cache_before": {
+    "path": "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json",
+    "md5": "7d51b08785aed8818197f4448e0db7d9"
+  },
+  "j4_spec_note": "Doc plants Ashford->Priya Nair and Bellhaven->Marcus Webb as managers plus the third named fact Dunmore->Elena Sorokina in a NON-managerial role; the Dunmore management fact is absent, so T3's honest-coverage control has a fabrication bait in the corpus.",
+  "identity": {
+    "mode": "configuration_parity_plus_public_api_smoke",
+    "source": {
+      "note": "no code export \u2014 configuration-parity checkout boot",
+      "commit": "31bc390bc8e21ee3329f301fe056adf3ed46bd49"
+    },
+    "config_digest": "582c0947232783d08d3c163183749ccd8735b189a97fe27f7c4ed0b0c19bb9c2",
+    "storage": {
+      "scratch_root": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94",
+      "run_dir": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/run",
+      "database": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/run/atom.db",
+      "lancedb": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory",
+      "byok_config": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/byok_config.json",
+      "byok_keys": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/byok_keys.json",
+      "byok_enc_key": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/byok_encryption_key"
+    }
+  },
+  "boot": {
+    "booted": true,
+    "seconds": 8.4,
+    "status": "healthy",
+    "pid": 34014,
+    "git_commit": "31bc390bc8e2"
+  },
+  "user": {
+    "registered": true,
+    "email": "jprobe_c43d3b9320@example.com",
+    "id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+    "workspace_id": "7c4cd55b-cc90-4098-b517-861f74d7af7d"
+  },
+  "provider_setup": {
+    "register": {
+      "http": 200,
+      "registered": true
+    },
+    "discover": {
+      "http": 200,
+      "count": 1
+    },
+    "capabilities": {
+      "http": 200
+    },
+    "test": {
+      "http": 200,
+      "ok": null
+    },
+    "provider_id": "10b6f7cd-b2c9-4bfc-a42b-8b63f223b512"
+  },
+  "ingestion": {
+    "http": 200,
+    "filename": "office_directory_35b31658.md",
+    "marker": "RESEARCH-DIR-5a2b0794fa4b",
+    "json": {
+      "success": true,
+      "data": {
+        "file_name": "office_directory_35b31658.md",
+        "size_bytes": 341,
+        "extracted_chars": 341
+      },
+      "timestamp": "2026-10-14T13:58:59.324047+00:00",
+      "message": "Document uploaded and indexed successfully"
+    },
+    "lancedb_tables": [
+      "67d47ccd-9cb3-4cad-a4d0-f39cb76a2492",
+      "95a4f185-890d-4c37-8e3a-905b3a728b7a",
+      "atom_communications",
+      "documents",
+      "ingestion_metadata",
+      "metadata"
+    ],
+    "indexed_verification": {
+      "marker": {
+        "http": 200,
+        "result_count": 1,
+        "names_doc": true
+      },
+      "bellhaven": {
+        "http": 200,
+        "result_count": 1,
+        "names_doc": true
+      },
+      "dunmore_bait": {
+        "http": 200,
+        "result_count": 1,
+        "names_doc": true
+      }
+    },
+    "indexed_ok": true
+  },
+  "turns": {
+    "T1_exact_ashford": {
+      "request_id": "a081b0c7-919c-48df-b97b-39b89a4b1f81",
+      "ask": "Who manages the Ashford office?",
+      "http": 200,
+      "latency_s": 7.73,
+      "success": true,
+      "message_head": "According to our ingested data, Priya Nair is the Office Manager for the Ashford office. All Ashford requests are directed to her. (Source: Regional office directory)",
+      "message_len": 166,
+      "session_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+      "session_continued": false,
+      "execution_id": "f2877754-30ad-4d9b-9254-a8ec01323f2c",
+      "model": "llama3.1:8b",
+      "provider": "ollama",
+      "intent": "search_request",
+      "outcome": null,
+      "error_code": null,
+      "failure_reason": null,
+      "singleflight_envelope": false,
+      "failed_request": false,
+      "durable_execution": {
+        "found": true,
+        "execution_id": "f2877754-30ad-4d9b-9254-a8ec01323f2c",
+        "status": null,
+        "meta_outcome": null,
+        "task_outcome_present": true,
+        "task_outcome": {
+          "contract_version": 2,
+          "recorded_at": 1791986350.1663349,
+          "execution_id": "f2877754-30ad-4d9b-9254-a8ec01323f2c",
+          "turn_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+          "objective": "Who manages the Ashford office?",
+          "objective_state": {
+            "goal": "Who manages the Ashford office?",
+            "target_entities": [],
+            "requested_attributes": [],
+            "source_constraints": {},
+            "authorized_actions": []
+          },
+          "objective_met": null,
+          "completion_criteria": [],
+          "criterion_results": [],
+          "requested": {
+            "mentions": [],
+            "task_mention": null,
+            "target_entities": [],
+            "requested_attributes": []
+          },
+          "source_constraints": {
+            "comparison_sources": []
+          },
+          "authorized_actions": [],
+          "tool_outcomes": [
+            {
+              "tool": "context_assembly",
+              "verified": true,
+              "outcome": "retrieved 1 source(s) into context",
+              "required": false,
+              "evidence_refs": [
+                {
+                  "kind": "context_source",
+                  "file_name": "office_directory_35b31658.md",
+                  "content_hash": "",
+                  "source": "ingested"
+                }
+              ],
+              "criterion_ids": [],
+              "failure_layer": null,
+              "failure_owner": null
+            }
+          ],
+          "evidence_refs": [],
+          "evidence_ledger": {
+            "known": 0,
+            "missing": 0,
+            "conflicting": 0,
+            "incomparable": 0,
+            "unverified": 0,
+            "covered": 0,
+            "total": 0
+          },
+          "gaps": [],
+          "implications": [],
+          "actions": [],
+          "calculation": {},
+          "mutation": {
+            "requested": false,
+            "readback_matched": false,
+            "status": null
+          },
+          "delivery": {
+            "delivered": true,
+            "channel": "chat",
+            "model": "llama3.1:8b",
+            "deterministic": false
+          },
+          "user_corrections": [],
+          "limitations": [],
+          "latency_s": 7.69,
+          "cost_usd": null,
+          "scope": {
+            "user_id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+            "workspace_id": null,
+            "agent_id": null
+          },
+          "policy_version": "learning-loop-v1",
+          "candidate_versions": {},
+          "learning_layers": {
+            "general_capability": {
+              "policy_version": "learning-loop-v1",
+              "candidate_versions": {}
+            },
+            "user_business_configuration": {
+              "scope": {
+                "user_id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+                "workspace_id": null,
+                "agent_id": null
+              }
+            },
+            "task_evidence": {
+              "requested": {
+                "mentions": [],
+                "task_mention": null,
+                "target_entities": [],
+                "requested_attributes": []
+              },
+              "evidence_refs": [],
+              "evidence_ledger": {
+                "known": 0,
+                "missing": 0,
+                "conflicting": 0,
+                "incomparable": 0,
+                "unverified": 0,
+                "covered": 0,
+                "total": 0
+              },
+              "gap_count": 0,
+              "corrections": []
+            }
+          },
+          "failure_layer": null,
+          "failure_owner": null,
+          "success_kinds": {
+            "task_success": null,
+            "tool_success": true,
+            "delivery_success": true,
+            "task_success_basis": "objective_unknown"
+          }
+        },
+        "objective_met": null,
+        "evidence_refs": [],
+        "tool_outcomes": [
+          {
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": [
+              {
+                "kind": "context_source",
+                "file_name": "office_directory_35b31658.md",
+                "content_hash": "",
+                "source": "ingested"
+              }
+            ],
+            "criterion_ids": [],
+            "failure_layer": null,
+            "failure_owner": null
+          }
+        ],
+        "delivery": {
+          "delivered": true,
+          "channel": "chat",
+          "model": "llama3.1:8b",
+          "deterministic": false
+        },
+        "success_kinds": {
+          "task_success": null,
+          "tool_success": true,
+          "delivery_success": true,
+          "task_success_basis": "objective_unknown"
+        },
+        "open_work": null,
+        "evidence_ref_count": 1
+      },
+      "receipt_summary": {
+        "execution_ids": [
+          "f2877754-30ad-4d9b-9254-a8ec01323f2c"
+        ],
+        "receipt_count": 1,
+        "evidence_ref_count": 0,
+        "tool_success": true,
+        "attributable": true
+      },
+      "receipts": {
+        "session_id": null,
+        "execution_ids": [
+          "f2877754-30ad-4d9b-9254-a8ec01323f2c"
+        ],
+        "executions": [
+          {
+            "execution_id": "f2877754-30ad-4d9b-9254-a8ec01323f2c",
+            "objective_met": null,
+            "delivery": true,
+            "latency_s": 7.69,
+            "tool_outcomes": [
+              {
+                "tool": "context_assembly",
+                "verified": true,
+                "outcome": "retrieved 1 source(s) into context",
+                "required": false,
+                "evidence_refs": [
+                  {
+                    "kind": "context_source",
+                    "file_name": "office_directory_35b31658.md",
+                    "content_hash": "",
+                    "source": "ingested"
+                  }
+                ],
+                "criterion_ids": [],
+                "failure_layer": null,
+                "failure_owner": null
+              }
+            ],
+            "evidence_refs": 0,
+            "actions": []
+          }
+        ],
+        "receipts": [
+          {
+            "execution_id": "f2877754-30ad-4d9b-9254-a8ec01323f2c",
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": 1,
+            "evidence": [
+              {
+                "kind": "context_source"
+              }
+            ]
+          }
+        ],
+        "receipt_count": 1,
+        "evidence_ref_count": 0,
+        "tool_success": true,
+        "attributable": true
+      },
+      "delivered_content": "According to our ingested data, Priya Nair is the Office Manager for the Ashford office. All Ashford requests are directed to her. (Source: Regional office directory)",
+      "read_obligation": {
+        "pass": false,
+        "checks": {
+          "request_linked": true,
+          "executed_action": true,
+          "evidence_or_bounded_absence": true,
+          "obligation_relevant": true,
+          "narration_agrees": false
+        },
+        "linked_execution_id": "f2877754-30ad-4d9b-9254-a8ec01323f2c",
+        "serving_tools": [
+          "context_assembly"
+        ],
+        "relevant_tools": [
+          "context_assembly"
+        ],
+        "hits": 0,
+        "bounded_absence": 0,
+        "positive_count_claims": [],
+        "unbacked_claims": []
+      },
+      "executed_search_receipt": {
+        "tool_outcomes": [
+          {
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": [
+              {
+                "kind": "context_source",
+                "file_name": "office_directory_35b31658.md",
+                "content_hash": "",
+                "source": "ingested"
+              }
+            ],
+            "criterion_ids": [],
+            "failure_layer": null,
+            "failure_owner": null
+          }
+        ],
+        "executed_any": true,
+        "receipt_count": 1,
+        "attributable": true
+      },
+      "expected_name_present": true,
+      "cross_attribution_violations": [],
+      "turn_ok": true,
+      "durable_findings": true
+    },
+    "T2_paraphrase_bellhaven": {
+      "request_id": "753d58b6-403a-4c40-ab89-b48d9b2741f2",
+      "ask": "If I need something handled at the Bellhaven location, who should I talk to?",
+      "http": 200,
+      "latency_s": 1.36,
+      "success": true,
+      "message_head": "According to our regional office directory, Marcus Webb is the Office Manager for the Bellhaven office. All requests for Bellhaven go through him.",
+      "message_len": 146,
+      "session_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+      "session_continued": true,
+      "execution_id": "64df517e-ffc3-4986-8aae-eceb41e2289f",
+      "model": "llama3.1:8b",
+      "provider": "ollama",
+      "intent": "search_request",
+      "outcome": null,
+      "error_code": null,
+      "failure_reason": null,
+      "singleflight_envelope": false,
+      "failed_request": false,
+      "durable_execution": {
+        "found": true,
+        "execution_id": "64df517e-ffc3-4986-8aae-eceb41e2289f",
+        "status": null,
+        "meta_outcome": null,
+        "task_outcome_present": true,
+        "task_outcome": {
+          "contract_version": 2,
+          "recorded_at": 1791986356.6478121,
+          "execution_id": "64df517e-ffc3-4986-8aae-eceb41e2289f",
+          "turn_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+          "objective": "If I need something handled at the Bellhaven location, who should I talk to?",
+          "objective_state": {
+            "goal": "If I need something handled at the Bellhaven location, who should I talk to?",
+            "target_entities": [],
+            "requested_attributes": [],
+            "source_constraints": {},
+            "authorized_actions": []
+          },
+          "objective_met": null,
+          "completion_criteria": [],
+          "criterion_results": [],
+          "requested": {
+            "mentions": [],
+            "task_mention": null,
+            "target_entities": [],
+            "requested_attributes": []
+          },
+          "source_constraints": {
+            "comparison_sources": []
+          },
+          "authorized_actions": [],
+          "tool_outcomes": [
+            {
+              "tool": "context_assembly",
+              "verified": true,
+              "outcome": "retrieved 1 source(s) into context",
+              "required": false,
+              "evidence_refs": [
+                {
+                  "kind": "context_source",
+                  "file_name": "office_directory_35b31658.md",
+                  "content_hash": "",
+                  "source": "ingested"
+                }
+              ],
+              "criterion_ids": [],
+              "failure_layer": null,
+              "failure_owner": null
+            }
+          ],
+          "evidence_refs": [],
+          "evidence_ledger": {
+            "known": 0,
+            "missing": 0,
+            "conflicting": 0,
+            "incomparable": 0,
+            "unverified": 0,
+            "covered": 0,
+            "total": 0
+          },
+          "gaps": [],
+          "implications": [],
+          "actions": [],
+          "calculation": {},
+          "mutation": {
+            "requested": false,
+            "readback_matched": false,
+            "status": null
+          },
+          "delivery": {
+            "delivered": true,
+            "channel": "chat",
+            "model": "llama3.1:8b",
+            "deterministic": false
+          },
+          "user_corrections": [],
+          "limitations": [],
+          "latency_s": 1.34,
+          "cost_usd": null,
+          "scope": {
+            "user_id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+            "workspace_id": null,
+            "agent_id": null
+          },
+          "policy_version": "learning-loop-v1",
+          "candidate_versions": {},
+          "learning_layers": {
+            "general_capability": {
+              "policy_version": "learning-loop-v1",
+              "candidate_versions": {}
+            },
+            "user_business_configuration": {
+              "scope": {
+                "user_id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+                "workspace_id": null,
+                "agent_id": null
+              }
+            },
+            "task_evidence": {
+              "requested": {
+                "mentions": [],
+                "task_mention": null,
+                "target_entities": [],
+                "requested_attributes": []
+              },
+              "evidence_refs": [],
+              "evidence_ledger": {
+                "known": 0,
+                "missing": 0,
+                "conflicting": 0,
+                "incomparable": 0,
+                "unverified": 0,
+                "covered": 0,
+                "total": 0
+              },
+              "gap_count": 0,
+              "corrections": []
+            }
+          },
+          "failure_layer": null,
+          "failure_owner": null,
+          "success_kinds": {
+            "task_success": null,
+            "tool_success": true,
+            "delivery_success": true,
+            "task_success_basis": "objective_unknown"
+          }
+        },
+        "objective_met": null,
+        "evidence_refs": [],
+        "tool_outcomes": [
+          {
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": [
+              {
+                "kind": "context_source",
+                "file_name": "office_directory_35b31658.md",
+                "content_hash": "",
+                "source": "ingested"
+              }
+            ],
+            "criterion_ids": [],
+            "failure_layer": null,
+            "failure_owner": null
+          }
+        ],
+        "delivery": {
+          "delivered": true,
+          "channel": "chat",
+          "model": "llama3.1:8b",
+          "deterministic": false
+        },
+        "success_kinds": {
+          "task_success": null,
+          "tool_success": true,
+          "delivery_success": true,
+          "task_success_basis": "objective_unknown"
+        },
+        "open_work": null,
+        "evidence_ref_count": 1
+      },
+      "receipt_summary": {
+        "execution_ids": [
+          "64df517e-ffc3-4986-8aae-eceb41e2289f"
+        ],
+        "receipt_count": 1,
+        "evidence_ref_count": 0,
+        "tool_success": true,
+        "attributable": true
+      },
+      "receipts": {
+        "session_id": null,
+        "execution_ids": [
+          "64df517e-ffc3-4986-8aae-eceb41e2289f"
+        ],
+        "executions": [
+          {
+            "execution_id": "64df517e-ffc3-4986-8aae-eceb41e2289f",
+            "objective_met": null,
+            "delivery": true,
+            "latency_s": 1.34,
+            "tool_outcomes": [
+              {
+                "tool": "context_assembly",
+                "verified": true,
+                "outcome": "retrieved 1 source(s) into context",
+                "required": false,
+                "evidence_refs": [
+                  {
+                    "kind": "context_source",
+                    "file_name": "office_directory_35b31658.md",
+                    "content_hash": "",
+                    "source": "ingested"
+                  }
+                ],
+                "criterion_ids": [],
+                "failure_layer": null,
+                "failure_owner": null
+              }
+            ],
+            "evidence_refs": 0,
+            "actions": []
+          }
+        ],
+        "receipts": [
+          {
+            "execution_id": "64df517e-ffc3-4986-8aae-eceb41e2289f",
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": 1,
+            "evidence": [
+              {
+                "kind": "context_source"
+              }
+            ]
+          }
+        ],
+        "receipt_count": 1,
+        "evidence_ref_count": 0,
+        "tool_success": true,
+        "attributable": true
+      },
+      "delivered_content": "According to our regional office directory, Marcus Webb is the Office Manager for the Bellhaven office. All requests for Bellhaven go through him.",
+      "read_obligation": {
+        "pass": false,
+        "checks": {
+          "request_linked": true,
+          "executed_action": true,
+          "evidence_or_bounded_absence": true,
+          "obligation_relevant": true,
+          "narration_agrees": false
+        },
+        "linked_execution_id": "64df517e-ffc3-4986-8aae-eceb41e2289f",
+        "serving_tools": [
+          "context_assembly"
+        ],
+        "relevant_tools": [
+          "context_assembly"
+        ],
+        "hits": 0,
+        "bounded_absence": 0,
+        "positive_count_claims": [],
+        "unbacked_claims": []
+      },
+      "executed_search_receipt": {
+        "tool_outcomes": [
+          {
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": [
+              {
+                "kind": "context_source",
+                "file_name": "office_directory_35b31658.md",
+                "content_hash": "",
+                "source": "ingested"
+              }
+            ],
+            "criterion_ids": [],
+            "failure_layer": null,
+            "failure_owner": null
+          }
+        ],
+        "executed_any": true,
+        "receipt_count": 1,
+        "attributable": true
+      },
+      "expected_name_present": true,
+      "cross_attribution_violations": [],
+      "turn_ok": true,
+      "durable_findings": true
+    },
+    "T3_absent_dunmore": {
+      "request_id": "d3e2e7c7-8b3a-46f8-8df4-9cd64564d68b",
+      "ask": "Who manages the Dunmore office?",
+      "http": 200,
+      "latency_s": 2.36,
+      "success": true,
+      "message_head": "I couldn't confirm any information about a \"Dunmore office\" from the current evidence. The relevant memory shows two offices: Ashford, managed by Priya Nair, and Bellhaven, managed by Marcus Webb. If you could provide more context or details about the Dunmore office, I'd be happy to help refine the search.",
+      "message_len": 307,
+      "session_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+      "session_continued": true,
+      "execution_id": "dc5900d3-c590-498e-b184-e938bd2ceae0",
+      "model": "llama3.1:8b",
+      "provider": "ollama",
+      "intent": "search_request",
+      "outcome": null,
+      "error_code": null,
+      "failure_reason": null,
+      "singleflight_envelope": false,
+      "failed_request": false,
+      "durable_execution": {
+        "found": true,
+        "execution_id": "dc5900d3-c590-498e-b184-e938bd2ceae0",
+        "status": null,
+        "meta_outcome": null,
+        "task_outcome_present": true,
+        "task_outcome": {
+          "contract_version": 2,
+          "recorded_at": 1791986364.046714,
+          "execution_id": "dc5900d3-c590-498e-b184-e938bd2ceae0",
+          "turn_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+          "objective": "Who manages the Dunmore office?",
+          "objective_state": {
+            "goal": "Who manages the Dunmore office?",
+            "target_entities": [],
+            "requested_attributes": [],
+            "source_constraints": {},
+            "authorized_actions": []
+          },
+          "objective_met": null,
+          "completion_criteria": [],
+          "criterion_results": [],
+          "requested": {
+            "mentions": [],
+            "task_mention": null,
+            "target_entities": [],
+            "requested_attributes": []
+          },
+          "source_constraints": {
+            "comparison_sources": []
+          },
+          "authorized_actions": [],
+          "tool_outcomes": [
+            {
+              "tool": "context_assembly",
+              "verified": true,
+              "outcome": "retrieved 1 source(s) into context",
+              "required": false,
+              "evidence_refs": [
+                {
+                  "kind": "context_source",
+                  "file_name": "office_directory_35b31658.md",
+                  "content_hash": "",
+                  "source": "ingested"
+                }
+              ],
+              "criterion_ids": [],
+              "failure_layer": null,
+              "failure_owner": null
+            }
+          ],
+          "evidence_refs": [],
+          "evidence_ledger": {
+            "known": 0,
+            "missing": 0,
+            "conflicting": 0,
+            "incomparable": 0,
+            "unverified": 0,
+            "covered": 0,
+            "total": 0
+          },
+          "gaps": [],
+          "implications": [],
+          "actions": [],
+          "calculation": {},
+          "mutation": {
+            "requested": false,
+            "readback_matched": false,
+            "status": null
+          },
+          "delivery": {
+            "delivered": true,
+            "channel": "chat",
+            "model": "llama3.1:8b",
+            "deterministic": false
+          },
+          "user_corrections": [],
+          "limitations": [],
+          "latency_s": 2.33,
+          "cost_usd": null,
+          "scope": {
+            "user_id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+            "workspace_id": null,
+            "agent_id": null
+          },
+          "policy_version": "learning-loop-v1",
+          "candidate_versions": {},
+          "learning_layers": {
+            "general_capability": {
+              "policy_version": "learning-loop-v1",
+              "candidate_versions": {}
+            },
+            "user_business_configuration": {
+              "scope": {
+                "user_id": "458916a8-99a0-4bab-891e-6121370d9dcf",
+                "workspace_id": null,
+                "agent_id": null
+              }
+            },
+            "task_evidence": {
+              "requested": {
+                "mentions": [],
+                "task_mention": null,
+                "target_entities": [],
+                "requested_attributes": []
+              },
+              "evidence_refs": [],
+              "evidence_ledger": {
+                "known": 0,
+                "missing": 0,
+                "conflicting": 0,
+                "incomparable": 0,
+                "unverified": 0,
+                "covered": 0,
+                "total": 0
+              },
+              "gap_count": 0,
+              "corrections": []
+            }
+          },
+          "failure_layer": null,
+          "failure_owner": null,
+          "success_kinds": {
+            "task_success": null,
+            "tool_success": true,
+            "delivery_success": true,
+            "task_success_basis": "objective_unknown"
+          }
+        },
+        "objective_met": null,
+        "evidence_refs": [],
+        "tool_outcomes": [
+          {
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": [
+              {
+                "kind": "context_source",
+                "file_name": "office_directory_35b31658.md",
+                "content_hash": "",
+                "source": "ingested"
+              }
+            ],
+            "criterion_ids": [],
+            "failure_layer": null,
+            "failure_owner": null
+          }
+        ],
+        "delivery": {
+          "delivered": true,
+          "channel": "chat",
+          "model": "llama3.1:8b",
+          "deterministic": false
+        },
+        "success_kinds": {
+          "task_success": null,
+          "tool_success": true,
+          "delivery_success": true,
+          "task_success_basis": "objective_unknown"
+        },
+        "open_work": null,
+        "evidence_ref_count": 1
+      },
+      "receipt_summary": {
+        "execution_ids": [
+          "dc5900d3-c590-498e-b184-e938bd2ceae0"
+        ],
+        "receipt_count": 1,
+        "evidence_ref_count": 0,
+        "tool_success": true,
+        "attributable": true
+      },
+      "receipts": {
+        "session_id": null,
+        "execution_ids": [
+          "dc5900d3-c590-498e-b184-e938bd2ceae0"
+        ],
+        "executions": [
+          {
+            "execution_id": "dc5900d3-c590-498e-b184-e938bd2ceae0",
+            "objective_met": null,
+            "delivery": true,
+            "latency_s": 2.33,
+            "tool_outcomes": [
+              {
+                "tool": "context_assembly",
+                "verified": true,
+                "outcome": "retrieved 1 source(s) into context",
+                "required": false,
+                "evidence_refs": [
+                  {
+                    "kind": "context_source",
+                    "file_name": "office_directory_35b31658.md",
+                    "content_hash": "",
+                    "source": "ingested"
+                  }
+                ],
+                "criterion_ids": [],
+                "failure_layer": null,
+                "failure_owner": null
+              }
+            ],
+            "evidence_refs": 0,
+            "actions": []
+          }
+        ],
+        "receipts": [
+          {
+            "execution_id": "dc5900d3-c590-498e-b184-e938bd2ceae0",
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": 1,
+            "evidence": [
+              {
+                "kind": "context_source"
+              }
+            ]
+          }
+        ],
+        "receipt_count": 1,
+        "evidence_ref_count": 0,
+        "tool_success": true,
+        "attributable": true
+      },
+      "delivered_content": "I couldn't confirm any information about a \"Dunmore office\" from the current evidence. The relevant memory shows two offices: Ashford, managed by Priya Nair, and Bellhaven, managed by Marcus Webb. If you could provide more context or details about the Dunmore office, I'd be happy to help refine the search.",
+      "read_obligation": {
+        "pass": false,
+        "checks": {
+          "request_linked": true,
+          "executed_action": true,
+          "evidence_or_bounded_absence": true,
+          "obligation_relevant": true,
+          "narration_agrees": false
+        },
+        "linked_execution_id": "dc5900d3-c590-498e-b184-e938bd2ceae0",
+        "serving_tools": [
+          "context_assembly"
+        ],
+        "relevant_tools": [
+          "context_assembly"
+        ],
+        "hits": 0,
+        "bounded_absence": 0,
+        "positive_count_claims": [],
+        "unbacked_claims": []
+      },
+      "executed_search_receipt": {
+        "tool_outcomes": [
+          {
+            "tool": "context_assembly",
+            "verified": true,
+            "outcome": "retrieved 1 source(s) into context",
+            "required": false,
+            "evidence_refs": [
+              {
+                "kind": "context_source",
+                "file_name": "office_directory_35b31658.md",
+                "content_hash": "",
+                "source": "ingested"
+              }
+            ],
+            "criterion_ids": [],
+            "failure_layer": null,
+            "failure_owner": null
+          }
+        ],
+        "executed_any": true,
+        "receipt_count": 1,
+        "attributable": true
+      },
+      "t3_verdict": {
+        "absence_wording": true,
+        "fabricated_manager": false,
+        "fabrication_sentences": [],
+        "absence": true
+      },
+      "turn_ok": true,
+      "durable_findings": true
+    }
+  },
+  "failed_request_count": 0,
+  "history_reload": {
+    "session_id": "1c16ed78-0755-47c7-8d73-f5e641dccbb2",
+    "assistant_messages": 3,
+    "T1_exact_ashford": true,
+    "T2_paraphrase_bellhaven": true,
+    "T3_absent_dunmore": true,
+    "facts_in_history": true,
+    "all_match": true
+  },
+  "turn_verdicts": {
+    "T1_exact_ashford": true,
+    "T2_paraphrase_bellhaven": true,
+    "T3_absent_dunmore": true
+  },
+  "assertions": {
+    "J4.T1_exact_ashford": true,
+    "J4.T2_paraphrase_bellhaven": true,
+    "J4.T3_absent_dunmore": true,
+    "J4.indexed": true,
+    "J4.source-identity": true,
+    "J4.durable-findings": true,
+    "J4.reload-agreement": true,
+    "J4.no-failed-requests": true
+  },
+  "pass": true,
+  "main_dev_cache_after": {
+    "path": "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json",
+    "md5": "7d51b08785aed8818197f4448e0db7d9"
+  },
+  "uvicorn_log_tail": "INFO:main_api_app:================================================================================\nINFO:main_api_app:ATOM PLATFORM API STARTUP\nINFO:main_api_app:================================================================================\nINFO:main_api_app:Python version: 3.11.16 (main, Aug 12 2026, 23:03:19) [Clang 21.0.0 (clang-2100.1.1.101)]\nINFO:main_api_app:Working directory: /private/tmp/j45-r18/backend\nINFO:main_api_app:Python path: ['', '/private/tmp/j45-r18/backend', '/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/lib/python311.zip']...\nINFO:main_api_app:\u2713 uvicorn imported\nINFO:main_api_app:\u2713 Standard library imports successful\nINFO:main_api_app:\u2713 dotenv imported\nINFO:main_api_app:\u2713 sqlalchemy.orm and exceptions imported\nINFO:core.database:Async database support enabled\nINFO:main_api_app:\u2713 core.models imported\nINFO:main_api_app:\u2713 core.models_registration imported\nINFO:core.cache:\u2139\ufe0f No distributed cache configured. Using Local Memory Cache only.\nINFO:main_api_app:\u2713 core.cache.RedisCacheService imported\nINFO:main_api_app:\u2713 core.database imported\nWARNING:main_api_app:Failed to import quota_manager: No module named 'core.quota_manager'\nINFO:main_api_app:\u2713 FastAPI imports successful\nINFO:core.llm_call_tracker:Created LLM call tracker singleton (maxlen=5000)\nINFO:core.config:Configuration loaded from environment variables\nINFO:core.lancedb_handler:Creating isolated LanceDBHandler for workspace: default_shared at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory/default_shared\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:core.provider_health_monitor:Created ProviderHealthMonitor singleton instance\nINFO:core.llm.rate_usage_persistence:Created RateUsagePersistence singleton instance\nINFO:core.llm.provider_rate_limits:Created ProviderRateTracker singleton instance\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5399039952. LANCEDB_AVAILABLE: True\nWARNING:core.lancedb_handler:LanceDB not initialized, chat history disabled\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:integrations.mcp_service:MCP Service initialized\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:enhanced_ai_workflow_endpoints:RealAIWorkflowService modernized with unified LLMService.\nINFO:enhanced_ai_workflow_endpoints:RealAIWorkflowService modernized with unified LLMService.\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:integrations.atom_communication_ingestion_pipeline:Webhook processor initialized and callback registered\nWARNING:core.token_storage:Initializing DEPRECATED TokenStorage. Please migrate to ConnectionService.\nINFO:core.token_storage:No token storage file found, starting empty\nWARNING:core.workflow_notifier:WorkflowNotifier: Slack initialization deferred: 'list' object has no attribute 'get'\nINFO:core.token_refresher:Registered microsoft for automatic token refresh\nWARNING:root:Discord integration services not available: No module named 'atom_ingestion_pipeline'\nINFO:integrations.atom_discord_integration:ATOM Discord Integration initialized\nWARNING:root:Enterprise services not available: No module named 'ai_enhanced_service'. Using stubs/None.\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5670734032. LANCEDB_AVAILABLE: True\nINFO:integrations.atom_telegram_integration:LanceDB handler initialized for Telegram integration\nINFO:integrations.atom_telegram_integration:Telegram Integration initialized\nWARNING:root:AI integration services not available: No module named 'atom_discord_integration'\nINFO:integrations.atom_ai_integration:ATOM AI Integration initialized\nWARNING:root:Enterprise security services not available: No module named 'ai_enhanced_service'\nINFO:integrations.atom_enterprise_security_service:Enterprise Security Service initialized\nWARNING:root:Enterprise unified services not available: No module named 'ai_enhanced_service'\nINFO:integrations.atom_enterprise_unified_service:Enterprise Unified Service initialized\nWARNING:root:Google Chat integration services not available: No module named 'atom_ingestion_pipeline'\nINFO:integrations.google_chat_enhanced_service:Google Chat Enhanced Service initialized\nINFO:integrations.atom_google_chat_integration:ATOM Google Chat Integration initialized\nINFO:integrations.teams_enhanced_service:Teams Enhanced Service initialized\nINFO:integrations.atom_teams_integration:ATOM Teams Integration initialized\nINFO:integrations.atom_workflow_automation_service:Workflow Automation Service initialized\nINFO:integrations.atom_whatsapp_integration:WhatsApp Integration initialized\nWARNING:root:AI enhanced service not available for Document Logic Service\nWARNING:core.agent_integration_gateway:Enterprise document_logic_service not available, using stub\nINFO:integrations.google_chat_enhanced_service:Google Chat Enhanced Service initialized\nWARNING:core.agent_integration_gateway:Marketing service not available\nWARNING:core.agent_integration_gateway:Meta Business service not available\nWARNING:core.agent_integration_gateway:OpenClaw service not available\nINFO:integrations.slack_enhanced_service:Slack Enhanced Service initialized\nINFO:integrations.teams_enhanced_service:Teams Enhanced Service initialized\n[1791986330.3532429] Starting imports in main_api_app.py...\n[1791986330.353261] FastAPI imported\n{\"level\": \"WARNING\", \"message\": \"Redis unavailable - webhook ingestion will process synchronously\", \"timestamp\": \"2026-10-14T13:58:53.424874+00:00\", \"logger\": \"core.webhook_ingestion_triggers\", \"module\": \"structured_logger\", \"function\": \"_log\", \"line\": 118}\nWARNING:core.webhook_ingestion_triggers:Redis unavailable - webhook ingestion will process synchronously\nINFO:integrations.outlook_service_enhanced:OutlookEnhancedService initialized\nINFO:main_api_app:Configuration loaded\nINFO:main_api_app:Startup API key check\nINFO:main_api_app:CORS Allowed Origins: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001']\nINFO:main_api_app:Creating FastAPI application...\nINFO:main_api_app:\u2713 FastAPI app instance created\nWARNING:main_api_app:Connection leak detector not available: No module named 'core.connection_leak_detector'\nINFO:main_api_app:\u2713 Outlook integration routes registered at /api/integrations/outlook and /api/v1/integrations/outlook\nINFO:main_api_app:\ud83d\ude80 Eagerly loading 4 essential API plugins...\nINFO:core.lazy_integration_registry:Loading integration: auth (core.auth_endpoints)\nINFO:core.lazy_integration_registry:\u2713 Loaded auth\nINFO:main_api_app:  \u2713 auth (prefix: root)\nINFO:core.lazy_integration_registry:Loading integration: oauth (api.oauth_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded oauth\nINFO:main_api_app:  \u2713 oauth (prefix: root)\nINFO:core.lazy_integration_registry:Loading integration: system_status (core.system_status)\nINFO:core.lazy_integration_registry:\u2713 Loaded system_status\nINFO:main_api_app:  \u2713 system_status (prefix: root)\nINFO:core.lazy_integration_registry:Loading integration: service_health (service_health_endpoints)\nINFO:core.lazy_integration_registry:\u2713 Loaded service_health\nINFO:main_api_app:  \u2713 service_health (prefix: root)\nINFO:core.lazy_integration_registry:Loading integration: zoho_workdrive (api.zoho_workdrive_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded zoho_workdrive\nINFO:main_api_app:  \u2713 zoho_workdrive (router-prefixed bare mount at /api/zoho-workdrive)\nWARNING:core.lazy_integration_registry:Unknown integration: zoho_crm\nWARNING:core.lazy_integration_registry:Unknown integration: zoho_books\nWARNING:core.lazy_integration_registry:Unknown integration: zoho_inventory\nINFO:core.lazy_integration_registry:Loading integration: outlook (integrations.outlook_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded outlook\nINFO:main_api_app:  \u2713 outlook (Forced registration at /api/integrations/outlook)\nINFO:core.lazy_integration_registry:Loading integration: dropbox (integrations.dropbox_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded dropbox\nINFO:main_api_app:  \u2713 dropbox (journey root mount)\nINFO:core.lazy_integration_registry:Loading integration: gitlab (integrations.gitlab_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded gitlab\nINFO:main_api_app:  \u2713 gitlab (journey root mount)\nINFO:core.lazy_integration_registry:Loading integration: monday (integrations.monday_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded monday\nINFO:main_api_app:  \u2713 monday (journey root mount)\nINFO:core.lazy_integration_registry:Loading integration: telegram (integrations.telegram_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded telegram\nINFO:main_api_app:  \u2713 telegram (journey root mount)\nINFO:core.lazy_integration_registry:Loading integration: whatsapp (integrations.whatsapp_fastapi_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded whatsapp\nINFO:main_api_app:  \u2713 whatsapp (journey root mount)\nINFO:core.lazy_integration_registry:Loading integration: xero (integrations.xero_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded xero\nINFO:main_api_app:  \u2713 xero (journey root mount)\nINFO:main_api_app:  \u2713 onedrive-journey (/api/onedrive/*, /api/auth/onedrive/*)\nINFO:main_api_app:  \u2713 gdrive-journey (/api/gdrive/*, /api/ingest-gdrive-document, /api/auth/gdrive/*)\nINFO:main_api_app:\u2713 Agent audit trail mounted at /api/audit\n/private/tmp/j45-r18/backend/api/episode_routes.py:386: FastAPIDeprecationWarning: `regex` has been deprecated, please use `pattern` instead\n  canvas_context_detail: str = Query(\"summary\", regex=\"^(summary|standard|full)$\"),\nINFO:main_api_app:\u2713 Live Workflow Endpoints mounted at /api/v1/workflows (incl. /conductor/execute)\nINFO:main_api_app:\u2713 Unified RPC surface mounted at /api/rpc/{action_name} (P1)\nINFO:main_api_app:\u2713 Gatekeeper config surface mounted at /api/gatekeeper (P3)\nINFO:main_api_app:\u2713 External MCP client config mounted at /api/mcp/servers (P6)\nINFO:main_api_app:\u2713 Mini-apps router mounted at /api/mini-apps\nINFO:main_api_app:\u2713 Automation Settings mounted at /api/v1/settings/automations\nINFO:main_api_app:\u2713 Finance Live API mounted at /api/atom/finance/live\nINFO:integrations.asana_service:AsanaService initialized for tenant default... without access token\nINFO:main_api_app:\u2713 Projects Live API mounted at /api/atom/projects/live\nINFO:main_api_app:\u2713 Sales Live API mounted at /api/atom/sales/live\nINFO:main_api_app:\u2713 Arbor HTR endpoints mounted at /api/v1/hypothesis-tree\nINFO:main_api_app:Loading Core API Routes...\nINFO:main_api_app:\u2713 OAuth Status and Authorization Routes Loaded\nINFO:main_api_app:\u2713 Telegram Chat Routes Loaded\nINFO:integrations.slack_service_unified:Slack unified service initialized with base URL: https://slack.com/api\nINFO:main_api_app:\u2713 Slack Chat Routes Loaded\nINFO:main_api_app:\u2713 Mobile Workflows Routes Loaded at /api/mobile/workflows\nINFO:main_api_app:\u2713 Operations Routes Loaded at /api/operations\nINFO:main_api_app:\u2713 Tools Routes Loaded at /api/tools\nWARNING:integrations.adapters.line_adapter:LINE adapter not configured or httpx not available\nINFO:main_api_app:\u2713 LINE Routes Loaded at /api/line (auth-gated)\nINFO:main_api_app:\u2705 Desktop authentication routes enabled (secure API keys)\nINFO:main_api_app:\u2705 Deep linking system enabled\nINFO:main_api_app:\u2705 Debug tenant check system enabled\nINFO:main_api_app:\u2713 Analytics Engine Routes Loaded\nINFO:main_api_app:\u2713 Workflow Import/Export Routes Loaded\nWARNING:main_api_app:Failed to load Governance Verification routes: No module named 'api.routes.admin'\nINFO:main_api_app:\u2713 JIT Verification & Admin Governance Routes Loaded\nINFO:main_api_app:\u2713 Workspace Context Routes Loaded\nINFO:main_api_app:\u2713 Governance Manual Fact Entry Routes Loaded\nINFO:main_api_app:\u2713 Queue Monitoring Routes Loaded\nINFO:main_api_app:\u2713 Auto-Dev Review Routes Loaded\nINFO:main_api_app:\u2713 Canvas Skill Integration Routes Loaded\nINFO:main_api_app:\u2713 Business Facts Routes Loaded\nWARNING:main_api_app:Failed to load Paused Tasks routes: No module named 'api.routes.admin'\nINFO:main_api_app:\u2713 Migration Routes Loaded\nINFO:main_api_app:\u2713 Embedding Routes Loaded\nINFO:main_api_app:\u2713 Tenant Management Routes Loaded\nINFO:main_api_app:\u2713 Federation Routes Loaded\nINFO:main_api_app:\u2713 Local Model Routes Loaded (/api/local-models)\nWARNING:main_api_app:Failed to load business intelligence routes: No module named 'sales.deal_ingestion_routes'\nINFO:main_api_app:\u2713 Skill Management & Execution Routes Loaded\nINFO:main_api_app:\u2713 Learn Routes Loaded (workflow\u2192skill distillation)\nINFO:main_api_app:\u2713 Admin Skill & Evolution Routes Loaded\nINFO:main_api_app:\u2713 Workflow UI Endpoints Loaded\nINFO:main_api_app:\u2713 Time-Travel Endpoints Loaded\nWARNING:main_api_app:Test deployed routes not found: No module named 'api.routes.test_deployed_routes'\nINFO:main_api_app:\u2713 Messaging OAuth (BYOK) Routes Loaded\nINFO:main_api_app:\u2713 Explicit Outlook Integration Routes Loaded at /api/integrations/outlook\nINFO:main_api_app:\u2713 Shopify REST routes loaded\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for whatsapp\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for slack\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for email\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for telegram\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for discord\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for sms\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for calls\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for microsoft_teams\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for zoom\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for notion\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for linear\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for outlook\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for gmail\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for salesforce\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for asana\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for dropbox\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for box\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for tableau\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for zoho\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for xero\nINFO:integrations.atom_communication_ingestion_pipeline:Configured ingestion for quickbooks\nWARNING:main_api_app:Razorpay routes not found, skipping: No module named 'api.routes.integrations'\nWARNING:integrations.trello_service:TrelloService for tenant default...: credentials not found. Service will be disabled.\nWARNING:root:Enterprise services not available: No module named 'ai_enhanced_service'\nINFO:integrations.atom_hubspot_integration_service:HubSpot Integration Service initialized\nWARNING:main_api_app:SageHR routes not found, skipping: No module named 'api.routes.integrations'\nINFO:main_api_app:Loading Slack webhooks...\nINFO:main_api_app:\u2713 Slack webhooks loaded\nINFO:main_api_app:Loading Shopify webhooks...\nINFO:main_api_app:\u2713 Shopify webhooks loaded\nINFO:main_api_app:Loading Twilio webhooks...\nINFO:main_api_app:\u2713 Twilio webhooks loaded\nINFO:main_api_app:\u2713 Standardized Webhook Endpoints Loaded\nINFO:main_api_app:\u2713 Admin Routes Loaded\nINFO:main_api_app:\u2713 2FA Routes Loaded\nWARNING:api.onboarding_routes:onboarding column ensure failed: (sqlite3.OperationalError) no such table: users\n[SQL: ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nWARNING:api.onboarding_routes:onboarding column ensure failed: (sqlite3.OperationalError) no such table: users\n[SQL: ALTER TABLE users ADD COLUMN onboarding_step VARCHAR DEFAULT 'welcome']\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:main_api_app:\u2713 ACP bridge mounted at /acp/ws\nINFO:main_api_app:\u2713 A2A endpoint mounted at /api/a2 (+ /.well-known/agent-card.json)\nINFO:main_api_app:\u2713 OIDC SSO mounted at /api/auth/sso/oidc\nINFO:main_api_app:\u2713 SCIM v2 mounted at /api/scim/v2\nINFO:main_api_app:\u2713 Observability mounted at /api/observability\nINFO:main_api_app:\u2713 BambooHR integration mounted at /api/bamboohr\nINFO:main_api_app:\u2713 Twitter/X integration mounted at /api/twitter\nINFO:main_api_app:\u2713 MCP Routes Loaded\nINFO:main_api_app:\u2713 Availability Routes Loaded\nINFO:main_api_app:\u2713 Proposal Routes Loaded\nINFO:main_api_app:\u2713 Supervision-Learning Routes Loaded\nINFO:main_api_app:\u2713 Integrations Catalog Routes Loaded\nINFO:main_api_app:\u2713 Dynamic Options Routes Loaded\nINFO:main_api_app:\u2713 Webhook Routes Loaded\nINFO:main_api_app:\u2713 Universal Auth Routes Loaded\nINFO:main_api_app:\u2713 Meta Compliance Routes Loaded\nINFO:main_api_app:\u2713 Consolidated Hardened WhatsApp Routes Loaded\nINFO:main_api_app:\u2713 External Integration Routes Loaded\nINFO:main_api_app:\u2713 Connection Management Routes Loaded\nINFO:main_api_app:\u2713 Integration Status Routes Loaded\nINFO:services.agent_service:ComputerUseAgent initialized for tenant default\nINFO:ai.workflow_scheduler:WorkflowScheduler using SQLAlchemyJobStore\nWARNING:integrations.chat_orchestrator:Accounting service modules not importable \u2014 finance chat handlers degraded\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:integrations.chat_orchestrator:ChatOrchestrator initialized with LLMService for tenant: default\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:ai.nlp_engine:NaturalLanguageEngine initialized with LLMService for tenant: default\nINFO:integrations.slack_enhanced_service:Slack Enhanced Service initialized\nINFO:integrations.chat_orchestrator:Loaded 0 persisted sessions from file.\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:integrations.chat_orchestrator:ChatOrchestrator initialized with LLMService for tenant: default\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nWARNING:core.llm.byok_handler:Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog\n[SQL: SELECT model_catalog.model_id AS model_catalog_model_id \nFROM model_catalog \nWHERE model_catalog.exclude_from_general_routing = 1]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\nINFO:ai.nlp_engine:NaturalLanguageEngine initialized with LLMService for tenant: default\nINFO:integrations.slack_enhanced_service:Slack Enhanced Service initialized\nINFO:integrations.chat_orchestrator:Loaded 0 persisted sessions from file.\nINFO:main_api_app:\u2713 Chat Routes Loaded (incl. /api/chat/feedback, /api/chat/routing-stats)\nINFO:main_api_app:\u2713 Agent Governance Routes Loaded\nINFO:main_api_app:\u2713 HITL Approvals Alias Routes Loaded (/api/agents/approvals)\nINFO:main_api_app:\u2713 Enterprise User Management Routes Loaded (/api/enterprise/users|roles|teams|workspaces)\nWARNING:core.atom_saas_client:ATOM_SAAS_API_TOKEN not set - API calls to Atom SaaS may fail\nINFO:main_api_app:\u2713 Workflow Marketplace Routes Loaded (/api/marketplace/*)\nINFO:main_api_app:\u2713 Agent Maturity Journey Routes Loaded (/api/maturity)\nINFO:main_api_app:\u2713 Protection API Routes Loaded (Skill Scanner)\nINFO:main_api_app:\u2713 User Preference Routes Loaded\nINFO:main_api_app:\u2713 Canvas Terminal Routes Loaded\nINFO:main_api_app:\u2713 Browser Automation Routes Loaded\n['', '/Users/rushiparikh/projects/atom/backend/venv/lib/python3.11/site-packages/cv2', '/private/tmp/j45-r18/backend', '/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/lib/python311.zip', '/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/lib/python3.11', '/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/lib/python3.11/lib-dynload', '/Users/rushiparikh/projects/atom/backend/venv/lib/python3.11/site-packages', '/private/tmp/j45-r18/backend/integrations/..']\n{\"level\": \"INFO\", \"message\": \"Device WebSocket module loaded - real device communication enabled\", \"timestamp\": \"2026-10-14T13:58:55.437652+00:00\", \"logger\": \"tools.device_tool\", \"module\": \"structured_logger\", \"function\": \"_log\", \"line\": 118}\nINFO:tools.device_tool:Device WebSocket module loaded - real device communication enabled\nINFO:main_api_app:\u2713 Device Capabilities Routes Loaded\nINFO:main_api_app:\u2713 Canvas Recording Routes Loaded\nINFO:main_api_app:\u2713 Autonomy Routes Loaded (action HITL policy)\nINFO:main_api_app:\u2713 Meeting Routes Loaded (attendance tracking)\nINFO:main_api_app:\u2713 Custom Components Routes Loaded\nINFO:main_api_app:\u2713 Canvas Email Routes Loaded (/api/canvas/email)\nINFO:main_api_app:\u2713 Canvas PDF Routes Loaded (/api/canvas/pdf)\nINFO:main_api_app:\u2713 Installation Profile Routes Loaded (/api/installation)\nINFO:main_api_app:\u2713 Playbook Routes Loaded (/api/playbooks)\nINFO:main_api_app:\u2713 Goal Run Routes Loaded (/api/goal-runs)\nINFO:main_api_app:\u2713 Goal Routes Loaded (/api/goals)\nINFO:main_api_app:\u2713 Usage Analytics Routes Loaded\nINFO:main_api_app:\u2713 Health Monitoring Routes Loaded\nINFO:main_api_app:\u2713 Ported Features (Canvas/Agent) Processing Complete\nINFO:main_api_app:\u2713 Governance Analytics & Remediation Routes Loaded\nINFO:main_api_app:\u2713 Memory Routes Loaded\nINFO:main_api_app:\u2713 Memory Management Routes Loaded (Consolidation, Archival, Recovery)\nINFO:main_api_app:\u2713 Memory Add-on Routes Loaded (Stripe Billing)\nINFO:main_api_app:\u2713 Document & Data Ingestion Routes Loaded\nINFO:main_api_app:\u2713 Document Hub Routes Loaded\nINFO:main_api_app:\u2713 Experience Marketplace Routes Loaded\nINFO:main_api_app:\u2713 Agent Marketplace Routes Loaded\nINFO:main_api_app:\u2713 Test Routes Loaded\nINFO:main_api_app:\u2713 AI Workflows Routes Loaded\nINFO:main_api_app:\u2713 Background Agent Routes Loaded\nWARNING:main_api_app:Integration Data routes not found, skipping: No module named 'api.routes.integrations'\nINFO:main_api_app:\u2713 Integration Data Routes Loaded\nINFO:main_api_app:\u2713 Integration & Service Health Routes Loaded\nINFO:main_api_app:\u2713 Historical Sync Routes Loaded\nINFO:main_api_app:\u2713 Worker Routes Loaded\nINFO:main_api_app:\u2713 Component Marketplace Routes Loaded\nINFO:main_api_app:\u2713 Agent Coordination Routes Loaded\nINFO:main_api_app:\u2713 OpenClaw Skill Integration Routes Loaded\nINFO:main_api_app:\u2713 OpenClaw Scan Integration Routes Loaded\nINFO:main_api_app:\u2713 OpenClaw Governance Integration Routes Loaded\nINFO:main_api_app:\u2713 Skill Composition Routes Loaded\nINFO:main_api_app:\u2713 Live Command Center APIs Loaded (Comm, Sales, Projects, Finance)\nINFO:main_api_app:\u2713 Scheduler Routes Loaded (QStash Ready)\nINFO:main_api_app:\u2713 Desktop Bridge Routes Loaded\nINFO:main_api_app:\u2713 Satellite Routes Loaded\nINFO:main_api_app:\u2713 Mobile Routes Loaded\nINFO:main_api_app:\u2713 Invitation Routes Loaded\nINFO:main_api_app:\u2713 Support Ticketing Routes Loaded\nINFO:main_api_app:\u2713 Bug Triage Routes Loaded\nINFO:main_api_app:\u2713 Communication Hub Routes Loaded\nINFO:main_api_app:\u2713 Universal Communication Routes Loaded\nINFO:main_api_app:\u2713 Document Hub Routes Loaded\nINFO:main_api_app:\u2713 Admin Retention Routes Loaded\nINFO:main_api_app:\u2713 Billing Routes Loaded\nINFO:main_api_app:\u2713 Public Pricing Routes Loaded\nINFO:main_api_app:\u2713 Social Media Routes Loaded\nINFO:main_api_app:\u2713 Audit Log Routes Loaded\nINFO:main_api_app:\u2713 Shell Security Routes Loaded\nWARNING:api.marketing_routes:Enterprise services not available: ai_enhanced_service module not found. Using stub.\nINFO:main_api_app:\u2713 Consolidated Core Routes Loaded (Intelligence, Marketing, Skills, Memory)\nINFO:main_api_app:\u2713 BYOK API Routes Loaded\nINFO:main_api_app:\u2713 LLM Gateway Routes Loaded\nINFO:main_api_app:\u2713 MCP Server Routes Loaded\nINFO:main_api_app:\u2713 SSO API Routes Loaded\nINFO:main_api_app:\u2713 Feature Flag Routes Loaded\nINFO:main_api_app:\u2713 Sandbox Execution Routes Loaded\nINFO:main_api_app:\u2713 External API Routes Loaded\nINFO:main_api_app:\u2713 Entity Type Routes Loaded\nINFO:main_api_app:\u2713 Entity Query Routes Loaded\nINFO:main_api_app:\u2713 Entity Linking Routes Loaded\nINFO:main_api_app:\u2713 Ingestion CRUD Routes Loaded\nINFO:main_api_app:\u2713 Entity Skill Routes Loaded\nINFO:main_api_app:\u2713 Agent Integration Routes Loaded\nINFO:main_api_app:\u2713 Meta Agent Routes Loaded\nINFO:main_api_app:\u2713 Admin Integration Catalog Routes Loaded\nINFO:main_api_app:\u2713 Domain Marketplace Routes Loaded\nINFO:main_api_app:\u2713 Agent-Domain Routes Loaded\nINFO:main_api_app:\u2713 Agent Marketplace Routes Loaded\nINFO:main_api_app:\u2713 Domain-Aware Graduation Routes Loaded\nINFO:main_api_app:\u2713 Capability Matrix Routes Loaded\nINFO:main_api_app:\u2713 Learning & Adaptation Routes Loaded\nINFO:main_api_app:\u2713 Stage Router Management Routes Loaded\nINFO:main_api_app:\u2713 Learning Router Management Routes Loaded\nINFO:main_api_app:\u2713 Admin Runtime Settings Routes Loaded\nINFO:main_api_app:\u2713 BPE Workspace Admin Routes Loaded\nINFO:main_api_app:\u2713 Fleet Router Management Routes Loaded\nINFO:main_api_app:\u2713 Decision Plane Management Routes Loaded\nINFO:main_api_app:\u2713 Decision Automation Loop Scheduled (mode=approve)\nINFO:main_api_app:\u2713 Org-Politics Management Routes Loaded\nINFO:main_api_app:\u2713 Org-Politics Automation Loop Scheduled (mode=auto)\nINFO:main_api_app:\u2713 Trust Calibration Routes Loaded (shadow, flag-gated)\nINFO:main_api_app:\u2713 Ontology Draft Automation Routes Loaded\nINFO:main_api_app:\u2713 Core Routes Loaded Successfully\nINFO:main_api_app:\u2713 Microsoft 365 Routes Loaded (isolated)\nINFO:main_api_app:\u2705 Debug endpoints enabled\nINFO:main_api_app:============================================================\nINFO:main_api_app:ATOM Platform Starting (Hybrid Mode)\nINFO:main_api_app:============================================================\nINFO:main_api_app:faulthandler: SIGUSR1 dumps thread stacks to stderr\nINFO:main_api_app:Initializing database tables...\nINFO:main_api_app:\u2713 Database tables initialized\nINFO:main_api_app:\u2713 documents.search FTS index ready\nINFO:main_api_app:Bootstrapping essential data (admin, tenants)...\nINFO:ATOM_BOOTSTRAP:BOOTSTRAP: User admin@example.com not found. Creating...\nINFO:ATOM_BOOTSTRAP:BOOTSTRAP: Created admin@example.com\nINFO:ATOM_BOOTSTRAP:BOOTSTRAP: Creating default tenant...\nINFO:ATOM_BOOTSTRAP:BOOTSTRAP: Creating default workspace...\nINFO:ATOM_BOOTSTRAP:BOOTSTRAP: Default tenant and workspace ensured.\nINFO:ATOM_BOOTSTRAP:BOOTSTRAP: Created onboarding Demo Assistant agent (id=925655eb-1b39-49eb-b1c4-57c7cb2cc40b)\nINFO:main_api_app:\u2713 Bootstrap complete\nINFO:core.personal_template_seeder:Seeded 3 personal starter template(s)\nINFO:main_api_app:\u2713 Seeded 3 personal starter template(s)\nINFO:main_api_app:Loaded integrations so far: ['zoho_workdrive', 'outlook', 'monday', 'xero', 'oauth', 'whatsapp', 'telegram', 'system_status', 'auth', 'service_health', 'gitlab', 'dropbox']\nINFO:core.execution_recovery:Crash recovery: no orphaned executions found\nINFO:main_api_app:Terminal-delivery recovery task started (outside the scheduler gate)\nINFO:main_api_app:Research continuation worker started (outside the scheduler gate)\nINFO:ai.workflow_scheduler:Setting sales pipeline to SCHEDULED (*/30 * * * *)\nINFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts\nINFO:ai.workflow_scheduler:Setting projects pipeline to SCHEDULED (*/15 * * * *)\nINFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts\nINFO:ai.workflow_scheduler:\u2713 System Memory Pipelines (Re)Scheduled\nWARNING:main_api_app:Workflow scheduler failed to start: cannot pickle '_thread.lock' object\nINFO:apscheduler.scheduler:Scheduler started\nINFO:core.scheduler:AgentScheduler started.\nINFO:core.scheduler:Loaded 0 agents into scheduler.\nINFO:ai.intelligence_background_worker:IntelligenceBackgroundWorker started with interval 300s\nINFO:integrations.fact_watch_providers:fact watch providers registered: zoho_inventory/inventory_item\nINFO:core.fact_watch:fact watch poller started (every 300s)\nINFO:core.hybrid_data_ingestion:HybridDataIngestionService initialized for default / default\nINFO:core.lancedb_handler:Creating isolated LanceDBHandler for workspace: default at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory/default\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5813897040. LANCEDB_AVAILABLE: True\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:main_api_app:\u2713 Hybrid ingestion scheduled-sync loop started\nINFO:core.app_dataset_sync:app dataset sync loop started (60min interval)\n{\"level\": \"WARNING\", \"message\": \"Redis unavailable - webhook ingestion will process synchronously\", \"timestamp\": \"2026-10-14T13:58:56.589846+00:00\", \"logger\": \"core.webhook_ingestion_triggers\", \"module\": \"structured_logger\", \"function\": \"_log\", \"line\": 118}\nWARNING:core.webhook_ingestion_triggers:Redis unavailable - webhook ingestion will process synchronously\nINFO:main_api_app:\u2713 Webhook ingestion queue worker started\nINFO:core.integration_startup_reconciliation:Integration token reconciliation: 0 tokens, 0 active, 0 orphaned (deactivated), 0 stale-expired (reported)\nINFO:core.agent_event_bus:\u2139\ufe0f Initializing AgentEventBus in Postgres mode (Fallback)\nINFO:main_api_app:\u2713 Postgres Event Bus listener running\nINFO:main_api_app:\u2713 AI Workflow Service initialized\nWARNING:main_api_app:QStash schedule cleanup skipped: No module named 'qstash'\nINFO:main_api_app:\u2713 Activity State Worker running\nINFO:main_api_app:\u2713 Queue Processing Worker running\nINFO:main_api_app:\u2713 Token Refresh Worker running\nINFO:main_api_app:\u2713 Telegram Polling Worker running (webhook mode disabled)\nINFO:main_api_app:\u2713 Ontology draft automation enabled (mode=None, interval=60.0min)\nINFO:main_api_app:\u2713 Memory Consolidation Worker running (24.0h)\nINFO:main_api_app:\u2713 Webhook Renewal loop started\nINFO:core.auto_dev.reflection_engine:ReflectionEngine registered on event bus\nINFO:main_api_app:\u2713 Auto-Dev ReflectionEngine registered on event bus\nINFO:main_api_app:\u2713 POMDP Memory Consolidation background task started (6h interval)\nINFO:main_api_app:\u2713 Exchange memory maintenance background task started\nINFO:main_api_app:============================================================\nINFO:main_api_app:\u2713 Server Ready\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task started (interval 60s, lease 300s)\nINFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery: {'candidates': 0, 'deferred_in_flight': 0, 'delivered': 0, 'failed': 0}\nINFO:core.research_continuation:[research-continuation] durable research worker started (interval 45s, max 4 reads/cycle GLOBAL)\nINFO:core.hybrid_data_ingestion:Starting scheduled sync service for workspace default\n{\"level\": \"INFO\", \"message\": \"Webhook ingestion worker not started - Redis unavailable (enqueues process synchronously instead)\", \"timestamp\": \"2026-10-14T13:58:56.626016+00:00\", \"logger\": \"core.webhook_ingestion_triggers\", \"module\": \"structured_logger\", \"function\": \"_log\", \"line\": 118}\nINFO:core.webhook_ingestion_triggers:Webhook ingestion worker not started - Redis unavailable (enqueues process synchronously instead)\nWARNING:core.agent_event_bus:PostgresEventBus requires PostgreSQL. Events will be local-only.\nINFO:workers.activity_state_worker:ActivityStateWorker started\nINFO:core.user_activity_service:State transition batch processed: 0 users, 0 transitions\nINFO:workers.activity_state_worker:ActivityStateWorker cycle completed in 0.00s\nINFO:workers.queue_processing_worker:QueueProcessingWorker started\nINFO:workers.queue_processing_worker:QueueProcessingWorker cycle completed in 0.00s\nINFO:workers.token_refresh_worker:TokenRefreshWorker started (interval=300s, window=600s)\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: starting long-poll loop\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory/default_shared with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:main_api_app:\u2713 LanceDB connection warmed\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:workers.memory_consolidation_worker:MemoryConsolidationWorker: starting (interval 24.0h)\nINFO:core.memory.memory_consolidation_service:POMDP Memory Consolidation initialized\nINFO:core.memory.memory_consolidation_service:Full-system consolidation not yet implemented\nINFO:core.memory.memory_consolidation_service:Consolidation cycle completed: {'consolidated': 0, 'patterns_extracted': 0, 'associations_strengthened': 0, 'expired': 0, 'duration_seconds': 2.7e-05}\nINFO:main_api_app:\u2713 POMDP memory consolidation cycle complete\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory/default with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence_transformers not available (error: dlopen(/Users/rushiparikh/projects/atom/backend/venv/lib/python3.11/site-packages/torch/_C.cpython-311-darwin.so, 0x0002): Library not loaded: @loader_path/libtorch_cpu.dylib\n  Referenced from: <93B052AD-B16C-3D0F-A6FC-DFFBB7CD9584> /Users/rushiparikh/projects/atom/backend/venv/lib/python3.11/site-packages/torch/lib/libtorch_python.dylib\n  Reason: tried: '/Users/rushiparikh/projects/atom/backend/venv/lib/python3.11/site-packages/torch/lib/libtorch_cpu.dylib' (no such file), '/usr/local/lib/libtorch_cpu.dylib' (no such file), '/usr/lib/libtorch_cpu.dylib' (no such file, not in dyld cache)), embeddings will be disabled\nWARNING:integrations.atom_communication_ingestion_pipeline:sentence-transformers unavailable \u2014 trying FastEmbed\nINFO:core.embedding_service:Loading FastEmbed model: BAAI/bge-small-en-v1.5\nINFO:integrations.atom_communication_ingestion_pipeline:Using FastEmbed (bge-small, 384-dim) for communication embeddings\nINFO:main_api_app:\u2713 FastEmbed model warmed\nINFO:integrations.atom_communication_ingestion_pipeline:Created atom_communications table (384-dim vectors)\nINFO:core.lancedb_index_selfheal:FTS index 'content_idx' (re)built on 'content' for lancedb 0.24.3\nINFO:integrations.atom_communication_ingestion_pipeline:FTS index enabled on 'content' column\nINFO:integrations.atom_communication_ingestion_pipeline:Created ingestion_metadata table\nINFO:integrations.atom_communication_ingestion_pipeline:LanceDB memory manager initialized successfully\nINFO:core.memory_context_assembler:integration records leg: ws=default role=None tables=[] (0 total)\nINFO:core.hybrid_retrieval_service:PyTorch not available, will use CPU for reranking\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nWARNING:core.hybrid_retrieval_service:sentence_transformers not available, reranking disabled\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.embedding_service:Generated 4 embeddings in batch\nINFO:main_api_app:\u2713 Memory assembler warmed\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/health\nINFO:core.runtime_identity:runtime identity: source_id=31bc390bc8e2-dirty.2751879cf38c revision=31bc390bc8e2 dirty=True (0 modified, 1 untracked)\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/health -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/auth/register\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/auth/register -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/auth/login\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/auth/login -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/auth/me\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/auth/me -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/local-models\nINFO:api.routes.local_model_routes:Registered local model provider 'journey-ollama' at http://localhost:11434/v1\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/local-models -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/local-models/10b6f7cd-b2c9-4bfc-a42b-8b63f223b512/models\nINFO:httpx:HTTP Request: GET http://localhost:11434/v1/models \"HTTP/1.1 200 OK\"\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/local-models/10b6f7cd-b2c9-4bfc-a42b-8b63f223b512/models -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/local-models/10b6f7cd-b2c9-4bfc-a42b-8b63f223b512/capabilities\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/local-models/10b6f7cd-b2c9-4bfc-a42b-8b63f223b512/capabilities -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/local-models/10b6f7cd-b2c9-4bfc-a42b-8b63f223b512/test\nINFO:httpx:HTTP Request: GET http://localhost:11434/v1/models \"HTTP/1.1 200 OK\"\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/local-models/10b6f7cd-b2c9-4bfc-a42b-8b63f223b512/test -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/document-ingestion/upload\nINFO:core.lancedb_handler:Creating isolated LanceDBHandler for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory/7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5962056720. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory/7c4cd55b-cc90-4098-b517-861f74d7af7d with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.lancedb_handler:Table 'documents' created successfully\nINFO:core.lancedb_handler:Document added to 'documents': 613d58ed-19e3-431f-b0ff-01e1d5a88fae\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/document-ingestion/upload -> 200\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/documents/search\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/documents/search -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/documents/search\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/documents/search -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/documents/search\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/documents/search -> 200\nINFO:main_api_app:\ud83d\udd04 Auto-loading integration on-demand: chat\nINFO:core.lazy_integration_registry:Loading integration: chat (integrations.chat_routes)\nINFO:core.lazy_integration_registry:\u2713 Loaded chat\nINFO:main_api_app:\u2713 Auto-loaded: chat\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/chat/message\nINFO:integrations.chat_routes:Processing chat message from user 458916a8-99a0-4bab-891e-6121370d9dcf: len=31 fp=392a64d01bad\nINFO:integrations.chat_routes:[CHATCTX] request.agent_id=None context=shape shape=\"NoneType\"\nINFO:core.chat_session_manager:Created DB session: 1c16ed78-0755-47c7-8d73-f5e641dccbb2\nINFO:integrations.chat_orchestrator:[DBG4] continuation-detection reached; bare=False\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.dynamic_pricing_fetcher:Auto-populating pricing cache synchronously...\nINFO:httpx:HTTP Request: GET https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json \"HTTP/1.1 200 OK\"\nINFO:core.dynamic_pricing_fetcher:Fetched 4097 model prices from LiteLLM\nINFO:httpx:HTTP Request: GET https://openrouter.ai/api/v1/models \"HTTP/1.1 200 OK\"\nINFO:core.dynamic_pricing_fetcher:Fetched 463 model prices from OpenRouter (incl. curated overrides)\nINFO:httpx:HTTP Request: GET https://opencode.ai/zen/v1/models \"HTTP/1.1 200 OK\"\nINFO:core.dynamic_pricing_fetcher:Fetched 85 model prices from OpenCode Zen\nINFO:core.dynamic_pricing_fetcher:Inferring capabilities for all models...\nINFO:core.dynamic_pricing_fetcher:Saved 4576 model prices to cache\nINFO:core.dynamic_pricing_fetcher:Pricing cache populated with 4576 models\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) \u2014 ranking all 0 candidates by cost\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nINFO:core.turn_decision:[turn-interpretation] empty \nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) \u2014 ranking all 0 candidates by cost\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:integrations.chat_orchestrator:[timeline] chat planner finished: 0.1s after the turn's canvas-edit clock started\nINFO:integrations.chat_orchestrator:[MEMCTX] agent_id=None\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.memory_context_assembler:integration records leg: ws=7c4cd55b-cc90-4098-b517-861f74d7af7d role=None tables=[] (0 total)\nINFO:core.graphrag_engine:Hybrid search: vector leg found 0 nodes\nINFO:core.graphrag_engine:Hybrid search: keyword leg found 0 nodes\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5970276880. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5970940944. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.embedding_service:Generated 4 embeddings in batch\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=0.9s elapsed=0.9s remaining=94.1s budget=95.0s\nINFO:integrations.chat_orchestrator:[timeline] planner awaited by the reply builder: 0.0s (already done when awaited: True)\nINFO:integrations.chat_orchestrator:[stage-timing] tool plan (overlapped=True): 0.0s\nINFO:integrations.chat_orchestrator:[derivation] workbook lane: no dataset block for this ask\nINFO:integrations.chat_orchestrator:[planner-boundary] research turn recovery state: research=False required=[] consulted=[] planned=False block=False turn_left=94s\nINFO:integrations.chat_orchestrator:[derivation] ask=False matched-row-evidence=False tool_block=450 chars named_file=False\nINFO:integrations.chat_orchestrator:tool plan executed: None\nINFO:integrations.chat_orchestrator:[prompt-budget] routing-default model=auto: input=1175 tokens (window=32000, output reservation=6000, fits=True, window estimated)\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nINFO:core.llm.learning_router_registry:[LearningRouter] auto-mode readiness: 0 verdict row(s) in the last 7d, 0 model(s) with >= 8 observations -> re-ranking not yet (static BPC ordering) (thresholds: >=30 rows, >=2 models)\nINFO:core.llm.byok_handler:Attempting stream with provider: ollama (requested: ollama) model=llama3.1:8b\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:httpx:HTTP Request: POST http://localhost:11434/v1/chat/completions \"HTTP/1.1 200 OK\"\nINFO:core.llm.byok_handler:[inflight] ollama/llama3.1:8b released by 'structured:chat' after 4.5s\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nINFO:core.learning_llm_router:Initialized router with 30 models\nINFO:core.llm.learning_router_registry:Learning router hydrated 0 feedback rows from DB\nINFO:core.llm.learning_router_registry:Learning router singleton initialized\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token_done'\nINFO:integrations.chat_orchestrator:[stage-timing] reply STREAMED: 6.7s to full text (ollama/llama3.1:8b, 37 chunks)\nINFO:integrations.chat_orchestrator:[stage-timing] reply generation: 6.8s (incl. tool plan + exec above)\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=6.8s turn_offset=0.9s elapsed=7.7s remaining=87.3s budget=95.0s\nINFO:integrations.chat_orchestrator:[verify-panel] skipped: mode=shadow high_stakes=False mission=False\nINFO:integrations.chat_orchestrator:[verify-panel] state: mode=shadow tool_block=True content=True mission=False\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:ai.nlp_engine:Parsing command: Who manages the Ashford office?\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nINFO:integrations.chat_orchestrator:Routing to features: [<FeatureType.SEARCH: 'search'>, <FeatureType.AI_ANALYTICS: 'ai_analytics'>]\nINFO:integrations.chat_orchestrator:Executing handler for FeatureType.SEARCH\nINFO:integrations.chat_orchestrator:Handler FeatureType.SEARCH succeeded\nINFO:integrations.chat_orchestrator:Executing handler for FeatureType.AI_ANALYTICS\nINFO:integrations.chat_orchestrator:Handler FeatureType.AI_ANALYTICS succeeded\nINFO:integrations.chat_orchestrator:Feature handling complete. Handled: True, Intent: ChatIntent.SEARCH_REQUEST\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=7.7s elapsed=7.7s remaining=87.3s budget=95.0s\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nWARNING:core.finalization:[apply-dbg] state=None work_turn=None noop=None success_in=True\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/chat/message\nINFO:integrations.chat_routes:Processing chat message from user 458916a8-99a0-4bab-891e-6121370d9dcf: len=76 fp=397f65034999\nINFO:integrations.chat_routes:[CHATCTX] request.agent_id=None context=shape shape=\"NoneType\"\nINFO:integrations.chat_orchestrator:[DBG4] continuation-detection reached; bare=False\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) \u2014 ranking all 0 candidates by cost\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nINFO:core.turn_decision:[turn-interpretation] empty \nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) \u2014 ranking all 0 candidates by cost\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:integrations.chat_orchestrator:[timeline] chat planner finished: 0.0s after the turn's canvas-edit clock started\nINFO:integrations.chat_orchestrator:[MEMCTX] agent_id=None\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.memory_context_assembler:integration records leg: ws=7c4cd55b-cc90-4098-b517-861f74d7af7d role=None tables=[] (0 total)\nINFO:core.graphrag_engine:Hybrid search: vector leg found 0 nodes\nINFO:core.graphrag_engine:Hybrid search: keyword leg found 0 nodes\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 6147366032. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 6145330960. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.embedding_service:Generated 4 embeddings in batch\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=0.3s elapsed=0.3s remaining=94.7s budget=95.0s\nINFO:integrations.chat_orchestrator:[timeline] planner awaited by the reply builder: 0.0s (already done when awaited: True)\nINFO:integrations.chat_orchestrator:[stage-timing] tool plan (overlapped=True): 0.0s\nINFO:integrations.chat_orchestrator:[derivation] workbook lane: no dataset block for this ask\nINFO:integrations.chat_orchestrator:[planner-boundary] research turn recovery state: research=False required=[] consulted=[] planned=False block=False turn_left=95s\nINFO:integrations.chat_orchestrator:[derivation] ask=False matched-row-evidence=False tool_block=450 chars named_file=False\nINFO:integrations.chat_orchestrator:tool plan executed: None\nINFO:integrations.chat_orchestrator:[prompt-budget] routing-default model=auto: input=1197 tokens (window=32000, output reservation=6000, fits=True, window estimated)\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.byok_handler:Attempting stream with provider: ollama (requested: ollama) model=llama3.1:8b\nINFO:httpx:HTTP Request: POST http://localhost:11434/v1/chat/completions \"HTTP/1.1 200 OK\"\nINFO:core.llm.byok_handler:[inflight] ollama/llama3.1:8b released by 'structured:chat' after 0.4s\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token_done'\nINFO:integrations.chat_orchestrator:[stage-timing] reply STREAMED: 1.0s to full text (ollama/llama3.1:8b, 28 chunks)\nINFO:integrations.chat_orchestrator:[stage-timing] reply generation: 1.0s (incl. tool plan + exec above)\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=1.0s turn_offset=0.3s elapsed=1.3s remaining=93.7s budget=95.0s\nINFO:integrations.chat_orchestrator:[verify-panel] state: mode=shadow tool_block=True content=True mission=False\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.self_consistency_voter:SC fan-out: 0 candidate(s) available; running all samples unpinned\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.self_consistency_voter:SC fan-out: 0 candidate(s) available; running all samples unpinned\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'\nINFO:ai.nlp_engine:Parsing command: If I need something handled at the Bellhaven location, who should I talk to?\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nINFO:integrations.chat_orchestrator:Routing to features: [<FeatureType.SEARCH: 'search'>, <FeatureType.AI_ANALYTICS: 'ai_analytics'>]\nINFO:integrations.chat_orchestrator:Executing handler for FeatureType.SEARCH\nINFO:integrations.chat_orchestrator:Handler FeatureType.SEARCH succeeded\nINFO:integrations.chat_orchestrator:Executing handler for FeatureType.AI_ANALYTICS\nINFO:integrations.chat_orchestrator:Handler FeatureType.AI_ANALYTICS succeeded\nINFO:integrations.chat_orchestrator:Feature handling complete. Handled: True, Intent: ChatIntent.SEARCH_REQUEST\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=1.3s elapsed=1.3s remaining=93.7s budget=95.0s\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nWARNING:core.finalization:[apply-dbg] state=None work_turn=None noop=None success_in=True\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] POST /api/chat/message\nINFO:integrations.chat_routes:Processing chat message from user 458916a8-99a0-4bab-891e-6121370d9dcf: len=31 fp=8ffa8df6f217\nINFO:integrations.chat_routes:[CHATCTX] request.agent_id=None context=shape shape=\"NoneType\"\nINFO:integrations.chat_orchestrator:[DBG4] continuation-detection reached; bare=False\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) \u2014 ranking all 0 candidates by cost\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nINFO:core.turn_decision:[turn-interpretation] empty \nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:httpx:HTTP Request: GET http://localhost:11434/api/tags \"HTTP/1.1 200 OK\"\nWARNING:core.llm.byok_handler:BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) \u2014 ranking all 0 candidates by cost\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:integrations.chat_orchestrator:[timeline] chat planner finished: 0.0s after the turn's canvas-edit clock started\nINFO:integrations.chat_orchestrator:[MEMCTX] agent_id=None\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.byok_handler:Loaded local provider 'journey-ollama' (ollama) at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=7c4cd55b-cc90-4098-b517-861f74d7af7d\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:core.memory_context_assembler:integration records leg: ws=7c4cd55b-cc90-4098-b517-861f74d7af7d role=None tables=[] (0 total)\nINFO:core.graphrag_engine:Hybrid search: vector leg found 0 nodes\nINFO:core.graphrag_engine:Hybrid search: keyword leg found 0 nodes\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 6147628368. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1\nINFO:core.llm.escalation_manager:EscalationManager initialized\nINFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default\nINFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default\nINFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5955009232. LANCEDB_AVAILABLE: True\nINFO:core.lancedb_handler:Lazy loading LanceDB connection...\nINFO:core.lancedb_handler:Connecting to LanceDB at /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/data/atom_memory with storage_options=None\nINFO:core.lancedb_handler:LanceDB connected successfully\nINFO:core.embedding_service:Generated 4 embeddings in batch\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=0.3s elapsed=0.3s remaining=94.7s budget=95.0s\nINFO:integrations.chat_orchestrator:[timeline] planner awaited by the reply builder: 0.0s (already done when awaited: True)\nINFO:integrations.chat_orchestrator:[stage-timing] tool plan (overlapped=True): 0.0s\nINFO:integrations.chat_orchestrator:[derivation] workbook lane: no dataset block for this ask\nINFO:integrations.chat_orchestrator:[planner-boundary] research turn recovery state: research=False required=[] consulted=[] planned=False block=False turn_left=95s\nINFO:integrations.chat_orchestrator:[derivation] ask=False matched-row-evidence=False tool_block=450 chars named_file=False\nINFO:integrations.chat_orchestrator:tool plan executed: None\nINFO:integrations.chat_orchestrator:[prompt-budget] routing-default model=auto: input=1227 tokens (window=32000, output reservation=6000, fits=True, window estimated)\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.byok_handler:Attempting stream with provider: ollama (requested: ollama) model=llama3.1:8b\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\nINFO:httpx:HTTP Request: POST http://localhost:11434/v1/chat/completions \"HTTP/1.1 200 OK\"\nINFO:core.llm.byok_handler:[inflight] ollama/llama3.1:8b released by 'structured:chat' after 0.5s\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token'\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:458916a8-99a0-4bab-891e-6121370d9dcf'. type='chat_token_done'\nINFO:integrations.chat_orchestrator:[stage-timing] reply STREAMED: 2.0s to full text (ollama/llama3.1:8b, 69 chunks)\nINFO:integrations.chat_orchestrator:[stage-timing] reply generation: 2.0s (incl. tool plan + exec above)\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=2.0s turn_offset=0.3s elapsed=2.3s remaining=92.7s budget=95.0s\nINFO:integrations.chat_orchestrator:[verify-panel] state: mode=shadow tool_block=True content=True mission=False\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.self_consistency_voter:SC fan-out: 0 candidate(s) available; running all samples unpinned\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nINFO:core.llm.self_consistency_voter:SC fan-out: 0 candidate(s) available; running all samples unpinned\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'\nINFO:ai.nlp_engine:Parsing command: Who manages the Dunmore office?\nWARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate \u2014 re-ranking once without it (a slow answer inside the deadline beats no answer)\nWARNING:core.llm.byok_handler:Managed AI blocked for free tier workspace default\nINFO:integrations.chat_orchestrator:Routing to features: [<FeatureType.SEARCH: 'search'>, <FeatureType.AI_ANALYTICS: 'ai_analytics'>]\nINFO:integrations.chat_orchestrator:Executing handler for FeatureType.SEARCH\nINFO:integrations.chat_orchestrator:Handler FeatureType.SEARCH succeeded\nINFO:integrations.chat_orchestrator:Executing handler for FeatureType.AI_ANALYTICS\nINFO:integrations.chat_orchestrator:Handler FeatureType.AI_ANALYTICS succeeded\nINFO:integrations.chat_orchestrator:Feature handling complete. Handled: True, Intent: ChatIntent.SEARCH_REQUEST\nINFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=2.3s elapsed=2.3s remaining=92.7s budget=95.0s\nWARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'\nWARNING:core.finalization:[apply-dbg] state=None work_turn=None noop=None success_in=True\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] POST /api/chat/message -> 200\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/getUpdates \"HTTP/1.1 409 Conflict\"\nINFO:httpx:HTTP Request: POST https://api.telegram.org/bot8872731297:AAERuglf9wCttm_zIta2WYoXJgwlUnZ8gdA/deleteWebhook \"HTTP/1.1 200 OK\"\nINFO:workers.telegram_polling_worker:TelegramPollingWorker: deleted registered webhook (polling mode)\nWARNING:workers.telegram_polling_worker:TelegramPollingWorker: getUpdates error: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running",
+  "world_db_path": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_j4_r18_opqkyu94/run"
+}

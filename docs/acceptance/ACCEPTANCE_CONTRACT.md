@@ -66,7 +66,7 @@ Evidence lives in `journey_matrix/`. Registry + runner:
 
 | ID | Journey | What must actually work |
 |----|---------|--------------------------|
-| J1 | Fresh setup | Install via quickstart, start, sign in, create workspace; required configuration is **effective** in the running server (not merely present) |
+| J1 | Fresh setup | Install via quickstart, start, sign in, create workspace; required configuration is **effective** in the running server (not merely present); the first-run onboarding wizard **completes and persists** (an ordinary "Start Automating" click; reload/sign-in does not reopen it) |
 | J2 | Model setup | Add one BYOK provider or local inference through the product; a real reply comes back; tool planning selects a tool for a tool-shaped ask |
 | J3 | Source connection | Connect/ingest one source through the product; the authorized workspace can retrieve it; **another workspace cannot** |
 | J4 | Research | A fresh request produces source-bound findings; uncertainty is preserved when sources don't answer; results survive reload |

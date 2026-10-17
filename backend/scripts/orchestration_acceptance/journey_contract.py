@@ -11,10 +11,18 @@ Commands:
   --list                     print the matrix (default)
   --record A_ID --status verified|failing|untested
                  [--evidence PATH] [--notes "..."]
-                 [--campaign ID]     write one status record
+                 [--campaign ID]
+                 [--tested-candidate CANDIDATE] [--tested-config "..."]
+                                     write one status record; verified
+                                     records REQUIRE --tested-candidate
   --check                    exit 1 if any journey is FAILING
                              (--strict: also exit 1 on any UNTESTED)
   --json                     machine-readable matrix on stdout
+
+Each record separates the RECORDING identity (`identity`: the checkout
+that wrote the record, captured automatically) from the TESTED candidate
+(`tested_candidate`/`tested_config`: what the evidence was actually
+produced on). Notes must never be the only place that distinction lives.
 
 Evidence pointers point into journey_matrix/ (results JSONs carry no
 secrets and are safe to commit). Privileged-world harness files listed
@@ -62,6 +70,12 @@ JOURNEYS: List[Dict[str, Any]] = [
          {"id": "J1.workspace",
           "check": "create a workspace through the product; it appears "
                    "after reload"},
+         {"id": "J1.onboarding-completion",
+          "check": "an ordinary 'Start Automating' click in the first-run "
+                   "wizard completes onboarding: the update persists "
+                   "server-side, the wizard closes, and a reload/sign-in "
+                   "does not reopen it; failures stay visible and never "
+                   "falsely mark completion"},
      ]},
     {"id": "J2", "name": "Model setup",
      "assertions": [
@@ -326,6 +340,8 @@ def build_matrix(records: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
                 "harness": a.get("harness"),
                 "status": rec.get("status", "untested"),
                 "evidence": rec.get("evidence"),
+                "tested_candidate": rec.get("tested_candidate"),
+                "tested_config": rec.get("tested_config"),
                 "notes": rec.get("notes"),
                 "recorded_at": rec.get("recorded_at"),
                 "campaign": rec.get("campaign"),
@@ -350,7 +366,9 @@ def cmd_json() -> None:
 
 
 def cmd_record(a_id: str, status: str, evidence: Optional[str],
-               notes: Optional[str], campaign: Optional[str]) -> None:
+               notes: Optional[str], campaign: Optional[str],
+               tested_candidate: Optional[str] = None,
+               tested_config: Optional[str] = None) -> None:
     known = {a["id"] for j in JOURNEYS for a in j["assertions"]}
     if a_id not in known:
         raise SystemExit(f"unknown assertion id {a_id!r}; "
@@ -365,17 +383,29 @@ def cmd_record(a_id: str, status: str, evidence: Optional[str],
         "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00",
                                      time.gmtime()),
     }
+    # The candidate the EVIDENCE was produced on — stored separately from
+    # the recording checkout captured below as `identity` (correction
+    # 2026-10-17: notes alone must never carry this distinction).
+    if tested_candidate and tested_candidate.strip():
+        record["tested_candidate"] = tested_candidate.strip()
+    if tested_config and tested_config.strip():
+        record["tested_config"] = tested_config.strip()
     if status == "verified":
         # Review #3: an unauditable verified record is worse than untested.
         if not campaign or not campaign.strip():
             raise SystemExit("verified records require --campaign "
                              "(candidate/configuration identity context)")
+        if "tested_candidate" not in record:
+            raise SystemExit(
+                "verified records require --tested-candidate (the candidate "
+                "the evidence was produced on; the recording checkout is "
+                "stored separately in `identity`)")
         # Validate the pointer resolves, store the PORTABLE form the caller
         # gave (verifier note: absolute /Users/... paths in the registry are
         # non-portable).
         _validate_evidence(evidence)
         record["evidence_path"] = evidence.split("(")[0].strip()
-        record["identity"] = _candidate_identity()
+        record["identity"] = _candidate_identity()  # recording provenance
     records = load_records()
     records[a_id] = record
     save_records(records)
@@ -427,12 +457,18 @@ def main() -> int:
     ap.add_argument("--evidence")
     ap.add_argument("--notes")
     ap.add_argument("--campaign")
+    ap.add_argument("--tested-candidate",
+                    help="candidate the EVIDENCE was produced on (stored "
+                         "separately from the recording checkout identity)")
+    ap.add_argument("--tested-config",
+                    help="free-text configuration context of the tested "
+                         "candidate")
     args = ap.parse_args()
     if args.record:
         if not args.status:
             raise SystemExit("--record requires --status")
         cmd_record(args.record, args.status, args.evidence, args.notes,
-                   args.campaign)
+                   args.campaign, args.tested_candidate, args.tested_config)
         return 0
     if args.check:
         return cmd_check(args.strict, args.release, args.scope)

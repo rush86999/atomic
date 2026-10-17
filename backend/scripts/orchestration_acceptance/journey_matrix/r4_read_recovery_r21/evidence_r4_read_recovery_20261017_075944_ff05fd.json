@@ -1,0 +1,312 @@
+{
+  "journey": "R4-read-recovery",
+  "subject": "8615c28b755d422c6b43be5090f9904b8c6e1ef3",
+  "mode": "integrated_main_head",
+  "diagnostic_only": true,
+  "counted": false,
+  "guard": {
+    "pinned_runtime": "8615c28b755d422c6b43be5090f9904b8c6e1ef3",
+    "worktree": "/Users/rushiparikh/projects/atom-r4-successor",
+    "worktree_head": "e646b611d6739fd0791742e4561c25e0b2e2b297",
+    "runtime_dirty_entries": [],
+    "runtime_identical": true,
+    "guard_ok": true
+  },
+  "started_at": "2026-10-17T11:58:38+00:00",
+  "runtime_config": {
+    "provider_mode": "hybrid (cloud edit-plan rung + local reply lane)",
+    "edit_plan_pin": "deepseek/deepseek-v4-pro",
+    "local_only": "false",
+    "reply_lane": "product-registered local ollama llama3.1:8b",
+    "scratch_instrumentation": "ATOM_R4_LATCH=1 blocking latch on the ACTUAL serving lane (atomic post-commit checkpoint -> awaited block -> withhold on expiry; expiry consumed by both lanes) + ATOM_R4_DIAG=1 attributable counter with direct-lane coverage"
+  },
+  "identity": {
+    "mode": "configuration_parity_plus_public_api_smoke",
+    "source": {
+      "note": "no code export \u2014 configuration-parity checkout boot",
+      "commit": "e646b611d6739fd0791742e4561c25e0b2e2b297"
+    },
+    "config_digest": "f7a3502ea4d935e65fb9d3130f0a3414a4f6c95d1ec904bd0f6a0f35d9d1a0bd",
+    "storage": {
+      "scratch_root": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt",
+      "run_dir": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/run",
+      "database": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/run/atom.db",
+      "lancedb": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/data/atom_memory",
+      "byok_config": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/byok_config.json",
+      "byok_keys": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/byok_keys.json",
+      "byok_enc_key": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/byok_encryption_key"
+    }
+  },
+  "boot": {
+    "booted": true,
+    "seconds": 8.4,
+    "git_commit": "e646b611d673"
+  },
+  "user": {
+    "registered": true,
+    "email": "jprobe_b5bf8d53c9@example.com",
+    "id": "1a9f01eb-93a0-4e83-a483-22cfdf8a4b6d",
+    "workspace_id": "baa19100-aa3d-4a87-9613-dbcb94b2385d"
+  },
+  "provider_setup": {
+    "register": {
+      "http": 200,
+      "registered": true
+    },
+    "discover": {
+      "http": 200,
+      "count": 1
+    },
+    "capabilities": {
+      "http": 200
+    },
+    "test": {
+      "http": 200,
+      "ok": null
+    },
+    "provider_id": "09dc567c-93fa-4f97-9f65-88929eee505f"
+  },
+  "ollama_capability_report": {
+    "supports_tools": true,
+    "context_length": 8192
+  },
+  "pin_provider_setup": {
+    "pin_spec": "deepseek/deepseek-v4-pro",
+    "cloud_backed": true,
+    "store_http": 200,
+    "keys_visible": 1,
+    "decrypts": true
+  },
+  "restart_after_pin_store": {
+    "booted": true,
+    "seconds": 8.5,
+    "restart_number": 1
+  },
+  "setup": {
+    "create_http": 200,
+    "canvas_id": "d57a8bdd-1a1a-4129-893b-d166b26becf4",
+    "seed_http": 200
+  },
+  "upload": {
+    "http": 200,
+    "name": "Consolidated Price List 2019.xlsx"
+  },
+  "dataset_catalog": {
+    "entry_materialized": true,
+    "entries": 1
+  },
+  "barrier": {
+    "mode": "serving_lane_blocking_latch",
+    "checkpoint_seen": true,
+    "delivery_won": false,
+    "counter_events_at_barrier": 2,
+    "wait_s": 12.4
+  },
+  "checkpoint": {
+    "lane": "ask_complete",
+    "run_id": "4f776cbd-da7c-41df-b479-532a0f2b0c8a",
+    "operation_id": "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7",
+    "execution_id": "3e9ad507-8764-4724-a253-75431f3ce9d9",
+    "source_version": "66cc7a6f847709412771b537eb9614645cc865a0",
+    "checkpoint_verified": true,
+    "checkpoint_defect": "",
+    "committed_operation": {
+      "run_id": "4f776cbd-da7c-41df-b479-532a0f2b0c8a",
+      "operation_id": "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7",
+      "execution_id": "3e9ad507-8764-4724-a253-75431f3ce9d9",
+      "conversation_id": "447bfbc2-66fe-46ff-9100-5255313f3333",
+      "workspace_id": "baa19100-aa3d-4a87-9613-dbcb94b2385d",
+      "status": "applied",
+      "outcome": "read_succeeded",
+      "findings": [
+        {
+          "item": "FZ16",
+          "field": "price",
+          "column": "Unit price",
+          "raw": "88,410.25",
+          "parsed": {
+            "value": 88410.25,
+            "raw": "88,410.25",
+            "basis": "Unit price"
+          },
+          "value": "88,410.25",
+          "source": "Consolidated Price List 2019.xlsx!Prices!row8",
+          "source_file_name": "Consolidated Price List 2019.xlsx",
+          "sheet": "Prices",
+          "content_hash": "66cc7a6f847709412771b537eb9614645cc865a0",
+          "source_version": "66cc7a6f847709412771b537eb9614645cc865a0"
+        },
+        {
+          "item": "Haas VF-2",
+          "field": "price",
+          "column": "Unit price",
+          "raw": "48,000",
+          "parsed": {
+            "value": 48000.0,
+            "raw": "48,000",
+            "basis": "Unit price"
+          },
+          "value": "48,000",
+          "source": "Consolidated Price List 2019.xlsx!Prices!row2",
+          "source_file_name": "Consolidated Price List 2019.xlsx",
+          "sheet": "Prices",
+          "content_hash": "66cc7a6f847709412771b537eb9614645cc865a0",
+          "source_version": "66cc7a6f847709412771b537eb9614645cc865a0"
+        },
+        {
+          "item": "QT-250",
+          "field": "price",
+          "column": "Unit price",
+          "raw": "63,180",
+          "parsed": {
+            "value": 63180.0,
+            "raw": "63,180",
+            "basis": "Unit price"
+          },
+          "value": "63,180",
+          "source": "Consolidated Price List 2019.xlsx!Prices!row5",
+          "source_file_name": "Consolidated Price List 2019.xlsx",
+          "sheet": "Prices",
+          "content_hash": "66cc7a6f847709412771b537eb9614645cc865a0",
+          "source_version": "66cc7a6f847709412771b537eb9614645cc865a0"
+        }
+      ],
+      "findings_count": 3,
+      "source_version": "66cc7a6f847709412771b537eb9614645cc865a0"
+    },
+    "block_file_still_stands": true,
+    "no_expiry_record": true,
+    "no_assistant_delivery": true
+  },
+  "counter_at_barrier": {
+    "valid": true,
+    "defect": "",
+    "events": 2,
+    "associated_events": 2,
+    "invoked_seen": true,
+    "completed_seen": true,
+    "completion_hash_matches_version": true,
+    "ok": true
+  },
+  "kill": {
+    "signal": "SIGKILL",
+    "at_s": 12.5,
+    "while_delivery_blocked": true
+  },
+  "world_log_at_kill": " deepseek/aihubmix/deepseek-v4-pro excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4.1-Flash excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4.1-Flash excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Flash-0731 excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro-0813 excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/prism/deepseek-v4.1-flash excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/prism/deepseek-v4-flash excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4.1-Flash-Fast excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:structured gate: deepseek/vertex_ai/deepseek-ai/deepseek-v4.1-flash-maas excluded \u2014 not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))\nINFO:core.llm.byok_handler:BPC cost-priority provider diversity applied (task_type=planning)\nINFO:core.llm.byok_handler:BPC cost-priority active (task_type=planning): cheapest capable model local_09dc567c/llama3.1:8b (eff.cost=0.000e+00, quality=90, default score would have picked llama3.1:8b)\nINFO:core.llm.byok_handler:BPC Ranking Successful for simple: Top model llama3.1:8b (Value: 21600.00)\nINFO:core.llm.learning_router_registry:[LearningRouter] auto-mode readiness: 0 verdict row(s) in the last 7d, 0 model(s) with >= 8 observations -> re-ranking not yet (static BPC ordering) (thresholds: >=30 rows, >=2 models)\nINFO:core.llm.byok_handler:Structured generation (free, BYOK): local_09dc567c/llama3.1:8b\nINFO:core.llm.byok_handler:[structured-dispatch] local_09dc567c/llama3.1:8b route=structured-9d7e2ab6734e attempt=1 prompt_chars=1121 cap=6000 instructor_retries=2\nWARNING:core.llm.byok_handler:[structured-cancelled] local_09dc567c/llama3.1:8b route=structured-9d7e2ab6734e attempt=1 waited=11.9s reservation_released=true worker_may_still_run=true\nINFO:core.llm.byok_handler:[inflight] local_09dc567c/llama3.1:8b released by 'completion2:planning' after 11.9s\nINFO:core.turn_decision:[turn-interpretation] timeout \nINFO:core.chat_tool_planner:[item-filter] in=['VF-2', 'QT-250', 'FZ16', 'Haas VF-2'] sheets=['prices'] rownums=[] out=['VF-2', 'QT-250', 'FZ16', 'Haas VF-2']\nINFO:core.task_lifecycle:[job-work-ledger] settled run=4f776cbd op=52e73ddc added=0 resolved_total=0 open(actions=3 owner=0 exhausted=0)\nWARNING:core.research_continuation:[r4-latch][ask_complete] findings committed; delivery BLOCKED while /var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_u0_erwrt/data/r4_delivery_block exists",
+  "post_kill": {
+    "assistant_rows": 0,
+    "no_delivery_persisted": true,
+    "retrieve_ops": [
+      {
+        "operation_id": "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7",
+        "status": "applied",
+        "invoked": true,
+        "outcome": "read_succeeded",
+        "source_version": "66cc7a6f847709412771b537eb9614645cc865a0",
+        "findings_count": 3,
+        "requested_head": "Find the prices for the Haas VF-2, the Mazak QT-250 and the Chiron FZ16 in Consolidated Price List 2"
+      }
+    ]
+  },
+  "initial_read_proven": true,
+  "counter_baseline": {
+    "events": 2,
+    "error": ""
+  },
+  "restart_before_recovery": {
+    "booted": true,
+    "seconds": 8.3,
+    "restart_number": 2
+  },
+  "durable_after_restart": {
+    "retrieve_ops": [
+      {
+        "operation_id": "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7",
+        "status": "applied",
+        "invoked": true,
+        "outcome": "read_succeeded",
+        "source_version": "66cc7a6f847709412771b537eb9614645cc865a0",
+        "findings_count": 3,
+        "requested_head": "Find the prices for the Haas VF-2, the Mazak QT-250 and the Chiron FZ16 in Consolidated Price List 2"
+      }
+    ],
+    "assistant_rows": 0
+  },
+  "recovery_turn": {
+    "success": true,
+    "outcome": "partial",
+    "error_code": null,
+    "message_head": "From the previously retrieved results for Consolidated Price List 2019.xlsx (recovered after the restart - nothing was re-read):\n- **FZ16** - 88,410.25 (Unit price; Consolidated Price List 2019.xlsx!Prices!row8; version 66cc7a6f84770941)\n- **Haas VF-2** - 48,000 (Unit price; Consolidated Price List ",
+    "failed_request": false,
+    "execution_id": "66ce7b0c-acfd-4b78-94f8-2c53c97c801b",
+    "payload_verification": {
+      "ok": true,
+      "missing": []
+    },
+    "persisted_row": {
+      "id": "8f106c78-eafd-4c79-b84a-d3d94c69718a",
+      "content": "From the previously retrieved results for Consolidated Price List 2019.xlsx (recovered after the restart - nothing was re-read):\n- **FZ16** - 88,410.25 (Unit price; Consolidated Price List 2019.xlsx!Prices!row8; version 66cc7a6f84770941)\n- **Haas VF-2** - 48,000 (Unit price; Consolidated Price List 2019.xlsx!Prices!row2; version 66cc7a6f84770941)\n- **QT-250** - 63,180 (Unit price; Consolidated Price List 2019.xlsx!Prices!row5; version 66cc7a6f84770941)\nCoverage: 0/3 items matched (open: FZ16, Haas VF-2, QT-250)\nSource version: 66cc7a6f847709412771b537eb961464"
+    },
+    "deliveries_for_execution": [
+      {
+        "execution_id": "66ce7b0c-acfd-4b78-94f8-2c53c97c801b",
+        "message_id": "8f106c78-eafd-4c79-b84a-d3d94c69718a",
+        "operation_ids": [
+          "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7"
+        ],
+        "content_sha256": "6a986ee3e8804882d0749ca56df8a033bf502b4d74f4bc333c4b7fbfe8efab24"
+      }
+    ]
+  },
+  "evidence_counts": {
+    "counter_baseline_events": 2,
+    "retrieve_ops_at_kill": 1,
+    "retrieve_ops_after_recovery": 1,
+    "assistant_rows_after_recovery": 1,
+    "deliveries_after_recovery": [
+      {
+        "execution_id": "66ce7b0c-acfd-4b78-94f8-2c53c97c801b",
+        "message_id": "8f106c78-eafd-4c79-b84a-d3d94c69718a",
+        "operation_ids": [
+          "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7"
+        ],
+        "content_sha256": "6a986ee3e8804882d0749ca56df8a033bf502b4d74f4bc333c4b7fbfe8efab24"
+      }
+    ],
+    "counter_unchanged_after_recovery_defect": ""
+  },
+  "idempotency": {
+    "repeat_success": true,
+    "repeat_execution_id": "838277b9-1179-4626-b8a9-95f474365dc5",
+    "repeat_persisted_row": {
+      "id": "0ab6b959-ed61-4baa-8a68-a82e6900b1b1",
+      "content": "- **FZ16** - 88,410.25 (Unit price; Consolidated Price List 2019.xlsx!Prices!row8; version 66cc7a6f84770941)\n- **Haas VF-2** - 48,000 (Unit price; Consolidated Price List 2019.xlsx!Prices!row2; version 66cc7a6f84770941)\n- **QT-250** - 63,180 (Unit price; Consolidated Price List 2019.xlsx!Prices!row5; version 66cc7a6f84770941)\nCoverage: 0/3 items matched (open: FZ16, Haas VF-2, QT-250)\nSource version: 66cc7a6f847709412771b537eb961464\n\n(Delivered from the persisted scan result \u2014 re-rendered without re-reading the file; the narration model was not used.)"
+    },
+    "retrieve_ops_final": 1,
+    "assistant_rows_final": 2,
+    "deliveries_final": [
+      {
+        "execution_id": "66ce7b0c-acfd-4b78-94f8-2c53c97c801b",
+        "message_id": "8f106c78-eafd-4c79-b84a-d3d94c69718a",
+        "operation_ids": [
+          "52e73ddc-48dc-4d92-8acb-c4b87d4a28e7"
+        ],
+        "content_sha256": "6a986ee3e8804882d0749ca56df8a033bf502b4d74f4bc333c4b7fbfe8efab24"
+      }
+    ]
+  },
+  "failed_request_count": 0,
+  "checks": {
+    "checkpoint_verified": true,
+    "payload_matches": true,
+    "source_version_bound": false,
+    "counter_unchanged_after_recovery": true,
+    "first_delivery_bound": true,
+    "repeat_response_successful": true,
+    "counter_unchanged_after_repeat": true,
+    "repeat_delivery_bound": false,
+    "artifact_unchanged": true
+  },
+  "pass": false
+}
