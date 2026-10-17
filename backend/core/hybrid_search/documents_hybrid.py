@@ -481,6 +481,10 @@ class DocumentsHybridSearch:
                 "id": str(r.get("id") or ""),
                 "score": float(r.get("_distance", 1.0)),
                 "metadata": r.get("metadata") or {},
+                # Bounded body text for the tool lane: the chat renders the
+                # top hit's content so the reply can answer from the document
+                # (previews truncate before the fact in long files).
+                "text": str(r.get("text") or "")[:4000],
             }
             for r in rows
             if r.get("id")
@@ -657,6 +661,7 @@ class DocumentsHybridSearch:
                     "id": vid,
                     "title": title,
                     "preview": preview,
+                    "content": str(hit.get("text") or "")[:4000],
                     "modified": None,
                     "bridged": False,
                     "rrf": 1.0 / (RRF_K + rank),
@@ -686,6 +691,8 @@ class DocumentsHybridSearch:
             entry["rrf"] += 1.0 / (RRF_K + rank)
             if "vector" not in entry["legs"]:
                 entry["legs"].append("vector")
+            if hit.get("text"):
+                entry.setdefault("content", str(hit.get("text"))[:4000])
 
         fused = sorted(scores.values(), key=lambda e: (-e["rrf"], len(e["legs"])))
         return fused, unbridged
@@ -697,6 +704,7 @@ class DocumentsHybridSearch:
                 "id": e["id"],
                 "title": e["title"],
                 "preview": e["preview"],
+                "content": e.get("content"),
                 "score": round(e["rrf"], 6),
                 "modified": e["modified"],
                 "bridged": e["bridged"],

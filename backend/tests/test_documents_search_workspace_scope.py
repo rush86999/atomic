@@ -120,8 +120,9 @@ async def test_zero_match_grep_falls_back_to_hybrid_search(monkeypatch):
             return {"success": True, "results": [{
                 "source": "ingested", "id": "doc_1",
                 "title": "zephyr_notes.md",
-                "preview": "The launch code for project Zephyr-9 is "
-                           "QUARTZ-77."}]}
+                "preview": "Marker: ZEPHYR-9",
+                "content": "Project Zephyr-9 launch planning. The launch "
+                           "code for project Zephyr-9 is QUARTZ-77."}]}
         raise AssertionError(f"unexpected action {name}")
 
     monkeypatch.setattr(

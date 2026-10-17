@@ -8145,10 +8145,11 @@ async def _documents_vfs_block(
                         for _h in _hybrid_hits:
                             _title = str(_h.get("title")
                                          or _h.get("id") or "")
-                            _preview = str(_h.get("preview") or "").strip()
+                            _body = str(_h.get("content")
+                                        or _h.get("preview") or "").strip()
                             _src = str(_h.get("source") or "documents")
                             _lines.append(
-                                f"- [{_src}] {_title}: {_preview[:400]}")
+                                f"- [{_src}] {_title}: {_body[:1200]}")
                         return _with_grounding(
                             "LIVE TOOL RESULTS (documents.search, query="
                             f"'{query}') — hybrid search over the workspace's "
