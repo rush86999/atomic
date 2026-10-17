@@ -98,6 +98,45 @@ async def test_documents_search_falls_back_to_request_scope(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_zero_match_grep_falls_back_to_hybrid_search(monkeypatch):
+    """A source-ask that greps the VFS to zero matches must consult the
+    ingested-documents hybrid search before concluding nothing exists."""
+    from types import SimpleNamespace
+
+    from core import chat_tool_planner as ctp
+    from core.action_registry import action_registry as ar
+
+    plan = SimpleNamespace(
+        service="documents", intent="search", use_tool=True,
+        query="Search my documents for the Zephyr launch code")
+
+    calls = []
+
+    async def fake_execute(name, args, context):
+        calls.append(name)
+        if name == "documents.grep":
+            return {"success": True, "pattern": "zephyr", "matches": []}
+        if name == "documents.search":
+            return {"success": True, "results": [{
+                "source": "ingested", "id": "doc_1",
+                "title": "zephyr_notes.md",
+                "preview": "The launch code for project Zephyr-9 is "
+                           "QUARTZ-77."}]}
+        raise AssertionError(f"unexpected action {name}")
+
+    monkeypatch.setattr(
+        "core.knowledge_vfs_config.knowledge_vfs_enabled", lambda: True)
+    monkeypatch.setattr(ar, "execute_action", fake_execute)
+
+    block = await ctp._documents_vfs_block(plan, "u-1", {"workspace_id": "ws-1"})
+    assert block and "QUARTZ-77" in block
+    assert "documents.search" in calls
+    receipt = (getattr(plan, "_result_meta", {}) or {}).get("documents_read") or {}
+    assert receipt.get("executed") is True
+    assert receipt.get("match_count") == 1
+
+
+@pytest.mark.asyncio
 async def test_legacy_path_filters_to_the_workspace(monkeypatch):
     from core import action_registry as ar
 

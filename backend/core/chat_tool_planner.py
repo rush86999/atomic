@@ -8117,6 +8117,48 @@ async def _documents_vfs_block(
                 )
             )
             if not matches:
+                # INGESTED-DOCUMENTS FALLBACK (Phase E, 2026-10-17): manual
+                # uploads live in the workspace's ingested-documents store
+                # (LanceDB + IngestedDocument rows), NOT in the knowledge VFS
+                # tree this grep scans. A source-ask that greps to zero
+                # matches must consult the product's own hybrid document
+                # search (the J4-proven lane) before concluding nothing
+                # exists — observed: uploaded doc durably present, grep 0
+                # matches, answer "couldn't find any matching lines".
+                try:
+                    _hybrid_res = await action_registry.execute_action(
+                        "documents.search",
+                        {"query": query, "limit": 10},
+                        {"user_id": user_id,
+                         "workspace_id": (context or {}).get(
+                             "workspace_id")})
+                    _hybrid_hits = list(
+                        (_hybrid_res or {}).get("results") or [])[:10]
+                    if _hybrid_hits:
+                        _stamp_documents_receipt(
+                            plan, action="search", query=query,
+                            executed=True, match_count=len(_hybrid_hits),
+                            paths=[str(h.get("id") or "")
+                                   for h in _hybrid_hits],
+                            workspace_id=(context or {}).get("workspace_id"))
+                        _lines = []
+                        for _h in _hybrid_hits:
+                            _title = str(_h.get("title")
+                                         or _h.get("id") or "")
+                            _preview = str(_h.get("preview") or "").strip()
+                            _src = str(_h.get("source") or "documents")
+                            _lines.append(
+                                f"- [{_src}] {_title}: {_preview[:400]}")
+                        return _with_grounding(
+                            "LIVE TOOL RESULTS (documents.search, query="
+                            f"'{query}') — hybrid search over the workspace's "
+                            f"ingested documents ({len(_hybrid_hits)} "
+                            "result(s)); these are the uploaded/ingested "
+                            "documents, distinct from the VFS conversation "
+                            "tree:\n" + "\n".join(_lines))
+                except Exception as _hy_err:  # noqa: BLE001 — additive lane
+                    logger.debug(
+                        f"documents hybrid-search fallback skipped: {_hy_err}")
                 # DOCUMENT RESOLUTION (owner J4 directive): the grep
                 # pattern is the user's phrasing — a document that uses
                 # different words can still contain the answer. List the
