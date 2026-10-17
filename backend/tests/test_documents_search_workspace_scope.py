@@ -164,3 +164,41 @@ async def test_legacy_path_filters_to_the_workspace(monkeypatch):
     # Base filter + workspace filter on each store.
     assert ingested_q.filter.call_count == 2
     assert knowledge_q.filter.call_count == 2
+
+
+def test_upload_route_resolves_the_fk_first():
+    """Documents-UI uploads must land in the user's FK workspace store — the
+    relationship is empty for product-registered users, and relationship-only
+    resolution wrote to default_shared while search read the user's store."""
+    from types import SimpleNamespace
+
+    from api.document_routes import _resolve_ws_id
+
+    fk_user = SimpleNamespace(workspace_id="ws-fk", workspaces=[])
+    assert _resolve_ws_id(fk_user) == "ws-fk"
+    rel_user = SimpleNamespace(
+        workspace_id=None, workspaces=[SimpleNamespace(id="ws-rel")])
+    assert _resolve_ws_id(rel_user) == "ws-rel"
+    assert _resolve_ws_id(None) is None
+
+
+@pytest.mark.asyncio
+async def test_upsert_document_forwards_the_freshness_stamp(monkeypatch):
+    """Without freshness_status=='fresh' the search filter hides the row."""
+    from api import document_routes as dr
+
+    captured = {}
+
+    async def fake_upsert(handler, **kwargs):
+        captured.update(kwargs)
+        return "written"
+
+    monkeypatch.setattr("core.vector_upsert.upsert_document", fake_upsert)
+    result = await dr._upsert_document(
+        MagicMock(), text="body", doc_key="doc_1", source="upload:f.md",
+        metadata={}, user_id="u-1", workspace_id="ws-1",
+        extra_columns={"freshness_status": "fresh"},
+    )
+    assert result == "written"
+    assert captured["extra_columns"] == {"freshness_status": "fresh"}
+    assert captured["workspace_id"] == "ws-1"

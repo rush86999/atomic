@@ -23,6 +23,29 @@ logger = logging.getLogger(__name__)
 
 router = BaseAPIRouter(prefix="/api/documents", tags=["Documents"])
 
+
+def _resolve_ws_id(current_user: Optional[User]) -> Optional[str]:
+    """FK-first workspace resolution (J3 isolation contract).
+
+    The workspaces RELATIONSHIP is empty for product-registered users whose
+    user_workspaces row predates the register-flow fix; the users.workspace_id
+    FK is the authoritative binding. Relationship-only resolution landed
+    Documents-UI uploads in the SHARED default_shared store while
+    /api/documents/search read the user's own store — the document was
+    uploaded yet invisible (Phase E, 2026-10-17).
+    """
+    try:
+        if current_user is not None:
+            fk = getattr(current_user, "workspace_id", None)
+            if fk:
+                return fk
+            rel = getattr(current_user, "workspaces", None)
+            if rel:
+                return rel[0].id
+    except Exception:  # noqa: BLE001 — resolution must never break a route
+        return None
+    return None
+
 # Global handler removed to support dynamic workspace isolation
 # lancedb_handler = get_lancedb_handler("default") -> moved to endpoints
 
@@ -95,6 +118,7 @@ async def _upsert_document(
     metadata: Dict[str, Any],
     user_id: str,
     workspace_id: Optional[str] = None,
+    extra_columns: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Content-aware upsert on a stable doc key.
 
@@ -112,6 +136,7 @@ async def _upsert_document(
         metadata=metadata,
         user_id=user_id,
         workspace_id=workspace_id,
+        extra_columns=extra_columns,
     )
     if result == "write_failed":
         raise RuntimeError("LanceDB add_document returned False")
@@ -127,9 +152,7 @@ async def ingest_document(
     try:
 
         # Dynamic workspace resolution
-        ws_id = None
-        if current_user and current_user.workspaces:
-             ws_id = current_user.workspaces[0].id
+        ws_id = _resolve_ws_id(current_user)
              
         lancedb_handler = get_lancedb_handler(ws_id)
         
@@ -166,6 +189,8 @@ async def ingest_document(
             source=f"api:{doc_id}",
             metadata=metadata,
             user_id=str(current_user.id) if current_user else "default_user",
+            workspace_id=ws_id,
+            extra_columns={"freshness_status": "fresh"},
         )
 
         return DocumentResponse(
@@ -187,15 +212,8 @@ async def upload_document(
 ):
     """Upload and ingest a file directly"""
     try:
-        # Dynamic workspace resolution
-        # If user has workspaces, use the first one (primary), otherwise default to shared
-        ws_id = None
-        try:
-            if current_user and current_user.workspaces:
-                 ws_id = current_user.workspaces[0].id
-        except Exception as ws_err:
-            logger.warning(f"Failed to resolve workspaces for user {current_user.id}: {ws_err}")
-            print(f"DEBUG: Workspace resolution failed: {ws_err}")
+        # Dynamic workspace resolution (FK-first, J3 isolation contract)
+        ws_id = _resolve_ws_id(current_user)
              
         lancedb_handler = get_lancedb_handler(ws_id)
 
@@ -294,6 +312,10 @@ async def upload_document(
             metadata=metadata,
             user_id=str(current_user.id) if current_user else "default_user",
             workspace_id=ws_id,
+            # The search path filters documents to freshness_status=='fresh'
+            # (core/lancedb_handler.py search): without the stamp the row is
+            # permanently invisible even in the right workspace store.
+            extra_columns={"freshness_status": "fresh"},
         )
 
         # 3. Aligned PG row: gives the upload full journey parity with synced
@@ -369,11 +391,7 @@ async def search_documents(
         # for product-registered users (user_workspaces never populated), so
         # ws_id stayed None and the search hit the SHARED "default_shared"
         # store: any registered user could read any other's documents.
-        ws_id = None
-        if current_user and getattr(current_user, "workspace_id", None):
-             ws_id = current_user.workspace_id
-        elif current_user and current_user.workspaces:
-             ws_id = current_user.workspaces[0].id
+        ws_id = _resolve_ws_id(current_user)
 
         lancedb_handler = get_lancedb_handler(ws_id)
 
@@ -425,9 +443,7 @@ async def get_document(
     """Get a specific document by ID"""
     try:
         # Dynamic workspace resolution
-        ws_id = None
-        if current_user and current_user.workspaces:
-             ws_id = current_user.workspaces[0].id
+        ws_id = _resolve_ws_id(current_user)
 
         lancedb_handler = get_lancedb_handler(ws_id)
         if not lancedb_handler:
@@ -473,9 +489,7 @@ async def delete_document(
          pass # unused for now
 
     # Dynamic workspace resolution
-    ws_id = None
-    if current_user and current_user.workspaces:
-            ws_id = current_user.workspaces[0].id
+    ws_id = _resolve_ws_id(current_user)
 
     lancedb_handler = get_lancedb_handler(ws_id)
 
@@ -536,9 +550,7 @@ async def list_documents(
     """List recent documents"""
     try:
         # Dynamic workspace resolution
-        ws_id = None
-        if current_user and current_user.workspaces:
-             ws_id = current_user.workspaces[0].id
+        ws_id = _resolve_ws_id(current_user)
 
         lancedb_handler = get_lancedb_handler(ws_id)
         if not lancedb_handler:
