@@ -1707,6 +1707,43 @@ class BYOKHandler:
             m for m, r in (self._local_routes or {}).items()
             if r["provider_key"] == provider_id) or None
 
+    def _served_local_models_for(self, provider_id: str) -> Optional[List[str]]:
+        """Served set for a LOCAL provider, ready for ``evaluate_route``.
+
+        The authoritative record differs by local provider class:
+
+        * the auto-initialized runtime (``ollama``) — its runtime probe's
+          pulled set while UP; DOWN/unknown means "not served", never
+          "assume everything";
+        * a registered local provider (``local_*``) — the workspace's own
+          capability rows (:meth:`_local_served_models`), independent of
+          any public catalogue.
+
+        ``None`` for non-local providers (their catalogue is discovered).
+        """
+        if provider_id == "ollama":
+            try:
+                state, pulled = self._ollama_runtime_state()
+            except Exception:  # noqa: BLE001 — eligibility must never raise
+                return None
+            return sorted(pulled) if state == "up" and pulled else None
+        return self._local_served_models(provider_id)
+
+    @staticmethod
+    def _local_only_active() -> bool:
+        """The documented local-only policy, from its canonical guard.
+
+        A guard read failure returns False (do not grant): the admission
+        below is an addition to routing, so its trigger must be positive
+        evidence, never a failure default.
+        """
+        try:
+            from core.privsec.local_only_guard import get_local_only_guard
+
+            return bool(get_local_only_guard().is_local_only_enabled())
+        except Exception:  # noqa: BLE001
+            return False
+
     def _provider_serves_model(self, provider_id: str, model: str) -> bool:
         """Does this provider actually serve this model identifier?
 
@@ -3375,6 +3412,90 @@ class BYOKHandler:
                 "workspace_id": route["workspace_id"],
             }
 
+    def _admit_runtime_local_route(self) -> None:
+        """Materialize the healthy auto-local runtime as a declared local route.
+
+        F5 (Phase D, 2026-10-17): under the documented local path
+        (``ATOM_LOCAL_ONLY=true``) cloud providers are excluded before ranking
+        BY DESIGN, but the auto-initialized ollama runtime never entered the
+        BPC candidate pool — the public pricing cache has no entry
+        attributable to it — so the reply/planning leg ranked ZERO candidates
+        and ``generate_response`` returned "No eligible LLM providers found
+        for your current plan." while the SAME turn's explicit stream leg
+        served from ollama.
+
+        The repair reuses the existing registered-local-route mechanism
+        instead of inventing a second admission path: the healthy runtime
+        becomes an implicit route on THIS handler (its own association, like
+        a registration row), so the SAME stamping/attribution/capability/
+        reconcile gates apply.
+
+        Evidence rules (nothing is assumed):
+
+        * probe DOWN (or the declared model not pulled) → no route;
+        * the model is the operator's declared ``OLLAMA_MODEL`` (falling back
+          to the product default in ``COST_EFFICIENT_MODELS``);
+        * the declared quality (``OLLAMA_QUALITY_SCORE``, 0-1) is what the
+          quality floor judges — the same contract as a registration's
+          ``quality_score``; the default 0.9 is the declaration the J4/J5 r18
+          line used for this exact model (llama3.1:8b) through the product
+          registration path;
+        * an EXPLICIT registration for the same model name keeps precedence.
+
+        Scoped to LOCAL-ONLY mode: mixed-mode ranking is unchanged.
+        """
+        if not self._local_only_active():
+            return
+        for provider_id in ("ollama",):
+            if provider_id not in self.clients:
+                continue
+            model = (
+                os.getenv("OLLAMA_MODEL", "").strip()
+                or (COST_EFFICIENT_MODELS.get(provider_id) or {}).get(
+                    QueryComplexity.SIMPLE)
+                or ""
+            ).strip()
+            if not model:
+                continue
+            if model in (self._local_routes or {}):
+                # A workspace registration for this model is authoritative.
+                continue
+            served = self._served_local_models_for(provider_id)
+            if not served:
+                continue
+            served_norm = {str(s).strip().lower() for s in served}
+            if model.lower() not in served_norm and \
+                    model.lower().split(":", 1)[0] not in served_norm:
+                continue
+            try:
+                quality = float(os.getenv("OLLAMA_QUALITY_SCORE", "0.9"))
+            except (TypeError, ValueError):
+                quality = 0.9
+            quality = max(0.0, min(1.0, quality))
+            try:
+                context_window = int(os.getenv("OLLAMA_CONTEXT_WINDOW", "8192"))
+            except (TypeError, ValueError):
+                context_window = 8192
+            self._local_routes[model] = {
+                "provider_key": provider_id,
+                "workspace_id": self.workspace_id,
+                "provider_id": provider_id,
+                "provider_type": provider_id,
+                # The runtime is the authority for its own models — the same
+                # convention is_model_approved documents for pulled names.
+                "supports_tools": True,
+                "supports_vision": False,
+                "supports_reasoning": False,
+                "quality_score": quality,
+                "context_window": max(1, context_window),
+                "runtime_declared": True,
+            }
+            logger.info(
+                "LOCAL-ONLY: admitted healthy local runtime route %s/%s "
+                "(probe UP; declared quality %.2f; served: %s)",
+                provider_id, model, quality,
+                ", ".join(sorted(served_norm)[:6]))
+
     def _load_local_providers(self) -> None:
         """Load registered local model providers from the DB into self.clients.
 
@@ -3897,6 +4018,11 @@ class BYOKHandler:
         for _fb_provider in self._get_provider_fallback_order("auto"):
             if _fb_provider not in self.clients:
                 continue
+            # LOCAL-ONLY BOUNDARY (F5): the fallback order must not re-admit a
+            # cloud provider the policy blocks (same rationale as the static
+            # rotation below). Local providers continue through the checks.
+            if _local_only_blocks_provider(_fb_provider, self._local_routes):
+                continue
             if self._provider_cooldown_active(_fb_provider):
                 continue
             _tier_default = (
@@ -4022,11 +4148,12 @@ class BYOKHandler:
             for provider_id, model_id in options:
                 decision = evaluate_route(
                     provider_id, model_id, configured_providers=configured,
-                    # REGISTERED-LOCAL routes (J2) carry their served set
-                    # on the handler — the same source the dispatch gate
-                    # uses — or reconcile would drop every local pair the
-                    # moment ANY catalogue is verified.
-                    local_runtime_models=self._local_served_models(
+                    # LOCAL routes carry their served set on the handler —
+                    # the same source the dispatch gate uses — or reconcile
+                    # would drop every local pair the moment ANY catalogue
+                    # is verified. Covers registered routes (J2) AND the
+                    # auto-local runtime's live probe (F5).
+                    local_runtime_models=self._served_local_models_for(
                         provider_id))
                 if decision.eligible:
                     eligible.append((provider_id, model_id))
@@ -4132,6 +4259,10 @@ class BYOKHandler:
             # that happen after handler construction are picked up here,
             # at the same boundary, for every ranking.
             self._load_local_providers()
+            # F5: materialize the healthy auto-local runtime as an implicit
+            # declared route BEFORE the stamp, so an explicit registration
+            # for the same model name keeps precedence.
+            self._admit_runtime_local_route()
             self._stamp_local_routes_into_pricing_cache(fetcher)
             
             # Context window requirements
@@ -4902,17 +5033,21 @@ class BYOKHandler:
             # (platform-billed) keys only: an env-provided key IS the
             # operator's own credential (see env_key_providers note in
             # __init__), so plan allowlists must not zero out its candidates.
-            # A registered-LOCAL provider is the workspace's own hardware —
-            # it bills nobody, so a free-plan allowlist of platform models
-            # must not hide it either (J2: the fresh-install blocker).
+            # A local provider — registered (``local_*``) OR the
+            # auto-initialized runtime (``ollama``, F5) — is the workspace's
+            # own hardware: it bills nobody, so a free-plan allowlist of
+            # platform models must not hide it either.
             def _plan_applies(provider_id: str) -> bool:
                 own_keys = getattr(self, "env_key_providers", set())
                 if provider_id in own_keys or \
-                        provider_id.startswith("local_"):
+                        not _provider_is_cloud(provider_id, self._local_routes):
                     return False
                 return is_managed_service
 
-            def is_model_approved(model_id: str, allowed_list: any) -> bool:
+            def is_model_approved(
+                model_id: str, allowed_list: any,
+                provider_id: Optional[str] = None,
+            ) -> bool:
                 # The local runtime is the authority for its own models: the
                 # remote catalog carries no capability data for pulled names,
                 # and its conservative default hid working local models
@@ -4922,13 +5057,22 @@ class BYOKHandler:
                 # normal call error like any other provider mismatch.
                 # A REGISTERED route's own record is equally authoritative —
                 # with the registration's declared tools support (J2).
+                # F5: the local-authority rule keys on the route's PROVIDER
+                # (the runtime that will serve the call), not on a bare
+                # "ollama/"-prefixed model id — the documented local runtime
+                # serves bare names like ``llama3.1:8b``.
                 own_route = (self._local_routes or {}).get(model_id)
                 if own_route is not None:
                     if (requires_tools or requires_structured) and \
                             not own_route["supports_tools"]:
                         return False
                 else:
-                    is_local = model_id.lower().startswith("ollama/")
+                    pid = str(provider_id or "").strip().lower()
+                    is_local = (
+                        model_id.lower().startswith("ollama/")
+                        or pid in _LOCAL_PROVIDER_IDS
+                        or pid.startswith("local")
+                    )
                     if (
                         (requires_tools or requires_structured)
                         and not is_local
@@ -4950,7 +5094,7 @@ class BYOKHandler:
                     MODEL_TIER_RESTRICTIONS.get((tenant_plan or "free").lower(), MODEL_TIER_RESTRICTIONS["free"])
                     if _plan_applies(c["provider"]) else "*"
                 )
-                if is_model_approved(c["model"], allowed_models):
+                if is_model_approved(c["model"], allowed_models, c["provider"]):
                     ranked_options.append((c["provider"], c["model"]))
 
             # Availability-first fail-open: the pricing cache's capability
