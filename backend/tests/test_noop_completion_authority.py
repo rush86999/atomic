@@ -802,26 +802,28 @@ class TestExplicitAssignmentArtifactNoop:
         kinds = [o.get("kind") for o in (check.get("obligations") or [])]
         assert "assignment_postconditions" in kinds, kinds
         reply = shared.get("canvas_edit_decline_reply") or ""
-        assert "Net 45" in reply and "nothing was sent" in reply, (
-            f"the completion must be receipt-derived and name the value; "
-            f"reply={reply!r}")
+        assert reply.startswith("Verified on the current draft"), reply
+        assert "already set to Net 45" in reply, reply
+        assert "nothing was sent" in reply, reply
 
     def test_a2_domain_variants_complete_through_the_same_code(self):
-        """Same execution path, different domains: only the data varies."""
+        """Same execution path, different domains: the field labels,
+        schemas and values vary; the request shape and the artifact
+        anchor stay constant (the pre-existing authorization layer
+        requires the command to name an artifact — unchanged here)."""
         cases = [
-            ("Please update the office location in the employee record "
-             "to Rotterdam.",
-             "Employee record\nName: J. Vega\nLocation: Rotterdam\n"
+            ("Please update the office location in the draft to Rotterdam.",
+             "Office draft\nName: J. Vega\nLocation: Rotterdam\n"
              "Role: Operator\n",
              "Rotterdam"),
-            ("Please update the project status in the tracker to "
+            ("Please update the project status in the draft to "
              "On track.",
-             "Project tracker\nOwner: PMO\nStatus: On track\n"
+             "Project draft\nOwner: PMO\nStatus: On track\n"
              "Budget: $120,000\n",
              "On track"),
-            ("Please update the shipment reference in the job file to "
+            ("Please update the shipment reference in the draft to "
              "OPS-7781.",
-             "Job file\nReference: OPS-7781\nStatus: open\n",
+             "Shipment draft\nReference: OPS-7781\nStatus: open\n",
              "OPS-7781"),
         ]
         for message, body, value in cases:
@@ -907,3 +909,21 @@ class TestExplicitAssignmentArtifactNoop:
             "complete merely because no violation was found")
         check = _check(shared)
         assert check is None or check.get("satisfied") is not True
+
+    def test_i_value_word_inside_an_explicit_assignment(self):
+        """'update the unit price ... to $48,000.00' — a value WORD
+        ("price") sits inside the request's own assignment, so the
+        artifact is the evidence (the source-contract requirement is for
+        values that live in records); the reverted artifact must not
+        certify."""
+        ask = "Please update the unit price in the draft to $48,000.00."
+        shared = _run_reask(message=ask)
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            f"explicitly supplied price already on the draft must "
+            f"complete; check={_check(shared)!r}")
+        reverted = _reask_body().replace(
+            "Unit price: $48,000.00", "Unit price: $50,000.00")
+        shared2 = _run_reask(canvas=_reask_canvas(body=reverted),
+                             message=ask)
+        assert not shared2.get("canvas_edit_decline_noop"), (
+            "a price that does not match must never certify")

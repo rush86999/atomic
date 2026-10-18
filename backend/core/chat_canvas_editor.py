@@ -1916,6 +1916,134 @@ def _comparison_verified_local(observation: Dict[str, Any]) -> bool:
         "verified", "stored", "calculated"}
 
 
+#: Location/navigation words in an assignment target ("... in the draft")
+#: name the ARTIFACT, not the field — never used as field-binding tokens.
+_ASSIGNMENT_LOCATION_TOKENS = {
+    "the", "a", "an", "in", "on", "of", "to", "for", "this", "that",
+    "these", "those", "its", "it", "and", "or", "draft", "canvas",
+    "document", "email",
+}
+
+
+def _assignment_artifact_lines(current: Any) -> List[Tuple[str, str, str]]:
+    """(label, value_part, line) for every line of the artifact body.
+
+    HTML block boundaries become line breaks first; the label parser is
+    the factual-change validator's own (``_label_values``), so the
+    satisfaction check and the patch validator agree on what a
+    "Label: value" line is."""
+    from core.factual_change_validation import _label_values
+
+    body = str(_body_from_content(current) or "")
+    body = re.sub(r"<\s*br\s*/?\s*>", "\n", body, flags=re.IGNORECASE)
+    body = re.sub(
+        r"</\s*(?:p|div|li|tr|h[1-6])\s*>", "\n", body,
+        flags=re.IGNORECASE)
+    lines: List[Tuple[str, str, str]] = []
+    for raw in body.splitlines():
+        line = _html_text(raw)
+        if not line.strip():
+            continue
+        labels = _label_values(line)
+        if labels:
+            label, value_part = labels[0]
+        else:
+            label, value_part = "", line
+        lines.append((label, value_part, line))
+    return lines
+
+
+def _assignment_postcondition_obligations(
+    message: str,
+    current: Any,
+) -> List[Dict[str, Any]]:
+    """The request's OWN explicit assignments checked against the
+    CURRENT authoritative artifact (L1/S6 owner assignment 2026-10-18).
+
+    An explicit "update X to Y" instruction authorizes Y for X; the
+    artifact proves whether X already carries Y — bound per line, so an
+    occurrence under another field never certifies. Values the shared
+    extractor recorded as source references never arrive here (they are
+    unresolved obligations); an "add ..." obligation the artifact check
+    cannot confirm blocks completion with its own record.
+
+    Returns [] when the request carries nothing assignable — the
+    caller's pre-existing guards then behave exactly as before. Any
+    internal failure returns at most the blocking record: the check
+    never asserts completion it could not establish."""
+    try:
+        from core.turn_decision import extract_request_assignments
+        from core.factual_change_validation import (
+            _target_mentioned,
+            _value_pair_match,
+        )
+
+        parsed = extract_request_assignments(str(message or ""))
+    except Exception:  # noqa: BLE001 — never assert on failure
+        return []
+    blocker: List[Dict[str, Any]] = []
+    if parsed.get("unresolved_additions"):
+        blocker.append({
+            "kind": "unresolved_obligations",
+            "disposition": "unresolved",
+            "detail": ("the request also asks for content the artifact "
+                       "check cannot confirm")[:160],
+        })
+    assignments = [
+        entry for entry in (parsed.get("assignments") or [])
+        if isinstance(entry, dict)
+        and str(entry.get("target") or "").strip()
+        and str(entry.get("value") or "").strip()]
+    # HEADER FIELDS ARE THE HEADER OBLIGATION'S POSTCONDITIONS (owner
+    # closeout): a subject/to/cc assignment is checked against the
+    # artifact's headers — never re-judged against body lines, which
+    # would contradict the header check the receipt already carries.
+    header_targets: set = set()
+    try:
+        if _extract_requested_subject(message):
+            header_targets.add("subject")
+        if _extract_requested_cc(message):
+            header_targets.add("cc")
+        if _extract_requested_to(message):
+            header_targets.add("to")
+    except Exception:  # noqa: BLE001 — additive
+        header_targets = set()
+    if not assignments:
+        return blocker
+    try:
+        lines = _assignment_artifact_lines(current)
+        built: List[Dict[str, Any]] = []
+        for entry in assignments[:6]:
+            target = str(entry.get("target") or "").strip()
+            value = str(entry.get("value") or "").strip()
+            target_tokens = set(re.findall(r"[a-z0-9]+", target.lower()))
+            if target_tokens & header_targets:
+                continue
+            satisfied = any(
+                _value_pair_match(value, value_part)
+                and _target_mentioned(target, label or line)
+                for label, value_part, line in lines)
+            obligation: Dict[str, Any] = {
+                "kind": "assignment_postconditions",
+                "disposition": "satisfied" if satisfied else "unsatisfied",
+                "detail": (
+                    f"{target}: already holds on the current draft"
+                    if satisfied else
+                    f"{target}: not already applied on the current draft"
+                )[:160],
+                "summary": (
+                    f"{target} already set to {value[:60]}"
+                    if satisfied else ""),
+            }
+            span = entry.get("span")
+            if isinstance(span, (list, tuple)) and len(span) == 2:
+                obligation["_span"] = list(span)
+            built.append(obligation)
+    except Exception:  # noqa: BLE001 — never assert on failure
+        return blocker
+    return blocker + built
+
+
 def requirement_check(
     *,
     message: str,
@@ -1991,6 +2119,16 @@ def requirement_check(
             return None
         if str(expected_prior_audit_id) != observed:
             return None
+    # EXPLICIT REQUEST ASSIGNMENTS (L1/S6 owner assignment 2026-10-18):
+    # the request's own "update X to Y" assignments are evaluated
+    # against THIS authoritative revision — the artifact is the evidence
+    # of whether X already carries Y, bound per line. (Source-reference
+    # values never arrive here; unresolved additions block.)
+    assignment_obligations = _assignment_postcondition_obligations(
+        message, current)
+    has_assignments = any(
+        o.get("kind") == "assignment_postconditions"
+        for o in assignment_obligations)
     # OBLIGATION DISPOSITIONS (owner work order 2026-10-10): every
     # requirement the request names gets an explicit disposition —
     # satisfied / unsatisfied / unresolved — and completion REQUIRES all
@@ -2022,20 +2160,35 @@ def requirement_check(
             "disposition": ("unsatisfied" if violation else "satisfied"),
             "detail": str(violation or "scope obligations hold")[:120],
         })
-        if not _has_concrete_scope_obligations(scope_text) and not header_present:
+        if (not _has_concrete_scope_obligations(scope_text)
+                and not header_present and not has_assignments):
             # Scope-shaped wording with no concrete obligations (a bare
-            # "update the draft") certifies nothing.
+            # "update the draft") certifies nothing — unless the request
+            # carries explicit assignments, which the artifact check
+            # below evaluates.
             return None
-    elif not header_present:
-        # Neither a scope-bearing request nor a header obligation: the
-        # check cannot parse this into postconditions. Unconfirmed.
+    elif not header_present and not has_assignments:
+        # Neither a scope-bearing request nor a header obligation nor an
+        # explicit assignment: the check cannot parse this into
+        # postconditions. Unconfirmed.
         return None
     # VALUE OBLIGATIONS (owner work order 2026-10-10): a value-shaped
     # request is satisfied only from the AUTHORIZED evidence contract —
     # never from table structure. Without a contract the obligation is
     # UNRESOLVED, which blocks completion exactly like unsatisfied.
     value_dispositions: List[Dict[str, Any]] = []
-    if _VALUE_REQUEST_RE.search(message):
+    _value_matches = list(_VALUE_REQUEST_RE.finditer(str(message or "")))
+    if _value_matches:
+        _assignment_spans = [
+            (int(o["_span"][0]), int(o["_span"][1]))
+            for o in assignment_obligations
+            if o.get("kind") == "assignment_postconditions"
+            and isinstance(o.get("_span"), (list, tuple))
+            and len(o["_span"]) == 2]
+        _covered_by_assignments = bool(_assignment_spans) and all(
+            any(start <= m.start() and m.end() <= end
+                for start, end in _assignment_spans)
+            for m in _value_matches)
         if isinstance(evidence_contract, dict) and (
                 evidence_contract.get("evidence")
                 or evidence_contract.get("actions")):
@@ -2060,6 +2213,13 @@ def requirement_check(
                         f"{d['disposition']} ({d.get('detail') or ''})"
                         for d in failing[:4]))[:300],
             })
+        elif _covered_by_assignments:
+            # EXPLICITLY SUPPLIED VALUES (L1/S6 owner assignment
+            # 2026-10-18): when the value words sit inside the request's
+            # own assignments, the artifact-native assignment check IS
+            # the evidence — the source-contract requirement stays for
+            # value-shaped requests whose values live in records.
+            pass
         else:
             obligations.append({
                 "kind": "value_obligations",
@@ -2067,6 +2227,12 @@ def requirement_check(
                 "detail": ("no authorized evidence contract carried the "
                            "approved values")[:120],
             })
+    # EXPLICIT ASSIGNMENT POSTCONDITIONS (L1/S6 owner assignment
+    # 2026-10-18): recorded after the scope/header/value obligations so
+    # the receipt names them; the private span helper is stripped.
+    for _ob in assignment_obligations:
+        _ob.pop("_span", None)
+    obligations.extend(assignment_obligations)
     unsatisfied = [o for o in obligations
                    if o["disposition"] != "satisfied"]
     receipt = {
@@ -2130,11 +2296,25 @@ def noop_completion_reply(
             f"Verified on the current draft{rev_tag}: {listed}. "
             "No changes were needed, and nothing was sent.")
     else:
-        named = [f"{o.get('kind')}" for o in obligations][:4]
-        sentence = (
-            f"Verified on the current draft{rev_tag}: "
-            f"{', '.join(named)} hold. No changes were needed, and "
-            "nothing was sent.")
+        # ASSIGNMENT SUMMARIES (L1/S6 owner assignment 2026-10-18): when
+        # the receipt carries human summaries (the explicit assignments
+        # it verified against the current draft), they ARE the
+        # confirmation sentence; the internal obligation kinds stay in
+        # the receipt, never in the user's sentence.
+        summaries = [str(o.get("summary") or "").strip()
+                     for o in obligations if isinstance(o, dict)]
+        named_summaries = [s for s in summaries if s][:4]
+        if named_summaries:
+            sentence = (
+                f"Verified on the current draft{rev_tag}: "
+                f"{', '.join(named_summaries)}. No changes were needed, "
+                "and nothing was sent.")
+        else:
+            named = [f"{o.get('kind')}" for o in obligations][:4]
+            sentence = (
+                f"Verified on the current draft{rev_tag}: "
+                f"{', '.join(named)} hold. No changes were needed, and "
+                "nothing was sent.")
     return sentence
 
 
