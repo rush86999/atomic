@@ -1474,3 +1474,103 @@ class TestLiveCalculationSettlement:
                   if m["role"] == "assistant"][-1]["response"]
         assert resp.outcome == meta.get("outcome") == served.get("outcome")
         assert resp.success == meta.get("success") == served.get("success")
+
+
+class TestReaskNoopThroughRoute:
+    """Case I (L1/S6 owner assignment 2026-10-18): the re-ask of an
+    already-applied explicit assignment runs the REAL route — the canvas
+    lane reads the CURRENT artifact, the receipt resolves completed, the
+    assistant row persists, a fresh session + the real history handler
+    read back the same result, and the artifact is untouched (zero
+    writes: the durable audit count is unchanged)."""
+
+    def test_already_applied_reask_completes_and_persists(self, monkeypatch):
+        import core.chat_canvas_editor as cce
+        from core.chat_canvas_editor import FreshDataResult
+        from core.models import Canvas, CanvasAudit
+        from sqlalchemy import text as _sql_text
+
+        _app, factory, _ = _mk_app_and_db(monkeypatch)
+        _seam_failure(monkeypatch)
+        _fixed_execution(monkeypatch, "exec-reask-route")
+
+        body = (
+            "# Quotation Q-2026-114 (DRAFT)\n\n"
+            "Client: Dunmore Fabrication LLC\n"
+            "Item: CNC press brake, 50-ton\n"
+            "Unit price: $48,000.00\n"
+            "Terms: Net 45\n"
+            "Valid until: 2026-12-31\n"
+        )
+        with factory() as sc:
+            sc.add(Canvas(id=CANVAS_ID, tenant_id="t1",
+                          created_by="user_1", name="Quotation Q-2026-114",
+                          canvas_type="document",
+                          content={"body": body}))
+            sc.add(CanvasAudit(canvas_id=CANVAS_ID, tenant_id="t1",
+                               action_type="fork", user_id="user_1",
+                               details_json={"content": {"body": body}}))
+            sc.commit()
+
+        class _Plan:
+            wants_edit = False
+            reply = "No changes were needed."
+
+        async def _plan_ok(*a, **k):
+            return _Plan()
+
+        monkeypatch.setattr(cce, "plan_canvas_edit", _plan_ok)
+
+        async def _fresh_ok(*a, **k):
+            return FreshDataResult(section="", needed=False, ok=True,
+                                   block="", evidence_contract=None)
+
+        monkeypatch.setattr(cce, "fetch_fresh_data_section", _fresh_ok)
+
+        with factory() as sc:
+            audits_before = sc.query(CanvasAudit).filter(
+                CanvasAudit.canvas_id == CANVAS_ID).count()
+
+        resp, user = _route_call(
+            factory,
+            "Please also update the payment terms in the draft to Net 45.",
+            {"canvas_id": CANVAS_ID})
+
+        assert resp.outcome == "completed", (
+            f"the re-ask of an already-applied assignment must resolve "
+            f"completed; got outcome={resp.outcome!r} "
+            f"success={resp.success!r} message={resp.message!r}")
+        assert resp.success is True
+        assert "Net 45" in (resp.message or "")
+        assert "nothing was sent" in (resp.message or "")
+
+        # ZERO WRITES: the durable audit trail for the artifact is
+        # unchanged and the saved body still carries the value.
+        with factory() as sc:
+            audits_after = sc.query(CanvasAudit).filter(
+                CanvasAudit.canvas_id == CANVAS_ID).count()
+            canvas_row = sc.query(Canvas).filter(
+                Canvas.id == CANVAS_ID).first()
+        assert audits_after == audits_before, (
+            "a verified no-op must not write the artifact")
+        assert "Net 45" in str((canvas_row.content or {}).get("body"))
+
+        # PERSISTENCE: the assistant row exists and agrees (fresh session).
+        with factory() as sc2:
+            rows = sc2.execute(_sql_text(
+                "SELECT metadata_json FROM chat_messages WHERE "
+                "conversation_id=:s AND role='assistant'"),
+                {"s": resp.session_id}).fetchall()
+        assert rows, "the assistant row must persist"
+        meta = json.loads(rows[-1][0])
+        assert meta.get("outcome") == "completed"
+        assert meta.get("success") is True
+
+        # HISTORY: the real handler serves the same result.
+        history = asyncio.run(
+            cr.get_chat_history(session_id=resp.session_id,
+                                user_id="user_1", current_user=user))
+        served = [m for m in history.messages
+                  if m["role"] == "assistant"][-1]["response"]
+        assert served.get("outcome") == resp.outcome == meta.get("outcome")
+        assert served.get("success") == resp.success == meta.get("success")

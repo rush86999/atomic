@@ -120,12 +120,13 @@ class _DeclinedPlan:
 
 
 def _run_lane(canvas, contract, expected_prior=None,
-              current_revision="rev-A"):
+              current_revision="rev-A", message=None):
     """Drive the production decline path. Returns the shared blackboard
     the lane wrote (the receipt must be produced — or refused — there).
     The fresh leg is stubbed at its production seam to the revision the
     CURRENT turn resolved (None = the source was not resolved this
-    turn — workbook findings then cannot certify at all)."""
+    turn — workbook findings then cannot certify at all). ``message``
+    defaults to the Brennan approved-values ask."""
     async def _plan_ok(*a, **k):
         return _DeclinedPlan()
 
@@ -152,8 +153,9 @@ def _run_lane(canvas, contract, expected_prior=None,
         shared["objective_evidence"] = contract
     try:
         asyncio.run(co_mod.chat_orchestrator._try_canvas_edit(
-            "Update the draft for rows 1-5 with the approved prices and "
-            "delivery times. Don't send.",
+            message if message is not None else (
+                "Update the draft for rows 1-5 with the approved prices and "
+                "delivery times. Don't send."),
             [], canvas, "user_1", "sess-auth", "exec-auth", None,
             shared_tool_state=shared,
             expected_prior_audit_id=expected_prior))
@@ -744,3 +746,164 @@ class TestCatalogResolutionScoping:
                 "quote.xlsx", workspace_id="ws-A") is None, (
                 "two distinct active sources for one identity: no "
                 "version is the answer")
+
+
+# ---------------------------------------------------------------------------
+# L1 / S6 — idempotent re-ask (owner assignment 2026-10-18)
+#
+# An authorized edit whose desired result already holds on the CURRENT
+# authoritative artifact must settle as a VERIFIED no-op (receipt-derived
+# reply, zero writes) — the request's own explicit assignment is the
+# authorization for the target value; the artifact proves whether it
+# already holds, bound per line. Reverted values, other artifacts, other
+# fields, mixed obligations and unsupported requests must NOT complete.
+# ---------------------------------------------------------------------------
+
+_REASK_ASK = "Please also update the payment terms in the draft to Net 45."
+
+
+def _reask_body(terms="Net 45", valid_until="2026-12-31"):
+    return (
+        "# Quotation Q-2026-114 (DRAFT)\n\n"
+        "Client: Dunmore Fabrication LLC\n"
+        "Prepared for: Elena Sorokina, Operations\n"
+        "Item: CNC press brake, 50-ton\n"
+        "Unit price: $48,000.00\n"
+        "Subtotal: $48,000.00\n"
+        f"Terms: {terms}\n"
+        f"Valid until: {valid_until}\n"
+    )
+
+
+def _reask_canvas(terms="Net 45", valid_until="2026-12-31",
+                  canvas_id="cv-reask-1", body=None):
+    return {"canvas_id": canvas_id, "canvas_type": "document",
+            "content": {"body": body if body is not None
+                        else _reask_body(terms, valid_until)}}
+
+
+def _run_reask(canvas=None, message=_REASK_ASK, expected_prior=None):
+    return _run_lane(canvas if canvas is not None else _reask_canvas(),
+                     None, expected_prior=expected_prior, message=message)
+
+
+class TestExplicitAssignmentArtifactNoop:
+    """The S6 re-ask through the PRODUCTION decline path (no contract is
+    supplied — an explicitly supplied value needs none; the artifact is
+    the evidence)."""
+
+    def test_a_already_satisfied_reask_completes_on_current_artifact(self):
+        shared = _run_reask()
+        check = _check(shared)
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            "an authorized ask whose desired result already holds must "
+            f"complete as a verified no-op; check={check!r}")
+        assert check and check.get("satisfied") is True
+        kinds = [o.get("kind") for o in (check.get("obligations") or [])]
+        assert "assignment_postconditions" in kinds, kinds
+        reply = shared.get("canvas_edit_decline_reply") or ""
+        assert "Net 45" in reply and "nothing was sent" in reply, (
+            f"the completion must be receipt-derived and name the value; "
+            f"reply={reply!r}")
+
+    def test_a2_domain_variants_complete_through_the_same_code(self):
+        """Same execution path, different domains: only the data varies."""
+        cases = [
+            ("Please update the office location in the employee record "
+             "to Rotterdam.",
+             "Employee record\nName: J. Vega\nLocation: Rotterdam\n"
+             "Role: Operator\n",
+             "Rotterdam"),
+            ("Please update the project status in the tracker to "
+             "On track.",
+             "Project tracker\nOwner: PMO\nStatus: On track\n"
+             "Budget: $120,000\n",
+             "On track"),
+            ("Please update the shipment reference in the job file to "
+             "OPS-7781.",
+             "Job file\nReference: OPS-7781\nStatus: open\n",
+             "OPS-7781"),
+        ]
+        for message, body, value in cases:
+            shared = _run_reask(
+                canvas={"canvas_id": "cv-dom", "content": {"body": body}},
+                message=message)
+            assert shared.get("canvas_edit_decline_noop") is True, (
+                f"{message!r} over its already-satisfied artifact must "
+                f"complete; check={_check(shared)!r}")
+            reply = shared.get("canvas_edit_decline_reply") or ""
+            assert value in reply, (message, reply)
+
+    def test_b_reverted_value_is_not_completed(self):
+        shared = _run_reask(canvas=_reask_canvas(terms="Net 30"))
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a value reverted after an earlier success must not certify")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+        if check is not None:
+            assert any("not already applied" in (o.get("detail") or "")
+                       for o in check.get("obligations") or []), check
+
+    def test_c_other_artifact_holding_the_value_cannot_certify(self):
+        current = _reask_canvas(canvas_id="cv-current", terms="Net 30")
+        shared = _run_reask(canvas=current)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "satisfaction must be bound to the artifact the check "
+            "actually read — never borrowed from another one")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+
+    def test_d_value_elsewhere_in_same_artifact_not_at_the_target(self):
+        body = _reask_body(terms="Net 30").replace(
+            "Subtotal: $48,000.00",
+            "Subtotal: $48,000.00\nNote: the template example uses Net 45")
+        assert "Net 45" in body, "the value IS present in the artifact"
+        shared = _run_reask(canvas=_reask_canvas(body=body))
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "an occurrence under another field/target must not certify "
+            "the requested assignment")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+
+    def test_e_mixed_obligations_cannot_complete_the_whole_request(self):
+        ask = ("Update the payment terms in the draft to Net 45; update "
+               "the valid until date to 2027-01-31.")
+        shared = _run_reask(message=ask)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "one satisfied half must not certify a request whose other "
+            "half is not applied")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+        if check is not None:
+            dispositions = [o.get("disposition")
+                            for o in check.get("obligations") or []]
+            assert "unsatisfied" in dispositions, dispositions
+
+    def test_f_revision_conflict_cannot_certify(self):
+        canvas = _reask_canvas()
+        canvas["latest_audit_id"] = "audit-4"
+        shared = _run_reask(canvas=canvas, expected_prior="audit-9")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a revision the caller did not expect cannot certify")
+        check = _check(shared)
+        assert check is None or check.get("satisfied") is not True
+
+    def test_g_source_backed_request_still_requires_its_evidence(self):
+        shared = _run_lane(
+            _brennan_canvas(), None,
+            message=("Update the draft with the approved prices and "
+                     "delivery times."))
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a request whose values live in records needs those records — "
+            "table preservation is not satisfaction")
+        check = _check(shared)
+        assert check is None or check.get("satisfied") is not True
+
+    def test_h_unsupported_request_never_completes(self):
+        shared = _run_lane(
+            _brennan_canvas(), None, message="Update the draft.")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a request with no concrete supported postcondition must not "
+            "complete merely because no violation was found")
+        check = _check(shared)
+        assert check is None or check.get("satisfied") is not True
