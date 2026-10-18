@@ -204,6 +204,35 @@ deployment; the deployed pilot (`8c593e57031e`) still does not include the
 fix, and row 43's exclusions are unchanged until integration +
 re-verification there.
 
+**Rev 12 (2026-10-18, L3 document-evidence SERVED VERIFICATION on the
+frozen L3 candidate).** The sourced-answer saved-status limitation (L3,
+F-R1) is **verified through the served API** on candidate
+**`6d662abff`** (L3 repair `8f881fd6c`; parent `aaa1169d7` — the L1
+successor, untouched) in the predeclared isolated configuration: the
+pilot's cloud route (`OPENCODE_BASE_URL=https://opencode.ai/zen/go/v1`),
+one authorized operator credential registered through the product,
+fastembed local embeddings, pilot-matching finalization/lifecycle flags,
+scratch stores; pilot `:8001` untouched. A fresh product user; the
+fixture uploaded through `POST /api/documents/upload`; the ORIGINAL
+request ("search my uploaded documents for the launch code for project
+Zephyr-9 and tell me the code") with REAL planning: the cloud planner's
+first pass proposed a non-eligible lane and the source-ask floor's
+corrective pass returned `documents.search`; the executed plan
+`documents.search:Zephyr-9 launch code` settled a **verified complete
+receipt** (`match_count=1`, `coverage=complete`), `objective_met=true`,
+`success=true`, `outcome=completed`, the answer carrying `QUARTZ-77`
+from the uploaded file, and a fresh history reload agreeing with the
+persisted row (execution `f6203e01-9959-4037-b877-ccc44e43bbd0`; 43.1 s;
+9/9 predeclared gates). Disclosed: the reply leg was served by the local
+`ollama/llama3.1:8b` runtime (auto-discovered; no credential) while
+planning ran on the declared cloud route — no predeclared gate depended
+on the reply route. Evidence:
+`journey_matrix/l3_document_evidence_served_20261018/` (declaration,
+config, result, server log, summary, CHECKSUMS). **Scope:** certifies the
+served mechanism on `6d662abff` + the declared configuration — NOT pilot
+deployment; the pilot (`8c593e57031e`) still carries the L3 limitation
+until integration + re-verification there; row 43's exclusions unchanged.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

@@ -488,5 +488,10 @@
       "commit": "aaa1169d7dc1a2e511bce9b81c33ee85f58982eb",
       "dirty_tracked": ""
     }
+  },
+  "L3.sourced-answer-saved-status": {
+    "status": "verified",
+    "evidence": "journey_matrix/l3_document_evidence_served_20261018/summary.json",
+    "notes": "SERVED-API verification of the requirement-driven document-evidence repair (F-R1) on candidate 6d662abff (repair 8f881fd6c; parent aaa1169d7, the L1 successor, untouched) in a predeclared isolated configuration: the pilot's cloud route (zen/go/v1), one authorized operator credential registered through the product, fastembed local embeddings, pilot-matching finalization/lifecycle flags, scratch stores, pilot :8001 untouched. Fresh product user; fixture uploaded through POST /api/documents/upload; the ORIGINAL Zephyr-9 ask with REAL cloud planning (first pass non-eligible, source-ask floor's corrective pass returned documents.search) executed documents.search:Zephyr-9 launch code -> verified complete receipt (match_count=1, coverage=complete), objective_met=true, success=true, outcome=completed, answer carries QUARTZ-77 from the uploaded file, fresh-history agreement (execution f6203e01-9959-4037-b877-ccc44e43bbd0). Disclosed: reply leg served by the local ollama/llama3.1:8b runtime (auto-discovered; no credential) while planning ran on the declared cloud route; no gate depended on the reply route. NOT pilot deployment (8c593e57031e unchanged)."
   }
 }
