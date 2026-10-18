@@ -1932,32 +1932,62 @@ _ASSIGNMENT_LOCATION_TOKENS = {
 }
 
 
-def _assignment_artifact_lines(current: Any) -> List[Tuple[str, str, str]]:
-    """(label, value_part, line) for every line of the artifact body.
+class _AssignmentRecord(NamedTuple):
+    """One field record of the artifact body, with its section subject.
 
-    HTML block boundaries become line breaks first; the label parser is
-    the factual-change validator's own (``_label_values``), so the
+    ``section`` is the heading text in force above the record ("" when
+    the document carries no heading). The satisfaction check binds a
+    requested subject to THIS record — a generic field under another
+    section can never absorb it (owner review 2026-10-18, defect class 2:
+    requested identity constraints were being dropped)."""
+    section: str
+    label: str
+    value: str
+    line: str
+
+
+def _assignment_artifact_lines(current: Any) -> List[_AssignmentRecord]:
+    """The artifact's records with their section context, line by line.
+
+    HTML headings (<h1>…<h6>) and Markdown ATX/bold headings set the
+    SECTION for the records that follow; the label parser is the
+    factual-change validator's own (``_label_values``), so the
     satisfaction check and the patch validator agree on what a
-    "Label: value" line is."""
+    "Label: value" line is. Unlabeled non-heading lines stay as records
+    with an empty label (they never bind a field)."""
     from core.factual_change_validation import _label_values
 
     body = str(_body_from_content(current) or "")
+    # HTML headings become ATX lines BEFORE the block-boundary pass, so
+    # their text survives tag stripping AS a heading (not as an
+    # anonymous line whose subject association would be lost).
+    body = re.sub(
+        r"<\s*h([1-6])[^>]*>(.*?)<\s*/\s*h\1\s*>",
+        lambda m: "\n" + "#" * int(m.group(1)) + " " + m.group(2) + "\n",
+        body, flags=re.IGNORECASE | re.DOTALL)
     body = re.sub(r"<\s*br\s*/?\s*>", "\n", body, flags=re.IGNORECASE)
     body = re.sub(
         r"</\s*(?:p|div|li|tr|h[1-6])\s*>", "\n", body,
         flags=re.IGNORECASE)
-    lines: List[Tuple[str, str, str]] = []
+    records: List[_AssignmentRecord] = []
+    section = ""
     for raw in body.splitlines():
         line = _html_text(raw)
         if not line.strip():
+            continue
+        heading = re.match(r"^\s*#{1,6}\s+(.*?)\s*#*\s*$", line)
+        if heading is None and ":" not in line:
+            heading = re.match(r"^\s*\*\*(.+?)\*\*\s*$", line)
+        if heading:
+            section = heading.group(1).strip()
             continue
         labels = _label_values(line)
         if labels:
             label, value_part = labels[0]
         else:
             label, value_part = "", line
-        lines.append((label, value_part, line))
-    return lines
+        records.append(_AssignmentRecord(section, label, value_part, line))
+    return records
 
 
 #: A value beyond this many words is PROSE: the satisfaction check
@@ -2003,27 +2033,75 @@ def _assignment_value_relation(assigned: Any, observed: Any) -> str:
     return "unsatisfied"
 
 
-def _assignment_target_records(
-    target: str, lines: List[Tuple[str, str, str]],
-) -> List[Tuple[str, str, str]]:
-    """The artifact records whose LABEL is completely named by the
-    target's content words (location words like 'in the draft' stripped).
+def _assignment_focused_words(
+    target: str, message: str, entry: Dict[str, Any],
+) -> set:
+    """Target words capitalized in the request's OWN text — the
+    proper-noun-like identity constraints (``Alpha``). Recovered from
+    the assignment's source span so the normalization that lowercased
+    the target never erases the signal."""
+    words = str(target or "").split()
+    if not words:
+        return set()
+    window = str(message or "")
+    span = entry.get("span")
+    if isinstance(span, (list, tuple)) and len(span) == 2:
+        try:
+            window = window[int(span[0]):int(span[1])] or window
+        except (TypeError, ValueError):
+            window = str(message or "")
+    pattern = r"\s+".join(re.escape(word) for word in words)
+    match = re.search(pattern, window, re.IGNORECASE)
+    source = match.group(0) if match else str(target or "")
+    return {
+        word.lower()
+        for word, source_word in zip(words, source.split())
+        if source_word[:1].isupper()
+    }
 
-    Every field/subject word a record carries must appear in the target:
-    a record naming another subject ('Beta project status') or another
-    field can never absorb a request naming 'Alpha project status'.
-    Target words absent from the label are modifiers/location the request
-    carries ('payment terms' for the record 'Terms'). Callers require
-    EXACTLY ONE match — zero (unresolved target) and many (ambiguous
-    records) both refuse completion."""
+
+def _assignment_target_records(
+    target: str,
+    records: List[_AssignmentRecord],
+    focused_words: Optional[set] = None,
+) -> List[_AssignmentRecord]:
+    """The artifact records a request target can bind to.
+
+    A record matches when its LABEL is completely named by the target's
+    content words (location words like 'in the draft' stripped), AND
+    every requested identity constraint resolves on the SAME record:
+
+    - an identity constraint is a leftover target word that is
+      capitalized in the request's own text (a proper-noun subject like
+      "Alpha"), or ANY leftover word when the leftover spans more than
+      one word (a multi-word subject phrase like "alpha project");
+    - constraints resolve only against the record's SECTION (the heading
+      in force above it): a generic field ("Status") under the wrong
+      section never absorbs the request, and with no section evidence on
+      the record an unresolved subject stays unresolved — even when the
+      field is the only match;
+    - a single lowercase leftover word is a field MODIFIER/alias
+      ("payment terms" for the record "Terms"), never a subject.
+
+    Callers require exactly one match — zero (unresolved subject/target)
+    and many (ambiguous records) both refuse completion."""
     target_words = set(_assignment_target_words(target))
     if not target_words:
         return []
-    matches: List[Tuple[str, str, str]] = []
-    for record in lines:
-        label_words = set(_assignment_label_words(record[0]))
-        if label_words and label_words <= target_words:
-            matches.append(record)
+    focused = {str(word) for word in (focused_words or set())}
+    matches: List[_AssignmentRecord] = []
+    for record in records:
+        label_words = set(_assignment_label_words(record.label))
+        if not label_words or not label_words <= target_words:
+            continue
+        leftover = target_words - label_words
+        if leftover:
+            constraints = (leftover if len(leftover) > 1
+                           else leftover & focused)
+            section_words = set(_assignment_label_words(record.section))
+            if constraints and not constraints <= section_words:
+                continue
+        matches.append(record)
     return matches
 
 
@@ -2046,15 +2124,17 @@ def _assignment_postcondition_obligations(
 
     An explicit "update X to Y" instruction authorizes Y for X; the
     artifact proves whether X already carries Y. The check resolves the
-    target to EXACTLY ONE artifact record whose label the request fully
-    names (subject identity cannot be substituted by shared field words,
-    and conflicting duplicates bind nothing), then compares the record's
-    COMPLETE value with the assigned value under conservative
-    normalization (whole-token decimal equality for numbers; no
-    substring/containment). Values the shared extractor recorded as
-    source references never arrive here (they are unresolved
-    obligations); an "add ..." obligation the artifact check cannot
-    confirm blocks completion with its own record.
+    target to EXACTLY ONE artifact record whose label AND requested
+    subject identity resolve on that same record — a generic field with
+    an unresolved requested subject stays unresolved, subject identity
+    cannot be substituted by shared field words, and conflicting
+    duplicates bind nothing — then compares the record's COMPLETE value
+    with the assigned value under conservative normalization
+    (whole-token decimal equality for numbers; no substring/containment).
+    Values the shared extractor recorded as source references never
+    arrive here (they are unresolved obligations); an "add ..." obligation
+    the artifact check cannot confirm blocks completion with its own
+    record.
 
     Returns [] when the request carries nothing assignable — the
     caller's pre-existing guards then behave exactly as before. Any
@@ -2105,22 +2185,26 @@ def _assignment_postcondition_obligations(
             if target_tokens & header_targets:
                 continue
             # RESOLVE THE TARGET FIRST (owner repair 2026-10-18): the
-            # target must bind to exactly one record whose label the
-            # request completely names. Zero matches (the draft has no
-            # such field) and many matches (duplicate/ambiguous records)
-            # are both UNRESOLVED — never satisfied through any().
-            records = _assignment_target_records(target, lines)
+            # target must bind to exactly one record whose label AND
+            # requested subject identity resolve on that same record.
+            # Zero matches (unresolved subject/target) and many matches
+            # (duplicate/ambiguous records) are both UNRESOLVED — never
+            # satisfied through any().
+            focused_words = _assignment_focused_words(target, message, entry)
+            records = _assignment_target_records(
+                target, lines, focused_words)
             if len(records) != 1:
                 disposition = "unresolved"
                 detail = (
-                    f"{target}: no unique record on the current draft "
-                    "names this target"
+                    f"{target}: no record on the current draft resolves "
+                    "this target's field and subject"
                     if not records else
                     f"{target}: {len(records)} records name this target "
                     "— the value cannot be bound uniquely")
                 summary = ""
             else:
-                relation = _assignment_value_relation(value, records[0][1])
+                relation = _assignment_value_relation(
+                    value, records[0].value)
                 disposition = relation
                 if relation == "satisfied":
                     detail = (f"{target}: already holds on the current "

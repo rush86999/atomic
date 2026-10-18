@@ -761,6 +761,11 @@ class TestCatalogResolutionScoping:
 
 _REASK_ASK = "Please also update the payment terms in the draft to Net 45."
 
+#: Subject-binding ask (owner review 2026-10-18, defect class 2): the
+#: requested subject must resolve on the same record as the field/value.
+_ALPHA_ASK = ("Please update Alpha project status in the draft to "
+              "On track.")
+
 
 def _reask_body(terms="Net 45", valid_until="2026-12-31"):
     return (
@@ -1048,6 +1053,95 @@ class TestExplicitAssignmentArtifactNoop:
         assert ("alpha project status in the draft already set to On track"
                 in reply), reply
 
+    # ------------------------------------------------------------------
+    # OWNER REVIEW (2026-10-18, after f988fb697) — DEFECT CLASS 2:
+    # requested subject constraints were dropped. A generic field
+    # ("Status") absorbed a request naming a subject ("Alpha project")
+    # whenever no record carried the requested identity; and a record
+    # under the WRONG heading satisfied it. Controls below are permanent.
+    # ------------------------------------------------------------------
+
+    def test_m_beta_section_generic_status_cannot_certify_alpha(self):
+        """Defect reproducer: the record under '# Beta project' holds
+        the value, but nothing in that record or its section names
+        Alpha. The requested subject must stay unresolved."""
+        body = "# Beta project\nStatus: On track\n"
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-beta-heading",
+                    "content": {"body": body}},
+            message=_ALPHA_ASK)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "the Beta section's generic Status must not certify Alpha; "
+            f"check={_check(shared)!r}")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", (
+            "the requested subject is unresolved on the record — never "
+            f"satisfied: {rows!r}")
+
+    def test_n_generic_status_without_subject_evidence_stays_unresolved(
+            self):
+        """A generic field with an unresolved requested subject stays
+        unresolved — even if it is the ONLY matching field."""
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-generic-only",
+                    "content": {"body": "Status: On track\n"}},
+            message=_ALPHA_ASK)
+        assert not shared.get("canvas_edit_decline_noop")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    def test_o_sections_select_only_the_requested_subject(self):
+        """Two sections, both with a generic 'Status': the request must
+        bind to the Alpha section's record and compare ITS value only."""
+        body = ("# Alpha project\nStatus: On track\n\n"
+                "# Beta project\nStatus: Blocked\n")
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-two-sections",
+                    "content": {"body": body}},
+            message=_ALPHA_ASK)
+        check = _check(shared)
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            "Alpha's section holds On track; the selection must be by "
+            f"section identity; check={check!r}")
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "satisfied", rows
+        # Inverse: Beta holds the value, Alpha's own section does not —
+        # the Beta value must not donate through section-blind matching.
+        body2 = ("# Alpha project\nStatus: Blocked\n\n"
+                 "# Beta project\nStatus: On track\n")
+        shared2 = _run_reask(
+            canvas={"canvas_id": "cv-two-sections-2",
+                    "content": {"body": body2}},
+            message=_ALPHA_ASK)
+        assert not shared2.get("canvas_edit_decline_noop"), (
+            "Alpha's own section says Blocked — no completion")
+        check2 = _check(shared2)
+        assert check2 is not None and check2.get("satisfied") is not True
+        rows2 = [o for o in check2.get("obligations") or []
+                 if o.get("kind") == "assignment_postconditions"]
+        assert rows2 and rows2[0].get("disposition") == "unsatisfied", (
+            "Alpha's record resolves; its value differs — unsatisfied, "
+            f"not unresolved: {rows2!r}")
+
+    def test_p_explicit_alpha_record_with_matching_value_satisfies(self):
+        """The explicit-record shape (subject+field in one label) stays
+        satisfied with the matching value."""
+        check = requirement_check(
+            message=_ALPHA_ASK,
+            canvas={"canvas_id": "cv-explicit-alpha",
+                    "content": {"body": "Alpha project status: On track\n"}},
+            authorized=True, expected_prior_audit_id=None)
+        from core.chat_canvas_editor import noop_completion_reply
+        assert check is not None and check.get("satisfied") is True, check
+        assert noop_completion_reply(check)
+
 
 class TestFinalizerConsumesOnlyTheReceipt:
     """The unattended finalizer (``run_canvas_edit_continuation``)
@@ -1143,6 +1237,39 @@ class TestFinalizerConsumesOnlyTheReceipt:
             "the fresh receipt says WHY: Alpha resolved, value differs — "
             f"{rows!r}")
 
+    def test_beta_section_heading_finalizes_unconfirmed(self):
+        """Defect class 2 through the real lane + finalizer: the only
+        record sits under '# Beta project'; nothing names Alpha. The
+        fresh receipt must be unresolved and the finalizer must not
+        report already-applied."""
+        outcome, _summary, shared = self._finalize(
+            {"canvas_id": "cv-beta-heading",
+             "content": {"body": "# Beta project\nStatus: On track\n"}},
+            _ALPHA_ASK)
+        assert outcome != "already_applied", (
+            "the Beta section's Status must not finalize Alpha's ask")
+        assert not shared.get("canvas_edit_decline_noop")
+        assert not shared.get("canvas_edit_decline_reply")
+        check = shared.get("canvas_decline_requirement_check")
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    def test_sections_selecting_alpha_finalize_from_the_receipt(self):
+        body = ("# Alpha project\nStatus: On track\n\n"
+                "# Beta project\nStatus: Blocked\n")
+        outcome, summary, shared = self._finalize(
+            {"canvas_id": "cv-two-sections", "content": {"body": body}},
+            _ALPHA_ASK)
+        assert outcome == "already_applied", (
+            f"Alpha's section holds On track: {outcome!r} {summary!r}")
+        assert "Verified on the current draft" in summary
+        assert "alpha project status in the draft already set to On track" \
+            in summary
+        check = shared.get("canvas_decline_requirement_check") or {}
+        assert check.get("satisfied") is True, check
+
     def test_satisfied_reask_finalizes_from_the_receipt(self):
         outcome, summary, shared = self._finalize(
             _reask_canvas(), _REASK_ASK)
@@ -1198,12 +1325,84 @@ class TestStrictAssignmentSatisfactionPrimitives:
             "Beta project status: On track\n"
             "Alpha project status: Blocked\n")}
         records = _assignment_target_records(
-            "Alpha project status", _assignment_artifact_lines(current))
+            "Alpha project status", _assignment_artifact_lines(current),
+            {"alpha"})
         assert records == [(
-            "Alpha project status", "Blocked",
+            "", "Alpha project status", "Blocked",
             "Alpha project status: Blocked")], (
             "shared field words must not let Beta's record absorb the "
             f"Alpha request: {records!r}")
+
+    def test_section_heading_is_the_record_subject(self):
+        """The owner's defect artifact: '# Beta project' + generic
+        'Status'. The heading must ride the record as its section, and a
+        requested subject that resolves nowhere on the record must not
+        be satisfied by the field name alone."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _assignment_target_records,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "# Beta project\nStatus: On track\n"})
+        assert records == [(
+            "Beta project", "Status", "On track",
+            "Status: On track")], (
+            f"the Beta heading must be preserved: {records!r}")
+        assert _assignment_target_records(
+            "Alpha project status", records, {"alpha"}) == [], (
+            "the requested subject Alpha is unresolved on the Beta record")
+        assert _assignment_target_records(
+            "Beta project status", records, {"beta"}) == records, (
+            "the record's own section resolves the Beta request")
+        assert _assignment_target_records(
+            "Status", records, set()) == records, (
+            "a generic request with no subject constraint may match")
+        # HTML headings reach the parser through the same structure.
+        html_records = _assignment_artifact_lines(
+            {"body": "<h1>Beta project</h1><p>Status: On track</p>"})
+        assert html_records == [(
+            "Beta project", "Status", "On track",
+            "Status: On track")], (
+            f"HTML headings must preserve the section too: {html_records!r}")
+
+    def test_sections_select_the_requested_subject(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _assignment_target_records,
+        )
+        records = _assignment_artifact_lines({"body": (
+            "# Alpha project\nStatus: On track\n\n"
+            "# Beta project\nStatus: Blocked\n")})
+        alpha = _assignment_target_records(
+            "Alpha project status", records, {"alpha"})
+        beta = _assignment_target_records(
+            "Beta project status", records, {"beta"})
+        assert len(alpha) == 1 and alpha[0].value == "On track", alpha
+        assert len(beta) == 1 and beta[0].value == "Blocked", beta
+
+    def test_single_lowercase_leftover_is_a_field_alias(self):
+        """S6's shape: 'payment terms' must still bind to the 'Terms'
+        record — a single lowercase leftover word is a field modifier,
+        not a dropped subject."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _assignment_target_records,
+        )
+        records = _assignment_artifact_lines({"body": "Terms: Net 45\n"})
+        assert _assignment_target_records(
+            "payment terms", records, set()) == records
+
+    def test_single_capitalized_leftover_is_an_identity_constraint(self):
+        """'Alpha status' — a one-word proper-noun subject must not be
+        absorbed by a generic field under another section."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _assignment_target_records,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "# Beta project\nStatus: On track\n"})
+        assert _assignment_target_records(
+            "Alpha status", records, {"alpha"}) == []
 
     def test_conflicting_duplicates_leave_no_unique_record(self):
         from core.chat_canvas_editor import (
@@ -1212,7 +1411,7 @@ class TestStrictAssignmentSatisfactionPrimitives:
         )
         current = {"body": "Terms: Net 45\nTerms: Net 30\n"}
         records = _assignment_target_records(
-            "payment terms", _assignment_artifact_lines(current))
+            "payment terms", _assignment_artifact_lines(current), set())
         assert len(records) == 2, (
             "both records are plausible; neither may be selected via "
             f"any(): {records!r}")
