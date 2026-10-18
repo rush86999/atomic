@@ -35,6 +35,13 @@ from pydantic import BaseModel, model_validator
 
 from core import log_redaction
 from core.evidence_grounding import CANVAS_ARTIFACT_GROUNDING_RULE
+# Strict primitives borrowed for the assignment-satisfaction relation
+# (L1/S6 repair 2026-10-18). Aliased so the borrowing is explicit and no
+# local definition can silently shadow them.
+from core.factual_change_validation import (
+    _decimal as _assignment_decimal,
+    _norm as _assignment_norm,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1953,6 +1960,83 @@ def _assignment_artifact_lines(current: Any) -> List[Tuple[str, str, str]]:
     return lines
 
 
+#: A value beyond this many words is PROSE: the satisfaction check
+#: refuses to adjudicate its equivalence and leaves the obligation
+#: unresolved. Scalar-shaped values (numbers, codes, short phrases like
+#: "Net 45" / "On track" / "3–4 weeks") compare completely.
+_ASSIGNMENT_SCALAR_MAX_WORDS = 8
+
+
+def _assignment_value_text(value: Any) -> str:
+    """Conservative whole-value normalization: casefold, collapse
+    whitespace, strip symmetric surrounding quotes and trailing sentence
+    punctuation. Deliberately NO substring or word-containment matching —
+    that acceptance is what let 'Net 45' satisfy 'not Net 45'."""
+    text = _assignment_norm(value).strip("\"'“”‘’ \t")
+    return re.sub(r"[.,;:!?]+$", "", text).strip()
+
+
+def _assignment_value_is_prose(text: str) -> bool:
+    return len(re.findall(r"[a-z0-9]+", text)) > _ASSIGNMENT_SCALAR_MAX_WORDS
+
+
+def _assignment_value_relation(assigned: Any, observed: Any) -> str:
+    """The strict relation between the request's assigned value and the
+    artifact record's complete value — 'satisfied', 'unsatisfied', or
+    'unresolved' (prose the check refuses to adjudicate). Numbers compare
+    by the existing whole-value decimal equality; text compares by
+    complete normalized equality. Containment is never equivalence."""
+    assigned_text = _assignment_value_text(assigned)
+    observed_text = _assignment_value_text(observed)
+    if not assigned_text or not observed_text:
+        return "unresolved"
+    assigned_number = _assignment_decimal(assigned)
+    observed_number = _assignment_decimal(observed)
+    if assigned_number is not None and observed_number is not None:
+        return ("satisfied" if assigned_number == observed_number
+                else "unsatisfied")
+    if assigned_text == observed_text:
+        return "satisfied"
+    if (_assignment_value_is_prose(assigned_text)
+            or _assignment_value_is_prose(observed_text)):
+        return "unresolved"
+    return "unsatisfied"
+
+
+def _assignment_target_records(
+    target: str, lines: List[Tuple[str, str, str]],
+) -> List[Tuple[str, str, str]]:
+    """The artifact records whose LABEL is completely named by the
+    target's content words (location words like 'in the draft' stripped).
+
+    Every field/subject word a record carries must appear in the target:
+    a record naming another subject ('Beta project status') or another
+    field can never absorb a request naming 'Alpha project status'.
+    Target words absent from the label are modifiers/location the request
+    carries ('payment terms' for the record 'Terms'). Callers require
+    EXACTLY ONE match — zero (unresolved target) and many (ambiguous
+    records) both refuse completion."""
+    target_words = set(_assignment_target_words(target))
+    if not target_words:
+        return []
+    matches: List[Tuple[str, str, str]] = []
+    for record in lines:
+        label_words = set(_assignment_label_words(record[0]))
+        if label_words and label_words <= target_words:
+            matches.append(record)
+    return matches
+
+
+def _assignment_target_words(text: str) -> List[str]:
+    return [word for word in re.findall(r"[a-z0-9]+", _assignment_norm(text))
+            if word not in _ASSIGNMENT_LOCATION_TOKENS]
+
+
+def _assignment_label_words(label: str) -> List[str]:
+    return [word for word in re.findall(r"[a-z0-9]+", _assignment_norm(label))
+            if word not in _ASSIGNMENT_LOCATION_TOKENS]
+
+
 def _assignment_postcondition_obligations(
     message: str,
     current: Any,
@@ -1961,11 +2045,16 @@ def _assignment_postcondition_obligations(
     CURRENT authoritative artifact (L1/S6 owner assignment 2026-10-18).
 
     An explicit "update X to Y" instruction authorizes Y for X; the
-    artifact proves whether X already carries Y — bound per line, so an
-    occurrence under another field never certifies. Values the shared
-    extractor recorded as source references never arrive here (they are
-    unresolved obligations); an "add ..." obligation the artifact check
-    cannot confirm blocks completion with its own record.
+    artifact proves whether X already carries Y. The check resolves the
+    target to EXACTLY ONE artifact record whose label the request fully
+    names (subject identity cannot be substituted by shared field words,
+    and conflicting duplicates bind nothing), then compares the record's
+    COMPLETE value with the assigned value under conservative
+    normalization (whole-token decimal equality for numbers; no
+    substring/containment). Values the shared extractor recorded as
+    source references never arrive here (they are unresolved
+    obligations); an "add ..." obligation the artifact check cannot
+    confirm blocks completion with its own record.
 
     Returns [] when the request carries nothing assignable — the
     caller's pre-existing guards then behave exactly as before. Any
@@ -1973,10 +2062,6 @@ def _assignment_postcondition_obligations(
     never asserts completion it could not establish."""
     try:
         from core.turn_decision import extract_request_assignments
-        from core.factual_change_validation import (
-            _target_mentioned,
-            _value_pair_match,
-        )
 
         parsed = extract_request_assignments(str(message or ""))
     except Exception:  # noqa: BLE001 — never assert on failure
@@ -2019,21 +2104,41 @@ def _assignment_postcondition_obligations(
             target_tokens = set(re.findall(r"[a-z0-9]+", target.lower()))
             if target_tokens & header_targets:
                 continue
-            satisfied = any(
-                _value_pair_match(value, value_part)
-                and _target_mentioned(target, label or line)
-                for label, value_part, line in lines)
+            # RESOLVE THE TARGET FIRST (owner repair 2026-10-18): the
+            # target must bind to exactly one record whose label the
+            # request completely names. Zero matches (the draft has no
+            # such field) and many matches (duplicate/ambiguous records)
+            # are both UNRESOLVED — never satisfied through any().
+            records = _assignment_target_records(target, lines)
+            if len(records) != 1:
+                disposition = "unresolved"
+                detail = (
+                    f"{target}: no unique record on the current draft "
+                    "names this target"
+                    if not records else
+                    f"{target}: {len(records)} records name this target "
+                    "— the value cannot be bound uniquely")
+                summary = ""
+            else:
+                relation = _assignment_value_relation(value, records[0][1])
+                disposition = relation
+                if relation == "satisfied":
+                    detail = (f"{target}: already holds on the current "
+                              "draft")
+                    summary = f"{target} already set to {value[:60]}"
+                elif relation == "unsatisfied":
+                    detail = (f"{target}: not already applied on the "
+                              "current draft")
+                    summary = ""
+                else:
+                    detail = (f"{target}: the current record's value is "
+                              "prose the check refuses to judge")
+                    summary = ""
             obligation: Dict[str, Any] = {
                 "kind": "assignment_postconditions",
-                "disposition": "satisfied" if satisfied else "unsatisfied",
-                "detail": (
-                    f"{target}: already holds on the current draft"
-                    if satisfied else
-                    f"{target}: not already applied on the current draft"
-                )[:160],
-                "summary": (
-                    f"{target} already set to {value[:60]}"
-                    if satisfied else ""),
+                "disposition": disposition,
+                "detail": detail[:160],
+                "summary": summary,
             }
             span = entry.get("span")
             if isinstance(span, (list, tuple)) and len(span) == 2:
@@ -2122,8 +2227,9 @@ def requirement_check(
     # EXPLICIT REQUEST ASSIGNMENTS (L1/S6 owner assignment 2026-10-18):
     # the request's own "update X to Y" assignments are evaluated
     # against THIS authoritative revision — the artifact is the evidence
-    # of whether X already carries Y, bound per line. (Source-reference
-    # values never arrive here; unresolved additions block.)
+    # of whether X already carries Y, resolved to one unique record and
+    # compared as a complete value. (Source-reference values never
+    # arrive here; unresolved additions block.)
     assignment_obligations = _assignment_postcondition_obligations(
         message, current)
     has_assignments = any(
