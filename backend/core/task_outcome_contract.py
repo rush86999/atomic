@@ -557,6 +557,35 @@ register_criteria_verifier("mutation", _mutation_verifier)
 register_criteria_verifier("scheduling", _mutation_verifier)
 
 
+def _context_source_fulfillment_verifier(
+    outcome: Dict[str, Any],
+) -> "bool | None":
+    """Context-backed fulfillment criterion (F-C2, 2026-10-17).
+
+    The criterion is declared only when the outcome resolver completed
+    the context-backed fulfillment — this verifier re-states the RECORDED
+    shape it rests on: a verified ``context_assembly`` tool outcome whose
+    evidence refs address the request as context sources. Reply wording
+    is never consulted; a claimed criterion without the recorded shape
+    is not met.
+    """
+    for tool in outcome.get("tool_outcomes") or []:
+        if (not isinstance(tool, dict)
+                or tool.get("tool") != "context_assembly"
+                or tool.get("verified") is not True):
+            continue
+        refs = [r for r in (tool.get("evidence_refs") or [])
+                if isinstance(r, dict)]
+        if any(str(r.get("kind") or "") == "context_source"
+               for r in refs):
+            return True
+    return False
+
+
+register_criteria_verifier(
+    "context_source_fulfillment", _context_source_fulfillment_verifier)
+
+
 def _has_verified_evidence(outcome: Dict[str, Any], tools: List[Dict[str, Any]]) -> bool:
     evidence = outcome.get("evidence_refs") or []
     if any(

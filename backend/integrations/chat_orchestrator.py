@@ -5770,6 +5770,11 @@ _KIND_FAMILIES: Dict[str, set] = {
         "document", "documents", "doc", "docs", "file", "files",
         "folder", "folders", "drive", "drives", "pdf", "pdfs",
         "knowledge base", "knowledgebase", "upload", "uploads",
+        # the document-store nouns the decision layer already treats as
+        # consultable sources (_SOURCE_NOUN_RE): workbooks/sheets land in
+        # the same ingested store.
+        "workbook", "workbooks", "spreadsheet", "spreadsheets",
+        "sheet", "sheets",
     },
     "communications": {
         "email", "emails", "e-mail", "mail", "mails", "inbox",
@@ -5779,6 +5784,113 @@ _KIND_FAMILIES: Dict[str, set] = {
         "letter", "letters", "comment", "comments", "post", "posts",
     },
 }
+
+# Comparison coverage statuses that are NOT a completed comparison. ONE
+# definition shared by the outcome builder and the fulfillment matcher
+# (the builder's comparison_covered set, promoted to a constant so the
+# two consumers can never drift).
+_COMPARISON_UNCOVERED_STATUSES = {
+    "unverified", "evidence_missing", "unresolved",
+    "partially_comparable", "field_missing",
+}
+
+_FILENAME_TOKEN_RE = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._\-]*\.(?:txt|md|pdf|docx?|xlsx?|csv|tsv|json)",
+    re.IGNORECASE)
+
+
+def _normalize_source_name(value: Any) -> str:
+    text = re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+    return text[4:] if text.startswith("the ") else text
+
+
+def _mentions_to_filename_candidates(mentions: Any) -> List[str]:
+    """Filename-shaped candidates inside detected file mentions.
+
+    Stable identity only: the mention text may wrap the name in prose
+    ("draft quotation with the approved_records_q2026_114.txt" → the
+    token). Mentions without a filename token contribute their normalized
+    tail as a candidate; whether the catalog holds it decides resolution.
+    """
+    out: List[str] = []
+    for m in (mentions or []):
+        text = str(m or "")
+        tokens = _FILENAME_TOKEN_RE.findall(text)
+        if not tokens:
+            tail = " ".join(text.split()[-3:])
+            tokens = [tail] if len(tail) >= 3 else []
+        for t in tokens:
+            norm = _normalize_source_name(t)
+            if norm and norm not in out:
+                out.append(norm)
+    return out[:4]
+
+
+def _resolve_requirement_identity(
+    names: List[str], workspace_id: Any,
+) -> Dict[str, Any]:
+    """Resolve named sources to CATALOG identity (exact-normalized only).
+
+    resolved  → exactly one catalog document matches the name;
+    ambiguous → several match (the request must clarify; never completes);
+    unresolved→ none match (never completes);
+    kind_only → no specific name was given (the source KIND is the only
+                identity available).
+    """
+    if not names:
+        return {"state": "kind_only", "candidates": []}
+    try:
+        from core.database import get_db_session
+        from core.models import IngestedDocument
+
+        with get_db_session() as db:
+            q = db.query(IngestedDocument)
+            if workspace_id:
+                q = q.filter(IngestedDocument.workspace_id == workspace_id)
+            rows = q.all()
+    except Exception:  # noqa: BLE001 — resolution failure never completes
+        return {"state": "unresolved", "names": list(names)[:4],
+                "note": "catalog lookup failed"}
+    norm = {_normalize_source_name(n) for n in names if str(n or "").strip()}
+    hits: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        fn = _normalize_source_name(getattr(r, "file_name", None))
+        ti = _normalize_source_name(getattr(r, "title", None))
+        if (fn and fn in norm) or (ti and ti in norm):
+            hits[str(getattr(r, "id", ""))] = {
+                "file_id": str(getattr(r, "id", "")),
+                "file_name": getattr(r, "file_name", None),
+            }
+    candidates = list(hits.values())
+    if len(candidates) == 1:
+        return {"state": "resolved", **candidates[0]}
+    if len(candidates) > 1:
+        return {"state": "ambiguous", "candidates": candidates[:4]}
+    return {"state": "unresolved", "names": sorted(norm)[:4]}
+
+
+def _comparison_carrier_complete(carrier: Any) -> bool:
+    """Whether a recorded comparison carrier covers every compared field.
+
+    Mirrors the outcome builder's coverage rule through the shared status
+    set — a comparison with any uncovered/absent field is NOT a result.
+    """
+    if not isinstance(carrier, dict):
+        return False
+    coverage = carrier.get("coverage") or {}
+    outcomes = [o for o in (coverage.get("outcomes") or [])
+                if isinstance(o, dict)]
+    total = int(coverage.get("outcome_count") or len(outcomes) or 0)
+    if not total:
+        return False
+    covered = sum(
+        1 for o in outcomes
+        if str(o.get("status") or "unresolved")
+        not in _COMPARISON_UNCOVERED_STATUSES
+        and not ({"field_missing", "evidence_missing"}
+                 & {str(reason) for reason in (o.get("reasons") or [])})
+    )
+    return covered == total
 
 
 def _observation_kind_family(obs: Dict[str, Any]) -> Optional[str]:
@@ -5799,6 +5911,83 @@ def _observation_satisfies_kind(obs: Dict[str, Any],
     return any(str(k).strip().lower() in allowed for k in kinds if k)
 
 
+def _stash_evidence_requirement(
+    session: Any,
+    execution_id: Any,
+    decision: Any,
+    message: Any,
+    evidence_required: Any,
+    workspace_id: Any = None,
+    canvas_attached: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Record the accepted request's evidence requirement for THIS execution.
+
+    F-C2 (2026-10-17; extracted so the production stash is directly
+    testable): source kinds, file reference, deterministic typed-field
+    requests, subject identities, the RESOLVED named-source identity
+    (catalog, exact normalized name), and whether an artifact was attached
+    (both-inputs-available). Execution-keyed: another turn's requirement
+    can never donate. Returns the recorded requirement (or None).
+    """
+    if (not isinstance(session, dict) or not execution_id
+            or not isinstance(decision, dict)):
+        return None
+    refs = decision.get("references") or {}
+    fields: List[str] = []
+    try:
+        from core.workbook_read_artifact import extract_field_requests
+
+        fields = list(dict.fromkeys(
+            extract_field_requests([str(message or "")])))[:6]
+    except Exception:  # noqa: BLE001 — fields additive
+        fields = []
+    subjects: List[str] = []
+    try:
+        from core.memory_context_assembler import subjects_for_message
+
+        subjects = subjects_for_message(str(message or ""))
+    except Exception:  # noqa: BLE001 — subjects additive
+        subjects = []
+    identity: Dict[str, Any] = {"state": "kind_only", "candidates": []}
+    file_ref = refs.get("file") if isinstance(refs.get("file"), dict) else None
+    try:
+        from core.agent_file_context import detect_file_mentions
+
+        mentions = detect_file_mentions(str(message or "")) or []
+    except Exception:  # noqa: BLE001
+        mentions = []
+    if file_ref and (file_ref.get("file_name") or file_ref.get("name")
+                     or file_ref.get("resource_id")):
+        identity = _resolve_requirement_identity(
+            [str(file_ref.get("file_name") or file_ref.get("name") or "")],
+            workspace_id)
+        if (identity.get("state") == "unresolved"
+                and file_ref.get("resource_id")):
+            identity = {
+                "state": "resolved",
+                "file_id": str(file_ref.get("resource_id")),
+                "file_name": (file_ref.get("file_name")
+                              or file_ref.get("name")),
+            }
+    elif mentions:
+        identity = _resolve_requirement_identity(
+            _mentions_to_filename_candidates(mentions), workspace_id)
+    requirement = {
+        "required": evidence_required is True,
+        "sources": [
+            str(s).strip().lower()
+            for s in (refs.get("sources") or [])
+            if str(s or "").strip()][:4],
+        "file": file_ref,
+        "fields": fields,
+        "subjects": subjects,
+        "identity": identity,
+        "artifact_attached": bool(canvas_attached),
+    }
+    session[f"_evidence_requirement_{execution_id}"] = requirement
+    return requirement
+
+
 def _context_backed_fulfillment(
     session: Any,
     execution_id: Any,
@@ -5806,13 +5995,26 @@ def _context_backed_fulfillment(
 ) -> Optional[Dict[str, Any]]:
     """Resolve the context-backed fulfillment verdict for THIS execution.
 
-    Returns None when the shape does not apply (no requirement recorded, no
-    observations, no kind match, scope unverifiable) — callers then leave
-    the existing resolution untouched. Returns a verdict dict otherwise:
-    ``completed`` (every requested field supplied by the matching retrieval),
-    ``partial`` (some supplied, the rest named as missing), or
-    ``retrieval_only``/``unsupplied`` (availability without the requested
-    finding — never completion).
+    Evidence discipline (owner F-C2 gap repairs, 2026-10-17):
+
+    * identity — a NAMED source must resolve to catalog identity (exact
+      normalized name) and the observation must carry THAT identity; a name
+      matching several documents is ambiguous and never completes; a name
+      matching none is unresolved and never completes. Kind-only requests
+      (no name given) match by source family + authenticated scope.
+    * fulfillment — per requested field, an ASSOCIATION recorded by the
+      assembler (anchor → value → span, subject-tied when the request
+      names a subject). Unrelated values cannot fill unknown fields and
+      fragments never combine (per-observation records).
+    * comparison — when the turn carried an attached artifact AND required
+      a source, availability of both inputs does not establish that the
+      comparison was performed: completion additionally requires the
+      recorded comparison carrier for THIS execution with complete
+      coverage.
+
+    Returns None when the shape does not apply. Verdict states:
+    ``completed`` / ``partial`` (named gaps) / ``unsupplied`` /
+    ``retrieval_only`` / ``ambiguous`` / ``unresolved``.
     """
     if not isinstance(session, dict) or not execution_id:
         return None
@@ -5825,11 +6027,21 @@ def _context_backed_fulfillment(
     kinds = [str(k) for k in (req.get("sources") or []) if str(k or "").strip()]
     if not kinds:
         return None
+    identity = req.get("identity") if isinstance(
+        req.get("identity"), dict) else {"state": "kind_only"}
+    id_state = str(identity.get("state") or "kind_only")
+    if id_state == "ambiguous":
+        return {"state": "ambiguous",
+                "candidates": identity.get("candidates") or []}
+    if id_state == "unresolved":
+        return {"state": "unresolved", "names": identity.get("names") or []}
     try:
         _turn_ws = workspace_id or resolve_user_workspace(
             session.get("user_id") if isinstance(session, dict) else None)
     except Exception:  # noqa: BLE001
         _turn_ws = workspace_id or None
+    _id_name = (_normalize_source_name(identity.get("file_name"))
+                if id_state == "resolved" else "")
     matching: List[Dict[str, Any]] = []
     for o in obs:
         if not isinstance(o, dict):
@@ -5840,25 +6052,62 @@ def _context_backed_fulfillment(
                 continue  # scope mismatch / unscoped — never promotes
         elif o_ws:
             continue  # a stamped workspace the turn cannot authenticate
-        if _observation_satisfies_kind(o, kinds):
-            matching.append(o)
+        if id_state == "resolved":
+            if not _id_name:
+                continue
+            o_name = _normalize_source_name(
+                o.get("file_name") or o.get("title"))
+            if o_name != _id_name:
+                continue  # a different named document never donates
+        elif not _observation_satisfies_kind(o, kinds):
+            continue
+        matching.append(o)
     if not matching:
         return None
     fields = [str(f) for f in (req.get("fields") or []) if f][:6]
     if not fields:
         # the retrieval proves the source was available, nothing more
         return {"state": "retrieval_only", "sources": len(matching)}
-    supplied: List[str] = []
+    subjects = [str(s) for s in (req.get("subjects") or []) if s][:4]
+    subjects_low = {s.casefold() for s in subjects}
+    # PER-OBSERVATION COMPLETION (reviewer F3): ONE matching source must
+    # supply EVERY requested field — fields spread across different
+    # documents never add up to a supplied finding.
+    best_obs: Optional[Dict[str, Any]] = None
+    best_row: Dict[str, Any] = {}
     for o in matching:
-        for f in (o.get("supplied_fields") or []):
-            if str(f) not in supplied:
-                supplied.append(str(f))
+        assoc_map = o.get("field_associations")
+        if not isinstance(assoc_map, dict):
+            continue
+        row: Dict[str, Any] = {}
+        for f in fields:
+            a = assoc_map.get(f)
+            if not isinstance(a, dict) or not a.get("value"):
+                continue
+            if subjects_low and str(a.get("subject") or "").casefold() \
+                    not in subjects_low:
+                continue  # not tied to a REQUESTED subject
+            row[f] = a
+        if best_obs is None or len(row) > len(best_row):
+            best_obs, best_row = o, row
+    supplied = sorted(best_row.keys())
     missing = [f for f in fields if f not in supplied]
+    matched_ids = ([{"source": best_obs.get("source"),
+                     "file_name": best_obs.get("file_name"),
+                     "content_hash": best_obs.get("content_hash")}]
+                   if best_obs is not None and supplied else [])
     if not missing:
-        return {"state": "completed", "supplied_fields": supplied}
+        if req.get("artifact_attached"):
+            carrier = session.get(f"_objective_evidence_{execution_id}")
+            if not _comparison_carrier_complete(carrier):
+                # both inputs available ≠ the comparison was performed
+                return {"state": "partial", "supplied_fields": supplied,
+                        "missing_comparison": True, "matched": matched_ids}
+        return {"state": "completed", "supplied_fields": supplied,
+                "matched": matched_ids}
     if supplied:
         return {"state": "partial", "supplied_fields": supplied,
-                "missing_fields": missing}
+                "missing_fields": missing, "matched": matched_ids}
     return {"state": "unsupplied", "missing_fields": missing}
 
 
@@ -6204,6 +6453,10 @@ def _fallback_turn_outcome(
                 # Delivered answer with a named gap: the supplied fields
                 # are usable work; the missing ones stay obligations.
                 validated = True
+                if context_fulfillment.get("missing_comparison"):
+                    open_work.append(
+                        "the comparison itself was not recorded this "
+                        "turn — only its inputs were available")
                 _cf_missing = [
                     str(f) for f in (
                         context_fulfillment.get("missing_fields") or [])][:3]
@@ -6212,6 +6465,32 @@ def _fallback_turn_outcome(
                         "the requested " + ", ".join(_cf_missing)
                         + " — not present in the retrieved source "
                           "excerpt this turn")
+            elif _cf_state == "ambiguous":
+                _cf_names = [
+                    str(c.get("file_name") or c.get("file_id") or "")
+                    for c in (context_fulfillment.get("candidates") or [])
+                    if isinstance(c, dict)][:3]
+                _cf_names = [n for n in _cf_names if n]
+                open_work.append(
+                    "which source you mean"
+                    + (" — the reference matches " + ", ".join(_cf_names)
+                       if _cf_names else ""))
+            elif _cf_state == "unresolved":
+                _cf_names = [str(n) for n in (
+                    context_fulfillment.get("names") or [])][:3]
+                open_work.append(
+                    "no ingested document matches "
+                    + (", ".join(_cf_names) if _cf_names
+                       else "the named source"))
+            elif _cf_state == "unsupplied":
+                _cf_missing = [
+                    str(f) for f in (
+                        context_fulfillment.get("missing_fields") or [])][:3]
+                if _cf_missing:
+                    open_work.append(
+                        "the requested " + ", ".join(_cf_missing)
+                        + " — no supported association in the retrieved "
+                          "source excerpt this turn")
 
         # 4. RELEVANT OPEN OBLIGATIONS — actions, owner decisions, and
         #    exhausted questions are all unfinished requested work.
@@ -7837,10 +8116,7 @@ class ChatOrchestrator:
                 or 0
             )
             comparison_covered = sum(
-                status not in {
-                    "unverified", "evidence_missing", "unresolved",
-                    "partially_comparable", "field_missing",
-                }
+                status not in _COMPARISON_UNCOVERED_STATUSES
                 for status in comparison_statuses
             )
             # field_missing JOINS the exclusion set (verifier review
@@ -8221,18 +8497,22 @@ class ChatOrchestrator:
             _cf_record = _recorded_context_fulfillment(response, execution_id)
             if _cf_record:
                 # F-C2 basis as a CRITERION (contract-normalized, so it
-                # survives settlement): the completion claim is auditable
-                # against the identity-projected source refs it rests on.
+                # survives settlement; the registered verifier re-states
+                # the recorded shape). Refs name the MATCHED source(s),
+                # not the whole carrier.
+                _cf_matched = [
+                    m for m in (_cf_record.get("matched") or [])
+                    if isinstance(m, dict)] or _context_sources
                 criterion_results.append({
                     "criterion": "context_source_fulfillment",
                     "met": True,
-                    "verifier": "context_assembly",
+                    "verifier": "context_source_fulfillment",
                     "evidence_refs": [
                         {k: v for k, v in
                          {"kind": "context_source", **s}.items()
                          if k in ("kind", "source", "file_name",
-                                  "content_hash", "workspace_id")}
-                        for s in _context_sources
+                                  "content_hash")}
+                        for s in _cf_matched
                     ],
                 })
             if _context_sources:
@@ -13634,35 +13914,19 @@ class ChatOrchestrator:
                     _evidence_required = None
             # F-C2 CONTEXT-BACKED FULFILLMENT (2026-10-17): stash the
             # accepted request's evidence requirement — source kinds, file
-            # reference and the deterministic typed-field requests — keyed
-            # by THIS execution. The outcome resolver matches it against
-            # this turn's retrieval observations (kind + authenticated
-            # scope) and the fields those excerpts actually supplied.
-            # Execution-keyed: another/later turn's requirement can never
-            # donate, and a failed stash leaves the needle untouched.
+            # reference, typed fields, subjects, the RESOLVED named-source
+            # identity, and whether an artifact is attached — keyed by
+            # THIS execution. The outcome resolver matches it against this
+            # turn's retrieval observations (identity + authenticated
+            # scope) and the association-grade evidence those excerpts
+            # recorded. Execution-keyed: another/later turn's requirement
+            # can never donate.
             try:
-                if (isinstance(_td_decision, dict)
-                        and isinstance(session, dict) and _execution_id):
-                    _td_refs = _td_decision.get("references") or {}
-                    _req_fields: List[str] = []
-                    try:
-                        from core.workbook_read_artifact import (
-                            extract_field_requests as _efr,
-                        )
-
-                        _req_fields = list(dict.fromkeys(
-                            _efr([str(message or "")])))[:6]
-                    except Exception:  # noqa: BLE001 — fields additive
-                        _req_fields = []
-                    session[f"_evidence_requirement_{_execution_id}"] = {
-                        "required": _evidence_required is True,
-                        "sources": [
-                            str(s).strip().lower()
-                            for s in (_td_refs.get("sources") or [])
-                            if str(s or "").strip()][:4],
-                        "file": _td_refs.get("file") or None,
-                        "fields": _req_fields,
-                    }
+                _stash_evidence_requirement(
+                    session, _execution_id, _td_decision, message,
+                    _evidence_required,
+                    workspace_id=locals().get("user_workspace"),
+                    canvas_attached=bool(locals().get("_canvas_ctx")))
             except Exception:  # noqa: BLE001 — additive, never blocks
                 pass
             _shared_tool: Dict[str, Any] = {

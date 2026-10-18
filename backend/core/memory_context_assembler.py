@@ -181,6 +181,7 @@ async def _knowledge_leg(
             dict.fromkeys(extract_field_requests([str(message or "")])))[:6]
     except Exception:  # noqa: BLE001 — coverage is additive
         _requested_fields = []
+    _subjects = subjects_for_message(str(message or ""))
     lines: List[str] = [
         # Provenance spotlighting (core/provenance.py lattice): ingested
         # email/drive/app content is attacker-influenceable RETRIEVED data —
@@ -238,10 +239,14 @@ async def _knowledge_leg(
         # STRUCTURED SOURCE OBSERVATION (owner directive R4; F-C2 2026-10-17):
         # the retrieval record carries the source identity, the authenticated
         # workspace the retrieval ran under, the bounded excerpt that reached
-        # the answer context, and which REQUESTED fields that excerpt
-        # supplies. Captured only for hits actually supplied to narration
-        # (non-empty preview) — a skipped/empty hit donates nothing.
+        # the answer context, and ASSOCIATION-grade fulfillment evidence for
+        # the requested fields (anchor → value → span, subject-tied when the
+        # request names a subject). Captured only for hits actually supplied
+        # to narration (non-empty preview) — a skipped/empty hit donates
+        # nothing, and fragments never combine across observations.
         if source_observations_out is not None:
+            _associations = field_associations_for_excerpt(
+                preview, _requested_fields, _subjects)
             source_observations_out.append({
                 "source": str(hit.get("source") or "")[:100],
                 "title": str(hit.get("title") or "")[:200],
@@ -253,9 +258,9 @@ async def _knowledge_leg(
                                  if workspace_id else None),
                 "excerpt": preview[:KNOWLEDGE_PREVIEW_CHAR_CAP + 1],
                 "requested_fields": list(_requested_fields),
-                "supplied_fields": [
-                    f for f in _requested_fields
-                    if field_present_in_excerpt(preview, f)],
+                "subjects": list(_subjects),
+                "field_associations": _associations,
+                "supplied_fields": sorted(_associations.keys()),
             })
     lines.append("</provenance>")
     return lines
@@ -274,34 +279,224 @@ _DATE_SHAPE_RE = re.compile(
     r"|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
     r"\s+\d{1,2}\b",                           # Dec 31
     re.IGNORECASE)
+_NUMBER_SHAPE_RE = re.compile(r"[$€£]?\s?\d[\d,.]*\s?(?:%|kg|lb|units?|days?)?",
+                              re.IGNORECASE)
+# A value-position NEGATION/UNKNOWNNESS marker: an anchor followed by one of
+# these does NOT supply a value, no matter what compatible-shaped token sits
+# later in the window (F-C2 gap 2: "Price: unknown. Quantity: 7." must not
+# fill price from 7; "Expiration date: not supplied. Document created
+# 2026-01-01." must not fill expiration_date from the created date).
+_NEGATIVE_VALUE_RE = re.compile(
+    r"\b(?:not\s+(?:supplied|available|stated|provided|found|known|listed)"
+    r"|unknown|unavailable|tbd|n/?a|to\s+be\s+(?:confirmed|determined|"
+    r"supplied)|pending|missing|none|no\s+value)\b",
+    re.IGNORECASE)
+_ANCHOR_WINDOW_CHARS = 80
 
 
-def field_present_in_excerpt(excerpt: str, canonical: str) -> bool:
-    """Whether ``excerpt`` supplies a value for the canonical field.
-
-    F-C2 (2026-10-17): the fulfillment half of a context-backed answer —
-    the requested field's anchor plus a plausible value shape. Absence is
-    NEVER read as the field being missing from the source (the excerpt is
-    bounded and may be truncated): callers treat a missing anchor as
-    "not supplied to narration", which stays partial/unknown.
-    """
-    low = str(excerpt or "").casefold()
-    if not low:
-        return False
+def _field_aliases(canonical: str) -> List[str]:
     try:
         from core.workbook_read_artifact import _FIELD_ALIASES
     except Exception:  # noqa: BLE001 — reverts to the bare canonical name
         _FIELD_ALIASES = {}
-    aliases = list(_FIELD_ALIASES.get(canonical) or ())
-    if canonical not in aliases:
-        aliases.append(canonical.replace("_", " "))
-    if not any(str(a).casefold() in low for a in aliases if a):
-        return False
-    if canonical in _TEMPORAL_FIELDS:
-        return bool(_DATE_SHAPE_RE.search(low))
-    if canonical in _NUMERIC_FIELDS:
-        return bool(re.search(r"\d", low))
-    return True
+    aliases = [str(a).casefold() for a in
+               (_FIELD_ALIASES.get(canonical) or ()) if str(a).strip()]
+    bare = canonical.replace("_", " ")
+    if bare not in aliases:
+        aliases.append(bare)
+    return aliases
+
+
+def subjects_for_message(message: str) -> List[str]:
+    """Deterministic SUBJECT identities named by the request.
+
+    Uses the existing target extractor; entries that are field-like (equal
+    to or contained in a field alias, e.g. "Valid Until") are dropped —
+    they are the requested FIELDS, not subjects. Bounded, additive.
+    """
+    try:
+        from core.workbook_read_artifact import extract_targets
+        raw = extract_targets([str(message or "")])[:8]
+    except Exception:  # noqa: BLE001
+        return []
+    try:
+        from core.workbook_read_artifact import _FIELD_ALIASES
+        aliases = [str(a).casefold() for values in _FIELD_ALIASES.values()
+                   for a in values]
+    except Exception:  # noqa: BLE001
+        aliases = []
+    out: List[str] = []
+    for t in raw:
+        norm = re.sub(r"\s+", " ", str(t or "")).strip().casefold()
+        if len(norm) < 3:
+            continue
+        if any(norm == a or norm in a or a in norm for a in aliases):
+            continue
+        if norm not in out:
+            out.append(norm)
+    return out[:4]
+
+
+def _subject_positions(low: str, subjects: List[str]) -> List[tuple]:
+    """(position, subject) for every whole-subject occurrence, sorted."""
+    out: List[tuple] = []
+    for s in subjects:
+        probe = str(s or "").strip().casefold()
+        if len(probe) < 3:
+            continue
+        start = 0
+        while True:
+            pos = low.find(probe, start)
+            if pos < 0:
+                break
+            out.append((pos, s))
+            start = pos + len(probe)
+    out.sort(key=lambda item: item[0])
+    return out
+
+
+def _anchor_occurrences(low: str, alias: str) -> List[int]:
+    """Word-boundary occurrences of an alias (casefolded text).
+
+    Boundary-checked: "date" must not match "Updated", "list" must not
+    match "listed" (owner F-C2 gap 2; reviewer F3).
+    """
+    out: List[int] = []
+    if not alias:
+        return out
+    start = 0
+    while True:
+        pos = low.find(alias, start)
+        if pos < 0:
+            return out
+        before = low[pos - 1] if pos > 0 else " "
+        after_i = pos + len(alias)
+        after = low[after_i] if after_i < len(low) else " "
+        if not (before.isalnum() or before in "-_") and \
+                not (after.isalnum() or after in "-_"):
+            out.append(pos)
+        start = pos + 1
+
+
+def field_associations_for_excerpt(
+    excerpt: str,
+    requested_fields: List[str],
+    subjects: Optional[List[str]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Association-grade fulfillment evidence (owner F-C2 gap-2 repair).
+
+    For every requested field, return ``{field: {value, span, subject}}``
+    ONLY when the excerpt carries a coherent association: the field's own
+    anchor, then a value of the field's shape within a bounded window that
+    does not cross the next field anchor, is not negated ("not supplied",
+    "unknown"), and — when the request names a subject — lies inside a
+    block opened by that subject's own mention in the excerpt.
+
+    An unrelated compatible value therefore cannot fill an unknown field,
+    separate fragments cannot combine, and a correct document whose
+    association belongs to a different subject supplies nothing. Absence
+    is never read as source-absence (the excerpt is bounded).
+    """
+    low = str(excerpt or "").casefold()
+    out: Dict[str, Dict[str, Any]] = {}
+    if not low or not requested_fields:
+        return out
+    anchor_rows: List[tuple] = []          # (pos, field, anchor_len)
+    for canonical in requested_fields:
+        for alias in _field_aliases(canonical):
+            for pos in _anchor_occurrences(low, alias):
+                anchor_rows.append((pos, str(canonical), len(alias)))
+    anchor_rows.sort(key=lambda row: row[0])
+    # STOP BOUNDARIES: EVERY field's anchors (not only the requested ones)
+    # bound the value window — "Price: Quantity: 7" must not fill price
+    # from Quantity's number (reviewer F3).
+    stop_positions: List[int] = []
+    try:
+        from core.workbook_read_artifact import _FIELD_ALIASES as _all_aliases
+
+        for _canon, _aliases in _all_aliases.items():
+            for _alias in list(_aliases)[:8]:
+                stop_positions.extend(_anchor_occurrences(
+                    low, str(_alias).casefold()))
+    except Exception:  # noqa: BLE001 — falls back to requested anchors
+        stop_positions = [row[0] for row in anchor_rows]
+    stop_positions.sort()
+    requested_set = {str(s).strip().casefold()
+                     for s in (subjects or []) if str(s).strip()}
+    boundary_rows: List[tuple] = []
+    if subjects:
+        boundary_rows.extend(_subject_positions(low, list(subjects)))
+        # other subjects in the excerpt bound the blocks too: an
+        # association tagged to a different record's subject must not
+        # pass as the requested one.
+        try:
+            for other in subjects_for_message(str(excerpt or "")):
+                if other in requested_set:
+                    continue
+                boundary_rows.extend(_subject_positions(low, [other]))
+        except Exception:  # noqa: BLE001 — boundary probe additive
+            pass
+        boundary_rows.sort(key=lambda item: item[0])
+    for canonical in requested_fields:
+        found: Optional[Dict[str, Any]] = None
+        for pos, field_at, anchor_len in anchor_rows:
+            if field_at != canonical:
+                continue
+            window_start = pos + anchor_len
+            next_anchor = next(
+                (p for p in stop_positions if p >= window_start), None)
+            window_end = min(window_start + _ANCHOR_WINDOW_CHARS,
+                             next_anchor if next_anchor is not None
+                             else window_start + _ANCHOR_WINDOW_CHARS)
+            window = excerpt[window_start:window_end]
+            low_window = low[window_start:window_end]
+            neg = _NEGATIVE_VALUE_RE.search(low_window)
+            if canonical in _TEMPORAL_FIELDS:
+                m = _DATE_SHAPE_RE.search(window)
+            elif canonical in _NUMERIC_FIELDS:
+                m = _NUMBER_SHAPE_RE.search(window)
+            else:
+                m = re.search(r"[:\s]\s*([^\s.;,]{2,40})", window) or None
+            if not m:
+                continue
+            if neg and neg.start() < m.start():
+                continue  # the anchor is NEGATED before any value
+            value = str(m.group(0)).strip(" :\t-.")
+            if not value or _NEGATIVE_VALUE_RE.search(value):
+                continue
+            span = (window_start + m.start(), window_start + m.end())
+            subject_hit: Optional[str] = None
+            if subjects:
+                # the span must sit inside a block opened by a REQUESTED
+                # subject's own mention in the excerpt, not crossed by any
+                # other subject's boundary
+                if not boundary_rows:
+                    continue  # requested subject absent from the excerpt
+                before = [r for r in boundary_rows if r[0] <= span[0]]
+                if not before:
+                    continue
+                opener_pos, opener_name = before[-1]
+                if opener_name not in requested_set:
+                    continue  # nearest subject is a different record
+                if any(opener_pos < r[0] <= span[1]
+                       for r in boundary_rows):
+                    continue  # the span crosses another subject's boundary
+                if any(opener_pos < r[0] < span[0]
+                       and str(r[1]).casefold() != opener_name
+                       for r in boundary_rows):
+                    continue  # a different subject sits before the field
+                subject_hit = str(opener_name)
+            found = {"value": value[:80], "span": [span[0], span[1]],
+                     "subject": subject_hit}
+            break
+        if found:
+            out[canonical] = found
+    return out
+
+
+def field_present_in_excerpt(excerpt: str, canonical: str) -> bool:
+    """Back-compat shim: association-grade presence for one field."""
+    return bool(field_associations_for_excerpt(excerpt, [canonical]))
 
 
 async def _episodes_leg(message: str, agent_id: str) -> List[str]:
