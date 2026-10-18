@@ -1,0 +1,91 @@
+
+tests/test_l3_requirement_eligibility.py::TestEligibilityContract::test_memory_proposal_rejected_for_an_unnamed_document_ask 
+-------------------------------- live log setup --------------------------------
+2026-10-18 18:42:37 [    INFO] Dev secret key loaded (persisted for restart survival). Set SECRET_KEY to override.
+2026-10-18 18:42:38 [    INFO] EscalationManager initialized
+2026-10-18 18:42:38 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:42:38 [    INFO] EscalationManager initialized
+2026-10-18 18:42:38 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:42:38 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-18 18:42:38 [    INFO] AgentTaskRegistry initialized
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+PASSED                                                                   [  7%]
+tests/test_l3_requirement_eligibility.py::TestEligibilityContract::test_zephyr_ask_memory_proposal_rejected 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] tool planner: source-ask floor -> documents.search query='search my uploaded documents for the launch code for project Zephyr-9 and tell me the code'
+PASSED                                                                   [ 15%]
+tests/test_l3_requirement_eligibility.py::TestEligibilityContract::test_valid_document_proposal_retained_without_a_repair_call PASSED [ 23%]
+tests/test_l3_requirement_eligibility.py::TestEligibilityContract::test_legitimate_memory_ask_remains_supported PASSED [ 30%]
+tests/test_l3_requirement_eligibility.py::TestEligibilityContract::test_correspondence_ask_keeps_memory PASSED [ 38%]
+tests/test_l3_requirement_eligibility.py::TestEligibilityContract::test_candidates_exclude_memory_for_required_document_evidence PASSED [ 46%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_document_requirement_corrects_memory_proposal 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+PASSED                                                                   [ 53%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_identical_message_requirement_changes_eligibility 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+PASSED                                                                   [ 61%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_requirement_obligation_without_message_nouns 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] tool planner: source-ask floor -> documents.search query='Find the launch code for project Zephyr-9.'
+PASSED                                                                   [ 69%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_no_eligible_action_keeps_the_obligation_unresolved PASSED [ 76%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_required_comms_requirement_keeps_memory PASSED [ 84%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_sheet_requirement_excludes_recollection 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] tool planner: source-ask floor -> datasets.search query='the Q3 totals'
+PASSED                                                                   [ 92%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_planner_and_stash_share_one_requirement_authority 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:42:38 [    INFO] MCP Service initialized
+2026-10-18 18:42:38 [    INFO] ComputerUseAgent initialized for tenant default
+2026-10-18 18:42:38 [ WARNING] Initializing DEPRECATED TokenStorage. Please migrate to ConnectionService.
+2026-10-18 18:42:38 [    INFO] No token storage file found, starting empty
+2026-10-18 18:42:38 [    INFO] WorkflowScheduler using SQLAlchemyJobStore
+2026-10-18 18:42:38 [    INFO] EscalationManager initialized
+2026-10-18 18:42:38 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:42:38 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-18 18:42:38 [    INFO] EscalationManager initialized
+2026-10-18 18:42:38 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:42:38 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-18 18:42:38 [    INFO] Slack Enhanced Service initialized
+2026-10-18 18:42:38 [    INFO] Loaded 0 persisted sessions from file.
+PASSED                                                                   [100%]
+
+=============================== warnings summary ===============================
+../../../../../../../../../usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852
+  /usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; tests.e2e.fixtures.service_mock_fixtures
+    self.import_plugin(import_spec)
+
+../../../../../../../../../usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25
+  /usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+    from pydantic.v1.fields import FieldInfo as FieldInfoV1
+
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_planner_and_stash_share_one_requirement_authority
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/core/token_storage.py:17: DeprecationWarning: token_storage is deprecated. Use ConnectionService instead.
+    warnings.warn("token_storage is deprecated. Use ConnectionService instead.", DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== WARNING: Low Assertion Density ========================
+  tests/test_provider_registry_api.py: 0.145 (target: 0.15)
+  tests/test_round70_llm_credential_subscription.py: 0.102 (target: 0.15)
+  tests/test_notion_service.py: 0.083 (target: 0.15)
+  tests/test_canvas_training_context.py: 0.127 (target: 0.15)
+  tests/test_user_management_monitoring.py: 0.054 (target: 0.15)
+=========================== warnings summary (final) ===========================
+<unknown>:314
+  <unknown>:314: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+
+<unknown>:6
+  <unknown>:6: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:134
+  <unknown>:134: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:944
+  <unknown>:944: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 13 passed, 7 warnings in 14.02s ========================

@@ -92,8 +92,13 @@ reconciled by the evidence cited here.
   repetitions (no verifiable evidence ⇒ failed/unconfirmed) while the
   answer content was correct; with the `documents.search` lane (1/3) the
   status validated. Same variance class as composed run 6 vs 7. Repair
-  candidate: requirement-driven tool choice for document asks (frozen
-  slice; not yet done).
+  frozen at `8f881fd6c` (requirement-driven tool eligibility; locally
+  verified on scratch stores — parent-failing / successor-passing,
+  mutation-checked; the parent run captures the exact `memory` receipt
+  shape). **This limitation stands unchanged on the deployed pilot
+  `8c593e57031e` until a served acceptance run on the frozen candidate
+  demonstrates otherwise** (evidence:
+  `journey_matrix/l3_document_evidence_20261018/`).
 - **Untested**: J7 background handoff beyond the tested slices, J8
   automation, J9 broad failure recovery; integrations beyond the one
   document source; other OSes/hardware; R4 coverage/outcome follow-up
