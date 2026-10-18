@@ -1,0 +1,464 @@
+{
+  "checks": {
+    "body_unchanged_and_holds_net45": true,
+    "noop_receipt_evidenced": false,
+    "outcome_completed": false,
+    "persisted_matches": true,
+    "receipt_derived_reply": false,
+    "success_true": false,
+    "zero_additional_writes": true
+  },
+  "classification": "settled_non_completed",
+  "declared_config": {
+    "attempt": "2",
+    "candidate": {
+      "branch": "codex/reask-current-artifact",
+      "commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+      "source_sha256_chat_canvas_editor": "e08f99b43a0ee3fb2c366ab9e2086150b20b281d5a6c6a6be127f1d5c9cedd0c",
+      "tree_clean": true
+    },
+    "declared_at": "2026-10-18T14:07:58",
+    "flags": {
+      "declared": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "pilot_effective_from_main_env": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "same_as_pilot": true
+    },
+    "interpreter": {
+      "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+      "version": "Python 3.14.7"
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+      "live_env_copied_wholesale": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE"
+      ]
+    },
+    "live_db_guard": {
+      "mtime_before": 1792346365.5856981,
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "sha256_before": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70"
+    },
+    "model": {
+      "base_url": "http://127.0.0.1:11434/v1",
+      "credentials": [],
+      "edit_plan_pin": "deepseek/deepseek-v4-pro",
+      "forced_decline_seam": false,
+      "model": "llama3.1:8b",
+      "provider": "ollama"
+    },
+    "ports": {
+      "backend": 8093,
+      "frontend": null
+    }
+  },
+  "pass": false,
+  "steps": {
+    "audits_after": {
+      "count": 2,
+      "rows": [
+        [
+          "8a5525a6-7d1",
+          "create",
+          "2026-10-18 18:08:10.526812"
+        ],
+        [
+          "5edd5f2f-703",
+          "update",
+          "2026-10-18 18:08:10.551596"
+        ]
+      ]
+    },
+    "audits_before": {
+      "count": 2,
+      "rows": [
+        [
+          "8a5525a6-7d1",
+          "create",
+          "2026-10-18 18:08:10.526812"
+        ],
+        [
+          "5edd5f2f-703",
+          "update",
+          "2026-10-18 18:08:10.551596"
+        ]
+      ]
+    },
+    "body_after": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "body_unchanged": true,
+    "canvas": {
+      "canvas_id": "8ed938e0-c0e8-4d4e-8318-e374606a9eb1",
+      "create_http": 200,
+      "seed_http": 200,
+      "seeded_has_terms_net45": true
+    },
+    "health": {
+      "database": "operational",
+      "deployed_sha": "unknown",
+      "identity": {
+        "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/byok_keys.json",
+        "captured_at": "2026-10-18T18:08:09.690929+00:00",
+        "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+        "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+        "dirty": false,
+        "dirty_digest": "e3b0c44298fc",
+        "dirty_paths": [],
+        "error": null,
+        "git_commit": "b96dec60a46d",
+        "instance_id": "b96dec60a46d.37575.1792346889",
+        "pid": 37575,
+        "port": 8093,
+        "revision": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+        "source_id": "b96dec60a46d",
+        "started_at": "2026-10-18T18:08:05.468677+00:00",
+        "untracked_paths": []
+      },
+      "memory_mb": 633.7,
+      "redis": "operational",
+      "services": {
+        "database": "operational",
+        "redis": "operational",
+        "vector_store": "operational"
+      },
+      "status": "healthy",
+      "timestamp": "2026-10-18T18:08:09.689720+00:00",
+      "vector_store": "operational",
+      "version": "8.0.0"
+    },
+    "launch": {
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "pid": 37575
+    },
+    "persisted_rows": [
+      {
+        "content": "Please also update the payment terms in the draft to Net 45.",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "user"
+      },
+      {
+        "content": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "meta_outcome": "unconfirmed",
+        "meta_success": false,
+        "role": "assistant"
+      },
+      {
+        "content": "I couldn't apply your update. I couldn't apply that edit after 3 tries. I couldn't confirm the canvas is exactly as it was \u2014 give it a quick look before relying on it.",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "assistant"
+      }
+    ],
+    "register": {
+      "http": 200
+    },
+    "runtime_identity": {
+      "candidate_commit_ok": true,
+      "candidate_cwd_ok": true,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "dirty": false,
+      "git_commit": "b96dec60a46d",
+      "source_id": "b96dec60a46d"
+    },
+    "s6_turn": {
+      "http": 200,
+      "latency_s": 0.67,
+      "response": {
+        "confidence": 0.9,
+        "error_code": "outcome_unconfirmed",
+        "execution_id": "03505522-e3a9-4703-92fc-2b3fed904098",
+        "failure_reason": null,
+        "intent": "canvas_edit",
+        "memory_context": null,
+        "message": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "metadata": {
+          "canvas_edit": {
+            "background_started": true,
+            "canvas_id": "8ed938e0-c0e8-4d4e-8318-e374606a9eb1",
+            "continuation_id": "e2972fd4-73e5-4f71-bfd8-a4fa666b40f3",
+            "execution_id": "03505522-e3a9-4703-92fc-2b3fed904098",
+            "no_apply": true,
+            "operation_id": "aed3c4fa-3580-4000-8e3c-ba1b1e3016ad",
+            "outcome": "refused",
+            "plan_unavailable": true,
+            "planner_outcome": "unavailable",
+            "reason": "planner_unavailable",
+            "task_run_id": "310b3367-8053-4880-be9d-baa39a751f08",
+            "updated": false
+          },
+          "persistence": {
+            "status": "persisted"
+          }
+        },
+        "model": null,
+        "next_steps": [],
+        "outcome": "unconfirmed",
+        "provider": null,
+        "reasoning": null,
+        "recovery_url": null,
+        "requires_confirmation": false,
+        "session_id": "41e6037a-e813-426f-a596-d9f619404242",
+        "success": false,
+        "suggested_actions": [],
+        "timestamp": "2026-10-18T14:08:11.016652"
+      }
+    },
+    "settlement": {
+      "final_error_code": null,
+      "final_message": "I couldn't apply your update. I couldn't apply that edit after 3 tries. I couldn't confirm the canvas is exactly as it was \u2014 give it a quick look before relying on it.",
+      "final_outcome": null,
+      "final_success": null,
+      "polls": [
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681155.4
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681165.4
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681175.5
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681185.5
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681195.5
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681205.5
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681215.5
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681225.6
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681235.6
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681245.6
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681255.6
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681265.6
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681275.6
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681285.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681295.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681305.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681315.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681325.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681335.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681345.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681355.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681365.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681375.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681385.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681395.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681405.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681415.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681425.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681436.0
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681446.0
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681456.0
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681466.0
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681476.1
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681486.1
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681496.1
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681506.1
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681516.1
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681526.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681536.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681546.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681556.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681566.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681576.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681586.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681596.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681606.3
+        }
+      ]
+    },
+    "user": {
+      "id": "781cd1f4-55d7-4f9a-9ae9-9798560f743b",
+      "workspace_id": "0794d999-d9c6-42a3-9986-bd95e81a8c5d"
+    }
+  }
+}

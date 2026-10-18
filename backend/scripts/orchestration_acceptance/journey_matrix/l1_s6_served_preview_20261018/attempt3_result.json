@@ -1,0 +1,510 @@
+{
+  "checks": {
+    "body_unchanged_and_holds_net45": true,
+    "noop_receipt_evidenced": false,
+    "outcome_completed": false,
+    "persisted_matches": true,
+    "receipt_derived_reply": false,
+    "success_true": false,
+    "zero_additional_writes": true
+  },
+  "classification": "settled_non_completed",
+  "declared_config": {
+    "attempt": "3",
+    "candidate": {
+      "branch": "codex/reask-current-artifact",
+      "commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+      "source_sha256_chat_canvas_editor": "e08f99b43a0ee3fb2c366ab9e2086150b20b281d5a6c6a6be127f1d5c9cedd0c",
+      "tree_clean": true
+    },
+    "declared_at": "2026-10-18T14:17:08",
+    "flags": {
+      "declared": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "pilot_effective_from_main_env": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "same_as_pilot": true
+    },
+    "interpreter": {
+      "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+      "version": "Python 3.14.7"
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+      "live_env_copied_wholesale": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE"
+      ]
+    },
+    "live_db_guard": {
+      "mtime_before": 1792346365.5856981,
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "sha256_before": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70"
+    },
+    "model": {
+      "base_url": "http://127.0.0.1:11434/v1",
+      "credentials": [],
+      "edit_plan_pin": null,
+      "forced_decline_seam": false,
+      "model": "llama3.1:8b",
+      "provider": "ollama"
+    },
+    "ports": {
+      "backend": 8093,
+      "frontend": null
+    }
+  },
+  "live_db_guard_after": {
+    "mtime": 1792346365.5856981,
+    "sha256": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70",
+    "unchanged": true
+  },
+  "pass": false,
+  "steps": {
+    "audits_after": {
+      "count": 2,
+      "rows": [
+        [
+          "91013c2d-e25",
+          "create",
+          "2026-10-18 18:17:21.189214"
+        ],
+        [
+          "3b07fb15-225",
+          "update",
+          "2026-10-18 18:17:21.219434"
+        ]
+      ]
+    },
+    "audits_before": {
+      "count": 2,
+      "rows": [
+        [
+          "91013c2d-e25",
+          "create",
+          "2026-10-18 18:17:21.189214"
+        ],
+        [
+          "3b07fb15-225",
+          "update",
+          "2026-10-18 18:17:21.219434"
+        ]
+      ]
+    },
+    "body_after": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "body_unchanged": true,
+    "canvas": {
+      "canvas_id": "c22565d4-f7dd-46b4-99f1-488f971c0bf9",
+      "create_http": 200,
+      "seed_http": 200,
+      "seeded_has_terms_net45": true
+    },
+    "health": {
+      "database": "operational",
+      "deployed_sha": "unknown",
+      "identity": {
+        "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/byok_keys.json",
+        "captured_at": "2026-10-18T18:17:19.900993+00:00",
+        "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+        "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+        "dirty": false,
+        "dirty_digest": "e3b0c44298fc",
+        "dirty_paths": [],
+        "error": null,
+        "git_commit": "b96dec60a46d",
+        "instance_id": "b96dec60a46d.38254.1792347440",
+        "pid": 38254,
+        "port": 8093,
+        "revision": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+        "source_id": "b96dec60a46d",
+        "started_at": "2026-10-18T18:17:15.601732+00:00",
+        "untracked_paths": []
+      },
+      "memory_mb": 597.47,
+      "redis": "operational",
+      "services": {
+        "database": "operational",
+        "redis": "operational",
+        "vector_store": "operational"
+      },
+      "status": "healthy",
+      "timestamp": "2026-10-18T18:17:19.899741+00:00",
+      "vector_store": "operational",
+      "version": "8.0.0"
+    },
+    "launch": {
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "pid": 38254
+    },
+    "local_runtime_activation": {
+      "ollama": {
+        "has_api_keys": true,
+        "has_tenant_key": true,
+        "provider": {
+          "api_key_env_var": "OLLAMA_API_KEY",
+          "base_url": "http://127.0.0.1:11434/v1",
+          "cost_per_token": 0.0,
+          "description": "Local LLM inference via Ollama (OpenAI-compatible). No API key required.",
+          "id": "ollama",
+          "is_active": true,
+          "max_requests_per_minute": 60,
+          "model": "llama3:8b",
+          "name": "Ollama (Local)",
+          "rate_limit_window": 60,
+          "reasoning_level": 3,
+          "requires_encryption": false,
+          "supported_tasks": [
+            "general",
+            "chat",
+            "code",
+            "analysis",
+            "reasoning"
+          ]
+        },
+        "status": "active",
+        "usage": {
+          "cost_accumulated": 0.0,
+          "failed_requests": 0,
+          "last_used": null,
+          "provider_id": "ollama",
+          "rate_limit_remaining": 0,
+          "rate_limit_reset": null,
+          "successful_requests": 0,
+          "total_requests": 0,
+          "total_tokens_used": 0
+        }
+      },
+      "providers_http": 200,
+      "store_http": 200
+    },
+    "persisted_rows": [
+      {
+        "content": "Please also update the payment terms in the draft to Net 45.",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "user"
+      },
+      {
+        "content": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "meta_outcome": "unconfirmed",
+        "meta_success": false,
+        "role": "assistant"
+      },
+      {
+        "content": "I couldn't apply your update. I couldn't apply that edit after 3 tries. I couldn't confirm the canvas is exactly as it was \u2014 give it a quick look before relying on it.",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "assistant"
+      }
+    ],
+    "register": {
+      "http": 200
+    },
+    "runtime_identity": {
+      "candidate_commit_ok": true,
+      "candidate_cwd_ok": true,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "dirty": false,
+      "git_commit": "b96dec60a46d",
+      "source_id": "b96dec60a46d"
+    },
+    "s6_turn": {
+      "http": 200,
+      "latency_s": 0.34,
+      "response": {
+        "confidence": 0.9,
+        "error_code": "outcome_unconfirmed",
+        "execution_id": "f8a74f14-df49-43f8-a4a5-104b105e576a",
+        "failure_reason": null,
+        "intent": "canvas_edit",
+        "memory_context": null,
+        "message": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "metadata": {
+          "canvas_edit": {
+            "background_started": true,
+            "canvas_id": "c22565d4-f7dd-46b4-99f1-488f971c0bf9",
+            "continuation_id": "aa4dd339-f177-4e9b-aedb-d9da003404b3",
+            "execution_id": "f8a74f14-df49-43f8-a4a5-104b105e576a",
+            "no_apply": true,
+            "operation_id": "1ac20061-f4c8-496e-8242-01556529a2f3",
+            "outcome": "refused",
+            "plan_unavailable": true,
+            "planner_outcome": "unavailable",
+            "reason": "planner_unavailable",
+            "task_run_id": "0e496207-2edf-4289-b1cd-f9b40a84b478",
+            "updated": false
+          },
+          "persistence": {
+            "status": "persisted"
+          }
+        },
+        "model": null,
+        "next_steps": [],
+        "outcome": "unconfirmed",
+        "provider": null,
+        "reasoning": null,
+        "recovery_url": null,
+        "requires_confirmation": false,
+        "session_id": "4c8541b7-9569-404e-935a-506b48ca6f61",
+        "success": false,
+        "suggested_actions": [],
+        "timestamp": "2026-10-18T14:17:21.527179"
+      }
+    },
+    "settlement": {
+      "final_error_code": null,
+      "final_message": "I couldn't apply your update. I couldn't apply that edit after 3 tries. I couldn't confirm the canvas is exactly as it was \u2014 give it a quick look before relying on it.",
+      "final_outcome": null,
+      "final_success": null,
+      "polls": [
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681155.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681165.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681175.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681185.2
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681195.2
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681205.2
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681215.2
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681225.2
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681235.2
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681245.3
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681255.3
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681265.3
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681275.3
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681285.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681295.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681305.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681315.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681325.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681335.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681345.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681355.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681365.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681375.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681385.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681395.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681405.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681415.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681425.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681435.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681445.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681455.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681465.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681475.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681485.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681495.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681505.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681515.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681525.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681535.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681545.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681555.8
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681565.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681575.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681585.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681595.9
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681605.9
+        }
+      ]
+    },
+    "user": {
+      "id": "d74bef57-e70f-4c2f-b023-983b99186f95",
+      "workspace_id": "a7eb1180-def2-4918-8bb7-2eaeb77a606f"
+    }
+  }
+}

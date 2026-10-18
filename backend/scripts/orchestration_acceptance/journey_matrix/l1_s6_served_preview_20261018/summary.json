@@ -1,0 +1,56 @@
+{
+  "record": "L1/S6 served-preview attempts on frozen candidate b96dec60a",
+  "date": "2026-10-18",
+  "candidate": {
+    "commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+    "tree_clean": true,
+    "source_sha256_chat_canvas_editor": "e08f99b43a0ee3fb2c366ab9e2086150b20b281d5a6c6a6be127f1d5c9cedd0c"
+  },
+  "runtime_identity_every_attempt": {
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+    "git_commit": "b96dec60a46d",
+    "dirty": false
+  },
+  "isolation": {
+    "port": 8093,
+    "frontend": null,
+    "interpreter": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "stores": ["DATABASE_URL", "ATOM_DATA_DIR", "LANCEDB_URI", "BYOK_CONFIG_FILE", "BYOK_KEYS_FILE"],
+    "live_env_copied_wholesale": false,
+    "vault_copied": false,
+    "pilot_touched": false,
+    "live_db_unchanged_every_attempt": true
+  },
+  "flags": {
+    "declared": {"CHAT_FINALIZATION_M1": "1", "CHAT_FINALIZATION_M2": "1", "ATOM_TASK_LIFECYCLE_ENABLED": "1"},
+    "pilot_effective": {"CHAT_FINALIZATION_M1": "1", "CHAT_FINALIZATION_M2": "1", "ATOM_TASK_LIFECYCLE_ENABLED": "1"},
+    "same": true
+  },
+  "attempts": [
+    {"n": 1, "planning_config": "placeholder OpenAI-compatible key only", "classification": "provider_unconfigured_placeholder", "cause": "401 Incorrect API key provided: local-ol...cret", "zero_writes": true, "completed": false},
+    {"n": 2, "planning_config": "placeholder + deepseek pin (operator env value empty; pin never set)", "classification": "planning_credential_empty_env_value", "cause": "same 401 pool; no deepseek client", "zero_writes": true, "completed": false},
+    {"n": 3, "planning_config": "placeholder removed; Ollama active via POST /api/ai/providers/ollama/keys", "classification": "local_model_below_planning_quality_floor", "cause": "NO candidate clears quality floor 85 (task_type=planning)", "zero_writes": true, "completed": false},
+    {"n": 4, "planning_config": "deepseek store skipped (empty env value); provider inactive", "classification": "planning_credential_empty_env_value", "cause": "0 planning candidates; quality-floor boundary", "zero_writes": true, "completed": false},
+    {"n": 5, "planning_config": "OPENROUTER_API_KEY (only non-empty env credential) + pin openrouter/deepseek/deepseek-v4-pro", "classification": "provider_credits_exhausted", "cause": "402 ... requested up to 2000 tokens, but can only afford 0", "zero_writes": true, "completed": false, "pinned_call_dispatched": true},
+    {"n": 6, "planning_config": "same key + pin openrouter/google/gemma-4-31b-it:free", "classification": "provider_rate_limited", "cause": "429 ... temporarily rate-limited upstream", "zero_writes": true, "completed": false, "pinned_call_dispatched": true}
+  ],
+  "assertions": {
+    "zero_additional_writes": "PASS (all attempts)",
+    "body_unchanged": "PASS (all attempts)",
+    "noop_receipt_produced": "NOT REACHED (no planner result)",
+    "receipt_derived_confirmation": "NOT REACHED",
+    "success_true_completed": "NOT REACHED (continuation failed after 3 tries)",
+    "persisted_and_history_agree": "PASS (all attempts, on the settled unconfirmed/failed state)",
+    "planner_not_forced_to_decline": "HELD"
+  },
+  "promotion": {
+    "l1_promoted": false,
+    "matrix_updated": false,
+    "gate": "served completion not achieved under the declared no-vault configuration"
+  },
+  "owner_decision_needed": [
+    "authorize ONE vaulted route (e.g. opencode-go) in the isolated preview",
+    "or provide OpenRouter credits / another funded key",
+    "or any declared real planning route that clears the quality floor"
+  ]
+}
