@@ -10090,6 +10090,7 @@ class ChatOrchestrator:
                 if os.getenv("ATOM_TURN_DECISION_ROUTING", "1").lower() not in ("0", "off", "false"):
                     try:
                         from core.turn_decision import (
+                            apply_interpretation_references,
                             build_turn_decision,
                             interpret_turn_request,
                         )
@@ -10130,6 +10131,21 @@ class ChatOrchestrator:
                                 "[turn-interpretation] invocation "
                                 "failed (floor retained): %r",
                                 _interp_err)
+                        # L2 repair (2026-10-18): CONSUME the resolved
+                        # interpretation's source references when the
+                        # deterministic floor found none. A continuation
+                        # ask that references an earlier source by
+                        # description ("does it still match the approved
+                        # record?") carries no source noun, so the
+                        # evidence obligation used to be lost and the
+                        # turn's verified retrieval could not certify
+                        # (S7: correct content, outcome_unconfirmed).
+                        # Fail-closed: a degraded interpretation, an
+                        # existing floor capture, or an unresolvable
+                        # reference changes nothing.
+                        _td = apply_interpretation_references(
+                            _td, _td_interpretation, session)
+                        _td_decision = _td
                         _td_sources = ((_td.get("references")
                                         or {}).get("sources")) or []
                         for _a in _td.get("requested_actions") or []:
