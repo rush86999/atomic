@@ -91,10 +91,12 @@ ASK_EDIT = (
 ASK_CALC = (
     "If we order two units at the approved unit price of $48,000.00, "
     "what is the total before tax?")
-# F-C3 (recorded decision, owner instruction 2026-10-17): the plain
-# arithmetic ask above is preserved as the FIRST attempt; when it does not
-# supply the total (refusal/non-answer), ONE predeclared re-phrase uses the
-# J5-demonstrated structured shape.
+# F-C3 (owner instruction 2026-10-17): the composed run uses the J5
+# structured shape as the calculation ask — the supported lane that
+# produces verifiable calculation evidence. The plain-language variant
+# was exercised first in run 3 (preserved there: correct total delivered
+# but the product could not verify it -> `unconfirmed`), which is exactly
+# why the structured shape is the accepted ask.
 ASK_CALC_STRUCTURED = (
     "calculate expression QTY * UNIT_PRICE with QTY=2 UNIT_PRICE=48000")
 ASK_EDIT2 = (
@@ -685,22 +687,14 @@ def main() -> int:
             ev["s4_reply_message"] = s4.get("message")
 
             # S5 — calculation on the approved price (zero writes).
-            # F-C3: the plain ask runs first (preserved); a single
-            # predeclared re-phrase with the J5 structured shape runs only
-            # when the plain attempt failed to supply the total.
+            # F-C3 (owner instruction): the J5 structured shape is THE
+            # calculation ask — the supported lane producing verifiable
+            # calculation evidence. Run 3 preserved the plain variant's
+            # outcome (correct total, product could not verify it ->
+            # unconfirmed), which motivated adopting the structured ask.
             s5: dict = {}
-            s5["attempt_plain"] = canvas_turn(page, cap, ASK_CALC)
-            txt5a = digits_only(str(s5["attempt_plain"].get("message") or "")
-                                + " " + panel_tail(page))
-            s5["plain_total_correct"] = "96000" in txt5a
-            attempts5 = [s5["attempt_plain"]]
-            if not s5["plain_total_correct"]:
-                s5["attempt_structured"] = canvas_turn(
-                    page, cap, ASK_CALC_STRUCTURED)
-                attempts5.append(s5["attempt_structured"])
-            s5["retried"] = len(attempts5) > 1
-            s5["attempts_recorded"] = len(attempts5)
-            final5 = attempts5[-1]
+            final5 = canvas_turn(page, cap, ASK_CALC_STRUCTURED)
+            s5["attempt_structured"] = final5
             s5.update({k: v for k, v in final5.items()
                        if k in ("success", "http", "outcome", "error_code",
                                 "model", "provider", "latency_s",
@@ -717,8 +711,6 @@ def main() -> int:
             checks["s5-zero-writes"] = len(audit5) == len(audit4)
             ev["s5_calc"] = {k: v for k, v in s5.items()
                              if k not in ("panel_tail",)}
-            ev["s5_attempt_messages"] = [
-                _truncate(a.get("message"), 800) for a in attempts5]
             ev["s5_reply_message"] = final5.get("message")
 
             # S6 — deliberate interruption during a second authorized edit

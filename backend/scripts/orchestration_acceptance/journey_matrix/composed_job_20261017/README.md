@@ -111,47 +111,45 @@ terms change; the earlier Valid-Until edit stayed exactly once and intact;
 audit totals `+1` per authorized change, never duplicated. The post-restart
 re-send reported the editor declined the (already applied) change honestly.
 
-## Run 3 (planned) — candidate `dad8f9fce`, same protocol/config; predeclared expectations
+## Run 3 (executed 2026-10-17, candidate `1408d40f3` = runtime `dad8f9fce` + harness/docs) — result
 
-Predeclared BEFORE the run. Candidate = `dad8f9fce` (run 2's `6e740fc39` +
-the F-C1 excerpt repair lineage + the F-C2 context-backed-fulfillment repair
-`f0dc266c0`, its reviewer follow-up `b4c7a310e`, and the narrowed
-subject-filter BLOCK fix `dad8f9fce` + the subject-admission dependency
-commit). Configuration unchanged from runs 1/2 (fresh allowlisted scratch
-world, ports 18500/18501; wizard ollama reply lane + deepseek edit-plan pin
-mounted through the product; `ATOM_LOCAL_ONLY=false`). F-C3 recorded change:
-the S5 plain ask runs first; one predeclared re-phrase uses the J5 structured
-shape only if the plain attempt fails to supply the total.
+Executed once on the hardened harness (route preflight OK: 307; fresh `.next`).
+**35/39 checks green.** Against the predeclared expectations:
 
-Expected settlements under the repaired resolver, stated in advance:
+- **S3 — PASSED as predeclared (F9 shape confirmed):** `success=true`,
+  `outcome=partial`, mismatch identified, zero writes. The context-backed
+  fulfillment repair decides this turn: the association evidence is
+  complete, the comparison carrier is absent, so the turn settles partial
+  with "the comparison itself was not recorded this turn" named — truthful
+  status, no false completion.
+- **S4 — unchanged green:** edit applied exactly once (+1 audit), readback,
+  truthful reply.
+- **S6 — ALL crash invariants green:** SIGKILL 2.85 s after durable
+  acceptance (pre-write), restart healthy, canvas honest, re-send converged
+  to exactly one terms change, valid-until intact, audit totals correct.
+- **S5 — the first failed transition (F-C3 evidence):** the PLAIN ask first
+  delivered a CORRECT total ("Two units at $48,000.00 each totals
+  $96,000.00 before tax") but the product settled it `unconfirmed` —
+  no operation existed to verify a reply-model computation. This is the
+  recorded motivation for the owner's F-C3 instruction: the supported,
+  verifiable shape is the J5 structured ask. Run 4 therefore submits
+  `calculate expression QTY * UNIT_PRICE with QTY=2 UNIT_PRICE=48000` as
+  THE calculation ask (the plain variant's outcome is preserved here).
+- **S6 re-send — recorded finding (next bounded slice):** the re-ask of an
+  already-applied change is declined by the canvas editor ("nothing was
+  changed", truthful) and settles `unconfirmed`; the objective itself is
+  met and durable. Candidate future slice: an already-satisfied receipt for
+  the idempotent re-ask (the noop/satisfied machinery exists on other
+  lanes).
+- **S7 — the documented exclusion:** settles `unconfirmed` exactly as
+  predeclared (no source-noun capture for "record"; deliberately not
+  widened).
 
-- **S3 (compare, canvas page → `artifact_attached=True`)** — the association
-  evidence should be available, but with no recorded comparison carrier for
-  the execution the turn is expected to settle **`partial` with "the
-  comparison itself was not recorded this turn"** named (reviewer F9):
-  success stays truthful (`success=true`, `outcome=partial`) and completion
-  is NOT certified. The harness's `s3-reply-received` check passes on
-  `success=true`.
-- **S4 (authorized edit)** — unchanged: exactly-once + readback + audit +1.
-- **S5 (calculation)** — the calc lane is expected to supply the total
-  (possibly via the F-C3 re-phrase); the turn validates through the existing
-  calculation evidence path, independent of the cf verdict.
-- **S6 (crash/restart/convergence)** — unchanged invariants (exactly one
-  terms change, valid-until intact, audit totals).
-- **S7 (continuation, "…match the approved record?")** — **explicitly
-  unsupported shape**: the current source-noun vocabulary does not capture
-  "record" as a source noun, no evidence requirement is formed, and the
-  turn is expected to settle `unconfirmed` (success=false) exactly as in run
-  2. Deliberately NOT widened to green (owner rule: no regex broadening
-  merely to turn the run green). Recorded as a known release exclusion: the
-  continuation question's saved status remains non-certified until a future
-  bounded vocabulary change with its own controls.
+Run 4 predeclaration (before the run): candidate `1408d40f3` + the S5
+structured ask; configuration unchanged; pass = all checks except the S7
+checks AND the recorded S6-re-send finding (an idempotent re-ask's
+settlement is explicitly out of this release's supported contract).
 
-Pass criteria for this run, predeclared: all 38 harness checks **except**
-`s7-reply-received` / the S7 contribution to `no-failed-requests`, which are
-excluded as the documented unsupported shape. Failures elsewhere are
-findings; the first failed transition is repaired before the deployment
-step; no second campaign until then.
 
 ## Provenance
 
