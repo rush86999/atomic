@@ -2033,81 +2033,104 @@ def _assignment_value_relation(assigned: Any, observed: Any) -> str:
     return "unsatisfied"
 
 
-def _assignment_focused_words(
-    target: str, message: str, entry: Dict[str, Any],
-) -> set:
-    """Target words capitalized in the request's OWN text — the
-    proper-noun-like identity constraints (``Alpha``). Recovered from
-    the assignment's source span so the normalization that lowercased
-    the target never erases the signal."""
-    words = str(target or "").split()
-    if not words:
-        return set()
-    window = str(message or "")
-    span = entry.get("span")
-    if isinstance(span, (list, tuple)) and len(span) == 2:
-        try:
-            window = window[int(span[0]):int(span[1])] or window
-        except (TypeError, ValueError):
-            window = str(message or "")
-    pattern = r"\s+".join(re.escape(word) for word in words)
-    match = re.search(pattern, window, re.IGNORECASE)
-    source = match.group(0) if match else str(target or "")
-    return {
-        word.lower()
-        for word, source_word in zip(words, source.split())
-        if source_word[:1].isupper()
-    }
+class _AssignmentTargetBinding(NamedTuple):
+    """How one assignment target binds to the artifact's records.
+
+    ``field_resolved`` — the target contains a word span the EXISTING
+    canonical field vocabulary (``workbook_read_artifact._FIELD_ALIASES``)
+    associates with a record's label. ``subject_resolved`` — every
+    remaining target word (location words excluded) is named by a
+    candidate record's SECTION. ``record`` is set only when EXACTLY ONE
+    record resolves both; every other state refuses completion (owner
+    correction 2026-10-18, defect class 3: no capitalization or
+    leftover-count authority, no silently discarded words)."""
+    field_resolved: bool
+    subject_resolved: bool
+    reason: str
+    record: Optional[_AssignmentRecord]
+    candidates: Tuple[_AssignmentRecord, ...]
 
 
-def _assignment_target_records(
-    target: str,
-    records: List[_AssignmentRecord],
-    focused_words: Optional[set] = None,
-) -> List[_AssignmentRecord]:
-    """The artifact records a request target can bind to.
+def _assignment_field_spans(
+    target_tokens: List[str], label: str,
+) -> List[Tuple[int, int]]:
+    """Contiguous word spans of the target the canonical field vocabulary
+    associates with this record's label.
 
-    A record matches when its LABEL is completely named by the target's
-    content words (location words like 'in the draft' stripped), AND
-    every requested identity constraint resolves on the SAME record:
+    ``_field_aliases`` is the workbook-read layer's own registry (its
+    consumers already include column selection and answer presentation);
+    a label's family — canonical name plus registered aliases, longest
+    phrase first — decides which target words are FIELD words. A label
+    the registry does not know contributes only its own words (the
+    artifact-native field name). Words outside the span are NOT silently
+    discarded: they are the mandatory subject constraints."""
+    try:
+        from core.workbook_read_artifact import _field_aliases
 
-    - an identity constraint is a leftover target word that is
-      capitalized in the request's own text (a proper-noun subject like
-      "Alpha"), or ANY leftover word when the leftover spans more than
-      one word (a multi-word subject phrase like "alpha project");
-    - constraints resolve only against the record's SECTION (the heading
-      in force above it): a generic field ("Status") under the wrong
-      section never absorbs the request, and with no section evidence on
-      the record an unresolved subject stays unresolved — even when the
-      field is the only match;
-    - a single lowercase leftover word is a field MODIFIER/alias
-      ("payment terms" for the record "Terms"), never a subject.
-
-    Callers require exactly one match — zero (unresolved subject/target)
-    and many (ambiguous records) both refuse completion."""
-    target_words = set(_assignment_target_words(target))
-    if not target_words:
-        return []
-    focused = {str(word) for word in (focused_words or set())}
-    matches: List[_AssignmentRecord] = []
-    for record in records:
-        label_words = set(_assignment_label_words(record.label))
-        if not label_words or not label_words <= target_words:
+        family = [str(alias) for alias in _field_aliases(label)
+                  if str(alias or "").strip()]
+    except Exception:  # noqa: BLE001 — registry unavailable: label only
+        family = [str(label or "")]
+    spans: List[Tuple[int, int]] = []
+    for alias in sorted(family, key=lambda item: len(item.split()),
+                        reverse=True):
+        words = alias.split()
+        if not words or len(words) > len(target_tokens):
             continue
-        leftover = target_words - label_words
-        if leftover:
-            constraints = (leftover if len(leftover) > 1
-                           else leftover & focused)
-            section_words = set(_assignment_label_words(record.section))
-            if constraints and not constraints <= section_words:
-                continue
-        matches.append(record)
-    return matches
+        for start in range(len(target_tokens) - len(words) + 1):
+            if target_tokens[start:start + len(words)] == words:
+                spans.append((start, start + len(words)))
+    return spans
 
 
-def _assignment_target_words(text: str) -> List[str]:
-    return [word for word in re.findall(r"[a-z0-9]+", _assignment_norm(text))
-            if word not in _ASSIGNMENT_LOCATION_TOKENS]
+def _resolve_assignment_target(
+    target: str, records: List[_AssignmentRecord],
+) -> _AssignmentTargetBinding:
+    """Bind one assignment target to at most ONE artifact record.
+
+    The requested FIELD resolves through the existing canonical
+    field/alias vocabulary; every remaining target word is a MANDATORY
+    subject constraint, regardless of case. A constraint resolves only
+    when the candidate record's SECTION names it — with no section
+    evidence the target stays unresolved, even when the field is the
+    only match. Ambiguous or multiple resolutions stay unresolved:
+    completion never rides ``any()``."""
+    target_tokens = re.findall(r"[a-z0-9]+", _assignment_norm(target))
+    if not target_tokens:
+        return _AssignmentTargetBinding(False, False, "empty_target",
+                                        None, ())
+    field_records: List[Tuple[_AssignmentRecord, List[str]]] = []
+    for record in records:
+        spans = _assignment_field_spans(target_tokens, record.label)
+        if not spans:
+            continue
+        # Longest alias phrase wins; ties consume their union (the same
+        # field named twice cannot manufacture two records downstream).
+        max_len = max(end - start for start, end in spans)
+        covered = set()
+        for start, end in spans:
+            if end - start == max_len:
+                covered.update(range(start, end))
+        leftover = [word for index, word in enumerate(target_tokens)
+                    if index not in covered
+                    and word not in _ASSIGNMENT_LOCATION_TOKENS]
+        field_records.append((record, leftover))
+    if not field_records:
+        return _AssignmentTargetBinding(False, False, "field_unresolved",
+                                        None, ())
+    candidates: List[_AssignmentRecord] = []
+    for record, leftover in field_records:
+        section_words = set(_assignment_label_words(record.section))
+        if set(leftover) <= section_words:
+            candidates.append(record)
+    if not candidates:
+        return _AssignmentTargetBinding(True, False, "subject_unresolved",
+                                        None, ())
+    if len(candidates) != 1:
+        return _AssignmentTargetBinding(True, True, "multiple_records",
+                                        None, tuple(candidates))
+    return _AssignmentTargetBinding(True, True, "resolved",
+                                    candidates[0], tuple(candidates))
 
 
 def _assignment_label_words(label: str) -> List[str]:
@@ -2123,18 +2146,19 @@ def _assignment_postcondition_obligations(
     CURRENT authoritative artifact (L1/S6 owner assignment 2026-10-18).
 
     An explicit "update X to Y" instruction authorizes Y for X; the
-    artifact proves whether X already carries Y. The check resolves the
-    target to EXACTLY ONE artifact record whose label AND requested
-    subject identity resolve on that same record — a generic field with
-    an unresolved requested subject stays unresolved, subject identity
-    cannot be substituted by shared field words, and conflicting
-    duplicates bind nothing — then compares the record's COMPLETE value
-    with the assigned value under conservative normalization
-    (whole-token decimal equality for numbers; no substring/containment).
-    Values the shared extractor recorded as source references never
-    arrive here (they are unresolved obligations); an "add ..." obligation
-    the artifact check cannot confirm blocks completion with its own
-    record.
+    artifact proves whether X already carries Y. The check binds the
+    target to EXACTLY ONE artifact record: the FIELD resolves through
+    the existing canonical field/alias vocabulary
+    (``workbook_read_artifact._FIELD_ALIASES``), every remaining target
+    word is a MANDATORY subject constraint that must be named by that
+    record's section (case never decides authority; no word is silently
+    discarded), and conflicting or multiple records bind nothing. The
+    record's COMPLETE value is then compared with the assigned value
+    under conservative normalization (whole-token decimal equality for
+    numbers; no substring/containment). Values the shared extractor
+    recorded as source references never arrive here (they are unresolved
+    obligations); an "add ..." obligation the artifact check cannot
+    confirm blocks completion with its own record.
 
     Returns [] when the request carries nothing assignable — the
     caller's pre-existing guards then behave exactly as before. Any
@@ -2184,27 +2208,30 @@ def _assignment_postcondition_obligations(
             target_tokens = set(re.findall(r"[a-z0-9]+", target.lower()))
             if target_tokens & header_targets:
                 continue
-            # RESOLVE THE TARGET FIRST (owner repair 2026-10-18): the
-            # target must bind to exactly one record whose label AND
-            # requested subject identity resolve on that same record.
-            # Zero matches (unresolved subject/target) and many matches
-            # (duplicate/ambiguous records) are both UNRESOLVED — never
-            # satisfied through any().
-            focused_words = _assignment_focused_words(target, message, entry)
-            records = _assignment_target_records(
-                target, lines, focused_words)
-            if len(records) != 1:
+            # RESOLVE THE TARGET FIRST (owner correction 2026-10-18,
+            # defect class 3): the field binds through the canonical
+            # field vocabulary; every remaining word is a MANDATORY
+            # subject constraint (case is never authority); zero/ambiguous
+            # bindings are UNRESOLVED — never satisfied through any().
+            binding = _resolve_assignment_target(target, lines)
+            if binding.record is None:
                 disposition = "unresolved"
-                detail = (
-                    f"{target}: no record on the current draft resolves "
-                    "this target's field and subject"
-                    if not records else
-                    f"{target}: {len(records)} records name this target "
-                    "— the value cannot be bound uniquely")
+                if binding.reason == "subject_unresolved":
+                    detail = (f"{target}: the record names the field but "
+                              "not the requested subject")
+                elif binding.reason == "multiple_records":
+                    detail = (f"{target}: {len(binding.candidates)} "
+                              "records match this target — the value "
+                              "cannot be bound uniquely")
+                elif binding.reason == "empty_target":
+                    detail = f"{target}: the target names no field"
+                else:
+                    detail = (f"{target}: the requested field does not "
+                              "resolve through the field vocabulary")
                 summary = ""
             else:
                 relation = _assignment_value_relation(
-                    value, records[0].value)
+                    value, binding.record.value)
                 disposition = relation
                 if relation == "satisfied":
                     detail = (f"{target}: already holds on the current "

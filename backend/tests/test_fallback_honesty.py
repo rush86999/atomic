@@ -1499,7 +1499,7 @@ class TestReaskNoopThroughRoute:
             "Client: Dunmore Fabrication LLC\n"
             "Item: CNC press brake, 50-ton\n"
             "Unit price: $48,000.00\n"
-            "Terms: Net 45\n"
+            "Delivery: In Stock\n"
             "Valid until: 2026-12-31\n"
         )
         with factory() as sc:
@@ -1533,7 +1533,8 @@ class TestReaskNoopThroughRoute:
 
         resp, user = _route_call(
             factory,
-            "Please also update the payment terms in the draft to Net 45.",
+            "Please also update the delivery time in the draft to "
+            "In Stock.",
             {"canvas_id": CANVAS_ID})
 
         assert resp.outcome == "completed", (
@@ -1541,7 +1542,7 @@ class TestReaskNoopThroughRoute:
             f"completed; got outcome={resp.outcome!r} "
             f"success={resp.success!r} message={resp.message!r}")
         assert resp.success is True
-        assert "Net 45" in (resp.message or "")
+        assert "In Stock" in (resp.message or "")
         assert "nothing was sent" in (resp.message or "")
 
         # ZERO WRITES: the durable audit trail for the artifact is
@@ -1553,7 +1554,7 @@ class TestReaskNoopThroughRoute:
                 Canvas.id == CANVAS_ID).first()
         assert audits_after == audits_before, (
             "a verified no-op must not write the artifact")
-        assert "Net 45" in str((canvas_row.content or {}).get("body"))
+        assert "In Stock" in str((canvas_row.content or {}).get("body"))
 
         # PERSISTENCE: the assistant row exists and agrees (fresh session).
         with factory() as sc2:
@@ -1574,3 +1575,75 @@ class TestReaskNoopThroughRoute:
                   if m["role"] == "assistant"][-1]["response"]
         assert served.get("outcome") == resp.outcome == meta.get("outcome")
         assert served.get("success") == resp.success == meta.get("success")
+
+    def test_unsupported_field_alias_reask_stays_unconfirmed(
+            self, monkeypatch):
+        """The S6 ask's field ('payment terms') has NO explicit alias in
+        the canonical vocabulary (owner correction 2026-10-18): the real
+        route must serve the honest unconfirmed decline — never a
+        completion — and the artifact stays untouched. This is the
+        route-level twin of the checker/lane controls, at every casing."""
+        import core.chat_canvas_editor as cce
+        from core.chat_canvas_editor import FreshDataResult
+        from core.models import Canvas, CanvasAudit
+
+        _app, factory, _ = _mk_app_and_db(monkeypatch)
+        _seam_failure(monkeypatch)
+        _fixed_execution(monkeypatch, "exec-reask-route-n1")
+
+        body = (
+            "# Quotation Q-2026-114 (DRAFT)\n\n"
+            "Client: Dunmore Fabrication LLC\n"
+            "Terms: Net 45\n"
+        )
+        with factory() as sc:
+            sc.add(Canvas(id=CANVAS_ID, tenant_id="t1",
+                          created_by="user_1", name="Quotation Q-2026-114",
+                          canvas_type="document",
+                          content={"body": body}))
+            sc.add(CanvasAudit(canvas_id=CANVAS_ID, tenant_id="t1",
+                               action_type="fork", user_id="user_1",
+                               details_json={"content": {"body": body}}))
+            sc.commit()
+
+        class _Plan:
+            wants_edit = False
+            reply = "No changes were needed."
+
+        async def _plan_ok(*a, **k):
+            return _Plan()
+
+        monkeypatch.setattr(cce, "plan_canvas_edit", _plan_ok)
+
+        async def _fresh_ok(*a, **k):
+            return FreshDataResult(section="", needed=False, ok=True,
+                                   block="", evidence_contract=None)
+
+        monkeypatch.setattr(cce, "fetch_fresh_data_section", _fresh_ok)
+
+        with factory() as sc:
+            audits_before = sc.query(CanvasAudit).filter(
+                CanvasAudit.canvas_id == CANVAS_ID).count()
+
+        for ask in (
+                "Please also update the payment terms in the draft to "
+                "Net 45.",
+                "Please also update the Payment terms in the draft to "
+                "Net 45.",
+                "Please also update the PAYMENT TERMS in the draft to "
+                "Net 45."):
+            resp, _user = _route_call(
+                factory, ask, {"canvas_id": CANVAS_ID})
+            assert resp.outcome != "completed", (
+                f"no completion without an explicit field alias: {ask!r} "
+                f"outcome={resp.outcome!r} message={resp.message!r}")
+            assert "Verified on the current draft" not in (
+                resp.message or ""), ask
+        with factory() as sc:
+            audits_after = sc.query(CanvasAudit).filter(
+                CanvasAudit.canvas_id == CANVAS_ID).count()
+            canvas_row = sc.query(Canvas).filter(
+                Canvas.id == CANVAS_ID).first()
+        assert audits_after == audits_before, (
+            "an unconfirmed decline must not write the artifact")
+        assert "Net 45" in str((canvas_row.content or {}).get("body"))
