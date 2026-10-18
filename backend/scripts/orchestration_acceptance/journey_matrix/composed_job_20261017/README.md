@@ -111,6 +111,52 @@ terms change; the earlier Valid-Until edit stayed exactly once and intact;
 audit totals `+1` per authorized change, never duplicated. The post-restart
 re-send reported the editor declined the (already applied) change honestly.
 
+## Run 4 (executed 2026-10-17, candidate `9c9e5c76e` = runtime `dad8f9fce` + S5 structured-ask harness + docs) — RESULT
+
+Executed once on the frozen harness (route preflight OK; fresh world).
+
+**Result: 36/39 checks green, with 3 NAMED EXCLUSIONS. The supported
+workflow PASSED.**
+
+Full check list (39): 36 `x`, 3 `F` —
+`F s6-resend-reply-received`, `F s7-reply-received`,
+`F no-failed-requests` (the aggregate of those two excluded turns; no other
+failed request exists in the run).
+
+Supported workflow (install → provider → upload → sourced answer →
+authorized edit → calculation → interrupt/restart → continue → reload):
+**PASSED.** Highlights: wizard activation with NO Settings re-save (F4) and
+exactly one store POST; approved-records upload durable; S3 = `success=true`,
+`outcome=partial`, mismatch identified, zero writes (the predeclared shape);
+S4 = edit applied exactly once (+1 audit), readback matched, truthful reply;
+**S5 = `success=true`, `outcome=completed` with formula-engine evidence
+(`calc:result_id=e4fdbeab…`; Value 96000, Inputs QTY=2 UNIT_PRICE=48000)** —
+the supported structured calculation; the deliberate SIGKILL leg: killed
+2.85 s after durable acceptance (pre-write), restart healthy, canvas honest,
+converged to exactly one terms change, valid-until intact, audit totals
+correct; S7's CONTENT checks pass (`s7-current-value-matches`,
+`s7-zero-new-work`) with the reply "…2026-12-31, which still matches the
+approved record"; final reload readback shows `Terms: Net 45` + `Valid
+until: 2026-12-31`, no wizard.
+
+Named exclusions (never silently certified):
+1. `s6-resend-reply-received` — the idempotent re-ask of an already-applied
+   change (editor declined, truthful, `unconfirmed`). Follow-up criterion
+   below; NOT fixed in this release.
+2. `s7-reply-received` — the continuation ask's settlement per the
+   documented source-noun exclusion (content correct; status stays
+   non-certified; deliberately not widened to green).
+3. `no-failed-requests` — the aggregate those two turns contribute to.
+
+Configuration identity: the structured calculation ask is an ACCEPTED INPUT
+CHANGE (the supported shape), not evidence that the plain-language ask was
+repaired; run 3 preserves the plain ask's outcome (correct total delivered,
+unverifiable → `unconfirmed`).
+
+**This run is the release candidate's journey evidence** for the pilot
+deployment (candidate runtime `dad8f9fce` lineage = repo HEAD `9c9e5c76e`
+at run time; tooling/doc commits above it change no runtime file).
+
 ## Run 3 (executed 2026-10-17, candidate `1408d40f3` = runtime `dad8f9fce` + harness/docs) — result
 
 Executed once on the hardened harness (route preflight OK: 307; fresh `.next`).

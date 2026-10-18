@@ -115,6 +115,32 @@ structured ask shape on the next composed run. Archive:
 `journey_matrix/composed_job_20261017/` (2 run JSONs, harness, screenshots,
 CHECKSUMS).
 
+**Rev 8 (2026-10-17 late, composed run 4 — the release candidate's journey evidence).**
+On the release candidate (runtime `dad8f9fce` lineage; harness/docs `9c9e5c76e`),
+the composed user job ran once end-to-end: **36/39 checks green with 3 named
+exclusions; the SUPPORTED WORKFLOW PASSED** — setup → provider activation
+(no re-save, one store POST) → upload durable → sourced answer (S3
+`success=true`/`outcome=partial`, mismatch identified, zero writes — the
+context-backed fulfillment repair's predeclared shape) → authorized edit
+exactly-once + readback + audit → **verified calculation (`outcome=completed`
+with formula-engine evidence)** → deliberate SIGKILL + restart + convergence
+(all invariants green; exactly one terms change, valid-until intact) →
+continuation (content checks pass) → reload readback (`Net 45` +
+`2026-12-31`, no wizard). **Named exclusions, never certified:** (1) the
+idempotent re-ask settlement (`s6-resend-reply-received`) — exact follow-up
+criterion recorded (same change durably satisfied on the CURRENT artifact
+revision → "Already applied; nothing changed", zero writes, consistent
+outcome; a historical operation alone never establishes it); (2) the
+continuation settlement (`s7-reply-received`) — the source-noun vocabulary
+exclusion, deliberately not widened; (3) `no-failed-requests`, the aggregate
+those two excluded turns contribute to. Configuration identity: the
+structured calculation ask is an ACCEPTED INPUT CHANGE (the supported
+shape); run 3 preserves the plain ask's correct-but-unverifiable outcome.
+Archive: `journey_matrix/composed_job_20261017/` (all four runs preserved).
+Next: pilot deployment (controlled restart, identity check,
+beyond-navigation smoke), then the repeatability/value evaluation and the
+support statement.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -203,7 +229,7 @@ against the `/tmp` originals; credential scans clean before archiving).
 | 40 | **R3 (focused slice)** — supply a missing value after restart; resume without repeating the request | verified (diagnostic, `counted=false`) | public API + restart (3 real restarts) | `853226d79`; narrow supply syntax + interpretation contract | `journey_matrix/r3_resume_missing_value_r21/evidence_r3_resume_20261016_115723_578116.json` (sha256 `f7aaac9c…`) | general NL answer interpretation resolves `unresolved` by contract; planner patch-quality variance open (not reopened) | keep as regression; rides the Phase E chain |
 | 41 | **R4 (focused slice)** — interrupted-read recovery: re-render the saved result without re-reading | verified (scoped; `diagnostic_only=true`, `counted=false`) | public API + restart (observed SIGKILL) + configuration-parity | **`c1beb7c0b` / pin `2070147ee` — NOT the approved `c6dd2d0e5`** (provenance: `a45da2b78` + `2070147ee` + 7-attempt history) | `journey_matrix/r4_read_recovery_r21/evidence_r4_read_recovery_20261017_081610_2d2ca7.json` (sha256 `8f62e12d…`; 7-file campaign set archived in-repo 2026-10-17, `checksums.sha256`; `/tmp` originals retained) + preserved scratch world | not counted; counter is post-attempt instrumentation; worker-loop coverage limit; not fresh-install | integration decision separately authorized (Phase G) |
 | 42 | **R4 (correctness follow-up)** — recovered render reports coverage/outcome truthfully | **failing** | public API + restart | same as 41 | attempt-7 JSON + persisted rows ("Coverage: 0/3 items matched"; `outcome=partial` on 3/3 delivered) | user-facing contradiction: durable coverage keys don't align with item labels | **one bounded repair + regression at the reconstruction boundary (implementation); tracked separately; R4 milestone not reopened** |
-| 43 | **SPINE — composed user job** — draft-vs-approved-records revision, deliberate interruption, continuation, reload | **in progress** | browser + public API + SIGKILL crash/restart | run 2 `6e740fc39`; run 1 `e207494af4c7` | `journey_matrix/composed_job_20261017/` (2 run JSONs, harness, screenshots, CHECKSUMS); protocol `63de9aa8e` | setup / source / **edit exactly-once + readback** / crash convergence (exactly one change, no duplicates) / reload all green; source-named read turns settle `outcome_unconfirmed` (⚠️) with correct content — **F-C2**; calc leg adopts the J5 structured ask (F-C3) | F-C2 bounded settlement design; composed re-run |
+| 43 | **SPINE — composed user job** — draft-vs-approved-records revision, deliberate interruption, continuation, reload | **verified (supported workflow) — 3 named exclusions** | browser + public API + SIGKILL crash/restart | run 4 `9c9e5c76e` (runtime `dad8f9fce` lineage); runs 1–3 preserved | `journey_matrix/composed_job_20261017/` (4 run JSONs, harness, screenshots, CHECKSUMS); protocol `63de9aa8e` | supported workflow PASSED (36/39): setup/provider/upload/sourced answer (`partial`, truthful)/edit exactly-once/calculation `completed`/crash convergence/reload; **exclusions (not certified):** idempotent re-ask settlement (named follow-up w/ exact criterion), continuation settlement (source-noun exclusion), their `no-failed-requests` aggregate | pilot deployment (controlled restart + identity + beyond-navigation smoke); re-ask follow-up as next bounded slice |
 
 ---
 
