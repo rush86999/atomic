@@ -92,6 +92,29 @@ what the repair and its gates concern; no predeclared gate depended on the
 reply route. Both facts are recorded in `attempt1_result.json`
 (`intended_vs_actual`) and here.
 
+## Harness correction + deterministic exact-link rescore (owner review, 2026-10-18)
+
+Owner harness improvement: `receipt_bound_to_current_request` must bind
+through the RESPONSE's own `execution_id` — exact row lookup — not a
+query-word check over a recently-ordered execution. The raw attempt is
+preserved unmodified and NO model rerun was needed: `rescore_exactlink.py`
+re-derives the whole chain read-only from `attempt1_result.json` + the
+preserved scratch DB and writes `attempt1_result_exactlink.json`:
+
+```text
+response execution_id f6203e01-9959-4037-b877-ccc44e43bbd0
+  -> execution row (exact id)         found; session 61d79c59-…; user/workspace bound
+  -> conversation/assistant row       found; metadata outcome=completed success=true
+  -> documents.search receipt         verified=true; coverage=complete; match_count=1
+  -> uploaded document id + workspace found; preview carries QUARTZ-77
+```
+
+All nine gates (exact-link version of the binding check; query text now
+recorded as supporting evidence) hold: **pass, agreeing with the raw
+attempt**. `run_l3_served.py` carries the same exact lookup for future
+runs (the pre-correction driver version's word-based check is what the
+raw attempt recorded; the correction changes no run outcome).
+
 ## Files
 
 - `PREDECLARED_CONFIG.md` — the declaration (written before the attempt).
@@ -99,6 +122,7 @@ reply route. Both facts are recorded in `attempt1_result.json`
 - `attempt1_config.json`, `attempt1_result.json`, `attempt1_server.log`,
   `attempt1_interpreter_freeze.txt` — the attempt record.
 - `summary.json` — machine-readable identity/checks/outcome.
+- `rescore_exactlink.py` + `attempt1_result_exactlink.json` — the deterministic exact-link rescore (no model call).
 - `CHECKSUMS.sha256` — all files.
 
 **Next:** integration/deployment remains a separately authorized process

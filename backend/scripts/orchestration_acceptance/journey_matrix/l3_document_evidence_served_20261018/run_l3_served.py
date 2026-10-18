@@ -475,31 +475,43 @@ def main() -> int:
         assistant_rows = [m for m in rows_final if m["role"] == "assistant"]
         last_meta = assistant_rows[-1] if assistant_rows else {}
 
-        def read_task_outcome():
+        def read_task_outcome(execution_id):
+            """EXACT lookup (owner harness improvement 2026-10-18): the
+            response's own execution_id selects THE row — never a recent
+            execution chosen by ordering."""
+            if not execution_id:
+                return None
             con = sqlite3.connect(f"file:{db_file}?mode=ro", uri=True)
             try:
-                rows = con.execute(
+                row = con.execute(
                     "SELECT id, started_at, metadata_json FROM "
-                    "agent_executions ORDER BY started_at DESC, id DESC "
-                    "LIMIT 3").fetchall()
+                    "agent_executions WHERE id=?",
+                    (str(execution_id),)).fetchone()
             finally:
                 con.close()
-            picked = None
-            for rid, started, meta_raw in rows:
-                try:
-                    meta = json.loads(meta_raw or "{}")
-                except Exception:
-                    meta = {}
-                outcome = meta.get("task_outcome") or {}
-                if isinstance(outcome, dict) and outcome:
-                    picked = {"execution_row_id": str(rid),
-                              "started_at": str(started),
-                              "task_outcome": outcome}
-                    break
-            return picked
+            if not row:
+                return None
+            rid, started, meta_raw = row
+            try:
+                meta = json.loads(meta_raw or "{}")
+            except Exception:
+                meta = {}
+            outcome = meta.get("task_outcome") or {}
+            if not isinstance(outcome, dict) or not outcome:
+                return None
+            return {"execution_row_id": str(rid),
+                    "started_at": str(started),
+                    "session_id": str(meta.get("session_id") or ""),
+                    "user_id": str(meta.get("user_id") or ""),
+                    "workspace_id": str(meta.get("workspace_id") or ""),
+                    "task_outcome": outcome}
 
-        exec_record = read_task_outcome()
+        response_execution_id = str(
+            (chat_json or {}).get("execution_id") or "")
+        exec_record = read_task_outcome(response_execution_id)
         result["steps"]["task_outcome"] = {
+            "response_execution_id": response_execution_id,
+            "exact_row_found": bool(exec_record),
             "execution_row_id": (exec_record or {}).get("execution_row_id"),
             "execution_id": ((exec_record or {}).get("task_outcome") or {}
                              ).get("execution_id"),
@@ -566,17 +578,27 @@ def main() -> int:
             and isinstance(r.get("match_count"), int)
             and not isinstance(r.get("match_count"), bool)
             and r.get("match_count") >= 1]
-        current_refs = [
-            r for r in complete_refs
-            if re.search(r"zephyr|launch", str(r.get("query") or ""),
-                         re.IGNORECASE)]
+        exact_row_bound = bool(
+            response_execution_id and exec_record
+            and str(((exec_record.get("task_outcome") or {})
+                     .get("execution_id")) or "") == response_execution_id)
+        receipt_queries = [str(r.get("query") or "") for r in complete_refs]
+        result["steps"]["documents_receipt"]["exact_binding"] = {
+            "response_execution_id": response_execution_id,
+            "execution_row_id": (exec_record or {}).get("execution_row_id"),
+            "task_outcome_execution_id": (
+                (exec_record or {}).get("task_outcome") or {}
+            ).get("execution_id"),
+            "exact_row_bound": exact_row_bound,
+            "receipt_queries": receipt_queries,
+        }
         checks = {
             "upload_through_product": upload_ok,
             "planner_dispatch_real": bool(dispatch_models),
             "documents_receipt_executed": bool(
                 any(t.get("verified") is True for t in doc_receipts)),
             "receipt_verified_complete_coverage": bool(complete_refs),
-            "receipt_bound_to_current_request": bool(current_refs),
+            "receipt_bound_to_current_request": exact_row_bound,
             "objective_met_true": (
                 ((exec_record or {}).get("task_outcome") or {}
                  ).get("objective_met") is True),

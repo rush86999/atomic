@@ -1,5 +1,10 @@
 {
   "attempt": "1",
+  "binding_check": {
+    "definition": "receipt_bound_to_current_request binds through the response's own execution_id (exact agent_executions row lookup); query text recorded as supporting evidence",
+    "exact_row_bound": true,
+    "response_execution_id": "f6203e01-9959-4037-b877-ccc44e43bbd0"
+  },
   "candidate": {
     "branch": "codex/l3-document-evidence",
     "commit": "6d662abfffc2d9e42ab209cf68521e4933edcf27",
@@ -150,5 +155,12 @@
     "upload_route": "POST /api/documents/upload"
   },
   "pass": true,
+  "rescored": {
+    "artifact": "attempt1_result_exactlink.json",
+    "model_calls": 0,
+    "pass": true,
+    "raw_attempt_preserved": true,
+    "script": "rescore_exactlink.py"
+  },
   "slice": "L3"
 }
