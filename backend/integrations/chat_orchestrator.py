@@ -5949,7 +5949,7 @@ def _stash_evidence_requirement(
     try:
         from core.memory_context_assembler import subjects_for_message
 
-        subjects = subjects_for_message(str(message or ""))
+        subjects = subjects_for_message(str(message or ""), fields)
     except Exception:  # noqa: BLE001 — subjects additive
         subjects = []
     identity: Dict[str, Any] = {"state": "kind_only", "candidates": []}

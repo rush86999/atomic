@@ -181,7 +181,7 @@ async def _knowledge_leg(
             dict.fromkeys(extract_field_requests([str(message or "")])))[:6]
     except Exception:  # noqa: BLE001 — coverage is additive
         _requested_fields = []
-    _subjects = subjects_for_message(str(message or ""))
+    _subjects = subjects_for_message(str(message or ""), _requested_fields)
     lines: List[str] = [
         # Provenance spotlighting (core/provenance.py lattice): ingested
         # email/drive/app content is attacker-influenceable RETRIEVED data —
@@ -307,12 +307,30 @@ def _field_aliases(canonical: str) -> List[str]:
     return aliases
 
 
-def subjects_for_message(message: str) -> List[str]:
+# Generic adjectives that turn a FIELD mention into extraction noise
+# ("current Valid until" → target "current valid"). Used ONLY together
+# with a requested-field alias tail (see subjects_for_message) so real
+# subject names are never dropped.
+_GENERIC_ADJECTIVE_WORDS = {
+    "current", "latest", "present", "actual", "correct", "final",
+    "updated", "existing", "new", "old",
+}
+
+
+def subjects_for_message(
+    message: str,
+    requested_fields: Optional[List[str]] = None,
+) -> List[str]:
     """Deterministic SUBJECT identities named by the request.
 
     Uses the existing target extractor; entries that are field-like (equal
     to or contained in a field alias, e.g. "Valid Until") are dropped —
-    they are the requested FIELDS, not subjects. Bounded, additive.
+    they are the requested FIELDS, not subjects. Additionally, the
+    adjective+field noise shape (reviewer F5, narrowed after the delta
+    review BLOCK: dropping any short alias-tailed target swallowed real
+    names like "Acme Software" / "Business Unit" / "Tech Lead") is dropped
+    ONLY when it is exactly two words: a generic adjective + a word from a
+    REQUESTED field's aliases. Bounded, additive.
     """
     try:
         from core.workbook_read_artifact import extract_targets
@@ -325,8 +343,11 @@ def subjects_for_message(message: str) -> List[str]:
                    for a in values]
     except Exception:  # noqa: BLE001
         aliases = []
+    field_alias_words: set = set()
+    for f in (requested_fields or []):
+        for alias in _field_aliases(str(f)):
+            field_alias_words.update(alias.split())
     out: List[str] = []
-    alias_words = {w for a in aliases for w in a.split() if len(w) >= 3}
     for t in raw:
         norm = re.sub(r"\s+", " ", str(t or "")).strip().casefold()
         if len(norm) < 3:
@@ -334,11 +355,9 @@ def subjects_for_message(message: str) -> List[str]:
         words = norm.split()
         if any(norm == a or norm in a or a in norm for a in aliases):
             continue
-        # ADJECTIVE+FIELD NOISE (reviewer F5): "current valid" /
-        # "latest price"-style targets are the FIELD with an adjective,
-        # not a subject. A short target whose LAST word is a field-alias
-        # word is dropped (keep identifiers with digits).
-        if (len(words) <= 4 and words and words[-1] in alias_words
+        if (len(words) == 2
+                and words[0] in _GENERIC_ADJECTIVE_WORDS
+                and words[-1] in field_alias_words
                 and not any(ch.isdigit() for ch in norm)):
             continue
         if norm not in out:

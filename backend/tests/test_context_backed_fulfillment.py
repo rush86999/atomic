@@ -409,19 +409,38 @@ def test_subject_extraction_drops_field_like_targets():
 
     pinned = subjects_for_message(
         "Compare the draft quotation with my uploaded Approved Records "
-        "document. Does the Valid Until date in the draft match?")
+        "document. Does the Valid Until date in the draft match?",
+        ["expiration_date"])
     assert pinned == [], pinned          # "Valid Until" is the FIELD
     named = subjects_for_message(
         "Does Quotation Q-2026-114's valid until date match the approved "
-        "record for Q-2026-114?")
+        "record for Q-2026-114?",
+        ["expiration_date"])
     assert any("q-2026-114" in s for s in named), named
-    # reviewer F5: adjective+field noise must not suppress the association
-    for ask, label in (
-            ("What is the current Valid until date on my uploaded "
-             "Approved Records document?", "current valid"),
-            ("Please confirm the latest price on the draft.", "latest price")):
-        subs = subjects_for_message(ask)
-        assert not any(label in s for s in subs), (ask, subs)
+    # reviewer F5 noise shape: adjective + REQUESTED-field tail is dropped
+    assert subjects_for_message(
+        "What is the current Valid until date on my uploaded "
+        "Approved Records document?", ["expiration_date"]) == []
+    assert subjects_for_message(
+        "Please confirm the latest price on the draft.", ["price"]) == []
+    # DELTA-REVIEW BLOCK regression: a real subject the extractor yields
+    # must NEVER be dropped by the filter — the subject gate stays armed.
+    from core.workbook_read_artifact import extract_targets
+
+    for ask, keep in (
+            ("Does the price for Acme Software match the approved record?",
+             "acme software"),
+            ("Check the Business Unit figures against the file.", "business unit"),
+            ("Use the Tech Lead's order for the comparison.", "tech lead"),
+            ("Compare the Front End module with the backend service.", "front end"),
+            ("What does the West End branch record show?", "west end"),
+            ("Match the Farm Hand equipment against the list.", "farm hand")):
+        raw_norms = {str(t or "").strip().casefold()
+                     for t in extract_targets([ask])}
+        if keep in raw_norms:
+            assert keep in subjects_for_message(ask, ["price"]), (
+                f"the filter dropped a real subject the extractor yielded: "
+                f"{ask!r} -> {subjects_for_message(ask, ['price'])!r}")
 
 
 def test_anchor_word_boundaries_pinned():
