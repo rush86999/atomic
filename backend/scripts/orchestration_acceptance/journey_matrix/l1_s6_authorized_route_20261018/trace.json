@@ -1,0 +1,71 @@
+{
+  "record": "L1/S6 attempt 7 — pin non-dispatch and Go endpoint trace",
+  "date": "2026-10-18",
+  "candidate": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+  "investigation_only": true,
+  "changes_applied": false,
+  "l1_promotion": "held",
+  "pin_trace": {
+    "declared": {
+      "env_var": "ATOM_ASYNC_EDIT_PLAN_MODEL",
+      "value": "opencode-go/deepseek-v4-pro",
+      "evidence": ["attempt7_config.json", "run_authorized_preview.py:122", "Popen env=env run_authorized_preview.py:237"]
+    },
+    "gate": {
+      "function": "core/llm/pinned_planning.py:76 build_provider_model_pin",
+      "check": "provider in llm_service._get_handler().clients",
+      "scope_used": "_get_handler() with NO workspace_id/tenant_id -> the service's own handler (frozen constructor scope)",
+      "service_scope_evidence": "attempt7_server.log:297 'ChatOrchestrator initialized with LLMService for tenant: default'",
+      "clients_initialized_at": "BYOKHandler.__init__ -> _initialize_clients (byok_handler.py:1507), before the attempt's BYOK registration"
+    },
+    "dispatch": {
+      "call_site": "chat_orchestrator.py:27583 plan_canvas_edit(workspace_id=resolve_user_workspace(user_id), tenant_id=self.tenant_id, ...)",
+      "resolution": "LLMService.generate_structured_response -> _get_handler(workspace_id=<user ws 07e905c6-...>, tenant_id=<turn tenant>)",
+      "scoped_handler_saw_provider": true,
+      "evidence": ["Initialized opencode-go client using BYOK credential x4", "provider catalogue fetched", "BPC ranked opencode-go/qwen3.8-flash"]
+    },
+    "observed_facts": {
+      "pinned_call_line_present": false,
+      "handler_unpin_warning_present": false,
+      "dispatched_route": "opencode-go/qwen3.8-flash (unpinned BPC)",
+      "conclusion": "build_provider_model_pin returned {} because the gate handler lacked the scoped BYOK client; the pin was silently dropped before dispatch"
+    },
+    "proposed_fix": {
+      "change": "accept workspace_id/tenant_id in build_provider_model_pin and use _get_handler(workspace_id=..., tenant_id=...); pass them from _plan_structured",
+      "class": "same scope class already fixed for the call (J6 comment)",
+      "applied": false,
+      "reason_not_applied": "provider plumbing, not the no-op repair; changes runtime beyond frozen b96dec60a"
+    }
+  },
+  "endpoint_trace": {
+    "official_docs": "https://opencode.ai/v2/docs/console/go/#endpoints",
+    "configured_base_url": {
+      "value": "https://opencode.ai/zen/v1",
+      "code": ["core/llm/byok_handler.py:3080", "core/settings_catalog.py:114", "data/byok_config.json provider opencode-go"],
+      "env_override": "OPENCODE_BASE_URL"
+    },
+    "probes": {
+      "zen_models": {"url": "https://opencode.ai/zen/v1/models", "http": 200, "count": 85, "sample": ["big-pickle", "beam-free", "claude-opus-5-5", "deepseek-v4-pro"]},
+      "go_models": {"url": "https://opencode.ai/inference/go/v1/models", "http": 200, "count": 37, "deepseek": ["deepseek-v4-pro", "deepseek-v4.1-flash"]},
+      "zen_chat_unauth": {"url": "https://opencode.ai/zen/v1/chat/completions", "http": 401, "body": "Missing API key"},
+      "go_chat_unauth": {"url": "https://opencode.ai/inference/go/openai/v1/chat/completions", "http": 400, "body": "MissingSessionID: Request is missing x-opencode-session"}
+    },
+    "attempt7_call": {
+      "url_observed": "https://opencode.ai/zen/v1/chat/completions",
+      "model": "opencode-go/qwen3.8-flash",
+      "http": 402,
+      "body": "Upstream request failed: Insufficient account funds"
+    },
+    "session_header": {
+      "go_requirement": "x-opencode-session (docs + 400 probe)",
+      "atom_support": "handler adds 'x-opencode-session': 'atom-<workspace>' for opencode-go/opencode (byok_handler.py ~3240)"
+    },
+    "interpretation": "Zen balance gateway != Go subscription endpoint; 402 came from Zen. Endpoint causality not A/B-proven; model families use different Go endpoint styles (qwen3.8-flash = Anthropic-style; deepseek-v4-pro = OpenAI-compatible).",
+    "catalogue_followup": "core/llm/opencode_catalog.py and core/dynamic_pricing_fetcher.py read /zen/v1/models; include in any base-URL migration decision"
+  },
+  "decision_items": [
+    "approve pin-gate scope fix (new patch/successor)",
+    "approve Go base URL https://opencode.ai/inference/go/openai/v1 for the attempt (session header already present; verify user-agent)",
+    "confirm Go plan/billing state in the OpenCode console (no funding implied)"
+  ]
+}
