@@ -1,0 +1,325 @@
+{
+ "journey": "deployment-smoke",
+ "started_at": "2026-10-18T02:39:48+00:00",
+ "harness": {
+  "file": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/deployment_smoke.py",
+  "sha256": "e9a92273934eb4535a9b0af7d8cf611c6fcf96fe4ab5912132da6a2b1618fbac"
+ },
+ "expected_commit": "8c593e57031e",
+ "served_identity": {
+  "pid": 81067,
+  "started_at": "2026-10-18T02:39:37.985639+00:00",
+  "cwd": "/Users/rushiparikh/projects/atom/backend",
+  "git_commit": "8c593e57031e",
+  "source_id": "8c593e57031e-dirty.4f091b0e6ee2",
+  "instance_id": "8c593e57031e-dirty.4f091b0e6ee2.81067.1792291183",
+  "revision": "8c593e57031ebfea08dac81bbc2b4d78e47d8559",
+  "dirty": true,
+  "dirty_digest": "4f091b0e6ee2",
+  "dirty_paths": [
+   "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/summary.json",
+   "frontend-nextjs/.preview-instance/299-08-execution-summary.md",
+   "frontend-nextjs/.preview-instance/299-11-PROGRESS.md",
+   "frontend-nextjs/.preview-instance/ACCESSIBILITY.md",
+   "frontend-nextjs/.preview-instance/DEPLOYMENT.md",
+   "frontend-nextjs/.preview-instance/Dockerfile",
+   "frontend-nextjs/.preview-instance/Dockerfile.production",
+   "frontend-nextjs/.preview-instance/FAILURE_CATEGORIES-299-06.md",
+   "frontend-nextjs/.preview-instance/LIGHTHOUSE.md",
+   "frontend-nextjs/.preview-instance/PERCY.md",
+   "frontend-nextjs/.preview-instance/README.md",
+   "frontend-nextjs/.preview-instance/README_TEAM_CHAT.md",
+   "frontend-nextjs/.preview-instance/a11y-test-results.json",
+   "frontend-nextjs/.preview-instance/advanced-management.js",
+   "frontend-nextjs/.preview-instance/analyze_coverage.js",
+   "frontend-nextjs/.preview-instance/components",
+   "frontend-nextjs/.preview-instance/components.json",
+   "frontend-nextjs/.preview-instance/config",
+   "frontend-nextjs/.preview-instance/contexts",
+   "frontend-nextjs/.preview-instance/coverage",
+   "frontend-nextjs/.preview-instance/coverage-reports",
+   "frontend-nextjs/.preview-instance/data",
+   "frontend-nextjs/.preview-instance/docs",
+   "frontend-nextjs/.preview-instance/e2e",
+   "frontend-nextjs/.preview-instance/element-not-found-patterns.md",
+   "frontend-nextjs/.preview-instance/enterprise-dashboard.js",
+   "frontend-nextjs/.preview-instance/eslint.config.mjs",
+   "frontend-nextjs/.preview-instance/final-implementation.js",
+   "frontend-nextjs/.preview-instance/find-uncovered-files.js",
+   "frontend-nextjs/.preview-instance/fix-eslint-errors.js",
+   "frontend-nextjs/.preview-instance/fix-parsing-errors.js",
+   "frontend-nextjs/.preview-instance/hooks",
+   "frontend-nextjs/.preview-instance/jest.config.js",
+   "frontend-nextjs/.preview-instance/jest.setup.js",
+   "frontend-nextjs/.preview-instance/k8s",
+   "frontend-nextjs/.preview-instance/layouts",
+   "frontend-nextjs/.preview-instance/lib",
+   "frontend-nextjs/.preview-instance/lighthouserc.json",
+   "frontend-nextjs/.preview-instance/middleware.ts",
+   "frontend-nextjs/.preview-instance/next-env.d.ts"
+  ],
+  "untracked_paths": [
+   "backend/replay_subject_admission.py",
+   "backend/scripts/orchestration_acceptance/deployment_smoke.py",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_221948/deployment_smoke_20261017_221948.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_222902/deployment_smoke_20261017_222902.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/deployment_smoke_20261017_223251.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/phase_d_after_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/phase_d_ready_before_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/smoke_saved_edit.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/smoke_sourced_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/deployment_smoke_20261017_223554.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/phase_d_after_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/phase_d_ready_before_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/smoke_saved_edit.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/smoke_sourced_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j2_live_20261013_e8b01dcec.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/j4_r16_20261013_164740_e5bc38.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/j5_r16_20261013_165009_e69d41.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/summary.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/driver_j45_r17.py",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/j4_r17_20261014_065311_3ccbf8.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/j5_r17_20261014_065402_02a9bb.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/summary.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_config.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_encryption_key",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_keys.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_config.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_encryption_key",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_keys.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_105549/j4_evidence.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_105935/j5_evidence.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_110533/j5_evidence.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/diagnostic_tool_planner_20261014_204321.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/diagnostic_tool_planner_benchmark.py",
+   "backend/tests/test_direct_read_settlement_facts.py",
+   "backend/tests/test_probe_exec_row_tmp.py",
+   "backend/tests/test_t1_investigate_end_to_end.py",
+   "backend/tests/test_unmet_obligation_replay.py",
+   "docs/architecture/orchestration_migration/BRENNAN_FIRST_PRODUCT_COMPLETION_PLAN_2026_10_06.md",
+   "docs/architecture/orchestration_migration/DOMAIN_INDEPENDENT_JOB_COMPLETION_AGENT_GUIDE_2026_10_07.md",
+   "docs/architecture/orchestration_migration/INTENT_AND_FRESH_INSTALL_COMPLETION_GUIDE_2026_10_08.md"
+  ],
+  "captured_at": "2026-10-18T02:39:40.773975+00:00",
+  "port": 8001,
+  "error": null,
+  "database": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+  "byok_key_store": "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json"
+ },
+ "smoke_user": {
+  "email": "jprobe_7e5fbbd91b@example.com",
+  "id": "b6cec8b6-b41a-4f8c-9403-781f6b1ad114",
+  "registered": true
+ },
+ "s1_login_wizard": {
+  "login": {
+   "url": "http://localhost:3000/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792291190}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_7e5fbbd91b@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792291191254_f5q6qd2g1"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792291191254_f5q6qd2g1"
+   }
+  },
+  "login_200": true,
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Journey!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "enable_ollama_found": true,
+    "enable_clicked": true,
+    "advanced_to_ready": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 9.14,
+   "overlay_closed_at": 10.17,
+   "overlay_closed_seconds_after_click": 1.03,
+   "toasts_seen": [
+    "Ollama connected",
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 9.16,
+     "method": "POST",
+     "url": "http://127.0.0.1:8001/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 9.21,
+     "status": 200,
+     "url": "http://127.0.0.1:8001/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-18T02:39:57.887410+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 9.16,
+      "method": "POST",
+      "url": "http://127.0.0.1:8001/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     },
+     {
+      "t": 32.95,
+      "method": "GET",
+      "url": "http://127.0.0.1:8001/api/maturity/proposals?status_filter=pending_approval&limit=10",
+      "authorization_present": true,
+      "content_type": null,
+      "post_data": null
+     }
+    ],
+    "responses": [
+     {
+      "t": 9.21,
+      "status": 200,
+      "url": "http://127.0.0.1:8001/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-18T02:39:57.887410+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     },
+     {
+      "t": 32.95,
+      "status": 200,
+      "url": "http://127.0.0.1:8001/api/maturity/proposals?status_filter=pending_approval&limit=10"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:3000/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"client-success\",\"clientId\":1792291190631}",
+       "{\"event\":\"span-end\",\"startTime\":1792291190424,\"endTime\":1792291190655.4,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792291190631}",
+       "{\"event\":\"client-success\",\"clientId\":1792291190631}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:3000/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10716:13)\\n    at http://localhost:3000/_next/static/chunks/%5Broot-of-the-server%5D__07yysm\u2026(+1046)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"22:39:51.259\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"22:39:51.262\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792291190631}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"console\",\"consoleMethodStack\":\"    at console.warn (http://localhost:3000/_next/static/chunks/node_modules_next_dist_08w_b42._.js:1380:13)\\n    at GlobalChatWidget.useEffect.fetchPendingApprovals (http://localhost:3000/_next/static/chunks/%5Broot-of-the-se\u2026(+217)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"22:39:51.588\",\"level\":\"WARN\",\"message\":\"[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown.\"}]}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true,\"/canvas/[id]\":true,\"/chat\":true,\"/documents\":true,\"/dashboard\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":2932464429756215}}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"30\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"31\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true,\"/canvas/[id]\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"built\",\"hash\":\"32\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/documents\":true,\"/dashboard\":true,\"/login\":true,\"/canvas/[id]\":true,\"/chat\":true}}"
+      ]
+     },
+     {
+      "url": "ws://127.0.0.1:8001/ws?token=<jwt-redacted>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "store_posts": 1,
+  "ollama_provider": {
+   "has_tenant_key": true,
+   "status": "active"
+  }
+ },
+ "upload": {
+  "file_input_found": true,
+  "upload_200": true
+ },
+ "sourced_answer": {
+  "answer_text": "The launch code for project Zephyr-9 is **QUARTZ-77** \u2014 found in your uploaded file `deployment_smoke_fixture.txt`.",
+  "non_answer_reason": null,
+  "waited_seconds": 70.2,
+  "history_msgs_count": 2
+ },
+ "canvas_seed": {
+  "create_http": 200,
+  "canvas_id": "5ebfb438-abd4-4b5d-894c-6a647a4d42f5",
+  "seed_http": 200,
+  "seeded_matches": true
+ },
+ "saved_edit": {
+  "input_found": true,
+  "ask": "Please update the Valid Until date in this draft to 2026-12-31.",
+  "sent_at": 1792291309.11395,
+  "sent": true,
+  "http": 200,
+  "success": true,
+  "session_id": "5576c4ec-b402-4c2e-b59d-9596257920d2",
+  "execution_id": "38f043ca-436b-4223-a7ec-607bbf3f520b",
+  "outcome": null,
+  "error_code": null,
+  "provider": null,
+  "model": null,
+  "latency_s": 19.75,
+  "failed_request": false,
+  "responses_after": 1,
+  "canvas_has_new_value": true,
+  "audit_delta": 1
+ },
+ "saved_edit_reply": "Updated the Valid Until date to 2026-12-31.",
+ "versions": {
+  "pyarrow": "25.0.1",
+  "playwright": "1.58.0",
+  "cryptography": "42.0.8"
+ },
+ "checks": {
+  "served-commit-matches": true,
+  "smoke-user-provisioned": true,
+  "login-dashboard": true,
+  "provider-active-via-ui": true,
+  "useful-sourced-answer": true,
+  "saved-edit-readback": true
+ },
+ "pass": true,
+ "required_checks": [
+  "served-commit-matches",
+  "smoke-user-provisioned",
+  "login-dashboard",
+  "provider-active-via-ui",
+  "useful-sourced-answer",
+  "saved-edit-readback"
+ ],
+ "finished_at": "2026-10-18T02:42:10+00:00"
+}

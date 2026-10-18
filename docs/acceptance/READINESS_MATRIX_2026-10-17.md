@@ -141,6 +141,25 @@ Next: pilot deployment (controlled restart, identity check,
 beyond-navigation smoke), then the repeatability/value evaluation and the
 support statement.
 
+**Rev 9 (2026-10-17 late, PILOT DEPLOYMENT verified).** The scoped release
+candidate was deployed through a controlled, scoped restart of the live
+`:8001` dev service (step 4 of the owner sequence): two pre-restart DB
+snapshots (gzip-verified; off-machine copy N/A — this host is local-only),
+one backend serving **`8c593e57031e`** (checkout verified against the
+tested candidate: empty runtime diff), and the beyond-navigation smoke on
+the SERVED app: **6/6 — login/dashboard, provider activation via the UI,
+one useful sourced answer ("QUARTZ-77 … found in your uploaded file"), and
+one saved edit/readback (2026-12-31 + exactly one audit row)**. Archive:
+`journey_matrix/deployment_smoke_20261017_223948/` (README with all five
+attempts and causes, passing run JSON, screenshots). Deployment notes: the
+blanket `restart_backend.sh` kill was deliberately SCOPED to `:8001` (38
+uvicorn instances of other streams' worlds were running); the operator's
+expired stored `opencode-go` key was rotated to the operator-provided fresh
+key (Settings→AI equivalent; vault backup kept) — the live app's cloud
+route works again; a pilot frontend is left running on `:3000` → `:8001`.
+Row 43's exclusions are unchanged and remain uncertified. Next: the small
+predeclared repeatability/value evaluation and the support statement.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
