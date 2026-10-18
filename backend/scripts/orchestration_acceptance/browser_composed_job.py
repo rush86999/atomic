@@ -37,6 +37,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
@@ -467,6 +468,31 @@ def main() -> int:
         ev["frontend"] = {k: v for k, v in fe.items() if k != "pid"}
         checks["s0-frontend-up"] = bool(fe.get("up"))
 
+        # FRONTEND ROUTE PREFLIGHT (run-3 finding, 2026-10-17): a stale
+        # Turbopack manifest can 404 the dynamic canvas route while /login
+        # still serves — the journey then burns one 120 s + 300 s timeout
+        # per canvas turn and writes no evidence. An unauthenticated probe
+        # distinguishes existence: the middleware redirects (307) or the
+        # page serves (200) when the route exists; 404 aborts HERE, loud,
+        # before the world is used for the journey.
+        try:
+            import httpx as _httpx
+
+            _probe = _httpx.get(
+                f"http://localhost:{FE_PORT}/canvas/{uuid.uuid4()}",
+                follow_redirects=False, timeout=45, trust_env=False)
+            route_pf = {"probe_status": _probe.status_code,
+                        "ok": _probe.status_code != 404}
+        except Exception as _pf_err:  # noqa: BLE001
+            route_pf = {"ok": False,
+                        "error": f"{type(_pf_err).__name__}: {_pf_err}"}
+        ev["frontend_route_preflight"] = route_pf
+        checks["s0-canvas-route-servable"] = bool(route_pf.get("ok"))
+        if not route_pf.get("ok"):
+            raise RuntimeError(
+                "frontend canvas route is not servable (stale build "
+                f"manifest?): {route_pf}")
+
         user = JR.new_user(server.base)
         token, uid = user.get("token"), user.get("id")
         ev["product_user"] = {"registered": bool(user.get("registered")),
@@ -598,6 +624,16 @@ def main() -> int:
                       wait_until="domcontentloaded", timeout=240000)
             page.wait_for_timeout(3000)
             ev["s3_input_found"] = _canvas_input(page, 120) is not None
+            if not ev["s3_input_found"]:
+                # FAIL FAST (run-3 finding): a 404/route failure must abort
+                # with the page text, not burn 300 s per canvas turn.
+                _s3_text = qs.body_text(page)
+                ev["s3_page_text"] = qs._truncate(_s3_text, 500)
+                if ("error 404" in _s3_text.lower()
+                        or "does not exist" in _s3_text.lower()):
+                    raise RuntimeError(
+                        "canvas page 404 at S3 — frontend route/manifest "
+                        "problem; page text recorded")
             canvas_before3 = canvas_read(server.base, token, cid)
             s3 = canvas_turn(page, cap, ASK_COMPARE)
             s3["panel_tail"] = panel_tail(page)
