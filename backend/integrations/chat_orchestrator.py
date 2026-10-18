@@ -5859,7 +5859,10 @@ def _resolve_requirement_identity(
         if (fn and fn in norm) or (ti and ti in norm):
             hits[str(getattr(r, "id", ""))] = {
                 "file_id": str(getattr(r, "id", "")),
-                "file_name": getattr(r, "file_name", None),
+                # title-only catalog rows must still carry a matchable
+                # identity (reviewer F6)
+                "file_name": (getattr(r, "file_name", None)
+                              or getattr(r, "title", None)),
             }
     candidates = list(hits.values())
     if len(candidates) == 1:
@@ -5868,20 +5871,21 @@ def _resolve_requirement_identity(
         return {"state": "ambiguous", "candidates": candidates[:4]}
     return {"state": "unresolved", "names": sorted(norm)[:4]}
 
-
 def _comparison_carrier_complete(carrier: Any) -> bool:
     """Whether a recorded comparison carrier covers every compared field.
 
     Mirrors the outcome builder's coverage rule through the shared status
     set — a comparison with any uncovered/absent field is NOT a result.
+    The recorded outcomes must agree with the recorded count (reviewer
+    F8: an understated outcome_count cannot certify a short ledger).
     """
     if not isinstance(carrier, dict):
         return False
     coverage = carrier.get("coverage") or {}
     outcomes = [o for o in (coverage.get("outcomes") or [])
                 if isinstance(o, dict)]
-    total = int(coverage.get("outcome_count") or len(outcomes) or 0)
-    if not total:
+    total = int(coverage.get("outcome_count") or 0)
+    if not outcomes or total != len(outcomes):
         return False
     covered = sum(
         1 for o in outcomes
@@ -6466,6 +6470,12 @@ def _fallback_turn_outcome(
                         + " — not present in the retrieved source "
                           "excerpt this turn")
             elif _cf_state == "ambiguous":
+                # UNSUPPORTED ASSOCIATION -> PARTIAL WITH THE SPECIFIC
+                # EXPLANATION (owner rule 2026-10-17: "unsupported
+                # associations remain partial with a specific
+                # explanation"; the delivered answer is kept and the
+                # unresolved reference is named as the open work).
+                validated = True
                 _cf_names = [
                     str(c.get("file_name") or c.get("file_id") or "")
                     for c in (context_fulfillment.get("candidates") or [])
@@ -6476,6 +6486,7 @@ def _fallback_turn_outcome(
                     + (" — the reference matches " + ", ".join(_cf_names)
                        if _cf_names else ""))
             elif _cf_state == "unresolved":
+                validated = True
                 _cf_names = [str(n) for n in (
                     context_fulfillment.get("names") or [])][:3]
                 open_work.append(
@@ -6483,6 +6494,7 @@ def _fallback_turn_outcome(
                     + (", ".join(_cf_names) if _cf_names
                        else "the named source"))
             elif _cf_state == "unsupplied":
+                validated = True
                 _cf_missing = [
                     str(f) for f in (
                         context_fulfillment.get("missing_fields") or [])][:3]
@@ -13925,7 +13937,11 @@ class ChatOrchestrator:
                 _stash_evidence_requirement(
                     session, _execution_id, _td_decision, message,
                     _evidence_required,
-                    workspace_id=locals().get("user_workspace"),
+                    workspace_id=(
+                        (context or {}).get("workspace_id")
+                        or resolve_user_workspace(
+                            locals().get("user_id")
+                            or (session or {}).get("user_id"))),
                     canvas_attached=bool(locals().get("_canvas_ctx")))
             except Exception:  # noqa: BLE001 — additive, never blocks
                 pass

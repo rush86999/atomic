@@ -326,11 +326,20 @@ def subjects_for_message(message: str) -> List[str]:
     except Exception:  # noqa: BLE001
         aliases = []
     out: List[str] = []
+    alias_words = {w for a in aliases for w in a.split() if len(w) >= 3}
     for t in raw:
         norm = re.sub(r"\s+", " ", str(t or "")).strip().casefold()
         if len(norm) < 3:
             continue
+        words = norm.split()
         if any(norm == a or norm in a or a in norm for a in aliases):
+            continue
+        # ADJECTIVE+FIELD NOISE (reviewer F5): "current valid" /
+        # "latest price"-style targets are the FIELD with an adjective,
+        # not a subject. A short target whose LAST word is a field-alias
+        # word is dropped (keep identifiers with digits).
+        if (len(words) <= 4 and words and words[-1] in alias_words
+                and not any(ch.isdigit() for ch in norm)):
             continue
         if norm not in out:
             out.append(norm)

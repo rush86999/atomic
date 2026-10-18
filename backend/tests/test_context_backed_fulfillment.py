@@ -151,7 +151,10 @@ def test_matching_source_without_the_finding_cannot_certify():
     s = _session(observations=[_observation(NO_FACT_EXCERPT,
                                             associations={})])
     out = _resolve(s)
-    assert out["state"] not in ("completed", "partial"), out
+    # owner rule: unsupported associations remain PARTIAL with the
+    # specific explanation — never completion.
+    assert out["state"] == "partial", out
+    assert any("expiration_date" in w for w in out["open_work"]), out
 
 
 # ---------------------------------------------------------------------------
@@ -232,18 +235,18 @@ def test_matching_named_document_completes():
                              requirement=req))["state"] == "completed"
 
 
-def test_ambiguous_and_unresolved_identity_cannot_complete():
+def test_ambiguous_and_unresolved_identity_are_partial_with_the_question():
     amb = _requirement(identity={"state": "ambiguous", "candidates": [
         {"file_id": "a", "file_name": "records_a.txt"},
         {"file_id": "b", "file_name": "records_b.txt"}]})
     out = _resolve(_session(requirement=amb))
-    assert out["state"] != "completed"
+    assert out["state"] == "partial", out
     assert any("which source" in w for w in out["open_work"]), out["open_work"]
 
     unr = _requirement(identity={"state": "unresolved",
                                  "names": ["records_z.txt"]})
     out2 = _resolve(_session(requirement=unr))
-    assert out2["state"] != "completed"
+    assert out2["state"] == "partial", out2
     assert any("records_z" in w for w in out2["open_work"]), out2["open_work"]
 
 
@@ -304,7 +307,9 @@ def test_fragments_never_combine_across_observations():
     req = _requirement(fields=("price",))
     out = _resolve(_session(observations=[obs_a, obs_b],
                             requirement=req))
-    assert out["state"] not in ("completed", "partial"), out
+    # unsupported association -> partial with the named gap, never completed
+    assert out["state"] == "partial", out
+    assert any("price" in w for w in out["open_work"]), out
 
 
 def test_association_span_does_not_cross_the_next_field_anchor():
@@ -410,6 +415,117 @@ def test_subject_extraction_drops_field_like_targets():
         "Does Quotation Q-2026-114's valid until date match the approved "
         "record for Q-2026-114?")
     assert any("q-2026-114" in s for s in named), named
+    # reviewer F5: adjective+field noise must not suppress the association
+    for ask, label in (
+            ("What is the current Valid until date on my uploaded "
+             "Approved Records document?", "current valid"),
+            ("Please confirm the latest price on the draft.", "latest price")):
+        subs = subjects_for_message(ask)
+        assert not any(label in s for s in subs), (ask, subs)
+
+
+def test_anchor_word_boundaries_pinned():
+    from core.memory_context_assembler import (
+        field_associations_for_excerpt,
+    )
+
+    # "Updated" must not match the "date" alias; "listed" not "list"
+    assert field_associations_for_excerpt(
+        "Updated 2024-01-01", ["date"]) == {}
+    assert field_associations_for_excerpt(
+        "All items listed, code 7", ["price"]) == {}
+
+
+def test_assembler_subject_gate_pinned():
+    from core.memory_context_assembler import (
+        field_associations_for_excerpt,
+    )
+
+    right = field_associations_for_excerpt(
+        "Quotation Q-2026-114 approved valid until: 2026-12-31",
+        ["expiration_date"], subjects=["q-2026-114"])
+    assert right["expiration_date"]["subject"] == "q-2026-114"
+    # the requested subject is absent -> no association at all
+    assert field_associations_for_excerpt(
+        "Quotation Q-2026-099 approved valid until: 2027-01-15",
+        ["expiration_date"], subjects=["q-2026-114"]) == {}
+
+
+def test_stash_seeds_identity_from_the_file_reference(monkeypatch):
+    from integrations import chat_orchestrator as co
+
+    monkeypatch.setattr(co, "_resolve_requirement_identity",
+                        lambda names, ws: {"state": "unresolved",
+                                           "names": list(names)})
+    decision = {
+        "message": "find the prices in the price list",
+        "references": {"sources": ["spreadsheet"],
+                       "file": {"kind": "spreadsheet",
+                                "name": "price list 2019",
+                                "resource_id": "doc-B"}},
+    }
+    session: dict = {"id": "s-fc2"}
+    req = co._stash_evidence_requirement(
+        session, EXEC, decision, decision["message"], True,
+        workspace_id=WS)
+    assert req is not None
+    identity = req["identity"]
+    assert identity["state"] == "resolved", identity
+    assert identity["file_id"] == "doc-B", identity
+
+
+def test_catalog_resolution_against_real_rows():
+    from core.models import IngestedDocument
+    from integrations.chat_orchestrator import _resolve_requirement_identity
+
+    TestSession, original, db_module, engine = _scratch_db()
+    try:
+        db = TestSession()
+        try:
+            db.add(IngestedDocument(
+                id="doc-A", workspace_id=WS, tenant_id="t",
+                file_name="approved_records_a.txt", file_path="/tmp/a",
+                file_type="text/plain", integration_id="upload",
+                external_id="ext-a", content_preview="x"))
+            db.commit()
+        finally:
+            db.close()
+        got = _resolve_requirement_identity(
+            ["approved_records_a.txt"], WS)
+        assert got["state"] == "resolved", got
+        assert got["file_name"] == "approved_records_a.txt"
+
+        db = TestSession()
+        try:
+            db.add(IngestedDocument(
+                id="doc-B", workspace_id=WS, tenant_id="t",
+                file_name="approved_records_a.txt", file_path="/tmp/b",
+                file_type="text/plain", integration_id="upload",
+                external_id="ext-b", content_preview="y"))
+            db.commit()
+        finally:
+            db.close()
+        amb = _resolve_requirement_identity(
+            ["approved_records_a.txt"], WS)
+        assert amb["state"] == "ambiguous", amb
+
+        # a DIFFERENT workspace's document never resolves for this scope
+        miss = _resolve_requirement_identity(
+            ["approved_records_a.txt"], "ws-other")
+        assert miss["state"] == "unresolved", miss
+    finally:
+        db_module.engine, db_module.SessionLocal, db_module.get_db = original
+        engine.dispose()
+
+
+def test_understated_carrier_count_cannot_complete():
+    req = _requirement(artifact_attached=True)
+    s = _session(requirement=req)
+    s[f"_objective_evidence_{EXEC}"] = {"coverage": {
+        "outcome_count": 1, "outcomes": [
+            {"status": "covered", "reasons": []},
+            {"status": "field_missing", "reasons": ["field_missing"]}]}}
+    assert _resolve(s)["state"] != "completed"
 
 
 # ---------------------------------------------------------------------------
