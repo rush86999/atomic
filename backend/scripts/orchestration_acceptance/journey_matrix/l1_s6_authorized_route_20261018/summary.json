@@ -1,0 +1,115 @@
+{
+  "attempt": 7,
+  "tested_candidate": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+  "authorization": "User approved only existing operator/global opencode-go default production credential; one declared attempt including existing bounded retries",
+  "classification": "provider_billing_rejection_before_noop_check",
+  "pass": false,
+  "checks": {
+    "body_unchanged_and_holds_net45": true,
+    "noop_receipt_evidenced": false,
+    "outcome_completed": false,
+    "persisted_matches": true,
+    "receipt_derived_reply": false,
+    "success_true": false,
+    "zero_additional_writes": true
+  },
+  "runtime_identity": {
+    "candidate_commit_ok": true,
+    "candidate_cwd_ok": true,
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+    "dirty": false,
+    "git_commit": "b96dec60a46d",
+    "source_id": "b96dec60a46d"
+  },
+  "provider_registration": {
+    "active": true,
+    "credential_value_recorded": false,
+    "pin": "opencode-go/deepseek-v4-pro",
+    "store_http": 200
+  },
+  "observed_http_statuses": [
+    "402"
+  ],
+  "observed_structured_routes": [
+    "opencode-go/qwen3.8-flash"
+  ],
+  "intended_planning_pin": "opencode-go/deepseek-v4-pro",
+  "intended_model_mentioned_in_log": false,
+  "continuation_failed_terminal": true,
+  "declared_endpoint": "https://opencode.ai/zen/v1",
+  "current_official_deepseek_go_endpoint": "https://opencode.ai/inference/go/openai/v1/chat/completions",
+  "source": "https://opencode.ai/v2/docs/console/go/#endpoints",
+  "endpoint_causality": "configuration mismatch observed; no endpoint A/B performed, so it is not proven to cause this 402",
+  "live_store_guards": {
+    "files": {
+      "/Users/rushiparikh/projects/atom/backend/data/atom.db": {
+        "sha256": "1fe241fd31cb7428486d35c926e4d88b63da1d722808f8a514e6aa39336d69a4",
+        "mtime_ns": 1792352020729781189,
+        "size": 811085824
+      },
+      "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json": {
+        "sha256": "0c721c625c02b32037c8da63fde0ea1f828d7bf308add8032f9f9e4f06ee3ebc",
+        "mtime_ns": 1792291970440535868,
+        "size": 8232
+      },
+      "/Users/rushiparikh/projects/atom/backend/data/byok_encryption_key": {
+        "sha256": "fdb201a6283ff5ea120b423cbe9f22600b32c580d35fccf2cc8575c2be170ca9",
+        "mtime_ns": 1788034507000000000,
+        "size": 44
+      }
+    },
+    "unchanged": true
+  },
+  "secret_scan": {
+    "driver_output.log": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "attempt7_result.json": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "attempt7_server.log": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "attempt7_config.json": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "live_store_guards_before.json": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "attempt7_interpreter_freeze.txt": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "run_authorized_preview.py": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "live_store_guards_after.json": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    },
+    "driver_exit.json": {
+      "authorized_key_present": false,
+      "jwt_like_present": false
+    }
+  },
+  "promotion": "L1 remains unverified; no readiness or support changes",
+  "public_verification": "authenticated served HTTP; real planning dispatch; no forced decline",
+  "harness_qualifications": {
+    "persisted_matches": "Reported true by equality of missing values; final outcome/success are null. Not accepted as complete persisted-state agreement.",
+    "poll_timestamps": "Driver subtracts monotonic start from wall-clock time in poll t; t is not elapsed seconds. No latency inference from those values.",
+    "receipt_assertion": "Includes text fallback; cannot certify structured receipt on a future passing attempt without independent inspection."
+  },
+  "independent_checks": {
+    "zero_additional_writes": true,
+    "body_unchanged": true,
+    "completed_noop": false,
+    "fresh_history_has_explicit_outcome_and_success": false,
+    "live_stores_unchanged": true
+  }
+}
