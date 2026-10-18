@@ -111,11 +111,12 @@ terms change; the earlier Valid-Until edit stayed exactly once and intact;
 audit totals `+1` per authorized change, never duplicated. The post-restart
 re-send reported the editor declined the (already applied) change honestly.
 
-## Run 3 (planned) — candidate `b4c7a310e`, same protocol/config; predeclared expectations
+## Run 3 (planned) — candidate `dad8f9fce`, same protocol/config; predeclared expectations
 
-Predeclared BEFORE the run. Candidate = `b4c7a310e` (run 2's `6e740fc39` +
+Predeclared BEFORE the run. Candidate = `dad8f9fce` (run 2's `6e740fc39` +
 the F-C1 excerpt repair lineage + the F-C2 context-backed-fulfillment repair
-`f0dc266c0` and its reviewer follow-up + the subject-admission dependency
+`f0dc266c0`, its reviewer follow-up `b4c7a310e`, and the narrowed
+subject-filter BLOCK fix `dad8f9fce` + the subject-admission dependency
 commit). Configuration unchanged from runs 1/2 (fresh allowlisted scratch
 world, ports 18500/18501; wizard ollama reply lane + deepseek edit-plan pin
 mounted through the product; `ATOM_LOCAL_ONLY=false`). F-C3 recorded change:
