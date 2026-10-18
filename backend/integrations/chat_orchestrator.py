@@ -5915,28 +5915,28 @@ def _observation_satisfies_kind(obs: Dict[str, Any],
     return any(str(k).strip().lower() in allowed for k in kinds if k)
 
 
-def _stash_evidence_requirement(
-    session: Any,
-    execution_id: Any,
+def _build_evidence_requirement(
     decision: Any,
     message: Any,
     evidence_required: Any,
     workspace_id: Any = None,
     canvas_attached: bool = False,
-) -> Optional[Dict[str, Any]]:
-    """Record the accepted request's evidence requirement for THIS execution.
+) -> Dict[str, Any]:
+    """(Pure) The accepted request's evidence requirement — source kinds,
+    file reference, deterministic typed-field requests, subject
+    identities, the RESOLVED named-source identity (catalog, exact
+    normalized name), and whether an artifact was attached
+    (both-inputs-available).
 
-    F-C2 (2026-10-17; extracted so the production stash is directly
-    testable): source kinds, file reference, deterministic typed-field
-    requests, subject identities, the RESOLVED named-source identity
-    (catalog, exact normalized name), and whether an artifact was attached
-    (both-inputs-available). Execution-keyed: another turn's requirement
-    can never donate. Returns the recorded requirement (or None).
+    L3 repair (2026-10-18): extracted from ``_stash_evidence_requirement``
+    so BOTH the execution-keyed stash (the outcome resolver's record) and
+    the tool planner's eligibility input are built from the SAME accepted
+    decision — one authority, two consumers. No I/O beyond the catalog
+    identity resolution the stash already performed; never raises for an
+    unreadable addendum (fields/subjects degrade to empty).
     """
-    if (not isinstance(session, dict) or not execution_id
-            or not isinstance(decision, dict)):
-        return None
-    refs = decision.get("references") or {}
+    refs = (decision.get("references") or {}
+            if isinstance(decision, dict) else {})
     fields: List[str] = []
     try:
         from core.workbook_read_artifact import extract_field_requests
@@ -5988,6 +5988,33 @@ def _stash_evidence_requirement(
         "identity": identity,
         "artifact_attached": bool(canvas_attached),
     }
+    return requirement
+
+
+def _stash_evidence_requirement(
+    session: Any,
+    execution_id: Any,
+    decision: Any,
+    message: Any,
+    evidence_required: Any,
+    workspace_id: Any = None,
+    canvas_attached: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Record the accepted request's evidence requirement for THIS execution.
+
+    F-C2 (2026-10-17; extracted so the production stash is directly
+    testable): the requirement built by ``_build_evidence_requirement``
+    (source kinds, file reference, deterministic typed-field requests,
+    subject identities, the RESOLVED named-source identity, and whether
+    an artifact was attached). Execution-keyed: another turn's requirement
+    can never donate. Returns the recorded requirement (or None).
+    """
+    if (not isinstance(session, dict) or not execution_id
+            or not isinstance(decision, dict)):
+        return None
+    requirement = _build_evidence_requirement(
+        decision, message, evidence_required,
+        workspace_id=workspace_id, canvas_attached=canvas_attached)
     session[f"_evidence_requirement_{execution_id}"] = requirement
     return requirement
 
@@ -13053,6 +13080,32 @@ class ChatOrchestrator:
                                     _resume_plan_wait_seconds))
                         except Exception:  # noqa: BLE001 — declaration is optional
                             _wait_token = None
+                    # ACCEPTED-REQUIREMENT CARRY (L3 repair, 2026-10-18):
+                    # this task is created BEFORE the F-C2 stash records
+                    # (it runs alongside the turn), so it cannot read the
+                    # execution-keyed carrier — it builds the requirement
+                    # from the SAME accepted decision the stash consumes.
+                    # None when the decision layer is absent (unchanged
+                    # behavior for the requirement-less path).
+                    _plan_evidence_req: Optional[Dict[str, Any]] = None
+                    try:
+                        if isinstance(_td_decision, dict):
+                            from core.turn_decision import (
+                                turn_evidence_required as _ter_plan,
+                            )
+
+                            try:
+                                _req_canvas_attached = bool(_canvas_ctx)
+                            except NameError:
+                                _req_canvas_attached = False
+                            _plan_evidence_req = _build_evidence_requirement(
+                                _td_decision, _plan_msg,
+                                _ter_plan(_td_decision),
+                                workspace_id=(context or {}).get(
+                                    "workspace_id"),
+                                canvas_attached=_req_canvas_attached)
+                    except Exception:  # noqa: BLE001 — carry is additive
+                        _plan_evidence_req = None
                     try:
                         return await plan_tool_use(
                             _plan_msg, _plan_hist, user_id, _scope_llm,
@@ -13061,6 +13114,7 @@ class ChatOrchestrator:
                                 _canvas_edit_shaped(
                                     message, {"canvas": _canvas_ctx})
                                 or _canvas_referencing_message(message)),
+                            evidence_requirement=_plan_evidence_req,
                         )
                     finally:
                         if _wait_token is not None:
@@ -19316,6 +19370,18 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         _plan_wait_seconds))
                             except Exception:  # noqa: BLE001 — optional
                                 _fresh_wait_token = None
+                        # ACCEPTED-REQUIREMENT CARRY (L3 repair, 2026-10-18):
+                        # the reply leg runs after the F-C2 stash recorded
+                        # this execution's requirement — read the SAME
+                        # execution-keyed carrier the outcome resolver
+                        # consumes, so planner eligibility and settlement
+                        # share one authority. None (no stash/decision) keeps
+                        # the message-derived behavior.
+                        _plan_evidence_req = (
+                            session.get(
+                                f"_evidence_requirement_{execution_id}")
+                            if isinstance(session, dict) and execution_id
+                            else None)
                         try:
                             _plan = await asyncio.wait_for(
                                 plan_tool_use(
@@ -19324,6 +19390,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     provenance=_prov,
                                     allow_canvas_target=_canvas_edit_shaped(
                                         message, {"canvas": canvas_context}),
+                                    evidence_requirement=_plan_evidence_req,
                                 ),
                                 timeout=_plan_wait_seconds,
                             )
@@ -21036,6 +21103,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 # the observation run: '[planner-boundary]
                                 # replan failed: NameError(_canvas_ctx)'.
                                 canvas=canvas_context, provenance=None,
+                                # ACCEPTED-REQUIREMENT CARRY (L3 repair,
+                                # 2026-10-18): the recovery replan serves the
+                                # SAME accepted obligation as the first plan
+                                # — the execution-keyed requirement rides
+                                # along so eligibility cannot re-derive it.
+                                evidence_requirement=(
+                                    session.get(
+                                        f"_evidence_requirement_"
+                                        f"{execution_id}")
+                                    if isinstance(session, dict)
+                                    and execution_id else None),
                             ),
                             timeout=_replan_wait,
                         )

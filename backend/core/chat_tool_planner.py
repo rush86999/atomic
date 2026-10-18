@@ -446,7 +446,8 @@ def _designated_file_named(message: str) -> bool:
 
 
 def _source_service_candidates(
-    kinds: List[str], connected: List[str], message: str = ""
+    kinds: List[str], connected: List[str], message: str = "",
+    *, source_evidence_required: bool = True,
 ) -> List[str]:
     """Registered services whose RESULT CONTRACT can serve the requested
     source kinds, most-specific first. Empty = nothing registered can
@@ -454,7 +455,20 @@ def _source_service_candidates(
     the way and the obligation is left unresolved (the honest state),
     never satisfied by a similar source kind (verifier check 1):
     a named workbook excludes generic memory search, and a freshness
-    ask (current/live inventory) excludes every ingested-copy store."""
+    ask (current/live inventory) excludes every ingested-copy store.
+
+    ``source_evidence_required`` (L3 repair, 2026-10-18): whether the
+    accepted requirement demands SOURCE EVIDENCE for uploaded-file kinds
+    (document/spreadsheet). When True, the recollection lane is NOT a
+    candidate for those kinds: memory.search's actual result contract
+    returns assembled context excerpts (its registered conversation
+    action returns message records), while the registered document-
+    reading actions behind ``documents``/``datasets`` (documents.search /
+    documents.grep / dataset rows citing file+sheet+cell) return source
+    records that carry the file identity, path, and scope the obligation
+    has to be settled against. Memory REMAINS a candidate for
+    correspondence kinds (the ingested mailbox IS that store) and for
+    asks whose accepted requirement carries no evidence obligation."""
     out: List[str] = []
     platform = _available_platform_services()
     kind_set = {str(k) for k in kinds or []}
@@ -464,17 +478,21 @@ def _source_service_candidates(
         # The knowledge VFS is the dedicated ingested-documents lane;
         # the dataset catalog holds ingested files too — both are valid
         # strategies, documents first. MEMORY IS NOT: a designated-file
-        # ask needs the artifact itself, not a recollection about it.
+        # ask needs the artifact itself, not a recollection about it —
+        # and a REQUIRED document-evidence obligation is the same
+        # contract (the recollection lane returns no source records).
         if "documents" in platform:
             out.append("documents")
         if "datasets" in platform and _datasets_service_available():
             out.append("datasets")
-        if "memory" in platform and not designated_file:
+        if ("memory" in platform and not designated_file
+                and not source_evidence_required):
             out.append("memory")
     if kind_set & _SHEETISH:
         if "datasets" in platform and _datasets_service_available():
             out.append("datasets")
-        if "memory" in platform and not designated_file:
+        if ("memory" in platform and not designated_file
+                and not source_evidence_required):
             out.append("memory")
     if kind_set & _COMMISH:
         for svc in connected or []:
@@ -1495,6 +1513,7 @@ async def plan_tool_use(
     canvas: Optional[Dict[str, Any]] = None,
     provenance: str = "",
     allow_canvas_target: bool = False,
+    evidence_requirement: Optional[Dict[str, Any]] = None,
 ) -> Optional[ToolPlan]:
     """Decide (via cheap structured LLM output) whether this turn needs live
     integration data, and which connected service to query. Returns None on
@@ -1503,7 +1522,14 @@ async def plan_tool_use(
     ``canvas`` is the open canvas (bounded — see ``_planner_canvas_block``).
     Routing without it was the 2026-09-14 mis-route: a line pasted out of an
     OPEN email was planned into the inventory app because nothing told the
-    planner a mail thread was on screen."""
+    planner a mail thread was on screen.
+
+    ``evidence_requirement`` (L3 repair, 2026-10-18): the ACCEPTED request's
+    evidence requirement (``_build_evidence_requirement`` /
+    ``_stash_evidence_requirement`` — source kinds, obligation flag,
+    identity). When carried, the source-ask floor's eligibility consumes
+    THIS record; ``None`` keeps the message-derived read for callers
+    without an accepted decision (never treated as "no requirement")."""
     if llm_service is None:
         return None
     connected = get_connected_services(user_id)
@@ -1556,6 +1582,18 @@ async def plan_tool_use(
     # layer's own (core.turn_decision) — composed, not re-interpreted.
     # One bounded corrective pass with the violated contract named;
     # then the deterministic rung; multiple valid strategies all count.
+    #
+    # ACCEPTED-REQUIREMENT AUTHORITY (L3 repair, 2026-10-18): when the
+    # caller carries the accepted request's evidence requirement, ITS
+    # source kinds and obligation drive this floor — the message is not
+    # re-interpreted beside the decision that was already accepted
+    # (F-R1: the derived kinds matched, but the proposal's contract did
+    # not, and eligibility treated a recollection lane as able to serve
+    # a document-evidence obligation). ``None`` keeps the message-derived
+    # read for callers without an accepted decision — never "no
+    # requirement". A required obligation with no recorded kinds falls
+    # back to the message's own source nouns (best available signal), and
+    # a requirement that carries no obligation does not conjure one.
     try:
         from core.turn_decision import (
             _looks_seek_shaped as _td_seek,
@@ -1565,11 +1603,31 @@ async def plan_tool_use(
             normalize_source_kind as _norm_kind,
         )
 
-        _ask_kinds = sorted({
+        _req = (evidence_requirement
+                if isinstance(evidence_requirement, dict) else None)
+        _msg_kinds = sorted({
             _norm_kind(s) for s in _td_sources(message or "")} - {""})
-        if _ask_kinds and _td_seek(message or ""):
+        if _req is not None:
+            _req_kinds = sorted({
+                _norm_kind(s)
+                for s in (_req.get("sources") or [])
+                if str(s or "").strip()} - {""})
+            _source_evidence_required = _req.get("required") is True
+            _ask_kinds = _req_kinds or (
+                _msg_kinds if _source_evidence_required else [])
+            _floor_fires = bool(
+                _ask_kinds and (_td_seek(message or "")
+                                or _source_evidence_required))
+        else:
+            _ask_kinds = _msg_kinds
+            # No accepted decision: the floor fires only on a seek-shaped
+            # source consult by construction — an evidence obligation.
+            _source_evidence_required = True
+            _floor_fires = bool(_ask_kinds and _td_seek(message or ""))
+        if _floor_fires:
             _candidates = _source_service_candidates(
-                _ask_kinds, connected, message or "")
+                _ask_kinds, connected, message or "",
+                source_evidence_required=_source_evidence_required)
             _already_served = bool(
                 plan is not None and plan.use_tool
                 and (plan.service or "") in _candidates)
