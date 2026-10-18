@@ -138,9 +138,12 @@ Executed once on the hardened harness (route preflight OK: 307; fresh `.next`).
 - **S6 re-send — recorded finding (next bounded slice):** the re-ask of an
   already-applied change is declined by the canvas editor ("nothing was
   changed", truthful) and settles `unconfirmed`; the objective itself is
-  met and durable. Candidate future slice: an already-satisfied receipt for
-  the idempotent re-ask (the noop/satisfied machinery exists on other
-  lanes).
+  met and durable. **Named follow-up (owner spec 2026-10-17), NOT certified
+  fixed:** the bounded fix must verify that the SAME requested change is
+  already durably satisfied **on the current artifact revision**, then
+  answer "Already applied; nothing changed" with **zero additional writes**
+  and a consistent outcome. A historical successful operation alone must
+  NOT establish satisfaction.
 - **S7 — the documented exclusion:** settles `unconfirmed` exactly as
   predeclared (no source-noun capture for "record"; deliberately not
   widened).
@@ -149,6 +152,15 @@ Run 4 predeclaration (before the run): candidate `1408d40f3` + the S5
 structured ask; configuration unchanged; pass = all checks except the S7
 checks AND the recorded S6-re-send finding (an idempotent re-ask's
 settlement is explicitly out of this release's supported contract).
+
+**Run-4 reporting rules (owner, 2026-10-17).** Report the ORIGINAL
+denominator — "X/39 with named exclusions" — and separately state whether
+the SUPPORTED workflow passed; the exclusions never disappear from the
+result. The structured calculation ask is an ACCEPTED INPUT CHANGE (the
+supported shape), not evidence that the plain-language ask was repaired —
+the plain ask's run-3 outcome (correct total, unverifiable) stays recorded
+as such. The S6 re-ask limitation stays a NAMED follow-up with the exact
+satisfaction criterion above; it is never silently certified.
 
 
 ## Provenance
