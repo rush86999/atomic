@@ -146,7 +146,9 @@ class KnowledgeExtractor:
         **Important:** Deduplicate entities. If "John" and "John Doe" refer to the same person, use a single ID. Prefer the most specific entity type from the schema (e.g. Invoice over Transaction). Do NOT invent relationship types outside the list above.
         """
 
-    def _extraction_llm_kwargs(self) -> Dict[str, Any]:
+    def _extraction_llm_kwargs(
+        self, workspace_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """OPTIONAL operator pin for background extraction.
 
         Routing is BPC's job: the call passes ``task_type="extraction"``, which
@@ -171,7 +173,8 @@ class KnowledgeExtractor:
         from core.llm.pinned_planning import resolve_pinned_provider_model
 
         return resolve_pinned_provider_model(
-            self.llm_service, "ATOM_KG_EXTRACTION_MODEL", "", provider="openrouter"
+            self.llm_service, "ATOM_KG_EXTRACTION_MODEL", "",
+            provider="openrouter", workspace_id=workspace_id,
         )
 
     async def _extract_via_llm(self, system_prompt: str, text: str, workspace_id: Optional[str]) -> Optional[Dict[str, Any]]:
@@ -182,7 +185,7 @@ class KnowledgeExtractor:
         the pin is a single attempt with no provider fallback; this retries
         unpinned when it returns nothing, so extraction still lands. Both
         failing returns None so the caller keeps its empty-knowledge contract."""
-        llm_kwargs = self._extraction_llm_kwargs()
+        llm_kwargs = self._extraction_llm_kwargs(workspace_id)
         call = dict(
             prompt=f"Text to analyze:\n{text[:10000]}",
             response_model=ExtractionResult,

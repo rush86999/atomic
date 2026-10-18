@@ -77,6 +77,9 @@ def build_provider_model_pin(
     llm_service: Any,
     provider: str,
     model: str,
+    *,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Return the kwargs dict carrying a pin, or ``{}`` when unavailable.
 
@@ -84,6 +87,17 @@ def build_provider_model_pin(
     that provider actually has a client in the handler (otherwise the pin names
     a provider this workspace cannot call at all and the first attempt is
     guaranteed to fail, paying a full round trip for nothing).
+
+    SCOPE (owner-approved repair 2026-10-18): the membership check must
+    resolve the SAME handler scope the structured dispatch will use.
+    BYOK providers are loaded per (workspace, tenant); checking the
+    service's unscoped constructor handler silently dropped the pin for
+    workspace-registered providers (live attempt 7: the declared pin
+    never dispatched, and the unpinned fallback sent a different model to
+    a different gateway). Callers without request scope keep the previous
+    no-argument behavior byte-identically; a NAMED-but-unresolved scope
+    refuses the pin rather than borrowing another scope's handler. The
+    service's constructor scope is never mutated.
 
     LOCAL-ONLY (owner directive 2026-10-15): a cloud pin is refused outright
     when the documented local-only policy is enabled — no cloud dispatch may
@@ -103,7 +117,12 @@ def build_provider_model_pin(
     except Exception:  # noqa: BLE001 — the gate must not break pinning
         pass
     try:
-        if provider in llm_service._get_handler().clients:
+        if workspace_id is None and tenant_id is None:
+            handler = llm_service._get_handler()
+        else:
+            handler = llm_service._get_handler(
+                workspace_id=workspace_id, tenant_id=tenant_id)
+        if handler is not None and provider in handler.clients:
             return {"provider_model": (provider, model)}
     except Exception:  # noqa: BLE001 — pinning is best-effort by design
         pass
@@ -116,12 +135,17 @@ def resolve_pinned_provider_model(
     default: str,
     *,
     provider: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Resolve a pin from ``env_var`` as ``"provider:model"``.
 
     Returns ``{}`` when the env var is unset/malformed, and strips the pin when
     the named provider has no client. ``provider`` (when given) is the fallback
-    provider used for a bare model id.
+    provider used for a bare model id. ``workspace_id``/``tenant_id`` (when the
+    call site has request scope) gate the pin against the SAME handler scope
+    the dispatch will use — see :func:`build_provider_model_pin`. Callers
+    without request scope keep the previous no-scope behavior.
 
     Used by pin sites whose model is operator-tunable; the fallback behavior in
     :func:`pinned_structured_call` applies identically whether or not a pin
@@ -132,16 +156,22 @@ def resolve_pinned_provider_model(
     raw = (os.getenv(env_var) or "").strip()
     if not raw:
         if provider and default:
-            return build_provider_model_pin(llm_service, provider, default)
+            return build_provider_model_pin(
+                llm_service, provider, default,
+                workspace_id=workspace_id, tenant_id=tenant_id)
         return {}
     if ":" in raw:
         prov, model = raw.split(":", 1)
         prov, model = prov.strip(), model.strip()
         if prov and model:
-            return build_provider_model_pin(llm_service, prov, model)
+            return build_provider_model_pin(
+                llm_service, prov, model,
+                workspace_id=workspace_id, tenant_id=tenant_id)
         return {}
     if provider:
-        return build_provider_model_pin(llm_service, provider, raw)
+        return build_provider_model_pin(
+            llm_service, provider, raw,
+            workspace_id=workspace_id, tenant_id=tenant_id)
     return {}
 
 

@@ -469,8 +469,15 @@ async def _plan_structured(
     _pin_spec = (_os.getenv("ATOM_ASYNC_EDIT_PLAN_MODEL") or "").strip()
     if _pin_spec and "/" in _pin_spec:
         _prov, _mod = _pin_spec.split("/", 1)
-        _pin = build_provider_model_pin(llm_service, _prov.strip(),
-                                        _mod.strip())
+        # THE GATE MUST RESOLVE THE SAME SCOPE AS THE CALL (owner-approved
+        # repair 2026-10-18): BYOK providers are loaded per (workspace,
+        # tenant). Gating against the service's unscoped constructor
+        # handler silently dropped this pin for workspace-registered
+        # providers (live attempt 7: pin never dispatched; the unpinned
+        # fallback sent a different model to a different gateway).
+        _pin = build_provider_model_pin(
+            llm_service, _prov.strip(), _mod.strip(),
+            workspace_id=workspace_id, tenant_id=tenant_id)
 
     # THE TURN'S OWN SCOPE (J6 draft finding, j6_draft_*8961ec.json):
     # without it the structured call resolves the SERVICE's frozen
