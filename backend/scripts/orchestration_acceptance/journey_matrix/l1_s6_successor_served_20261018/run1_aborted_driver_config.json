@@ -1,0 +1,68 @@
+{
+  "attempt": "8",
+  "candidate": {
+    "branch": "codex/reask-current-artifact",
+    "commit": "aaa1169d7dc1a2e511bce9b81c33ee85f58982eb",
+    "source_sha256_chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
+    "tree_clean": true
+  },
+  "declared_at": "2026-10-18T17:49:02",
+  "flags": {
+    "declared": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    },
+    "pilot_effective_from_main_env": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    },
+    "same_as_pilot": true
+  },
+  "interpreter": {
+    "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "version": "Python 3.14.7"
+  },
+  "isolation": {
+    "credential_vault_copied": false,
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+    "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-successor-attempt8/atom.db",
+    "live_env_copied_wholesale": false,
+    "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-successor-attempt8",
+    "stores": [
+      "DATABASE_URL",
+      "ATOM_DATA_DIR",
+      "LANCEDB_URI",
+      "BYOK_CONFIG_FILE",
+      "BYOK_KEYS_FILE"
+    ]
+  },
+  "live_db_guard": {
+    "mtime_before": 1792354023.0017085,
+    "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+    "sha256_before": "ea75b2aea45777ce30d2b06acdb86c5764587447ffd993364b47f65556dade4e"
+  },
+  "model": {
+    "base_url": "http://127.0.0.1:11434/v1",
+    "credentials": [
+      {
+        "environment": "production",
+        "key_name": "default",
+        "provider": "opencode-go",
+        "source": "authorized operator/global vault entry",
+        "value_recorded": false,
+        "vault_copied_wholesale": false
+      }
+    ],
+    "edit_plan_pin": "opencode-go/deepseek-v4-pro",
+    "forced_decline_seam": false,
+    "go_base_url": "https://opencode.ai/inference/go/openai/v1",
+    "model": "llama3.1:8b",
+    "provider": "ollama"
+  },
+  "ports": {
+    "backend": 8093,
+    "frontend": null
+  }
+}

@@ -178,6 +178,32 @@ the two owner-briefed frozen repair slices (re-ask via the existing no-op
 mechanism; continuation via interpretation), then L3's requirement-driven
 tool-choice slice. The pilot remains live at `8c593e57031e`.
 
+**Rev 11 (2026-10-18, L1/S6 SERVED VERIFICATION on the scope-repair
+successor).** The idempotent re-ask (L1) is **verified through the served
+API** on successor **`aaa1169d7`** (pin-gate scope repair; parent
+`b96dec60a`, the approved no-op candidate — unchanged) in an isolated
+scratch configuration declared before the attempt: Go endpoint
+(`OPENCODE_BASE_URL=https://opencode.ai/inference/go/openai/v1`), edit-plan
+pin `opencode-go/deepseek-v4-pro`, pilot-matching finalization/lifecycle
+flags, one authorized operator credential registered through the product,
+scratch stores only; pilot `:8001` untouched. The original S6 re-ask over a
+served draft carrying `Terms: Net 45` produced the structured no-op receipt
+(`metadata.canvas_edit.noop=true`, `noop_reason="already_satisfied"`,
+`background_started=false`, `persistence.status="persisted"`), the
+receipt-derived reply ("Verified on the current draft: payment terms in the
+draft already set to Net 45… nothing was sent."), **zero added canvas
+writes**, `outcome=completed`/`success=true`, and a fresh history reload
+serving the same explicit non-null fields as the persisted row. Intended vs
+actual: `opencode-go/deepseek-v4-pro` dispatched on the Go endpoint only
+(no Zen posts, no unpinned fallback; one JSON-mode adaptation on the Go
+route recorded). Evidence:
+`journey_matrix/l1_s6_successor_served_20261018/` (README, summary, both
+runs, deterministic rescore, CHECKSUMS). **Scope:** this certifies the
+served mechanism on `aaa1169d7` + the declared configuration — NOT pilot
+deployment; the deployed pilot (`8c593e57031e`) still does not include the
+fix, and row 43's exclusions are unchanged until integration +
+re-verification there.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

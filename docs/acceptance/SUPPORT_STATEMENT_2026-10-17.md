@@ -76,13 +76,19 @@ reconciled by the evidence cited here.
 
 ## 4. Experimental, unavailable, or untested (visible)
 
-- **L1 — idempotent re-ask**: re-asking a change that is already applied on
-  the current artifact revision is declined truthfully but does not yet
-  settle as an "Already applied" completion. Follow-up criterion: verify
-  the same requested change durably satisfied **on the current revision**
-  (subject/field/value/artifact bound), answer "Already applied; nothing
-  changed", zero writes, consistent outcome; a historical success alone
-  must not establish it.
+- **L1 — idempotent re-ask**: the **deployed pilot (`8c593e57031e`)**
+  still declines truthfully without settling as an "Already applied"
+  completion. The mechanism is now **verified through the served API on
+  successor `aaa1169d7`** (pin-gate scope repair) in a declared isolated
+  configuration (Go planning route `opencode-go/deepseek-v4-pro`):
+  original S6 re-ask → structured no-op receipt
+  (`noop=true`/`noop_reason=already_satisfied`), receipt-derived
+  confirmation, zero added writes, `outcome=completed`/`success=true`,
+  explicit non-null agreement after fresh history reload — evidence
+  `journey_matrix/l1_s6_successor_served_20261018/`, matrix rev 11.
+  Deployment to the pilot remains a separate integration step, and this
+  pilot limitation stands until the successor is integrated and
+  re-verified there.
 - **L2 — continuation ask**: "does it still match the approved record?"
   is answered correctly but not captured as an evidence requirement (the
   source-noun vocabulary); the settlement stays non-certified. Fix belongs

@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "body_unchanged_and_holds_net45": true,
+    "completed_response": true,
+    "go_endpoint_used": true,
+    "history_nonnull_agreement": true,
+    "pin_dispatched_no_fallback": true,
+    "receipt_derived_reply": true,
+    "structured_noop_receipt": true,
+    "zero_additional_writes": true
+  },
+  "classification": "verified_noop_completed",
+  "note": "Deterministic re-score of the SAME preserved attempt 8 raw evidence. The first scoring read response.data.canvas_edit; the route carries the lane receipt under response.metadata.canvas_edit. No new request was made.",
+  "pass": true,
+  "receipt_fields": {
+    "background_started": false,
+    "no_apply": true,
+    "noop": true,
+    "noop_reason": "already_satisfied",
+    "persistence": {
+      "status": "persisted"
+    },
+    "planner_outcome": "declined"
+  }
+}
