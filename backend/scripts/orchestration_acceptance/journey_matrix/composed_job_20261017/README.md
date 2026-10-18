@@ -55,7 +55,16 @@ approved 2026-12-31). Everything else line-for-line matches." and the
 continuation reply "The draft's current Valid until date is 2026-12-31. Yes,
 it still matches the approved record."
 
-### F-C2 (OPEN — the remaining spine blocker) — source-named read turns settle `outcome_unconfirmed` even when correct
+### F-C2 (REPAIRED `f0dc266c0` + follow-up `b4c7a310e`; run 3 verifies) — source-named read turns settled `outcome_unconfirmed` even when correct
+
+Repair (owner assignment, two bounded gaps): named-source identity through
+the existing catalog mechanism; association-grade fulfillment evidence
+(source→subject→field→value→span) with per-observation completeness; the
+comparison-result gate when an artifact is attached; one resolver decision
+consumed by the durable builder; a registered contract verifier; unsupported
+associations map to `partial` with the specific explanation (never
+completion). 36 controls; on the true parent the positive fails for the
+reason below. The demonstrated failure (runs 1/2) remains preserved:
 
 Across both runs (6 turns), every source-named read ask (compare / calculate /
 confirm) settled `success=false, error_code=outcome_unconfirmed`, delivered a
@@ -101,6 +110,47 @@ honest 0-or-1 state, and the re-sent instruction converged to **exactly one**
 terms change; the earlier Valid-Until edit stayed exactly once and intact;
 audit totals `+1` per authorized change, never duplicated. The post-restart
 re-send reported the editor declined the (already applied) change honestly.
+
+## Run 3 (planned) — candidate `b4c7a310e`, same protocol/config; predeclared expectations
+
+Predeclared BEFORE the run. Candidate = `b4c7a310e` (run 2's `6e740fc39` +
+the F-C1 excerpt repair lineage + the F-C2 context-backed-fulfillment repair
+`f0dc266c0` and its reviewer follow-up + the subject-admission dependency
+commit). Configuration unchanged from runs 1/2 (fresh allowlisted scratch
+world, ports 18500/18501; wizard ollama reply lane + deepseek edit-plan pin
+mounted through the product; `ATOM_LOCAL_ONLY=false`). F-C3 recorded change:
+the S5 plain ask runs first; one predeclared re-phrase uses the J5 structured
+shape only if the plain attempt fails to supply the total.
+
+Expected settlements under the repaired resolver, stated in advance:
+
+- **S3 (compare, canvas page → `artifact_attached=True`)** — the association
+  evidence should be available, but with no recorded comparison carrier for
+  the execution the turn is expected to settle **`partial` with "the
+  comparison itself was not recorded this turn"** named (reviewer F9):
+  success stays truthful (`success=true`, `outcome=partial`) and completion
+  is NOT certified. The harness's `s3-reply-received` check passes on
+  `success=true`.
+- **S4 (authorized edit)** — unchanged: exactly-once + readback + audit +1.
+- **S5 (calculation)** — the calc lane is expected to supply the total
+  (possibly via the F-C3 re-phrase); the turn validates through the existing
+  calculation evidence path, independent of the cf verdict.
+- **S6 (crash/restart/convergence)** — unchanged invariants (exactly one
+  terms change, valid-until intact, audit totals).
+- **S7 (continuation, "…match the approved record?")** — **explicitly
+  unsupported shape**: the current source-noun vocabulary does not capture
+  "record" as a source noun, no evidence requirement is formed, and the
+  turn is expected to settle `unconfirmed` (success=false) exactly as in run
+  2. Deliberately NOT widened to green (owner rule: no regex broadening
+  merely to turn the run green). Recorded as a known release exclusion: the
+  continuation question's saved status remains non-certified until a future
+  bounded vocabulary change with its own controls.
+
+Pass criteria for this run, predeclared: all 38 harness checks **except**
+`s7-reply-received` / the S7 contribution to `no-failed-requests`, which are
+excluded as the documented unsupported shape. Failures elsewhere are
+findings; the first failed transition is repaired before the deployment
+step; no second campaign until then.
 
 ## Provenance
 
