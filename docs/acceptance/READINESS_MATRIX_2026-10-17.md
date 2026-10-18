@@ -160,6 +160,24 @@ route works again; a pilot frontend is left running on `:3000` → `:8001`.
 Row 43's exclusions are unchanged and remain uncertified. Next: the small
 predeclared repeatability/value evaluation and the support statement.
 
+**Rev 10 (2026-10-17 late, repeatability/value evaluation + SUPPORT STATEMENT).**
+The predeclared evaluation (protocol `18b0dc2a2`) ran on the deployed pilot:
+**3/3 fresh ordinary users completed the job; median 130.2 s; 5 required
+actions; zero forced extras; zero clarifications/retries; edits 3/3
+exactly-once + readback + audit.** The DB cross-check surfaced **F-R1**: for
+the sourced-answer ask the deployed cloud planner chose the `memory` lane in
+**2/3** repetitions — content correct from the assembled context, but the
+saved status resolved failed/unconfirmed; the `documents.search` lane (1/3)
+validated. **F-R2**: the evaluation harness's `green` criterion omitted the
+settled state (recorded in the README; run JSON's raw responses carry the
+truth). Named limitation **L3** added. The **SUPPORT STATEMENT**
+(`docs/acceptance/SUPPORT_STATEMENT_2026-10-17.md`) is published with L1
+(re-ask), L2 (continuation) and L3 visible, the exact tested configuration,
+measured latency/action numbers, deployment identity and rollback. Next:
+the two owner-briefed frozen repair slices (re-ask via the existing no-op
+mechanism; continuation via interpretation), then L3's requirement-driven
+tool-choice slice. The pilot remains live at `8c593e57031e`.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
