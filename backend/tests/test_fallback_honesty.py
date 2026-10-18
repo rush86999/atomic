@@ -1533,8 +1533,7 @@ class TestReaskNoopThroughRoute:
 
         resp, user = _route_call(
             factory,
-            "Please also update the delivery time in the draft to "
-            "In Stock.",
+            "Please also update the delivery in the draft to In Stock.",
             {"canvas_id": CANVAS_ID})
 
         assert resp.outcome == "completed", (
@@ -1576,13 +1575,12 @@ class TestReaskNoopThroughRoute:
         assert served.get("outcome") == resp.outcome == meta.get("outcome")
         assert served.get("success") == resp.success == meta.get("success")
 
-    def test_unsupported_field_alias_reask_stays_unconfirmed(
-            self, monkeypatch):
-        """The S6 ask's field ('payment terms') has NO explicit alias in
-        the canonical vocabulary (owner correction 2026-10-18): the real
-        route must serve the honest unconfirmed decline — never a
-        completion — and the artifact stays untouched. This is the
-        route-level twin of the checker/lane controls, at every casing."""
+    def test_related_field_reask_stays_unconfirmed(self, monkeypatch):
+        """A request naming a RELATED registry field ('net weight') over
+        a record holding another one ('Gross weight: 10') is
+        discovery-only: the route must serve the honest unconfirmed
+        decline — related fields never certify each other at any casing
+        — and the artifact stays untouched."""
         import core.chat_canvas_editor as cce
         from core.chat_canvas_editor import FreshDataResult
         from core.models import Canvas, CanvasAudit
@@ -1591,14 +1589,10 @@ class TestReaskNoopThroughRoute:
         _seam_failure(monkeypatch)
         _fixed_execution(monkeypatch, "exec-reask-route-n1")
 
-        body = (
-            "# Quotation Q-2026-114 (DRAFT)\n\n"
-            "Client: Dunmore Fabrication LLC\n"
-            "Terms: Net 45\n"
-        )
+        body = "# Weights (DRAFT)\n\nGross weight: 10\n"
         with factory() as sc:
             sc.add(Canvas(id=CANVAS_ID, tenant_id="t1",
-                          created_by="user_1", name="Quotation Q-2026-114",
+                          created_by="user_1", name="Weights DRAFT",
                           canvas_type="document",
                           content={"body": body}))
             sc.add(CanvasAudit(canvas_id=CANVAS_ID, tenant_id="t1",
@@ -1626,16 +1620,13 @@ class TestReaskNoopThroughRoute:
                 CanvasAudit.canvas_id == CANVAS_ID).count()
 
         for ask in (
-                "Please also update the payment terms in the draft to "
-                "Net 45.",
-                "Please also update the Payment terms in the draft to "
-                "Net 45.",
-                "Please also update the PAYMENT TERMS in the draft to "
-                "Net 45."):
+                "Please update the net weight in the draft to 10.",
+                "Please update the Net Weight in the draft to 10.",
+                "Please update the NET WEIGHT in the draft to 10."):
             resp, _user = _route_call(
                 factory, ask, {"canvas_id": CANVAS_ID})
             assert resp.outcome != "completed", (
-                f"no completion without an explicit field alias: {ask!r} "
+                f"related fields must not certify each other: {ask!r} "
                 f"outcome={resp.outcome!r} message={resp.message!r}")
             assert "Verified on the current draft" not in (
                 resp.message or ""), ask
@@ -1646,4 +1637,5 @@ class TestReaskNoopThroughRoute:
                 Canvas.id == CANVAS_ID).first()
         assert audits_after == audits_before, (
             "an unconfirmed decline must not write the artifact")
-        assert "Net 45" in str((canvas_row.content or {}).get("body"))
+        assert "Gross weight: 10" in str((canvas_row.content or {}).get(
+            "body"))

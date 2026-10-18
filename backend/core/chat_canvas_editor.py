@@ -29,7 +29,7 @@ import re
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 from html import unescape
-from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, model_validator
 
@@ -1931,6 +1931,22 @@ _ASSIGNMENT_LOCATION_TOKENS = {
     "document", "email",
 }
 
+#: REVIEWED COMPLETION-field equivalences (owner review 2026-10-18,
+#: defect class 4). Deliberately SEPARATE from the retrieval-oriented
+#: registry (``workbook_read_artifact._FIELD_ALIASES``): discovery may
+#: be broad, but certification must preserve field distinctions — net
+#: weight never borrows gross weight, dealer cost never borrows retail.
+#: Each pair is an explicit statement that the qualified request phrase
+#: and the artifact's BARE label denote the same field for completion on
+#: artifacts that carry no richer schema. The bare side is accepted only
+#: when it is UNAMBIGUOUS in the artifact (no sibling label carrying the
+#: same bare token with a different qualifier — "Warranty terms" next to
+#: "Terms" keeps the payment-terms ask unresolved). This mapping is not
+#: a retrieval expansion and must never be fed back into one.
+_COMPLETION_FIELD_EQUIVALENCES = (
+    ("payment terms", "terms"),
+)
+
 
 class _AssignmentRecord(NamedTuple):
     """One field record of the artifact body, with its section subject.
@@ -2036,14 +2052,15 @@ def _assignment_value_relation(assigned: Any, observed: Any) -> str:
 class _AssignmentTargetBinding(NamedTuple):
     """How one assignment target binds to the artifact's records.
 
-    ``field_resolved`` — the target contains a word span the EXISTING
-    canonical field vocabulary (``workbook_read_artifact._FIELD_ALIASES``)
-    associates with a record's label. ``subject_resolved`` — every
-    remaining target word (location words excluded) is named by a
-    candidate record's SECTION. ``record`` is set only when EXACTLY ONE
-    record resolves both; every other state refuses completion (owner
-    correction 2026-10-18, defect class 3: no capitalization or
-    leftover-count authority, no silently discarded words)."""
+    ``field_resolved`` — the target contains a span that CERTIFIES field
+    identity with a record's label (the label's own phrase, or a
+    reviewed completion mapping; discovery-only related fields do not
+    count). ``subject_resolved`` — every remaining target word (location
+    words excluded) is named by a candidate record's SECTION. ``record``
+    is set only when EXACTLY ONE record resolves both; every other state
+    refuses completion (owner corrections 2026-10-18, defect classes 3-4:
+    no capitalization/leftover-count authority, no related-field
+    borrowing, no silently discarded words)."""
     field_resolved: bool
     subject_resolved: bool
     reason: str
@@ -2051,19 +2068,30 @@ class _AssignmentTargetBinding(NamedTuple):
     candidates: Tuple[_AssignmentRecord, ...]
 
 
+def _assignment_phrase_spans(
+    target_tokens: List[str], words: List[str],
+) -> List[Tuple[int, int]]:
+    """Every contiguous occurrence of ``words`` in the target tokens."""
+    if not words or len(words) > len(target_tokens):
+        return []
+    return [
+        (start, start + len(words))
+        for start in range(len(target_tokens) - len(words) + 1)
+        if target_tokens[start:start + len(words)] == words
+    ]
+
+
 def _assignment_field_spans(
     target_tokens: List[str], label: str,
 ) -> List[Tuple[int, int]]:
-    """Contiguous word spans of the target the canonical field vocabulary
-    associates with this record's label.
+    """BROAD DISCOVERY: contiguous target spans of the retrieval
+    registry's alias family for this record's label.
 
-    ``_field_aliases`` is the workbook-read layer's own registry (its
-    consumers already include column selection and answer presentation);
-    a label's family — canonical name plus registered aliases, longest
-    phrase first — decides which target words are FIELD words. A label
-    the registry does not know contributes only its own words (the
-    artifact-native field name). Words outside the span are NOT silently
-    discarded: they are the mandatory subject constraints."""
+    ``_field_aliases`` groups RELATED fields for retrieval and column
+    selection (weight: net+gross; price: dealer+retail). Discovery may
+    be broad — certification is NOT (see
+    ``_assignment_completion_field_spans``): a discovered span alone
+    never establishes field equivalence."""
     try:
         from core.workbook_read_artifact import _field_aliases
 
@@ -2074,13 +2102,58 @@ def _assignment_field_spans(
     spans: List[Tuple[int, int]] = []
     for alias in sorted(family, key=lambda item: len(item.split()),
                         reverse=True):
-        words = alias.split()
-        if not words or len(words) > len(target_tokens):
-            continue
-        for start in range(len(target_tokens) - len(words) + 1):
-            if target_tokens[start:start + len(words)] == words:
-                spans.append((start, start + len(words)))
+        spans.extend(_assignment_phrase_spans(
+            target_tokens, alias.split()))
     return spans
+
+
+def _assignment_bare_label_unambiguous(
+    bare: str, label: str, all_labels: Sequence[str],
+) -> bool:
+    """Whether the BARE label (e.g. "terms") is unambiguous in the
+    artifact: no OTHER record label carries one of its tokens with a
+    different qualifier ("warranty terms", "terms and conditions").
+    Duplicate identical labels are left to the unique-record rule."""
+    bare_tokens = bare.split()
+    if not bare_tokens:
+        return False
+    label_norm = _assignment_norm(label)
+    for other in all_labels:
+        other_norm = _assignment_norm(other)
+        if not other_norm or other_norm == label_norm:
+            continue
+        if any(re.search(
+                rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])",
+                other_norm) for token in bare_tokens):
+            return False
+    return True
+
+
+def _assignment_completion_field_spans(
+    target_tokens: List[str], label: str, all_labels: Sequence[str],
+) -> List[Tuple[int, int]]:
+    """CERTIFICATION: the maximal target spans that establish field
+    identity with this record's label.
+
+    Identity is the label's own normalized phrase appearing verbatim in
+    the target, or a reviewed COMPLETION mapping pair (separate in
+    meaning from retrieval expansion) whose bare side is unambiguous in
+    the artifact. Registry family members that are merely related never
+    certify."""
+    label_words = _assignment_norm(label).split()
+    spans = _assignment_phrase_spans(target_tokens, label_words)
+    for qualified, bare in _COMPLETION_FIELD_EQUIVALENCES:
+        if _assignment_norm(label) != bare:
+            continue
+        if not _assignment_bare_label_unambiguous(bare, label, all_labels):
+            continue
+        spans.extend(_assignment_phrase_spans(
+            target_tokens, qualified.split()))
+    if not spans:
+        return []
+    max_len = max(end - start for start, end in spans)
+    return [(start, end) for start, end in spans
+            if end - start == max_len]
 
 
 def _resolve_assignment_target(
@@ -2088,36 +2161,38 @@ def _resolve_assignment_target(
 ) -> _AssignmentTargetBinding:
     """Bind one assignment target to at most ONE artifact record.
 
-    The requested FIELD resolves through the existing canonical
-    field/alias vocabulary; every remaining target word is a MANDATORY
-    subject constraint, regardless of case. A constraint resolves only
-    when the candidate record's SECTION names it — with no section
-    evidence the target stays unresolved, even when the field is the
-    only match. Ambiguous or multiple resolutions stay unresolved:
-    completion never rides ``any()``."""
+    Discovery is broad (retrieval registry families); CERTIFICATION
+    preserves field distinctions (the label's own phrase, or a reviewed
+    completion mapping). Every remaining target word is a MANDATORY
+    subject constraint, regardless of case, resolved on the record's
+    section; related-but-not-equal, ambiguous and multiple records all
+    refuse completion — never through ``any()``."""
     target_tokens = re.findall(r"[a-z0-9]+", _assignment_norm(target))
     if not target_tokens:
         return _AssignmentTargetBinding(False, False, "empty_target",
                                         None, ())
+    all_labels = [record.label for record in records]
+    discovered = 0
     field_records: List[Tuple[_AssignmentRecord, List[str]]] = []
     for record in records:
-        spans = _assignment_field_spans(target_tokens, record.label)
+        if not _assignment_field_spans(target_tokens, record.label):
+            continue
+        discovered += 1
+        spans = _assignment_completion_field_spans(
+            target_tokens, record.label, all_labels)
         if not spans:
             continue
-        # Longest alias phrase wins; ties consume their union (the same
-        # field named twice cannot manufacture two records downstream).
-        max_len = max(end - start for start, end in spans)
         covered = set()
         for start, end in spans:
-            if end - start == max_len:
-                covered.update(range(start, end))
+            covered.update(range(start, end))
         leftover = [word for index, word in enumerate(target_tokens)
                     if index not in covered
                     and word not in _ASSIGNMENT_LOCATION_TOKENS]
         field_records.append((record, leftover))
     if not field_records:
-        return _AssignmentTargetBinding(False, False, "field_unresolved",
-                                        None, ())
+        reason = ("related_field_not_equivalent" if discovered
+                  else "field_unresolved")
+        return _AssignmentTargetBinding(False, False, reason, None, ())
     candidates: List[_AssignmentRecord] = []
     for record, leftover in field_records:
         section_words = set(_assignment_label_words(record.section))
@@ -2147,18 +2222,20 @@ def _assignment_postcondition_obligations(
 
     An explicit "update X to Y" instruction authorizes Y for X; the
     artifact proves whether X already carries Y. The check binds the
-    target to EXACTLY ONE artifact record: the FIELD resolves through
-    the existing canonical field/alias vocabulary
-    (``workbook_read_artifact._FIELD_ALIASES``), every remaining target
-    word is a MANDATORY subject constraint that must be named by that
-    record's section (case never decides authority; no word is silently
-    discarded), and conflicting or multiple records bind nothing. The
-    record's COMPLETE value is then compared with the assigned value
-    under conservative normalization (whole-token decimal equality for
-    numbers; no substring/containment). Values the shared extractor
-    recorded as source references never arrive here (they are unresolved
-    obligations); an "add ..." obligation the artifact check cannot
-    confirm blocks completion with its own record.
+    target to EXACTLY ONE artifact record: the FIELD must CERTIFY
+    identity with the record's label (its own normalized phrase, or a
+    reviewed completion mapping kept separate from the retrieval
+    registry — related registry family members such as net/gross weight
+    or dealer cost/retail never certify), every remaining target word is
+    a MANDATORY subject constraint that must be named by that record's
+    section (case never decides authority; no word is silently
+    discarded), and related-but-not-equal, ambiguous or multiple records
+    bind nothing. The record's COMPLETE value is then compared with the
+    assigned value under conservative normalization (whole-token decimal
+    equality for numbers; no substring/containment). Values the shared
+    extractor recorded as source references never arrive here (they are
+    unresolved obligations); an "add ..." obligation the artifact check
+    cannot confirm blocks completion with its own record.
 
     Returns [] when the request carries nothing assignable — the
     caller's pre-existing guards then behave exactly as before. Any
@@ -2223,6 +2300,10 @@ def _assignment_postcondition_obligations(
                     detail = (f"{target}: {len(binding.candidates)} "
                               "records match this target — the value "
                               "cannot be bound uniquely")
+                elif binding.reason == "related_field_not_equivalent":
+                    detail = (f"{target}: the draft names a RELATED "
+                              "field, not this one — related fields do "
+                              "not certify each other")
                 elif binding.reason == "empty_target":
                     detail = f"{target}: the target names no field"
                 else:
