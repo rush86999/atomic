@@ -365,10 +365,10 @@ the same test file copied in):
 - Successor L2 battery (post producer correction) → **41 passed**
   (`logs/l2_producer_correction.log`; the prior 28-test battery is
   preserved in `logs/l2_successor.log`).
-- Execution-policy successor (2026-10-19) → **51 passed** — the L2
+- Execution-policy successor (2026-10-19) → **52 passed** — the L2
   battery plus the transport controls (`logs/l2_execution_policy.log`).
   Neighbors including the reasoning-mandatory, task-type forwarding and
-  structured-dispatch suites → **338 passed, 2 failed** — the two
+  structured-dispatch suites → **339 passed, 2 failed** — the two
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Parent L2 battery (pre-correction 28-test set) → **26 failed, 2

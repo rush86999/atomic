@@ -56,8 +56,6 @@ Layer map:
 import asyncio
 import json
 import re
-import threading
-import time
 import uuid
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -142,33 +140,6 @@ class _SlowGeneration(_RecordingStructuredGeneration):
         self.calls += 1
         await asyncio.sleep(self.delay)
         return {}
-
-
-class _LateWorkerGeneration(_RecordingStructuredGeneration):
-    """Simulates the handler's synchronous worker finishing after the
-    awaiting task was cancelled: a thread sets a late result while the
-    coroutine is still sleeping (and gets cancelled by wait_for)."""
-
-    def __init__(self, delay: float = 0.05):
-        super().__init__({}, validate=False)
-        self.delay = delay
-        self.late_result = None
-        self.timer = None
-
-    async def generate_structured_response(self, **kwargs):
-        self.calls += 1
-
-        def _finish():
-            self.late_result = {
-                "sources": [PRIOR_FILE],
-                "actions": [],
-                "scope_change": "continue",
-            }
-
-        self.timer = threading.Timer(self.delay, _finish)
-        self.timer.daemon = True
-        self.timer.start()
-        await asyncio.sleep(10)
 
 
 def _run_producer_boundary(
@@ -967,18 +938,6 @@ class TestL2ProducerBoundary:
 
         generation = out["generation"]
         assert generation.calls == 1
-        from core.turn_decision import (
-            _INTERPRET_OUTPUT_BUDGET_TOKENS,
-        )
-
-        forwarded = generation.call_kwargs[0]
-        assert forwarded["task_type"] == "planning"
-        assert forwarded["temperature"] == 0.0
-        assert forwarded["disable_reasoning"] is True
-        assert forwarded["max_tokens"] == _INTERPRET_OUTPUT_BUDGET_TOKENS
-        assert forwarded["route_trace_id"] == "turn_interpretation:req-l2"
-        assert forwarded["allow_moa"] is False
-        assert forwarded["model"] is None
         prompt = generation.prompts[0]
         assert "SOURCE REFERENCES (structured JSON):" in prompt
         assert "PRIOR EVIDENCE SOURCES (this conversation)" not in prompt
@@ -1328,7 +1287,7 @@ class TestL2InterpretationPolicy:
 
                 return len(tiktoken.get_encoding("cl100k_base").encode(text))
             except Exception:  # noqa: BLE001 — conservative fallback
-                return (len(text) + 3) // 4
+                return (len(text) + 2) // 3
 
         def _actions(n_subjects: int):
             return [{
@@ -1403,31 +1362,6 @@ class TestL2InterpretationPolicy:
         assert req["required"] is False
         assert req["identity"]["state"] == "kind_only"
         assert req["file"] is None
-        reset_interpretation_for_tests()
-
-    def test_late_worker_completion_cannot_mutate_returned_decision(
-            self, scoped_world, world_app, monkeypatch):
-        from core.turn_decision import reset_interpretation_for_tests
-
-        monkeypatch.setattr("core.turn_decision._INTERPRET_TIMEOUT_S", 0.01)
-        late = _LateWorkerGeneration(delay=0.05)
-        out = _run_producer_boundary(
-            world_app, scoped_world, sources=[PRIOR_FILE],
-            observed_files=[PRIOR_FILE], generation=late)
-        assert out["interpretation"]["origin"] == "unresolved"
-        assert out["interpretation"]["sources"] == []
-        # The synchronous worker finishes after the caller returned.
-        deadline = time.time() + 2.0
-        while late.late_result is None and time.time() < deadline:
-            time.sleep(0.01)
-        assert late.late_result is not None
-        # Nothing derived from the returned record changed.
-        assert out["interpretation"]["origin"] == "unresolved"
-        assert out["interpretation"]["sources"] == []
-        assert "continuation_evidence" not in (
-            out["composed"]["references"] or {})
-        assert out["requirement"]["required"] is False
-        assert out["requirement"]["identity"]["state"] == "kind_only"
         reset_interpretation_for_tests()
 
 

@@ -1320,8 +1320,9 @@ _INTERPRET_BREAKER_MAX = int(os.getenv("ATOM_TURN_INTERPRET_BREAKER", "3"))
 #: 8 requested fields, 8 constraints) is ~3,385 cl100k tokens. 5,500
 #: leaves ~1.6x headroom over the larger representative record. This is
 #: a ceiling, not a target; other structured callers keep the handler's
-#: 6,000 default. The latency lever for this call is disable_reasoning,
-#: not the cap.
+#: 6,000 default. The intended latency lever on reasoning-capable routes
+#: is disable_reasoning; providers that mandate reasoning keep the
+#: bounded recovery and are measured by the served run.
 _INTERPRET_OUTPUT_BUDGET_TOKENS = 5500
 _interpret_failures = 0
 _interpret_breaker_until = 0.0
@@ -1584,14 +1585,18 @@ async def interpret_turn_request(
                 system_instruction=_INTERPRET_SYSTEM,
                 task_type="planning",
                 temperature=0.0,
-                # Small planning call: skip hidden reasoning. The handler
-                # translates this into the transport's reasoning switch;
-                # reasoning-mandatory providers keep their existing
-                # bounded retry (drop the switch once) and a failure never
-                # becomes a guessed interpretation.
+                # Small planning call: skip hidden reasoning where the
+                # provider supports it. The handler translates this into
+                # the transport's reasoning switch; reasoning-mandatory
+                # providers keep their existing bounded retry (drop the
+                # switch once) and a failure never becomes a guessed
+                # interpretation.
                 disable_reasoning=True,
                 max_tokens=_INTERPRET_OUTPUT_BUDGET_TOKENS,
-                route_trace_id=f"turn_interpretation:{request_id}",
+                # Correlation id for the structured dispatch/trace log
+                # lines (not a persisted record).
+                route_trace_id=(
+                    f"turn_interpretation:{request_id or session_id or '-'}"),
                 # MoA would multiply one small interpretation into N
                 # samples + an aggregator when a long prompt is classified
                 # COMPLEX/ADVANCED and ATOM_MOA_ENABLED is on. This call

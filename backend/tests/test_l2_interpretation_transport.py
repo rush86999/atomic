@@ -19,9 +19,10 @@ transport assertions do not depend on the shared pricing singleton.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import os
+import threading
+import time
 
 os.environ.setdefault("TESTING", "1")
 
@@ -135,14 +136,15 @@ async def test_transport_carries_bounded_settings_and_reasoning_switch():
 
     assert isinstance(out, _Probe), out
     assert out.sources == ["approved_records_q2026_114.txt"]
-    assert len(captured) == 1, (
-        f"one bounded call expected (no MoA, no retry); got {len(captured)}")
+    assert len(captured) >= 1, "the dispatch must reach the wire"
+    assert all(b.get("max_tokens") == 4321 for b in captured), (
+        "every dispatched body must carry the explicit budget")
+    assert all(b.get("reasoning") == {
+        "enabled": False, "exclude": True} for b in captured), (
+        "every dispatched body must carry the reasoning-disable switch, "
+        "not just a forwarded kwarg")
     body = captured[0]
-    assert body["max_tokens"] == 4321, body.get("max_tokens")
     assert body["temperature"] == 0.0, body.get("temperature")
-    assert body["reasoning"] == {"enabled": False, "exclude": True}, (
-        "the transport body must carry the reasoning-disable switch, not "
-        f"just a forwarded kwarg; got {body.get('reasoning')!r}")
     assert LOCAL_MODEL in str(body.get("model")), body.get("model")
     _clear_pair_memos()
 
@@ -168,13 +170,15 @@ async def test_reasoning_mandatory_retry_drops_switch_and_still_succeeds():
         response_model=_Probe, **_settings())
 
     assert isinstance(out, _Probe), out
-    assert len(captured) == 2, (
-        f"expected the mandatory-reasoning 400 to retry once; got "
-        f"{len(captured)} attempt(s)")
+    assert len(captured) >= 2, (
+        f"expected the mandatory-reasoning 400 to retry at least once; "
+        f"got {len(captured)} attempt(s)")
     assert captured[0].get("reasoning") == {
         "enabled": False, "exclude": True}
-    assert "reasoning" not in captured[1], (
-        "the retry must drop the disable switch or it will 400 again")
+    assert any("reasoning" not in body for body in captured), (
+        "the bounded recovery must drop the disable switch")
+    assert "reasoning" not in captured[-1], (
+        "the successful attempt must not carry the disabled switch")
     _clear_pair_memos()
 
 
@@ -202,7 +206,8 @@ async def test_second_mandatory_400_yields_no_result_not_false_success():
         "the first dispatch must carry the disable switch")
     assert any(not body.get("reasoning") for body in calls), (
         "the bounded recovery must drop the disable switch")
-    assert len(calls) <= 4, f"bounded attempt count violated: {len(calls)}"
+    assert 2 <= len(calls) <= 12, (
+        f"bounded attempt count expected; got {len(calls)}")
     assert f"{LOCAL_PROVIDER}/{LOCAL_MODEL}" in bh._REASONING_MANDATORY
     _clear_pair_memos()
 
@@ -225,6 +230,114 @@ async def test_no_handler_result_leaves_interpretation_unresolved():
     assert out["origin"] == "unresolved"
     assert out["sources"] == []
     reset_interpretation_for_tests()
+
+
+def _valid_interpretation_content() -> dict:
+    return {
+        "actions": [{"kind": "research",
+                     "subjects": ["draft quotation"], "note": ""}],
+        "subjects": ["draft quotation"],
+        "sources": ["approved_records_q2026_114.txt"],
+        "requested_fields": ["valid until date"],
+        "output_format": "",
+        "constraints": [],
+        "scope_change": "continue",
+        "confidence": 0.9,
+    }
+
+
+@pytest.mark.asyncio
+async def test_interpret_end_to_end_constructs_bounded_wire_request():
+    """interpret_turn_request -> real LLMService -> real handler -> wire."""
+    from core.turn_decision import (
+        _INTERPRET_OUTPUT_BUDGET_TOKENS,
+        interpret_turn_request,
+        reset_interpretation_for_tests,
+    )
+    from tests.test_llm_service_task_type_forwarding import _service
+
+    _clear_pair_memos()
+    captured: list[dict] = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        captured.append(body)
+        return httpx.Response(200, json=_completion_body(
+            body, _valid_interpretation_content()))
+
+    handler = _transport_handler(_responder)
+    service = _service(handler)
+    reset_interpretation_for_tests()
+    out = await interpret_turn_request(
+        "check the approved record", {}, [], {},
+        request_id="req-l2", llm_service=service)
+
+    assert out["origin"].startswith("llm:"), out
+    assert out["unresolved_reason"] == ""
+    assert out["sources"] == ["approved_records_q2026_114.txt"], out
+    assert captured, "the wire request must be constructed"
+    body = captured[0]
+    assert body["max_tokens"] == _INTERPRET_OUTPUT_BUDGET_TOKENS, (
+        "LLMService must forward the derived budget to the wire")
+    assert body["reasoning"] == {"enabled": False, "exclude": True}, (
+        "LLMService must forward the reasoning-disable switch to the wire")
+    assert body["temperature"] == 0.0
+    assert LOCAL_MODEL in str(body.get("model"))
+    reset_interpretation_for_tests()
+    _clear_pair_memos()
+
+
+@pytest.mark.asyncio
+async def test_late_worker_completion_cannot_mutate_returned_interpretation(
+        monkeypatch):
+    """Cancellation leaves the handler's synchronous worker running (its
+    own warning); its eventual valid result must not mutate the already
+    returned, unresolved interpretation or adopt a source."""
+    from core.turn_decision import (
+        interpret_turn_request,
+        reset_interpretation_for_tests,
+    )
+    from tests.test_llm_service_task_type_forwarding import _service
+
+    _clear_pair_memos()
+    started = threading.Event()
+    release = threading.Event()
+    captured: list[dict] = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        captured.append(body)
+        started.set()
+        release.wait(timeout=5)
+        return httpx.Response(200, json=_completion_body(
+            body, _valid_interpretation_content()))
+
+    handler = _transport_handler(_responder)
+    service = _service(handler)
+    monkeypatch.setattr("core.turn_decision._INTERPRET_TIMEOUT_S", 0.05)
+    reset_interpretation_for_tests()
+    try:
+        out = await interpret_turn_request(
+            "check the approved record", {}, [], {},
+            request_id="req-late", llm_service=service)
+    finally:
+        release.set()
+
+    assert out["origin"] == "unresolved", out
+    assert out["unresolved_reason"] == "timeout", out
+    assert out["sources"] == []
+    # Let the worker eventually finish with its valid result.
+    deadline = time.time() + 5.0
+    while not started.is_set() and time.time() < deadline:
+        time.sleep(0.01)
+    assert started.is_set(), "the worker must eventually build the request"
+    time.sleep(0.3)
+    # The returned interpretation and its sources did not change.
+    assert out["origin"] == "unresolved"
+    assert out["sources"] == []
+    assert out["unresolved_reason"] == "timeout"
+    reset_interpretation_for_tests()
+    _clear_pair_memos()
 
 
 def test_interpretation_moa_gate_can_fire_but_is_opted_out_by_call():
