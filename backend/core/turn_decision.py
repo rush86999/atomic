@@ -1708,7 +1708,9 @@ async def interpret_turn_request(
         )
         if result is None:
             try:
-                _captured = get_interpret_capture()
+                _captured = [
+                    item for item in get_interpret_capture()
+                    if item.get("request_id") == _interpret_label]
             except Exception:  # noqa: BLE001
                 _captured = []
             if _captured:
@@ -1717,6 +1719,8 @@ async def interpret_turn_request(
                     return _unresolved("missing_scope")
                 _captured_scope = str(
                     _last.get("scope_raw") or "").strip().lower()
+                if _captured_scope == "unresolved":
+                    return _unresolved("scope_unresolved")
                 if _captured_scope and _captured_scope not in SCOPE_CHANGES:
                     return _unresolved("invalid_scope")
                 if not _last.get("action_count"):
@@ -1776,15 +1780,15 @@ async def interpret_turn_request(
         for a in (data.get("actions") or [])
     ][:8]
     if not raw_actions or scope_change == "unresolved":
-        if not raw_actions:
-            reason = "no_actions_proposed"
-        elif not _scope_present:
+        if not _scope_present:
             reason = "missing_scope"
         elif _scope_raw_text == "unresolved":
             reason = "scope_unresolved"
         elif (_scope_raw_text not in SCOPE_CHANGES
               and scope_change == "unresolved"):
             reason = "invalid_scope"
+        elif not raw_actions:
+            reason = "no_actions_proposed"
         else:
             reason = "scope_unresolved"
         try:

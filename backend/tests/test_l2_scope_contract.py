@@ -105,6 +105,16 @@ async def test_valid_continue_scope_passes_the_producer():
     assert out["actions"]
 
 
+def test_prompt_distinguishes_completed_followup():
+    from core.turn_decision import _interpretation_prompt
+
+    prompt = _interpretation_prompt(S7_ASK, [], {}, {})
+    assert "FOLLOW UP on an established conversation subject" in prompt
+    assert "even when the prior turn completed" in prompt
+    assert "do not map uncertainty to 'continue'" in prompt
+    assert "genuinely ambiguous" in prompt
+
+
 @pytest.mark.asyncio
 async def test_completed_prior_turn_followup_uses_continue():
     """A follow-up on an established completed conversation is continue,
