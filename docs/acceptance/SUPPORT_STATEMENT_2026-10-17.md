@@ -90,33 +90,35 @@ reconciled by the evidence cited here.
   pilot limitation stands until the successor is integrated and
   re-verified there.
 - **L2 — continuation ask**: "does it still match the approved record?"
-  is answered correctly, but the requirement is **not yet certified with a
-  resolved source identity** in the served product. Attempt 1 on
-  **`a6cd2c8ba`** (2026-10-19) captured the requirement (`required=true`)
-  but the real interpreter proposed annotated source descriptions and the
-  owner-approved composer preserved the identity as `unresolved` (no
-  substring donation). The bounded **producer correction**
-  (`51628b925`/`10982e839`: exact identities in schema+prompt,
-  structured `SOURCE REFERENCES`, attached-artifact separation; composer
-  untouched) plus the **execution-policy successor** (`disable_reasoning`,
-  derived 5,500-token budget, `turn_interpretation:<request_id>` trace,
-  `allow_moa=False`; 12 s deadline preserved; local L2+transport 52
-  passed, neighbors 339 passed + 2 pre-existing) have **not** been
-  verified in the served product: attempt 3 (predeclared, fresh
-  port/world) **dispatched both interpretation calls** (cap=5500 and the
-  route trace visible in the served log) but **both were cancelled at the
-  12-second deadline** — the producer output was never exercised, the S7
-  requirement stayed uncaptured (`required=false`), the settlement was
-  `unconfirmed`, and the **S3 narration error recurred** (the excerpt
-  carried `2026-12-31`; the reply claimed the approved record says
-  `2023-01-01`). Attempt 2's live-DB guard failure was later classified
-  as unrelated external pilot activity (attempt writes verified in
-  scratch; live DB contained none of the attempt identities). L2 remains
-  open; **no promotion**. Evidence:
-  `journey_matrix/l2_continuation_served_20261019/` (attempts 1–3 +
-  corrected assessment). A further run needs an owner decision on the
-  completion budget/model/route or the declared deadline; not deployed to
-  the pilot.
+  is not yet certified end-to-end in the served product. Attempt 1 on
+  **`a6cd2c8ba`** captured the requirement (`required=true`) but the real
+  interpreter proposed annotated descriptions and the composer preserved
+  the identity `unresolved`. A scratch diagnostic on the actual S3/S7
+  payloads then measured the real bottleneck: the cheap
+  reasoning-mandatory `glm-5.3-flash` path rejected the reasoning switch
+  and never validated within 90 s (7 HTTP attempts, 4140/5500-token
+  outputs), while `qwen3.8-flash` produced a valid S7 record at ~58 s.
+  The diagnostic-selected successor **`491afa936`** pins the measured
+  compatible route (existing pinned-planning wrapper + unpinned
+  fallback), bounds the interpretation deadline at **65 s**, and adds a
+  typed-field verified-comparison narration guard. Served attempt 4:
+  **interpretation is fixed** — both calls completed valid (S3 25.8 s,
+  S7 35.2 s), producer output valid, source identity resolved; **S7
+  completed truthfully** (`success=true`, `outcome=completed`,
+  `context_fulfillment.completed`, matched
+  `approved_records_q2026_114.txt`, fresh-history agreement). **S3
+  failed on the turn's reply-leg clock**: the reply leg started at 27.6 s,
+  ran 36.4 s, and the turn hit the 68 s reply-leg cap; the POST returned
+  the honest budget error at **95.07 s** (S7 73.21 s), so no S3 reply
+  existed, the narration guard was not exercised, and the S3
+  requirement/observation carrier was absent. The live-DB guard was false
+  again, but the attempt's identities are only in scratch (live 0/0/0) —
+  unrelated pilot activity; the guard is not discarded. L2 remains open;
+  **no promotion**. The next repair is the S3 reply/planning leg's share
+  of the turn budget (or a faster reply route), not another
+  interpretation change. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (attempts 1–4,
+  diagnostic results, corrected assessment). Not deployed to the pilot.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)

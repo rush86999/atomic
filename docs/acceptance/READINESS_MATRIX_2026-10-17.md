@@ -318,6 +318,36 @@ the completion budget/model/route (or the declared deadline). Evidence:
 `journey_matrix/l2_continuation_served_20261019/` (attempts 1–3,
 corrected assessment, `CHECKSUMS_ATTEMPT3`).
 
+**Rev 16 (2026-10-19, L2 diagnostic-selected successor served attempt 4 —
+NOT PASSED, no promotion).** Candidate **`491afa936`** (parent
+`ef4b8ccf6`; measured `opencode-go/qwen3.8-flash` interpretation pin via
+the existing pinned-planning wrapper with unpinned fallback, bounded
+**65 s** interpretation deadline, 5,500-token ceiling, reasoning-off, MoA
+opt-out, verified-field narration guard; focused 73 passed, neighbors 556
+passed + 2 pre-existing `TestEditPlanRungKnob`) was served on a fresh
+port/world (8099). Stage record: `dispatch_attempted=true`,
+`completed_within_deadline=true` (S3 25.8 s, S7 35.2 s),
+`producer_output_valid=true`, `source_identity_resolved=true` (S7
+requirement resolved to `approved_records_q2026_114.txt`, catalog
+`doc_3abaf0d03badbc965b0f2770`; composition resolved).
+**S7 passed the certification target**: `success=true`,
+`outcome=completed`, `context_fulfillment.state=completed`,
+`supplied_fields=["expiration_date"]`, matched source, truthful
+`2026-12-31` reply, zero writes, draft unchanged, fresh-history
+agreement. **S3 failed on the reply-leg turn clock**: interpretation was
+valid at 25.8 s, the reply leg started at 27.6 s and ran 36.4 s, the
+turn's 68 s reply-leg cap enforced an honest budget error, and the POST
+returned at **95.07 s** (S7 73.21 s); no S3 reply/requirement/observation
+carrier existed, so the verified-narration guard was not exercised and
+prior evidence was absent. `live_db_unchanged` was false again, but the
+attempt's user/session/execution identities are present only in scratch
+(live 0/0/0) — unrelated pilot activity; the guard boolean is retained.
+**No promotion**; L2 remains open. The interpretation bottleneck is
+fixed; the next repair is the S3 reply/planning leg's share of the turn
+budget (or a faster reply route). Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempts 1–4,
+diagnostic results, corrected assessment, `CHECKSUMS_ATTEMPT4`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
