@@ -1,0 +1,84 @@
+{
+  "attempt": "11",
+  "classification": "interpretation_not_real_or_not_dispatched",
+  "pass": false,
+  "checks": {
+    "runtime_identity": true,
+    "fixture_uploaded_through_product": true,
+    "draft_created_through_product": true,
+    "real_interpretation_dispatched": false,
+    "prior_evidence_observed": true,
+    "s3_reply_received": true,
+    "s3_truthful_comparison": false,
+    "s3_zero_canvas_writes": true,
+    "s3_draft_unchanged": true,
+    "s3_settlement_basis": true,
+    "s3_requirement_captured": true,
+    "s7_reply_received": true,
+    "s7_truthful_comparison": true,
+    "s7_zero_new_writes": true,
+    "s7_draft_unchanged": true,
+    "s7_requirement_captured": false,
+    "s7_resolved_source_identity": false,
+    "s7_settlement_basis": false,
+    "response_persisted_fresh_history_agreement": true,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "live_db_unchanged": true,
+    "pilot_untouched": true
+  },
+  "first_failure": "interpretation_not_real_or_not_dispatched",
+  "runtime_identity": {
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend",
+    "git_commit": "c0cbea9f191a",
+    "dirty": false,
+    "source_id": "c0cbea9f191a",
+    "candidate_cwd_ok": true,
+    "candidate_commit_ok": true
+  },
+  "s3": {
+    "outcome": "partial",
+    "success": true,
+    "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: dra"
+  },
+  "s7": {
+    "outcome": "unconfirmed",
+    "success": false,
+    "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (m"
+  },
+  "s7_requirement": {
+    "required": false,
+    "sources": [],
+    "file": null,
+    "fields": [
+      "expiration_date"
+    ],
+    "subjects": [],
+    "identity": {
+      "state": "kind_only",
+      "candidates": []
+    },
+    "artifact_attached": true,
+    "broader_comparison": true
+  },
+  "s7_context_fulfillment": null,
+  "live_db_unchanged": true,
+  "pilot_untouched": true
+}
+{
+  "attempt": "11",
+  "pass": false,
+  "stages": {
+    "dispatch_attempted": true,
+    "completed_within_deadline": false,
+    "producer_output_valid": false,
+    "source_identity_resolved": false,
+    "s3_broader_obligation_open": true,
+    "s7_date_only_completed": false,
+    "s7_actions_proposed": false,
+    "s7_capture_archived": false
+  },
+  "s3_verified_narration": true,
+  "s3_terms_recorded": true,
+  "total_turn_latency_ok": true,
+  "first_failure": "interpretation_not_real_or_not_dispatched"
+}
