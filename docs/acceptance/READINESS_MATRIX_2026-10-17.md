@@ -439,6 +439,49 @@ remains open. Evidence:
 `journey_matrix/l2_continuation_served_20261019/` (attempt 9,
 `README_ATTEMPT9.md`, `summary_attempt9.json`).
 
+**Rev 21 (2026-10-19, L2 request-bound comparison-scope + settlement —
+SERVED VERIFICATION on `c0cbea9f1`; chain closed, promoted).** Lineage:
+`495099362` (delivery validation vs request-bound obligations) →
+`b70f9fa65` (request-bound completeness; attempt 10 passed S3 with the
+broader obligation open but failed `s7_date_only_not_completed` — the
+accepted S7 interpretation inherited the prior turn's generic constraint
+"Flag anything that differs" and the adapter expanded the date contract
+to payment terms/price) → **`c0cbea9f1`** (field-scope repair: a
+comparison is broad only when the accepted requested-fields contract
+names OTHER fields; a generic difference constraint about the requested
+date stays narrow; explicit narrowing still wins; degraded/unresolved
+interpretations fall back to message-shaped scope; served-contract
+controls cover attempt-10 S3 as broad and attempt-10 S7 as narrow; focused
+152 passed, neighbors 599 + 2 pre-existing `TestEditPlanRungKnob`;
+mutation controls for the gap-suppression and builder-search guards
+fail when restored; independent review PASS, no HIGH findings). Attempt
+11 on the same candidate was environment-blocked (opencode-go monthly
+quota: HTTP 429 `GoUsageLimitError` on every interpretation call;
+preserved, not promoted). Attempt 12 ran the unchanged job on the
+**declared DeepSeek direct API** (`https://api.deepseek.com/v1`,
+operator credential registered through the product, interpretation pin
+`deepseek:deepseek-v4-pro`, fresh scratch, port 8108) and passed
+**29/29 predeclared checks**: both turns interpreted on
+`llm:deepseek-v4-pro` (S3 63.55 s / S7 49.41 s, within the 95 s bound);
+S3 deterministic renderer alone with the verified `2026-12-31` match,
+payment terms and price named as unverified gaps, the broader comparison
+obligation OPEN and named (disclosed, not claimed), no global
+consistency claim, zero writes; S7 stayed narrow
+(`broader_comparison=false`, `expiration_date`), requirement resolved to
+`approved_records_q2026_114.txt` (`doc_3abaf0d03badbc965b0f2770`),
+`context_fulfillment=completed`, `outcome=completed`/`success=true`,
+truthful verified reply, zero writes, capture archived, fresh-history
+agreement; `live_db_unchanged=true`, `pilot_untouched=true`. **Promoted
+claim:** the L2 request-bound comparison-scope + settlement repair on
+`c0cbea9f1` in the declared DeepSeek-direct configuration — not the
+pilot's opencode-go route, general interpretation reliability, pilot
+deployment, or restart durability. The prior typed-field
+continuation/guard-order claim on `d0b707333` (rev 17) remains as
+lineage. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (README_ATTEMPT10/11/12,
+`summary_attempt12.json`, `attempt12_result.json`, `attempt12_server.log`,
+DeepSeek dispatch probe, `CHECKSUMS_ATTEMPT12.sha256`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

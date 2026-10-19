@@ -140,9 +140,39 @@ reconciled by the evidence cited here.
   acceptance still **failed one check**: S7 settled `outcome=completed`
   while `context_fulfillment=partial` (expiration matched; payment terms
   and price unverified; ledger covered=1, missing=2; broader comparison
-  open). That settlement/outcome classification mismatch is the remaining
-  L2 blocker; no new promotion, and the scoped typed-field claim above
-  stands.
+  open). **Attempts 10–12 (2026-10-19) closed the chain.** Attempt 10
+  (`b70f9fa65`) verified the settlement-obligation repair (S3 partial
+  with the broader obligation open, truthful deterministic narration,
+  zero writes) but failed `s7_date_only_not_completed`: the accepted S7
+  interpretation inherited the prior turn's generic constraint ("Flag
+  anything that differs") and the adapter expanded the date contract to
+  payment terms/price. The field-scope repair **`c0cbea9f1`** makes a
+  comparison broad only when the accepted requested-fields contract
+  names other fields; a generic difference constraint about the
+  requested date stays narrow, and explicit narrowing still wins.
+  Attempt 11 was environment-blocked (opencode-go monthly quota: HTTP 429
+  `GoUsageLimitError` on every interpretation call; preserved, not
+  promoted). Attempt 12 then ran the unchanged job on the **declared
+  DeepSeek direct API** (operator credential registered through the
+  product; interpretation pin `deepseek:deepseek-v4-pro`; fresh scratch,
+  port 8108) and passed **29/29 predeclared checks**: S3 deterministic
+  renderer alone with the verified `2026-12-31` match, payment terms and
+  price named as unverified gaps, the broader comparison obligation
+  OPEN and named (disclosed, by design), no global consistency claim,
+  zero writes; S7 stayed narrow (`broader_comparison=false`,
+  `expiration_date`), requirement resolved to
+  `approved_records_q2026_114.txt`, `context_fulfillment=completed`,
+  `outcome=completed`, truthful verified reply, zero writes, capture
+  archived, fresh-history agreement; S3 63.55 s / S7 49.41 s within the
+  95 s budget; `live_db_unchanged`, `pilot_untouched`. **Promoted claim:**
+  the request-bound comparison-scope + settlement repair on `c0cbea9f1`
+  in the declared DeepSeek-direct configuration — not the pilot's
+  opencode-go route, general interpretation reliability, pilot
+  deployment, or restart durability. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (README_ATTEMPT10/11/12,
+  `summary_attempt12.json`, DeepSeek dispatch probe,
+  `CHECKSUMS_ATTEMPT12`). Not deployed to the pilot; the scoped
+  typed-field claim above remains as lineage.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)
