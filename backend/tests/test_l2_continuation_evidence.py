@@ -55,6 +55,7 @@ Layer map:
 
 import asyncio
 import json
+import re
 import uuid
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -73,11 +74,114 @@ from tests.test_source_ask_tool_execution import (
 S7_ASK = ("What is the current Valid until date on the draft, and does it "
           "still match the approved record?")
 PRIOR_FILE = "approved_records_q2026_114.txt"
+PRIOR_FILE_2 = "approved_records_q2026_115.txt"
+ATTEMPT1_ANNOTATED_SOURCES = [
+    "approved_records_q2026_114.txt (the user's uploaded Approved Records "
+    "document)",
+    "draft quotation (source not yet named by the user)",
+]
 PRIOR_REQ_KEY = "_evidence_requirement_l2prior0001"
 PRIOR_OBS_KEY = "_retrieval_source_observations_l2prior0001"
 S7_REPLY = ("The draft’s Valid until date is 2026-12-31, which still "
             "matches the approved record’s Approved valid until: "
             "2026-12-31.")
+
+
+def _source_refs_from_prompt(prompt: str) -> dict:
+    """Parse the structured SOURCE REFERENCES JSON block from the prompt."""
+    match = re.search(
+        r"SOURCE REFERENCES \(structured JSON\): (\{.*\})", prompt or "")
+    assert match, f"structured source references missing from prompt: {prompt!r}"
+    return json.loads(match.group(1))
+
+
+class _RecordingStructuredGeneration:
+    """The ONLY controlled seam in the producer-boundary tests."""
+
+    def __init__(self, payload: dict, *, validate: bool = True):
+        self.payload = payload
+        self.validate = validate
+        self.prompts: list[str] = []
+        self.response_models: list = []
+        self.calls = 0
+
+    async def generate_structured_response(
+        self, *, prompt, response_model, system_instruction, model,
+        task_type, temperature, **kwargs,
+    ):
+        self.prompts.append(prompt)
+        self.response_models.append(response_model)
+        self.calls += 1
+        if self.validate:
+            return response_model(**self.payload)
+        return dict(self.payload)
+
+
+def _run_producer_boundary(
+    world_app, scoped_world, *, sources, message=S7_ASK,
+    observed_files=None, requested=None, canvas=True,
+    scope_change=None, validate=True,
+):
+    """Real interpretation normalization -> real composer -> real stash.
+
+    Only ``generate_structured_response`` is replaced (the model call).
+    Everything after it — normalization, floor construction, reference
+    composition, catalog identity resolution and the execution-keyed
+    requirement stash — runs the product code unchanged.
+    """
+    from core.turn_decision import (
+        apply_interpretation_references, build_turn_decision,
+        interpret_turn_request, reset_interpretation_for_tests,
+        turn_evidence_required,
+    )
+    from integrations.chat_orchestrator import _stash_evidence_requirement
+
+    ws = _authorized_workspace(world_app, scoped_world)
+    for name in (observed_files or []):
+        _seed_catalog_document(scoped_world, ws, file_name=name)
+    session = _session_with(observed_files=observed_files,
+                            requested=requested)
+    context = ({"canvas_id": "canvas-l2",
+                "canvas_title": "Quotation Q-2026-114 (DRAFT)",
+                "canvas_summary": "Draft quotation with Terms and "
+                                  "Valid until."}
+               if canvas else {})
+    generated = {
+        "actions": [{"kind": "research",
+                     "subjects": ["draft quotation"], "note": ""}],
+        "subjects": ["draft quotation"],
+        "sources": list(sources),
+        "requested_fields": ["valid until date"],
+        "output_format": "",
+        "constraints": [],
+        "scope_change": scope_change or (
+            "continue" if observed_files else "replace"),
+        "confidence": 0.9,
+    }
+    generation = _RecordingStructuredGeneration(generated, validate=validate)
+    reset_interpretation_for_tests()
+    interpretation = asyncio.run(interpret_turn_request(
+        message, session, [], context=context, session_id="sess-l2",
+        request_id="req-l2", llm_service=generation))
+    decision = build_turn_decision(
+        message, session, [], context, session_id="sess-l2")
+    composed = apply_interpretation_references(
+        decision, interpretation, session)
+    execution_id = f"exec-{uuid.uuid4().hex[:8]}"
+    requirement = _stash_evidence_requirement(
+        session, execution_id, composed, message,
+        turn_evidence_required(composed),
+        workspace_id=ws["workspace_id"], canvas_attached=bool(canvas))
+    return {
+        "ws": ws,
+        "session": session,
+        "interpretation": interpretation,
+        "decision": decision,
+        "composed": composed,
+        "requirement": requirement,
+        "generation": generation,
+        "execution_id": execution_id,
+    }
 
 
 def _resolved_interpretation(sources=None, scope_change="continue"):
@@ -731,10 +835,21 @@ class TestL2ReferenceResolution:
             requested={"required": True, "sources": ["document"],
                        "identity": {"state": "resolved",
                                     "file_name": "nominated_other.txt"}})
-        prompt = _interpretation_prompt(S7_ASK, [], session, {})
-        assert "PRIOR EVIDENCE SOURCES (this conversation)" in prompt
-        assert PRIOR_FILE in prompt
-        assert "requested: document: nominated_other.txt" in prompt
+        prompt = _interpretation_prompt(S7_ASK, [], session, {
+            "canvas_id": "canvas-l2",
+            "canvas_title": "Quotation Q-2026-114 (DRAFT)",
+            "canvas_summary": "Draft quotation with Terms and Valid until.",
+        })
+        assert "SOURCE REFERENCES (structured JSON):" in prompt
+        assert "PRIOR EVIDENCE SOURCES (this conversation)" not in prompt
+        refs = _source_refs_from_prompt(prompt)
+        assert refs["observed_evidence"] == [
+            {"kind": "document", "file_name": PRIOR_FILE}]
+        assert refs["requested_sources"] == [
+            {"kind": "document", "file_name": "nominated_other.txt"}]
+        assert refs["attached_artifact"]["canvas_id"] == "canvas-l2"
+        assert "not an external evidence source" in (
+            refs["attached_artifact"]["role"])
 
     def test_stash_carries_ambiguous_and_unresolved_identities(self):
         """The requirement builder carries the composer's ambiguity /
@@ -762,6 +877,353 @@ class TestL2ReferenceResolution:
                 assert len(req["identity"]["candidates"]) == 2
             else:
                 assert req["identity"]["names"] == ["the approved record"]
+
+
+class TestL2ProducerBoundary:
+    """The producer contract through the REAL normalization/composer/stash.
+
+    Only the model generation call is replaced. The prompt/schema contract
+    is asserted on the generation request; the exact annotated payload and
+    the strict consumer controls (unresolved/ambiguous/floor-wins) run the
+    real normalization, composer and requirement stash. The served S3->S7
+    run remains the proof that the real model follows the contract.
+    """
+
+    def test_clean_prior_filename_resolves_through_real_normalization(
+            self, scoped_world, world_app):
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[PRIOR_FILE],
+            observed_files=[PRIOR_FILE])
+        interp = out["interpretation"]
+        assert interp["sources"] == [PRIOR_FILE], interp
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "resolved", marker
+        assert marker["resolved_file"] == PRIOR_FILE, marker
+        assert out["composed"]["references"]["file"] == {
+            "file_name": PRIOR_FILE}
+        req = out["requirement"]
+        assert req["required"] is True
+        assert "document" in [s.lower() for s in req["sources"]]
+        assert req["artifact_attached"] is True
+        assert req["file"]["file_name"] == PRIOR_FILE
+        assert req["identity"]["state"] == "resolved", req["identity"]
+        assert req["identity"]["file_name"] == PRIOR_FILE
+        assert req["identity"]["file_id"]
+
+        generation = out["generation"]
+        assert generation.calls == 1
+        prompt = generation.prompts[0]
+        assert "SOURCE REFERENCES (structured JSON):" in prompt
+        assert "PRIOR EVIDENCE SOURCES (this conversation)" not in prompt
+        assert "source references by the names the user used" not in prompt
+        assert "SUPPORTED SOURCE KINDS:" in prompt
+        from core.action_program import SOURCE_KINDS
+
+        emitted_kinds = prompt.split(
+            "SUPPORTED SOURCE KINDS:", 1)[1].split("\n", 1)[0].strip()
+        assert emitted_kinds == ", ".join(SOURCE_KINDS)
+        refs = _source_refs_from_prompt(prompt)
+        assert refs["observed_evidence"] == [
+            {"kind": "document", "file_name": PRIOR_FILE}]
+        assert refs["attached_artifact"]["canvas_id"] == "canvas-l2"
+        assert refs["attached_artifact"]["role"].startswith("attached")
+        description = generation.response_models[0].model_fields[
+            "sources"].description
+        assert "copy the observed filename exactly" in description
+        assert "complete filename/name exactly" in description
+        assert "Do not append explanations, parentheses" in description
+        assert "attached draft/canvas" in description
+        assert "several observed sources could match" in description.casefold()
+        assert "do not choose one" in description.casefold()
+        assert "source kind without naming a specific source" in (
+            description.casefold())
+        assert "prefer the kind shown" in description.casefold()
+        from typing import get_args, get_origin
+
+        annotation = generation.response_models[0].model_fields[
+            "sources"].annotation
+        assert get_origin(annotation) is list
+        assert get_args(annotation) == (str,)
+        from core.turn_decision import turn_evidence_required
+
+        assert turn_evidence_required(out["composed"]) is True
+
+    def test_long_observed_filename_can_be_copied_exactly(
+            self, scoped_world, world_app):
+        long_name = "approved_records_" + ("a" * 140) + ".txt"
+        assert len(long_name) > 160
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[long_name],
+            observed_files=[long_name])
+        assert out["interpretation"]["sources"] == [long_name]
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "resolved", marker
+        assert marker["resolved_file"] == long_name
+        req = out["requirement"]
+        assert req["identity"]["state"] == "resolved", req["identity"]
+        assert req["identity"]["file_name"] == long_name
+
+    def test_attempt1_annotated_payload_stays_unresolved(
+            self, scoped_world, world_app):
+        from core.turn_decision import turn_evidence_required
+        from integrations.chat_orchestrator import (
+            _context_backed_fulfillment,
+        )
+
+        out = _run_producer_boundary(
+            world_app, scoped_world,
+            sources=ATTEMPT1_ANNOTATED_SOURCES,
+            observed_files=[PRIOR_FILE])
+        assert out["interpretation"]["sources"] == \
+            ATTEMPT1_ANNOTATED_SOURCES
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", marker
+        assert marker["names"] == ATTEMPT1_ANNOTATED_SOURCES, marker
+        assert marker["resolved_file"] == ""
+        assert out["composed"]["references"]["file"] is None
+        # The requirement IS captured; only its source identity stays
+        # unresolved (the reporting distinction the owner required).
+        assert turn_evidence_required(out["composed"]) is True
+        req = out["requirement"]
+        assert req["required"] is True
+        assert req["sources"] == ["document"]
+        assert req["identity"]["state"] == "unresolved", req["identity"]
+        assert req["identity"]["names"] == ATTEMPT1_ANNOTATED_SOURCES
+        assert req["file"] is None
+        # No substring salvage: the unresolved identity carries no adopted
+        # filename at all.
+        assert "file_name" not in req["identity"]
+
+        session = out["session"]
+        eid = out["execution_id"]
+        session[f"_retrieval_source_observations_{eid}"] = [{
+            "source": "ingested", "file_name": PRIOR_FILE,
+            "title": PRIOR_FILE,
+            "workspace_id": out["ws"]["workspace_id"],
+            "content_hash": "",
+        }]
+        verdict = _context_backed_fulfillment(
+            session, eid, out["ws"]["workspace_id"])
+        assert verdict["state"] == "unresolved", verdict
+        assert verdict["names"] == ATTEMPT1_ANNOTATED_SOURCES, verdict
+
+    def test_attached_draft_is_not_invented_as_external_lookup(
+            self, scoped_world, world_app):
+        from core.turn_decision import turn_evidence_required
+
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=["draft quotation"],
+            observed_files=[PRIOR_FILE], canvas=True)
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", marker
+        assert marker["names"] == ["draft quotation"]
+        assert out["composed"]["references"]["file"] is None
+        assert turn_evidence_required(out["composed"]) is True
+        req = out["requirement"]
+        assert req["required"] is True
+        assert req["sources"] == ["document"]
+        assert req["artifact_attached"] is True
+        assert req["file"] is None
+        assert req["identity"]["state"] == "unresolved", req["identity"]
+        assert req["identity"]["names"] == ["draft quotation"]
+        assert "file_name" not in req["identity"]
+
+        refs = _source_refs_from_prompt(out["generation"].prompts[0])
+        assert refs["attached_artifact"]["canvas_id"] == "canvas-l2"
+        assert refs["observed_evidence"] == [
+            {"kind": "document", "file_name": PRIOR_FILE}]
+        assert refs["requested_sources"] == []
+
+    def test_unknown_external_source_remains_an_open_obligation(
+            self, scoped_world, world_app):
+        from core.turn_decision import turn_evidence_required
+        from integrations.chat_orchestrator import (
+            _context_backed_fulfillment,
+        )
+
+        unknown = "unknown_supplier_register.txt"
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[unknown],
+            observed_files=[PRIOR_FILE])
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", marker
+        assert marker["names"] == [unknown]
+        assert turn_evidence_required(out["composed"]) is True
+        req = out["requirement"]
+        assert req["required"] is True
+        assert req["identity"]["state"] == "unresolved", req["identity"]
+        assert req["identity"]["names"] == [unknown]
+
+        # Even when THIS turn retrieved the prior document, the unknown
+        # source is not donated that identity: the obligation stays open.
+        session = out["session"]
+        eid = out["execution_id"]
+        session[f"_retrieval_source_observations_{eid}"] = [{
+            "source": "ingested", "file_name": PRIOR_FILE,
+            "title": PRIOR_FILE,
+            "workspace_id": out["ws"]["workspace_id"],
+            "content_hash": "",
+        }]
+        verdict = _context_backed_fulfillment(
+            session, eid, out["ws"]["workspace_id"])
+        assert verdict["state"] == "unresolved", verdict
+        assert verdict["names"] == [unknown], verdict
+
+    def test_multiple_plausible_sources_still_clarify(
+            self, scoped_world, world_app):
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=["approved record"],
+            observed_files=[PRIOR_FILE, PRIOR_FILE_2])
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "ambiguous", marker
+        assert marker["resolved_file"] == ""
+        assert out["composed"]["references"]["file"] is None
+        req = out["requirement"]
+        assert req["required"] is True
+        assert req["identity"]["state"] == "ambiguous", req["identity"]
+        names = {c.get("file_name")
+                 for c in (req["identity"].get("candidates") or [])}
+        assert names == {PRIOR_FILE, PRIOR_FILE_2}, req["identity"]
+
+    def test_generic_kind_ask_uses_observed_family(
+            self, scoped_world, world_app):
+        from core.turn_decision import turn_evidence_required
+
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=["document"],
+            observed_files=[PRIOR_FILE])
+        assert out["interpretation"]["sources"] == ["document"]
+        marker = out["composed"]["references"]["continuation_evidence"]
+        assert marker["state"] == "resolved", marker
+        assert marker["resolved_file"] == PRIOR_FILE
+        assert turn_evidence_required(out["composed"]) is True
+        req = out["requirement"]
+        assert req["required"] is True
+        assert req["sources"] == ["document"]
+        assert req["identity"]["state"] == "resolved"
+        assert req["identity"]["file_name"] == PRIOR_FILE
+
+    def test_first_turn_source_request_is_supported(
+            self, scoped_world, world_app):
+        out = _run_producer_boundary(
+            world_app, scoped_world,
+            sources=["my uploaded Approved Records document"],
+            message=(
+                "Compare the draft quotation with my uploaded Approved "
+                "Records document. Does the Valid Until date in the draft "
+                "match the approved record? Flag anything that differs. "
+                "Do not change anything yet."),
+            observed_files=None, canvas=True, scope_change="replace")
+        # The deterministic floor captures the message-named source; the
+        # producer's descriptive wording does not replace it.
+        assert "document" in (out["decision"]["references"]["sources"]
+                              or [])
+        assert "continuation_evidence" not in (
+            out["composed"]["references"] or {})
+        req = out["requirement"]
+        assert req["required"] is True
+        assert "document" in [s.lower() for s in req["sources"]]
+        assert req["artifact_attached"] is True
+
+    def test_deterministic_floor_precedence_beats_producer(
+            self, scoped_world, world_app):
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=["unknown_other.txt"],
+            message=(
+                "Compare the draft quotation with my uploaded Approved "
+                "Records document. Does the Valid Until date in the draft "
+                "match the approved record? Flag anything that differs. "
+                "Do not change anything yet."),
+            observed_files=[PRIOR_FILE], canvas=True, scope_change="replace")
+        assert (out["decision"]["references"]["sources"] or []) == [
+            "document"]
+        # Floor-wins: the producer's unknown source is not composed over a
+        # deterministic capture.
+        assert "continuation_evidence" not in (
+            out["composed"]["references"] or {})
+        assert (out["composed"]["references"]["sources"] or []) == [
+            "document"]
+        req = out["requirement"]
+        assert req["required"] is True
+        assert "document" in [s.lower() for s in req["sources"]]
+
+
+    def test_producer_contract_forbids_choosing_among_ambiguous_sources(
+            self, scoped_world, world_app):
+        """The producer must not pick one observed filename when the
+        request's wording could match several; the composer's ambiguity
+        path is only safe if the producer preserves the wording."""
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=["approved record"],
+            observed_files=[PRIOR_FILE, PRIOR_FILE_2])
+        prompt = out["generation"].prompts[0].casefold()
+        description = out["generation"].response_models[0].model_fields[
+            "sources"].description.casefold()
+        for text in (prompt, description):
+            assert "several observed sources could match" in text
+            assert "do not choose one" in text
+            assert "preserve the wording" in text
+            assert "source kind without naming a specific source" in text
+            assert "prefer the kind shown" in text
+            assert "copy that source's complete filename/name exactly" in text
+
+    def test_named_unobserved_source_is_not_collapsed_to_a_kind(
+            self, scoped_world, world_app):
+        """The producer contract distinguishes a named source from an
+        unnamed kind ask; a prompt-compliant unknown source stays named
+        and therefore remains an open obligation."""
+        unknown = "unknown_supplier_register.txt"
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[unknown],
+            observed_files=[PRIOR_FILE])
+        prompt = out["generation"].prompts[0].casefold()
+        assert "if the request names a specific source" in prompt
+        assert "copy that source's complete filename/name exactly" in prompt
+        assert "only when the request asks for a source kind without " \
+               "naming a specific source" in prompt
+        assert out["interpretation"]["sources"] == [unknown]
+        from core.turn_decision import turn_evidence_required
+
+        assert turn_evidence_required(out["composed"]) is True
+        req = out["requirement"]
+        assert req["required"] is True
+        assert req["identity"]["state"] == "unresolved"
+        assert req["identity"]["names"] == [unknown]
+
+    def test_malformed_sources_fail_closed(
+            self, scoped_world, world_app):
+        out = _run_producer_boundary(
+            world_app, scoped_world,
+            sources=[{"not": "a source string"}],
+            observed_files=[PRIOR_FILE], validate=True)
+        interp = out["interpretation"]
+        assert interp["origin"] == "unresolved"
+        assert interp["scope_change"] == "unresolved"
+        assert interp["sources"] == []
+        assert "continuation_evidence" not in (
+            out["composed"]["references"] or {})
+        req = out["requirement"]
+        assert req["identity"]["state"] in ("kind_only", "unresolved")
+        assert "file_name" not in req["identity"]
+
+    def test_canvas_only_turn_does_not_invent_an_external_source(
+            self, scoped_world, world_app):
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[],
+            message="What is on this draft?",
+            observed_files=None, canvas=True, scope_change="replace")
+        refs = _source_refs_from_prompt(out["generation"].prompts[0])
+        assert refs["observed_evidence"] == []
+        assert refs["requested_sources"] == []
+        assert refs["attached_artifact"]["canvas_id"] == "canvas-l2"
+        assert out["interpretation"]["sources"] == []
+        assert "continuation_evidence" not in (
+            out["composed"]["references"] or {})
+        req = out["requirement"]
+        assert req["artifact_attached"] is True
+        assert req["required"] is False
+        assert req["sources"] == []
+        assert req["identity"]["state"] == "kind_only"
 
 
 class TestL2ContinuationChain:

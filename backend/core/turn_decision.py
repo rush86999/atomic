@@ -1383,10 +1383,6 @@ def _interpretation_prompt(
     if unfinished:
         parts.append(
             "PERSISTED UNFINISHED WORK: " + json.dumps(unfinished)[:600])
-    if context.get("canvas_summary"):
-        parts.append(
-            "ACTIVE DOCUMENT (summary): "
-            + str(context["canvas_summary"])[:600])
     if context.get("applicable_teaching"):
         parts.append(
             "APPLICABLE TEACHING: "
@@ -1394,31 +1390,79 @@ def _interpretation_prompt(
     if context.get("catalog_files"):
         names = [str(n) for n in context["catalog_files"]][:40]
         parts.append("SOURCE CATALOG (names): " + "; ".join(names))
-    # L2 (2026-10-18): the conversation's OWN verified evidence sources —
-    # the antecedents a continuation ask ("does it still match the
-    # approved record?") refers to. The interpreter can name the
-    # reference by the identity this conversation already verified,
-    # instead of the reference being lost with the message's nouns.
+    # L2 (2026-10-18; producer contract corrected 2026-10-19): the
+    # conversation's OWN verified evidence sources — the antecedents a
+    # continuation ask ("does it still match the approved record?")
+    # refers to. Observed evidence, requested nominations and the attached
+    # artifact are SEPARATE structured entries: only observed evidence is
+    # an antecedent; the attached canvas is the comparison subject/input,
+    # never an external lookup.
+    attached_artifact: Dict[str, Any] = {}
+    _canvas = context.get("canvas") if isinstance(
+        context.get("canvas"), dict) else {}
+    canvas_id = (context.get("canvas_id") or _canvas.get("canvas_id")
+                 or _canvas.get("id"))
+    canvas_title = (context.get("canvas_title") or _canvas.get("title")
+                    or _canvas.get("name"))
+    canvas_summary = context.get("canvas_summary") or _canvas.get("summary")
+    if canvas_id:
+        attached_artifact["canvas_id"] = str(canvas_id)[:120]
+    if canvas_title:
+        attached_artifact["title"] = str(canvas_title)[:200]
+    if canvas_summary:
+        attached_artifact["summary"] = str(canvas_summary)[:600]
+    if attached_artifact:
+        attached_artifact["role"] = (
+            "attached comparison artifact/input; not an external evidence "
+            "source")
     prior_sources = session_evidence_sources(session)
-    if prior_sources:
-        def _render_prior(entry: Dict[str, Any]) -> str:
-            kind = str(entry.get("kind") or "")
-            name = str(entry.get("file_name") or "")
-            label = "" if entry.get("observed") else "requested: "
-            return (f"{label}{kind}: {name}" if name else f"{label}{kind}")
+    observed_sources = [e for e in prior_sources if e.get("observed")]
+    requested_sources = [e for e in prior_sources if not e.get("observed")]
 
-        rendered = "; ".join(
-            _render_prior(entry) for entry in prior_sources[:6])
+    def _source_entry(entry: Dict[str, Any]) -> Dict[str, str]:
+        return {"kind": str(entry.get("kind") or ""),
+                "file_name": str(entry.get("file_name") or "")}
+
+    source_references = {
+        "observed_evidence": [
+            _source_entry(e) for e in observed_sources[:6]],
+        "requested_sources": [
+            _source_entry(e) for e in requested_sources[:6]],
+        "attached_artifact": attached_artifact or None,
+    }
+    if (source_references["observed_evidence"]
+            or source_references["requested_sources"]
+            or attached_artifact):
         parts.append(
-            "PRIOR EVIDENCE SOURCES (this conversation): " + rendered)
+            "SOURCE REFERENCES (structured JSON): "
+            + json.dumps(source_references, ensure_ascii=False))
+    try:
+        from core.action_program import SOURCE_KINDS
+
+        supported_kinds = ", ".join(SOURCE_KINDS)
+    except Exception:  # noqa: BLE001 — vocabulary hint is best-effort
+        supported_kinds = (
+            "spreadsheet, email, inbox, thread, chat, message, text, "
+            "calendar, ticket, note, memo, letter, comment, post, "
+            "document, canvas, record, task, web, agent")
+    parts.append("SUPPORTED SOURCE KINDS: " + supported_kinds)
     parts.append(
         "Interpret the REQUEST. Propose: actions (research / learning / "
         "canvas_edit / calculation / presentation / conversation — more "
         "than one allowed), the FULL subject names exactly as the user "
-        "means them, source references by the names the user used, the "
-        "data fields wanted, output format, explicit constraints "
-        "(including things the user said NOT to do), and how the "
-        "requested scope relates to the persisted unfinished work: "
+        "means them, EXTERNAL evidence sources requiring consultation "
+        "(if the request names a specific source, copy that source's "
+        "complete filename/name exactly; for a prior observed source, copy "
+        "the observed filename exactly; only when the request asks for a "
+        "source kind without naming a specific source, use one of the "
+        "SUPPORTED SOURCE KINDS — prefer the kind shown on the matching "
+        "SOURCE REFERENCES observed entry; if several observed sources "
+        "could match the request's wording, do not choose one — preserve "
+        "the wording; never append explanations, parentheses, or "
+        "uncertainty notes; never include the attached draft/canvas as an "
+        "external source), the data fields wanted, output format, explicit "
+        "constraints (including things the user said NOT to do), and how "
+        "the requested scope relates to the persisted unfinished work: "
         "replace (new subject supersedes), extend (adds items), subset "
         "(narrows to some items), continue (resume the persisted work), "
         "or unresolved. A request that names its own subjects when "
@@ -1485,7 +1529,21 @@ async def interpret_turn_request(
     class _Interpretation(BaseModel):
         actions: List[_ProposedAction] = Field(default_factory=list)
         subjects: List[str] = Field(default_factory=list)
-        sources: List[str] = Field(default_factory=list)
+        sources: List[str] = Field(
+            default_factory=list,
+            description=(
+                "External evidence sources requiring consultation. If the "
+                "request names a specific source, copy that source's "
+                "complete filename/name exactly; for a prior observed "
+                "source, copy the observed filename exactly. Only when the "
+                "request asks for a source kind without naming a specific "
+                "source, use a supported canonical source kind — prefer "
+                "the kind shown on the matching observed entry. If several "
+                "observed sources could match the request's wording, do "
+                "not choose one — preserve the wording. Do not append "
+                "explanations, parentheses, or uncertainty notes. Do not "
+                "include the attached draft/canvas as an external source."),
+        )
         requested_fields: List[str] = Field(default_factory=list)
         output_format: str = ""
         constraints: List[str] = Field(default_factory=list)
@@ -1602,7 +1660,7 @@ async def interpret_turn_request(
             str(s)[:200] for s in (data.get("subjects") or [])[:16]
             if str(s).strip()],
         "sources": [
-            str(s)[:160] for s in (data.get("sources") or [])[:8]
+            str(s)[:512] for s in (data.get("sources") or [])[:8]
             if str(s).strip()],
         "requested_fields": [
             str(f)[:80] for f in (data.get("requested_fields") or [])[:8]

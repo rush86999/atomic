@@ -264,22 +264,81 @@ Mutation controls (throwaway edits; restored + checksum-verified):
   missing-kind regressions (decision + chain) fail
   (`logs/mutation_l_no_antecedent_dropped.log`).
 
+## Producer correction (2026-10-19) — served attempt 1 finding
+
+The served S3→S7 acceptance on `a6cd2c8ba` (predeclared isolated
+configuration; evidence archived on main at
+`journey_matrix/l2_continuation_served_20261019/`) reached the strict
+composer but failed the resolved-identity target: the requirement WAS
+captured (`required=true`), yet the real interpreter proposed annotated
+descriptions
+
+```text
+"approved_records_q2026_114.txt (the user's uploaded Approved Records document)"
+"draft quotation (source not yet named by the user)"
+```
+
+and the composer preserved the identity `unresolved` (no substring
+donation). The reply was correct, zero-write and partially settled; the
+resolved source identity / F-C2 basis was not met. The failure is at the
+producer contract, not the composer.
+
+Bounded producer correction on this candidate (consumer untouched):
+
+- `_Interpretation.sources` keeps `List[str]` and gains an explicit field
+  description: external evidence requiring consultation; a named source
+  copies its complete filename/name exactly (a prior observed source
+  copies the observed filename exactly); an unnamed kind ask uses a
+  supported canonical kind, preferring the kind shown on the matching
+  observed entry; several observed matches preserve the wording and never
+  choose one; no explanations/parentheses/uncertainty notes; never the
+  attached draft/canvas.
+- `_interpretation_prompt`: the prose `PRIOR EVIDENCE SOURCES` list is
+  replaced by a structured `SOURCE REFERENCES` JSON block separating
+  `observed_evidence`, `requested_sources` and `attached_artifact`; the
+  supported source-kind vocabulary is emitted from `SOURCE_KINDS`; the
+  attached canvas is explicitly the comparison input, never an external
+  lookup. The old `ACTIVE DOCUMENT` prose line is folded into the
+  structured attached artifact.
+- Source normalization cap raised 160 → 512 so a complete observed
+  filename can be copied exactly.
+- No composer/consumer behavior change: no parenthesis stripping, no
+  filename substring salvage, no ambiguity/unresolved relaxation, no
+  completion inferred from the reply.
+
+Composed-boundary controls (real `interpret_turn_request` normalization →
+real composer → real requirement stash; only generation replaced): a
+clean prior filename resolves; the exact attempt-1 annotated payload
+stays captured-but-unresolved (including the settlement predicate); the
+attached draft is not invented as an external lookup; an unknown external
+source stays an open obligation; multiple plausible sources still
+clarify; a generic kind ask uses the observed family; first-turn source
+requests and deterministic-floor precedence remain supported; malformed
+sources fail closed through pydantic; long observed filenames copy
+exactly; canvas-only turns invent no external source.
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
 `DATABASE_URL`; the parent runs from a pristine `ddab120c4` worktree with
 the same test file copied in):
 
-- Successor L2 battery → **28 passed** (`logs/l2_successor.log`).
-- Parent L2 battery → **26 failed, 2 passed** — the 20 composer
-  capability tests (functions absent) and the 8 chain regressions
-  (capture, ambiguity, wrong-name, identifier, unmatched-proposal,
-  missing-kind, dedupe-identity, single-letter) failing for the intended
-  reasons; the two fail-closed controls pass (`logs/l2_parent.log`).
+- Successor L2 battery (post producer correction) → **41 passed**
+  (`logs/l2_producer_correction.log`; the prior 28-test battery is
+  preserved in `logs/l2_successor.log`).
+- Parent L2 battery (pre-correction 28-test set) → **26 failed, 2
+  passed** — the 20 composer capability tests (functions absent) and the
+  8 chain regressions (capture, ambiguity, wrong-name, identifier,
+  unmatched-proposal, missing-kind, dedupe-identity, single-letter)
+  failing for the intended reasons; the two fail-closed controls pass
+  (`logs/l2_parent.log`). The producer-boundary additions are
+  successor-only capability tests (the producer contract and the composer
+  do not exist on the parent).
 - Neighbors (turn-decision, F-C2, action-program, source-ask batteries,
   interpretation/continuation sets) → **277 passed, 2 failed** — the two
   pre-existing `TestEditPlanRungKnob` failures, identical on the
-  pristine parent (`logs/neighbors.log`).
+  pristine parent (`logs/neighbors_producer_correction.log`; the prior
+  run is preserved in `logs/neighbors.log`).
 
 ## Verification limits
 
@@ -303,14 +362,16 @@ the same test file copied in):
 
 ## Exact next acceptance action
 
-Independent review of this corrected successor; **no served run is
-warranted yet** (owner direction). After review, the sole acceptance
-owner runs the ORIGINAL S7 continuation ask on a served build of the
-frozen successor under a predeclared configuration (uploaded
-approved-records fixture + draft canvas + the S3 comparison turn first,
-then S7) and reads the authoritative record: requirement captured
-(`required: true` with the resolved source), settlement validated
-(`success=true`, outcome completed/partial with the F-C2 basis),
-fresh-history agreement, and zero new writes (`s7-zero-new-work`
-preserved). No mid-run repairs; every attempt preserved; promotion only
-on that served pass.
+Frozen successor with the producer correction (this commit). Focused
+review completed (producer contract approved; no composer change). The
+sole acceptance owner then repeats the SAME predeclared S3→S7 served job
+on this frozen candidate under the same isolated configuration as
+attempt 1 (uploaded approved-records fixture + draft canvas + the S3
+comparison turn first, then the original S7 continuation) and reads the
+authoritative record: the requirement captured (`required=true`) **and**
+the source identity resolved for S7 (`identity.state="resolved"` with the
+catalog `file_id`), settlement validated (`success=true`, outcome
+completed/partial with the F-C2 basis), fresh-history agreement, and zero
+new writes (`s7-zero-new-work` preserved). No mid-run repairs; every
+attempt preserved; promotion only on that served pass. L2 remains open
+until then; L1/L3 and the pilot are untouched.
