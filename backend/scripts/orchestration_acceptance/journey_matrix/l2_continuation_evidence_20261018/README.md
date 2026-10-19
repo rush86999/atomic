@@ -338,8 +338,9 @@ correction on this candidate (no shared handler defaults changed):
   a multiple-source/long-filename record (8 sources incl. a 512-char
   filename, 8 subjects, 3 actions × 4 subjects, 8 fields, 8 constraints)
   ≈3,385 tokens → ~1.6x headroom.
-- `route_trace_id=f"turn_interpretation:{request_id}"` for the served
-  stage record.
+- `route_trace_id=f"turn_interpretation:{request_id}"` (a log-correlation
+  id, with a `session_id`/`-` fallback) for the structured
+  dispatch/trace lines.
 - `allow_moa=False` per call: the MoA gate can consider a long
   COMPLEX/ADVANCED prompt eligible; one small interpretation must not be
   multiplied into samples plus an aggregator.

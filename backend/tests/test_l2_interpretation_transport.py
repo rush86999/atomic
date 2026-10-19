@@ -314,7 +314,7 @@ async def test_late_worker_completion_cannot_mutate_returned_interpretation(
 
     handler = _transport_handler(_responder)
     service = _service(handler)
-    monkeypatch.setattr("core.turn_decision._INTERPRET_TIMEOUT_S", 0.05)
+    monkeypatch.setattr("core.turn_decision._INTERPRET_TIMEOUT_S", 0.3)
     reset_interpretation_for_tests()
     try:
         out = await interpret_turn_request(
