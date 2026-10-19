@@ -474,8 +474,9 @@ resolved; explicit `unresolved` remains valid without inventing an
 action. Rejections distinguish `no_actions_proposed`,
 `missing_action_kind`, and `invalid_action_kind`. The prompt now tells
 the producer that questions/follow-up comparisons are read-only actions
-too and that `continue` describes the relationship to prior work, not a
-replacement for the action list; policy still decides authorization.
+too, that a resolved scope must include at least one action, and that
+`continue` describes the relationship to prior work, not a replacement
+for the action list; policy still decides authorization.
 
 Capture is now archived: `[turn-interpretation-capture]` content-free
 lines (request id, phase, scope presence/value, action count/kinds,
@@ -485,6 +486,28 @@ path was measured: an empty-action response is rejected and retried; a
 subsequent valid read-only record is accepted (2 HTTP posts), while a
 persistently empty-action record exhausts the finite bound (observed 8
 HTTP posts) and stays unresolved.
+
+### Independent-review repair (same day)
+
+The review found three defects in the first version of this repair:
+
+1. A schema-invalid record made Instructor embed the failed generation
+   in its error text; the formal `"quota"` substring check could then
+   bench a healthy provider for 30 minutes when model-written subject
+   text contained that word (the test subject `"draft quotation"` did).
+   The quota bench and provider-skip branches now explicitly exclude
+   schema/decode failures, and the Pydantic models hide input values.
+2. The new rejection reasons were only available when archival capture
+   was enabled, because the empty schema result had no other shape to
+   classify. The last content-free shape is now always kept in memory
+   for reason mapping and `[turn-interpretation]` telemetry, while the
+   archive/log remains opt-in. Schema rejections also increment the
+   unresolved metric again.
+3. Capture stored `str(raw_scope)[:40]` and arbitrary action-kind text.
+   It now stores only recognized enum values or `<invalid>`/`<missing>`
+   placeholders; a sentinel test proves model text never reaches the
+   log. Dict-seam validation now scans all actions (not only the first
+   eight), and the unreachable `or "conversation"` synthesis was removed.
 
 ## Verification records
 
@@ -502,13 +525,16 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **96 passed** across the interpretation, L2, transport, guard-order, scope/action-contract and
+  **102 passed** across the interpretation, L2, transport, guard-order, scope/action-contract and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **579 passed, 2 failed** — the same two
+  workbook read/comparison) → **584 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
-  (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
+  (`logs/neighbors_diagnostic_repair.log`). The extended budget/fallback
+  suite adds 2 pre-existing `test_turn_budget_rca_fixes` failures,
+  reproduced identically on the parent commit; all other 34 tests there
+  pass. `test_chat_canvas_editor.py`
   has 14 pre-existing failures in this environment, byte-identical on
   the frozen 10982e839 worktree (not caused by this change).
 

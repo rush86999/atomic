@@ -1351,49 +1351,94 @@ _interpret_metrics: Dict[str, Any] = {
 #: message/source content and no credentials.
 _interpret_capture: List[Dict[str, Any]] = []
 _interpret_capture_request_id = ""
+_last_interpret_capture: Dict[str, Any] = {}
 _interpret_capture_lock = threading.Lock()
 
 
+def _capture_enabled() -> bool:
+    return os.getenv("ATOM_TURN_INTERPRET_CAPTURE", "0").lower() in (
+        "1", "on", "true", "yes")
+
+
 def reset_interpret_capture(request_id: str = "") -> None:
-    global _interpret_capture_request_id
+    global _interpret_capture_request_id, _last_interpret_capture
     with _interpret_capture_lock:
         _interpret_capture.clear()
         _interpret_capture_request_id = str(request_id or "")
+        _last_interpret_capture = {}
 
 
 def _record_interpret_capture(
     data: Any, *, phase: str, rejection_reason: str = "",
 ) -> None:
-    if os.getenv("ATOM_TURN_INTERPRET_CAPTURE", "0").lower() not in (
-            "1", "on", "true", "yes"):
-        return
+    """Record a content-free shape sample for the current attempt.
+
+    The last record is always kept in memory so validation failures can
+    be classified even when archival capture is disabled. Only recognized
+    enum values and placeholders are stored; arbitrary model text never
+    enters the record or the log.
+    """
     if not isinstance(data, dict):
         return
+    scope_present = "scope_change" in data
     raw_scope = data.get("scope_change")
-    actions = data.get("actions") or []
-    kinds = []
-    for action in actions[:8]:
-        if isinstance(action, dict):
-            kinds.append(str(action.get("kind") or "")[:40])
+    scope_text = (str(raw_scope).strip().lower()
+                  if raw_scope is not None else None)
+    if not scope_present:
+        scope_value = None
+    elif scope_text in SCOPE_CHANGES:
+        scope_value = scope_text
+    else:
+        scope_value = "<invalid>"
+
+    actions = data.get("actions")
+    action_list = actions if isinstance(actions, list) else []
+    kinds: List[str] = []
+    has_missing_kind = False
+    has_invalid_kind = False
+    for action in action_list[:8]:
+        raw_kind = (action.get("kind")
+                    if isinstance(action, dict) else None)
+        kind = str(raw_kind or "").strip().lower()
+        if not kind:
+            has_missing_kind = True
+            kinds.append("<missing>")
+        elif kind in INTERPRETATION_ACTION_KINDS:
+            kinds.append(kind)
         else:
-            kinds.append(type(action).__name__)
+            has_invalid_kind = True
+            kinds.append("<invalid>")
+    record = {
+        "request_id": _interpret_capture_request_id,
+        "phase": phase,
+        "scope_present": scope_present,
+        "scope_raw": scope_value,
+        "action_count": len(action_list),
+        "action_kinds": kinds,
+        "has_missing_action_kind": has_missing_kind,
+        "has_invalid_action_kind": has_invalid_kind,
+        "rejection_reason": rejection_reason,
+    }
+    global _last_interpret_capture
     with _interpret_capture_lock:
-        _interpret_capture.append({
-            "request_id": _interpret_capture_request_id,
-            "phase": phase,
-            "scope_present": "scope_change" in data,
-            "scope_raw": str(raw_scope)[:40] if raw_scope is not None else None,
-            "action_count": len(actions),
-            "action_kinds": kinds,
-            "rejection_reason": rejection_reason,
-        })
-        _capture_record = dict(_interpret_capture[-1])
+        _last_interpret_capture = dict(record)
+        if not _capture_enabled():
+            return
+        _interpret_capture.append(record)
     try:
         logger.info(
             "[turn-interpretation-capture] %s",
-            json.dumps(_capture_record, sort_keys=True))
+            json.dumps(record, sort_keys=True))
     except Exception:  # noqa: BLE001 — telemetry never raises
         pass
+
+
+def _last_capture_for(request_id: str) -> Dict[str, Any]:
+    with _interpret_capture_lock:
+        record = dict(_last_interpret_capture)
+    if record and record.get("request_id") == request_id:
+        return record
+    return {}
 
 
 def get_interpret_capture() -> List[Dict[str, Any]]:
@@ -1537,7 +1582,9 @@ def _interpretation_prompt(
         "presenting, or consulting evidence (research/presentation/"
         "conversation as appropriate). 'continue' describes the relationship "
         "to prior work; it does not replace the action list. If the request "
-        "cannot be interpreted, return explicit unresolved scope. Specify "
+        "cannot be interpreted, return explicit unresolved scope. A "
+        "resolved scope must include at least one action; use an empty "
+        "actions list only when scope_change is 'unresolved'. Specify "
         "the FULL subject names exactly as the user "
         "means them, EXTERNAL evidence sources requiring consultation "
         "(if the request names a specific source, copy that source's "
@@ -1611,11 +1658,12 @@ async def interpret_turn_request(
         return _unresolved("breaker_open")
 
     try:
-        from pydantic import BaseModel, Field, model_validator
+        from pydantic import BaseModel, ConfigDict, Field, model_validator
     except ImportError:  # pragma: no cover — pydantic always present
         return _unresolved("pydantic_unavailable")
 
     class _ProposedAction(BaseModel):
+        model_config = ConfigDict(hide_input_in_errors=True)
         kind: Literal[
             "research", "learning", "canvas_edit", "calculation",
             "presentation", "conversation",
@@ -1624,6 +1672,7 @@ async def interpret_turn_request(
         note: str = ""
 
     class _Interpretation(BaseModel):
+        model_config = ConfigDict(hide_input_in_errors=True)
         actions: List[_ProposedAction]
         subjects: List[str] = Field(default_factory=list)
         sources: List[str] = Field(
@@ -1696,6 +1745,13 @@ async def interpret_turn_request(
         except Exception:  # noqa: BLE001 — capture is additive
             pass
 
+        def _schema_rejection(reason: str) -> Dict[str, Any]:
+            _interpret_metrics["unresolved"] += 1
+            _emit_interpret(
+                "empty" if reason == "no_actions_proposed"
+                else "unparseable", reason=reason)
+            return _unresolved(reason)
+
         # ROUTE SELECTION FROM THE 2026-10-19 DIAGNOSTIC: the measured
         # compatible interpretation route accepts the reasoning-disable
         # switch and produced a schema-valid record (the cheap
@@ -1737,30 +1793,24 @@ async def interpret_turn_request(
         )
         if result is None:
             try:
-                _captured = [
-                    item for item in get_interpret_capture()
-                    if item.get("request_id") == _interpret_label]
+                _last = _last_capture_for(_interpret_label)
             except Exception:  # noqa: BLE001
-                _captured = []
-            if _captured:
-                _last = _captured[-1]
+                _last = {}
+            if _last:
                 if not _last.get("scope_present"):
-                    return _unresolved("missing_scope")
+                    return _schema_rejection("missing_scope")
                 _captured_scope = str(
                     _last.get("scope_raw") or "").strip().lower()
                 if _captured_scope == "unresolved":
-                    return _unresolved("scope_unresolved")
-                if _captured_scope and _captured_scope not in SCOPE_CHANGES:
-                    return _unresolved("invalid_scope")
-                _captured_kinds = _last.get("action_kinds") or []
-                if any(not str(kind).strip() for kind in _captured_kinds):
-                    return _unresolved("missing_action_kind")
-                if any(str(kind).strip().lower()
-                       not in INTERPRETATION_ACTION_KINDS
-                       for kind in _captured_kinds):
-                    return _unresolved("invalid_action_kind")
+                    return _schema_rejection("scope_unresolved")
+                if _captured_scope not in SCOPE_CHANGES:
+                    return _schema_rejection("invalid_scope")
+                if _last.get("has_missing_action_kind"):
+                    return _schema_rejection("missing_action_kind")
+                if _last.get("has_invalid_action_kind"):
+                    return _schema_rejection("invalid_action_kind")
                 if not _last.get("action_count"):
-                    return _unresolved("no_actions_proposed")
+                    return _schema_rejection("no_actions_proposed")
         if (result is None
                 and LAST_FAILURE.get("label") == _interpret_label
                 and LAST_FAILURE.get("kind")):
@@ -1810,20 +1860,23 @@ async def interpret_turn_request(
     }
     if scope_change not in SCOPE_CHANGES:
         scope_change = _SCOPE_NEAR_MISSES.get(scope_change, "unresolved")
-    raw_actions = [
+    _raw_action_value = data.get("actions")
+    _all_raw_actions = [
         a if isinstance(a, dict)
         else getattr(a, "model_dump", lambda: {})()
-        for a in (data.get("actions") or [])
-    ][:8]
+        for a in (_raw_action_value
+                  if isinstance(_raw_action_value, list) else [])
+    ]
     _action_kinds = [
         str(a.get("kind") or "").strip().lower()
-        for a in raw_actions]
+        for a in _all_raw_actions]
     _bad_action_reason = ""
     if any(not kind for kind in _action_kinds):
         _bad_action_reason = "missing_action_kind"
     elif any(kind not in INTERPRETATION_ACTION_KINDS
              for kind in _action_kinds):
         _bad_action_reason = "invalid_action_kind"
+    raw_actions = _all_raw_actions[:8]
     if _bad_action_reason or not raw_actions or scope_change == "unresolved":
         if not _scope_present:
             reason = "missing_scope"
@@ -1852,7 +1905,7 @@ async def interpret_turn_request(
         (context or {}).get("canvas") or {}).get("canvas_id")
     actions_out: List[Dict[str, Any]] = []
     for a in raw_actions:
-        kind = str(a.get("kind") or "").strip().lower() or "conversation"
+        kind = str(a.get("kind") or "").strip().lower()
         actions_out.append({
             "kind": kind,
             "subjects": [

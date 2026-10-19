@@ -1,0 +1,379 @@
+
+----------------------------- live log collection ------------------------------
+2026-10-19 15:45:47 [    INFO] Dev secret key loaded (persisted for restart survival). Set SECRET_KEY to override.
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [ WARNING] Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog
+[SQL: SELECT model_catalog.model_id AS model_catalog_model_id 
+FROM model_catalog 
+WHERE model_catalog.exclude_from_general_routing = 1]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [ WARNING] Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog
+[SQL: SELECT model_catalog.model_id AS model_catalog_model_id 
+FROM model_catalog 
+WHERE model_catalog.exclude_from_general_routing = 1]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-10-19 15:45:47 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-19 15:45:47 [    INFO] MCP Service initialized
+2026-10-19 15:45:47 [    INFO] ComputerUseAgent initialized for tenant default
+2026-10-19 15:45:47 [ WARNING] Initializing DEPRECATED TokenStorage. Please migrate to ConnectionService.
+2026-10-19 15:45:47 [    INFO] No token storage file found, starting empty
+2026-10-19 15:45:47 [    INFO] WorkflowScheduler using SQLAlchemyJobStore
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [ WARNING] Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog
+[SQL: SELECT model_catalog.model_id AS model_catalog_model_id 
+FROM model_catalog 
+WHERE model_catalog.exclude_from_general_routing = 1]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-10-19 15:45:47 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [ WARNING] Failed to refresh excluded models cache: (sqlite3.OperationalError) no such table: model_catalog
+[SQL: SELECT model_catalog.model_id AS model_catalog_model_id 
+FROM model_catalog 
+WHERE model_catalog.exclude_from_general_routing = 1]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-10-19 15:45:47 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:47 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:47 [    INFO] Loaded 0 persisted sessions from file.
+
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_incident_message_is_edit_shaped_with_canvas 
+-------------------------------- live log setup --------------------------------
+2026-10-19 15:45:47 [    INFO] AgentTaskRegistry initialized
+PASSED                                                                   [  1%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_edit_verbs_without_canvas_stay_ordinary PASSED [  2%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_plain_questions_stay_ordinary_even_on_canvas PASSED [  3%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_common_edit_verbs_are_recognized PASSED [  4%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_task_management_request_is_not_a_canvas_edit PASSED [  5%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_extended_budget_applies PASSED [  6%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_canvas_leg_cap_scales_with_budget_class PASSED [  7%]
+tests/test_turn_budget_rca_fixes.py::TestCanvasEditShapeBudget::test_extended_cap_keeps_the_reply_reserve PASSED [  8%]
+tests/test_turn_budget_rca_fixes.py::TestRestatedApprovalResolution::test_the_incident_message_resolves_to_the_offer_exchange PASSED [ 10%]
+tests/test_turn_budget_rca_fixes.py::TestRestatedApprovalResolution::test_single_shared_word_does_not_ground PASSED [ 11%]
+tests/test_turn_budget_rca_fixes.py::TestRestatedApprovalResolution::test_no_history_stays_direct PASSED [ 12%]
+tests/test_turn_budget_rca_fixes.py::TestRestatedApprovalResolution::test_fulfilled_offer_does_not_ground_a_restatement PASSED [ 13%]
+tests/test_turn_budget_rca_fixes.py::TestPlannerVerdictUsesHistory::test_incident_first_plan_query_is_relevant_with_history PASSED [ 14%]
+tests/test_turn_budget_rca_fixes.py::TestPlannerVerdictUsesHistory::test_query_about_the_offered_subject_needs_history PASSED [ 15%]
+tests/test_turn_budget_rca_fixes.py::TestPlannerVerdictUsesHistory::test_the_stamp_basis_is_real_not_module_unavailable PASSED [ 16%]
+tests/test_turn_budget_rca_fixes.py::test_action_leg_skipped_when_edit_leg_dies_at_bound 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:47 [    INFO] Updated costs for 16 providers from dynamic pricing
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:47 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:47 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-19 15:45:47 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-19 15:45:47 [    INFO] EscalationManager initialized
+2026-10-19 15:45:47 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:47 [    INFO] LocalOnlyGuard initialized
+2026-10-19 15:45:47 [ WARNING] No LLM clients available
+2026-10-19 15:45:47 [    INFO] [turn-interpretation] empty reason=missing_scope
+2026-10-19 15:45:47 [    INFO] [tool-plan] pre-start skipped — the accepted request requires no live evidence and the edit lane owns this turn (self-contained edit)
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-edit leg bounded at 0s (reply-leg share reserved) — falling through to the tool path
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-edit plan: 0.5s
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-action leg skipped — the edit leg died at its bound and no action plan is in flight; the reply leg keeps its share
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+PASSED                                                                   [ 17%]
+tests/test_turn_budget_rca_fixes.py::test_action_leg_runs_when_an_action_task_is_in_flight 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:48 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:48 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:48 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:48 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-19 15:45:48 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:48 [ WARNING] No LLM clients available
+2026-10-19 15:45:48 [    INFO] [turn-interpretation] empty reason=missing_scope
+2026-10-19 15:45:48 [    INFO] [tool-plan] pre-start skipped — the accepted request requires no live evidence and the edit lane owns this turn (self-contained edit)
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-edit leg bounded at 0s (reply-leg share reserved) — falling through to the tool path
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-edit plan: 0.5s
+2026-10-19 15:45:48 [    INFO] [stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)
+PASSED                                                                   [ 18%]
+tests/test_turn_budget_rca_fixes.py::TestBudgetEnvelopeReportsFromTheReceipt::test_landed_write_is_a_confirmation_not_a_budget_failure 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:48 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:48 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:48 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:48 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-19 15:45:48 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-19 15:45:48 [    INFO] EscalationManager initialized
+2026-10-19 15:45:48 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:48 [ WARNING] No LLM clients available
+2026-10-19 15:45:48 [    INFO] [turn-interpretation] empty reason=missing_scope
+2026-10-19 15:45:48 [    INFO] [tool-plan] pre-start skipped — the accepted request requires no live evidence and the edit lane owns this turn (self-contained edit)
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-edit leg bounded at 0s (reply-leg share reserved) — falling through to the tool path
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-edit plan: 0.5s
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-action leg skipped — the edit leg died at its bound and no action plan is in flight; the reply leg keeps its share
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)
+PASSED                                                                   [ 20%]
+tests/test_turn_budget_rca_fixes.py::TestBudgetEnvelopeReportsFromTheReceipt::test_landed_proposal_names_the_approval_flow 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:49 [    INFO] EscalationManager initialized
+2026-10-19 15:45:49 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:49 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:49 [    INFO] EscalationManager initialized
+2026-10-19 15:45:49 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:49 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:49 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:49 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-19 15:45:49 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-19 15:45:49 [    INFO] EscalationManager initialized
+2026-10-19 15:45:49 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:49 [ WARNING] No LLM clients available
+2026-10-19 15:45:49 [    INFO] [turn-interpretation] empty reason=missing_scope
+2026-10-19 15:45:49 [    INFO] [tool-plan] pre-start skipped — the accepted request requires no live evidence and the edit lane owns this turn (self-contained edit)
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-edit leg bounded at 0s (reply-leg share reserved) — falling through to the tool path
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-edit plan: 0.5s
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-action leg skipped — the edit leg died at its bound and no action plan is in flight; the reply leg keeps its share
+2026-10-19 15:45:49 [    INFO] [stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)
+PASSED                                                                   [ 21%]
+tests/test_turn_budget_rca_fixes.py::TestBudgetEnvelopeReportsFromTheReceipt::test_unlanded_write_still_reports_the_budget_failure 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:49 [    INFO] EscalationManager initialized
+2026-10-19 15:45:49 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:49 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:49 [    INFO] EscalationManager initialized
+2026-10-19 15:45:49 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:49 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:49 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:49 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-19 15:45:49 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-19 15:45:49 [    INFO] EscalationManager initialized
+2026-10-19 15:45:49 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:49 [ WARNING] No LLM clients available
+2026-10-19 15:45:49 [    INFO] [turn-interpretation] empty reason=missing_scope
+2026-10-19 15:45:49 [    INFO] [tool-plan] pre-start skipped — the accepted request requires no live evidence and the edit lane owns this turn (self-contained edit)
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-edit leg bounded at 0s (reply-leg share reserved) — falling through to the tool path
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-edit plan: 0.5s
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-action leg skipped — the edit leg died at its bound and no action plan is in flight; the reply leg keeps its share
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)
+PASSED                                                                   [ 22%]
+tests/test_turn_budget_rca_fixes.py::TestBudgetEnvelopeReportsFromTheReceipt::test_background_handoff_is_not_a_bare_failure 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:50 [    INFO] EscalationManager initialized
+2026-10-19 15:45:50 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:50 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-19 15:45:50 [    INFO] EscalationManager initialized
+2026-10-19 15:45:50 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:50 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-19 15:45:50 [    INFO] Slack Enhanced Service initialized
+2026-10-19 15:45:50 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-19 15:45:50 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-19 15:45:50 [    INFO] EscalationManager initialized
+2026-10-19 15:45:50 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:50 [ WARNING] No LLM clients available
+2026-10-19 15:45:50 [    INFO] [turn-interpretation] empty reason=missing_scope
+2026-10-19 15:45:50 [    INFO] [tool-plan] pre-start skipped — the accepted request requires no live evidence and the edit lane owns this turn (self-contained edit)
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-edit leg bounded at 0s (reply-leg share reserved) — falling through to the tool path
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-edit plan: 0.5s
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-action leg skipped — the edit leg died at its bound and no action plan is in flight; the reply leg keeps its share
+2026-10-19 15:45:50 [    INFO] [stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)
+PASSED                                                                   [ 23%]
+tests/test_turn_budget_rca_fixes.py::TestInteractiveReserve::test_reserve_defaults_and_env_override PASSED [ 24%]
+tests/test_turn_budget_rca_fixes.py::TestInteractiveReserve::test_scope_marks_and_resets PASSED [ 25%]
+tests/test_turn_budget_rca_fixes.py::TestInteractiveReserve::test_tasks_spawned_after_reset_are_background_again PASSED [ 26%]
+tests/test_turn_budget_rca_fixes.py::TestBpcAdmissionReserve::test_background_call_skipped_below_reserve 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:50 [    INFO] EscalationManager initialized
+2026-10-19 15:45:50 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:50 [    INFO] Auto-populating pricing cache synchronously...
+2026-10-19 15:45:50 [    INFO] Using cached pricing data
+2026-10-19 15:45:50 [    INFO] Pricing cache populated with 4708 models
+2026-10-19 15:45:50 [ WARNING] BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+2026-10-19 15:45:50 [ WARNING] BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+PASSED                                                                   [ 27%]
+tests/test_turn_budget_rca_fixes.py::TestBpcAdmissionReserve::test_interactive_call_admitted_to_the_floor 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:50 [    INFO] EscalationManager initialized
+2026-10-19 15:45:50 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:50 [ WARNING] BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+2026-10-19 15:45:50 [ WARNING] BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+FAILED                                                                   [ 28%]
+tests/test_turn_budget_rca_fixes.py::TestPairMemoPersistence::test_save_then_reload_round_trips 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:50 [    INFO] pair-constraint memos loaded: 1 temperature, 1 toolchoice, 1 reasoning, 1 logprobs, 1 auth, 1 latency
+PASSED                                                                   [ 30%]
+tests/test_turn_budget_rca_fixes.py::TestPairMemoPersistence::test_missing_file_is_a_cold_start PASSED [ 31%]
+tests/test_turn_budget_rca_fixes.py::TestPairMemoPersistence::test_import_survives_an_existing_memo_file PASSED [ 32%]
+tests/test_turn_budget_rca_fixes.py::TestInteractiveLatencyGate::test_recorder_ewma_and_admission 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:51 [ WARNING] BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+2026-10-19 15:45:51 [ WARNING] BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+PASSED                                                                   [ 33%]
+tests/test_turn_budget_rca_fixes.py::TestInteractiveLatencyGate::test_latency_memos_persist 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] pair-constraint memos loaded: 0 temperature, 0 toolchoice, 0 reasoning, 0 logprobs, 0 auth, 1 latency
+PASSED                                                                   [ 34%]
+tests/test_turn_budget_rca_fixes.py::TestQuotaFailover::test_quota_402_benches_the_provider 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:51 [ WARNING] openrouter benched for 1800s — account-level credit exhaustion; healthy providers take over
+PASSED                                                                   [ 35%]
+tests/test_turn_budget_rca_fixes.py::TestQuotaFailover::test_non_quota_error_does_not_bench 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+PASSED                                                                   [ 36%]
+tests/test_turn_budget_rca_fixes.py::TestQuotaFailover::test_benched_pin_yields_via_cooldown 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+PASSED                                                                   [ 37%]
+tests/test_turn_budget_rca_fixes.py::TestQuotaFailover::test_bench_expires_for_recovery 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+PASSED                                                                   [ 38%]
+tests/test_turn_budget_rca_fixes.py::TestLatencyGateLastResortFailOpen::test_gate_relaxes_when_it_empties_the_pool 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:51 [    INFO] EscalationManager initialized
+2026-10-19 15:45:51 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-19 15:45:51 [ WARNING] BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+2026-10-19 15:45:51 [ WARNING] BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+FAILED                                                                   [ 40%]
+tests/test_fallback_chain_workflow.py::TestChainDetection::test_user_instruction_matches_twice PASSED [ 41%]
+tests/test_fallback_chain_workflow.py::TestChainDetection::test_ordinary_edit_request_does_not_match PASSED [ 42%]
+tests/test_fallback_chain_workflow.py::TestChainDetection::test_people_extraction PASSED [ 43%]
+tests/test_fallback_chain_workflow.py::TestUnresolvedSet::test_none_and_multiple_are_unresolved PASSED [ 44%]
+tests/test_fallback_chain_workflow.py::TestUnresolvedSet::test_no_carrier_is_empty PASSED [ 45%]
+tests/test_fallback_chain_workflow.py::TestEvidencePhase::test_attachment_step_finds_values PASSED [ 46%]
+tests/test_fallback_chain_workflow.py::TestEvidencePhase::test_vendor_mail_step_finds_value PASSED [ 47%]
+tests/test_fallback_chain_workflow.py::TestEvidencePhase::test_no_unresolved_items_short_circuits PASSED [ 48%]
+tests/test_fallback_chain_workflow.py::TestEvidencePhase::test_step_failure_never_raises PASSED [ 50%]
+tests/test_fallback_chain_workflow.py::TestChainReport::test_report_lists_values_and_drafts_ask PASSED [ 51%]
+tests/test_fallback_chain_workflow.py::TestChainReport::test_nothing_to_report_is_empty PASSED [ 52%]
+tests/test_fallback_chain_workflow.py::TestOutcomeSectionChainMerge::test_chain_value_replaces_notfound_line PASSED [ 53%]
+tests/test_fallback_chain_workflow.py::TestCandidateFidelityOrdering::test_exact_match_leads_within_bucket PASSED [ 54%]
+tests/test_fallback_chain_workflow.py::TestCandidateFidelityOrdering::test_no_item_keeps_previous_order PASSED [ 55%]
+tests/test_fallback_chain_workflow.py::TestChainDomainIndependence::test_detection_across_domains PASSED [ 56%]
+tests/test_fallback_chain_workflow.py::TestChainDomainIndependence::test_value_noun_from_users_own_words PASSED [ 57%]
+tests/test_fallback_chain_workflow.py::TestChainDomainIndependence::test_fields_come_from_the_reads_own_request PASSED [ 58%]
+tests/test_fallback_chain_workflow.py::TestChainDomainIndependence::test_accented_and_honorific_people PASSED [ 60%]
+tests/test_fallback_chain_workflow.py::TestChainDomainIndependence::test_report_uses_users_nouns_and_file PASSED [ 61%]
+tests/test_fallback_chain_workflow.py::TestChainDomainIndependence::test_german_basis_still_picks_the_value PASSED [ 62%]
+tests/test_fallback_chain_workflow.py::TestGuardTableExemption::test_table_with_no_match_rows_is_not_a_claim PASSED [ 63%]
+tests/test_fallback_chain_workflow.py::TestGuardTableExemption::test_prose_absence_still_flagged_beside_tables PASSED [ 64%]
+tests/test_fallback_chain_workflow.py::TestGuardTableExemption::test_figure_grounding_counts_canvas_values PASSED [ 65%]
+tests/test_fallback_chain_workflow.py::TestGuardRepresentationIndependence::test_html_table_rows_exempt PASSED [ 66%]
+tests/test_fallback_chain_workflow.py::TestGuardRepresentationIndependence::test_inline_html_table_exempt PASSED [ 67%]
+tests/test_fallback_chain_workflow.py::TestGuardRepresentationIndependence::test_restaurant_and_clinic_tables PASSED [ 68%]
+tests/test_fallback_chain_workflow.py::TestGuardRepresentationIndependence::test_prose_rewrite_keeps_table_intact PASSED [ 70%]
+tests/test_fallback_chain_workflow.py::TestFormulaAvailability::test_outcome_section_renders_formulas PASSED [ 71%]
+tests/test_fallback_chain_workflow.py::TestFormulaAvailability::test_outcome_section_omits_missing_formulas_cleanly PASSED [ 72%]
+tests/test_fallback_chain_workflow.py::TestFormulaAvailability::test_chain_found_carries_formula_into_report PASSED [ 73%]
+tests/test_fallback_chain_workflow.py::TestFormulaAvailability::test_reverify_due_on_missing_sidecar_for_sheet_files PASSED [ 74%]
+tests/test_fallback_chain_workflow.py::test_read_canvas_serves_draft_body_over_empty_shell PASSED [ 75%]
+tests/test_fallback_chain_workflow.py::TestCreditExhaustionRouting::test_quota_cooldown_defaults_to_30_minutes PASSED [ 76%]
+tests/test_fallback_chain_workflow.py::TestCreditExhaustionRouting::test_quota_bench_fires_on_credit_errors 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:52 [ WARNING] openrouter benched for 1800s — account-level credit exhaustion; healthy providers take over
+PASSED                                                                   [ 77%]
+tests/test_fallback_chain_workflow.py::TestTbcCatalogProbe::test_unpriced_rows_detected_domain_free PASSED [ 78%]
+tests/test_fallback_chain_workflow.py::TestTbcCatalogProbe::test_no_unpriced_rows_no_section PASSED [ 80%]
+tests/test_fallback_chain_workflow.py::test_item_code_tokens_reach_the_per_term_pool PASSED [ 81%]
+tests/test_fallback_chain_workflow.py::TestArcIndependence::test_outcome_seek_gates_on_generic_sources PASSED [ 82%]
+tests/test_fallback_chain_workflow.py::TestArcIndependence::test_work_instruction_is_value_family_not_price_only PASSED [ 83%]
+tests/test_fallback_chain_workflow.py::TestArcIndependence::test_tbc_probe_placeholder_family PASSED [ 84%]
+tests/test_fallback_chain_workflow.py::test_search_auto_read_covers_truncated_hits PASSED [ 85%]
+tests/test_fallback_chain_workflow.py::test_inflight_claim_ttl_steals_leaked_claims 
+-------------------------------- live log call ---------------------------------
+2026-10-19 15:45:52 [    INFO] [inflight] opencode-go/kimi-k2.7-code released by '?' after 0.0s
+2026-10-19 15:45:52 [    INFO] [inflight] opencode-go/kimi-k2.7-code claim by '' STEALS expired hold (held 121s)
+2026-10-19 15:45:52 [ WARNING] opencode-go/kimi-k2.7-code inflight claim expired after 121s — stealing (leaked claim)
+2026-10-19 15:45:52 [    INFO] [inflight] opencode-go/kimi-k2.7-code released by '?' after 0.0s
+PASSED                                                                   [ 86%]
+tests/test_fallback_chain_workflow.py::test_na_means_not_applicable_unless_asked_to_fill_all PASSED [ 87%]
+tests/test_fallback_chain_workflow.py::test_negated_edit_vocabulary_is_not_edit_shaped PASSED [ 88%]
+tests/test_fallback_chain_workflow.py::test_lesson_designated_file_resolves_from_teaching PASSED [ 90%]
+tests/test_fallback_chain_workflow.py::TestSweepInjectionControls::test_exclusion_applies_after_injection PASSED [ 91%]
+tests/test_fallback_chain_workflow.py::TestSweepInjectionControls::test_injection_build_skips_cooldown_providers PASSED [ 92%]
+tests/test_fallback_chain_workflow.py::test_required_source_chaining_is_general PASSED [ 93%]
+tests/test_fallback_chain_workflow.py::test_required_sources_derived_from_lessons_not_business_nouns PASSED [ 94%]
+tests/test_fallback_chain_workflow.py::test_consulted_sources_accounting_keys_chain_not_block_emptiness PASSED [ 95%]
+tests/test_fallback_chain_workflow.py::test_canvas_deixis_allows_canvas_anchored_research_lookups PASSED [ 96%]
+tests/test_fallback_chain_workflow.py::test_singleflight_ledger_settle_is_not_gated_on_file_mentions PASSED [ 97%]
+tests/test_fallback_chain_workflow.py::test_search_receipt_separates_dispatch_from_retrieval PASSED [ 98%]
+tests/test_fallback_chain_workflow.py::test_chain_uses_unresolved_work_and_records_its_own_operation PASSED [100%]
+
+=================================== FAILURES ===================================
+E   AssertionError: interactive calls are admitted below the reserve
+    assert []
+------------------------------ Captured log call -------------------------------
+INFO     core.llm.escalation_manager:escalation_manager.py:165 EscalationManager initialized
+INFO     core.llm.cognitive_tier_service:cognitive_tier_service.py:64 CognitiveTierService initialized for workspace: default
+WARNING  core.llm.byok_handler:byok_handler.py:4796 BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+WARNING  core.llm.byok_handler:byok_handler.py:4828 BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend/tests/test_turn_budget_rca_fixes.py:560: AssertionError: interactive calls are admitted below the reserve
+E   AssertionError: no candidates in this environment's catalog
+    assert []
+------------------------------ Captured log call -------------------------------
+INFO     core.llm.escalation_manager:escalation_manager.py:165 EscalationManager initialized
+INFO     core.llm.cognitive_tier_service:cognitive_tier_service.py:64 CognitiveTierService initialized for workspace: default
+WARNING  core.llm.byok_handler:byok_handler.py:4796 BPC cost-priority: NO candidate clears quality floor 85 (task_type=planning) — ranking all 0 candidates by cost
+WARNING  core.llm.byok_handler:byok_handler.py:4828 BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend/tests/test_turn_budget_rca_fixes.py:855: AssertionError: no candidates in this environment's catalog
+=============================== warnings summary ===============================
+../../../../../../../../../Users/rushiparikh/projects/atom/backend/venv314/lib/python3.14/site-packages/_pytest/config/__init__.py:885
+  /Users/rushiparikh/projects/atom/backend/venv314/lib/python3.14/site-packages/_pytest/config/__init__.py:885: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; tests.e2e.fixtures.service_mock_fixtures
+    self.import_plugin(import_spec)
+
+../../../../../../../../../Users/rushiparikh/projects/atom/backend/venv314/lib/python3.14/site-packages/schemathesis/generation/coverage.py:305
+  /Users/rushiparikh/projects/atom/backend/venv314/lib/python3.14/site-packages/schemathesis/generation/coverage.py:305: DeprecationWarning: jsonschema.exceptions.RefResolutionError is deprecated as of version 4.18.0. If you wish to catch potential reference resolution errors, directly catch referencing.exceptions.Unresolvable.
+    ref_error: type[Exception] = jsonschema.RefResolutionError,
+
+core/token_storage.py:17
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend/core/token_storage.py:17: DeprecationWarning: token_storage is deprecated. Use ConnectionService instead.
+    warnings.warn("token_storage is deprecated. Use ConnectionService instead.", DeprecationWarning)
+
+../../../../../../../../../Users/rushiparikh/projects/atom/backend/venv314/lib/python3.14/site-packages/pytest_freezegun.py:17: 180 warnings
+  /Users/rushiparikh/projects/atom/backend/venv314/lib/python3.14/site-packages/pytest_freezegun.py:17: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.
+    if LooseVersion(pytest.__version__) < LooseVersion('3.6.0'):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== WARNING: Low Assertion Density ========================
+  tests/test_provider_registry_api.py: 0.145 (target: 0.15)
+  tests/test_round70_llm_credential_subscription.py: 0.102 (target: 0.15)
+  tests/test_notion_service.py: 0.083 (target: 0.15)
+  tests/test_canvas_training_context.py: 0.127 (target: 0.15)
+  tests/test_user_management_monitoring.py: 0.054 (target: 0.15)
+=========================== short test summary info ============================
+FAILED tests/test_turn_budget_rca_fixes.py::TestBpcAdmissionReserve::test_interactive_call_admitted_to_the_floor
+FAILED tests/test_turn_budget_rca_fixes.py::TestLatencyGateLastResortFailOpen::test_gate_relaxes_when_it_empties_the_pool
+=========================== warnings summary (final) ===========================
+<unknown>:314
+  <unknown>:314: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+
+<unknown>:6
+  <unknown>:6: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:134
+  <unknown>:134: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:944
+  <unknown>:944: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================= 2 failed, 88 passed, 187 warnings in 14.80s ==================

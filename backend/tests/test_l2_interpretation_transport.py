@@ -448,12 +448,21 @@ async def test_real_handler_repeated_empty_actions_exhausts_bound_and_fails():
         "check the approved record", {}, [], {},
         request_id="req-actions-exhaust", llm_service=service)
     assert out["origin"] == "unresolved", out
+    assert out["unresolved_reason"] == "no_actions_proposed", out
     assert out["actions"] == []
     # The real structured path retries validation failures (observed 8
     # HTTP posts for a persistently empty-action record under the mock
     # transport); assert the bound stays finite, not that it is small.
     assert 2 <= len(calls) <= 12, (
         f"the existing retry bound must stay bounded; calls={len(calls)}")
+    # A schema-invalid record is not an account/quota failure: the
+    # provider must not be benched for 30 minutes because model-written
+    # subject text happens to contain "quota" (the test subject is
+    # "draft quotation").
+    from core.llm import byok_handler as bh
+
+    assert LOCAL_PROVIDER not in bh._PROVIDER_COOLDOWN_UNTIL, (
+        "schema validation failure must not bench the provider")
     reset_interpretation_for_tests()
     _clear_pair_memos()
 
