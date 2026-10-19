@@ -122,7 +122,15 @@ reconciled by the evidence cited here.
   malformed output** (`origin=unresolved`, `reason=malformed_output`,
   32.9 s), so the S7 source identity/settlement was not established and
   the complete S3→S7 chain remains **open**. No new full-chain promotion;
-  the S3 correctness claim is added to the evidence.
+  the S3 correctness claim is added to the evidence. **Attempt 8
+  (2026-10-19, `23f3455f7`)** verified the scope contract: the S7
+  response was schema-valid (a missing/invalid scope would now be
+  `missing_scope`/`invalid_scope`) but the model proposed **no actions**
+  (`reason=no_actions_proposed`, 30.5 s), so the requirement was not
+  captured and source identity/settlement remain unestablished. This is
+  the producer action-contract gap, not the old silent scope default or a
+  timeout. S3 passed with the deterministic renderer/terms/coverage
+  behavior. The complete chain remains open; no further promotion.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)

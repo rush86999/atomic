@@ -399,6 +399,23 @@ No new full-chain promotion; L2 remains open. Evidence:
 `journey_matrix/l2_continuation_served_20261019/` (attempt 7,
 `CHECKSUMS_ATTEMPT7`).
 
+**Rev 19 (2026-10-19, L2 scope contract PASSED; S7 producer empty
+actions — chain open).** Candidate **`23f3455f7`** (required five-value
+`scope_change` Literal; distinct `missing_scope`/`invalid_scope`/
+`scope_unresolved`/`no_actions_proposed`; scratch capture; prompt
+distinguishes established-conversation follow-up/continue from
+unfinished-work resume and ambiguous/unresolved; S3 deterministic/
+coverage repair unchanged; focused 87 passed, neighbors 570 passed + 2
+pre-existing) was served on the same S3→S7 job/configuration (port 8103).
+**S3 passed** (renderer alone, verified date, terms/coverage, no global
+claim, zero writes). **S7 did not:** the interpretation was schema-valid
+in scope but proposed **no actions** (`no_actions_proposed`, 30.5 s), so
+the requirement was not captured and source identity/settlement were not
+established. This is the producer action-contract gap, not the old silent
+scope default or a timeout. No new full-chain promotion; L2 remains open.
+Evidence: `journey_matrix/l2_continuation_served_20261019/` (attempt 8,
+`CHECKSUMS_ATTEMPT8`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
