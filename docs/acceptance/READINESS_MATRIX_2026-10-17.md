@@ -295,6 +295,29 @@ the producer correction is unverified by served evidence. Evidence:
 `CHECKSUMS_ATTEMPT2.sha256`). A further served run, an
 interpretation-timeout change, or a model change is an owner decision.
 
+**Rev 15 (2026-10-19, L2 served attempt 3 on the execution-policy
+successor — NOT PASSED, no promotion).** Candidate **`10982e839`**
+(parent `2604dea2d`; producer correction + `disable_reasoning=True`,
+derived 5,500-token budget, `turn_interpretation:<request_id>` trace,
+`allow_moa=False`; 12 s deadline preserved; composer untouched; local
+L2+transport 52 passed, neighbors 339 passed + 2 pre-existing) was served
+in the same predeclared configuration on a fresh port/world (8097). Stage
+record: `dispatch_attempted=true` for both turns — `opencode-go/glm-5.3-flash`
+(S3) and `qwen3.8-flash` (S7), both with `cap=5500` and the
+`turn_interpretation:…` route trace; `completed_within_deadline=false`
+for both (`[structured-cancelled]` at 11.9 s / 12.0 s, no
+`[structured-trace]` for the interpretation routes); `producer_output_valid=false`
+and `source_identity_resolved=false` (not reached). The S7 requirement
+stayed uncaptured (`required=false`), the settlement `unconfirmed`, and
+the S3 narration error recurred (excerpt `2026-12-31`; reply claimed
+`2023-01-01`). Zero writes/draft unchanged and both agreements held;
+`live_db_unchanged=true`; pilot untouched. **No promotion**; L2 remains
+open; the producer correction and the execution-policy change are both
+unverified by served evidence. A further run needs an owner decision on
+the completion budget/model/route (or the declared deadline). Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempts 1–3,
+corrected assessment, `CHECKSUMS_ATTEMPT3`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

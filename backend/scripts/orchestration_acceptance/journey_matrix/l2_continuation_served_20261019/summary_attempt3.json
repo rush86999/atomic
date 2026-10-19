@@ -1,0 +1,134 @@
+{
+  "attempt": "3",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "10982e8390815ee394c853284d5accfd3e3ddee7",
+    "parent": "ddab120c43333efdc219098cba35fdecd9a0988f",
+    "source_sha256_chat_orchestrator": "4e860e7950cf13149772c95c391428a44db46931034c16d75af53dccb30e2287",
+    "source_sha256_turn_decision": "ed9ec40b9a6d0c413bcce5ba13ce027483663b8500abe8b19f4d423400ab2596",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "checks": {
+    "draft_created_through_product": true,
+    "fixture_uploaded_through_product": true,
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "prior_evidence_observed": true,
+    "real_interpretation_dispatched": false,
+    "response_persisted_fresh_history_agreement": true,
+    "runtime_identity": true,
+    "s3_draft_unchanged": true,
+    "s3_reply_received": true,
+    "s3_requirement_captured": true,
+    "s3_settlement_basis": true,
+    "s3_truthful_comparison": false,
+    "s3_zero_canvas_writes": true,
+    "s7_draft_unchanged": true,
+    "s7_reply_received": true,
+    "s7_requirement_captured": false,
+    "s7_resolved_source_identity": false,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "s7_settlement_basis": false,
+    "s7_truthful_comparison": true,
+    "s7_zero_new_writes": true
+  },
+  "classification": "interpretation_not_real_or_not_dispatched",
+  "first_failure": "interpretation_not_real_or_not_dispatched",
+  "observed": {
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "s3": {
+      "execution_id": "d8194d1d-a2b2-489f-a3f7-bcc07a267e50",
+      "message": "I have compared the draft quotation on this canvas with the Approved Record for Quotation Q-2026-114 from your uploaded document.\n\nThe Valid Until dates differ:\n\n* The draft quotation has a Valid Until date of 2026-12-31.\n* The Approved Record specifies a Valid Until date of 2023-01-01 (from the Approved Records \u2014 Quotation Q-2026-114 Source: Sales Operations approved-terms register).\n\nThese values do not match.",
+      "outcome": "partial",
+      "requirement": {
+        "artifact_attached": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "s7": {
+      "context_fulfillment": null,
+      "execution_id": "f659aa3b-4d18-4768-9040-ccd67a0ffa18",
+      "message": "The current \"Valid until\" date on the draft is 2026-12-31. According to the Approved Records document (Quotation Q-2026-114), this matches the approved date in the records. No discrepancy was found.",
+      "outcome": "unconfirmed",
+      "requirement": {
+        "artifact_attached": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": false,
+        "sources": [],
+        "subjects": []
+      },
+      "success": false
+    },
+    "served_log_evidence": {
+      "go_inference_chat_posts": 0,
+      "interpretation_log_lines": [
+        "INFO:core.turn_decision:[turn-interpretation] timeout ",
+        "INFO:core.turn_decision:[turn-interpretation] timeout "
+      ],
+      "structured_dispatch_models": [
+        "opencode-go/glm-5.3-flash",
+        "opencode-go/qwen3.8-flash"
+      ],
+      "zen_chat_posts": 7
+    }
+  },
+  "pass": false,
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG_ATTEMPT3.md",
+    "sha256": "92bb39c8341d0e2233859a6892593e1dda49fa0517a0c5aa227677a7b1ac9e54"
+  },
+  "scope": "Candidate/configuration-bound served claim only; no pilot deployment, no general NL reference-resolution claim, no restart-durability claim.",
+  "stages": {
+    "stage_summary": {
+      "completed_within_deadline": false,
+      "dispatch_attempted": true,
+      "producer_output_valid": false,
+      "source_identity_resolved": false
+    },
+    "turns": {
+      "s3": {
+        "completed_within_deadline": false,
+        "dispatch_attempted": true,
+        "interpretation_origin": "unresolved",
+        "interpretation_sources": [],
+        "interpretation_unresolved_reason": "timeout",
+        "producer_output_valid": false,
+        "request_id": "l2-s3-7cb48b192b4c4c6db6bdd3ebff64a411",
+        "structured_trace_logged": false
+      },
+      "s7": {
+        "completed_within_deadline": false,
+        "dispatch_attempted": true,
+        "interpretation_origin": "unresolved",
+        "interpretation_sources": [],
+        "interpretation_unresolved_reason": "timeout",
+        "producer_output_valid": false,
+        "request_id": "l2-s7-bd0a4eceb6924b6da212d56fdabd659d",
+        "structured_trace_logged": false
+      }
+    }
+  },
+  "status": "NOT_PASSED"
+}

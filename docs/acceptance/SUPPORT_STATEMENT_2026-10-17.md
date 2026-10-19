@@ -92,27 +92,31 @@ reconciled by the evidence cited here.
 - **L2 — continuation ask**: "does it still match the approved record?"
   is answered correctly, but the requirement is **not yet certified with a
   resolved source identity** in the served product. Attempt 1 on
-  **`a6cd2c8ba`** (2026-10-19, predeclared isolated configuration)
-  captured the requirement (`required=true`) but the real interpreter
-  proposed annotated source descriptions and the owner-approved composer
-  preserved the identity as `unresolved` (no substring donation). The
-  bounded **producer correction** on `51628b925` (schema/prompt exact
-  identities; structured `SOURCE REFERENCES` separating observed evidence,
-  requested sources and the attached artifact; supported source kinds;
-  composer untouched; L2 battery 41 passed, neighbors 277 passed + 2
-  pre-existing) has **not** been verified in the served product: attempt 2
-  (same predeclared job, fresh port/world) failed at the interpretation
-  gate — both interpretation calls timed out at the 12 s bound, so the
-  producer correction was never exercised, the S7 requirement stayed
-  uncaptured (`required=false`), and the fallback reply lane returned a
-  wrong approved date in S3 and settled S7 `unconfirmed`; zero writes and
-  draft unchanged held. The live-DB guard also flagged a change during the
-  attempt-2 window (external pilot activity expected; the attempt used
-  only scratch stores). L2 remains open; **no promotion**. Evidence:
-  `journey_matrix/l2_continuation_served_20261019/` (attempt 1 record +
-  `README_ATTEMPT2.md`/`summary_attempt2.json`/`CHECKSUMS_ATTEMPT2`).
-  A further served run, an interpretation-timeout change, or a model
-  change is an owner decision; not deployed to the pilot.
+  **`a6cd2c8ba`** (2026-10-19) captured the requirement (`required=true`)
+  but the real interpreter proposed annotated source descriptions and the
+  owner-approved composer preserved the identity as `unresolved` (no
+  substring donation). The bounded **producer correction**
+  (`51628b925`/`10982e839`: exact identities in schema+prompt,
+  structured `SOURCE REFERENCES`, attached-artifact separation; composer
+  untouched) plus the **execution-policy successor** (`disable_reasoning`,
+  derived 5,500-token budget, `turn_interpretation:<request_id>` trace,
+  `allow_moa=False`; 12 s deadline preserved; local L2+transport 52
+  passed, neighbors 339 passed + 2 pre-existing) have **not** been
+  verified in the served product: attempt 3 (predeclared, fresh
+  port/world) **dispatched both interpretation calls** (cap=5500 and the
+  route trace visible in the served log) but **both were cancelled at the
+  12-second deadline** — the producer output was never exercised, the S7
+  requirement stayed uncaptured (`required=false`), the settlement was
+  `unconfirmed`, and the **S3 narration error recurred** (the excerpt
+  carried `2026-12-31`; the reply claimed the approved record says
+  `2023-01-01`). Attempt 2's live-DB guard failure was later classified
+  as unrelated external pilot activity (attempt writes verified in
+  scratch; live DB contained none of the attempt identities). L2 remains
+  open; **no promotion**. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (attempts 1–3 +
+  corrected assessment). A further run needs an owner decision on the
+  completion budget/model/route or the declared deadline; not deployed to
+  the pilot.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)
