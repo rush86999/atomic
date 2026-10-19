@@ -134,6 +134,34 @@ def test_actual_defect_shape_is_replaced():
         out["reply"]), out["reply"]
 
 
+def test_same_sentence_correct_then_wrong_is_a_contradiction():
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply=("The draft says 2026-12-31 and the approved record says "
+               "2023-01-01, so they differ."),
+        canvas=CANVAS, source_observations=SOURCE_EQUAL,
+        requirement=_requirement())
+    assert out is not None
+    assert out["replaced"] is True, out
+    assert out["contradiction"] is True, out
+    assert "2023-01-01" not in out["reply"]
+
+
+def test_non_extractable_text_field_does_not_trigger_the_guard():
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply="The draft says Net 30.",
+        canvas={"canvas_id": "c", "title": "draft",
+                "content": "Warranty: Net 30\n"},
+        source_observations=[{
+            "file_name": "approved.txt",
+            "field_associations": {"warranty": {"value": "Net 30"}},
+        }],
+        requirement={"required": True, "fields": ["warranty"],
+                     "sources": ["document"]})
+    assert out is None
+
+
 def test_draft_only_question_is_not_replaced():
     """A typed-field question that is not a comparison must not be
     converted into a source limitation."""

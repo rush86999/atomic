@@ -15856,15 +15856,21 @@ class ChatOrchestrator:
                         _verified_comparison = _verified.get("comparison")
                         ai_response["verified_comparison"] = (
                             _verified_comparison)
-                        # The durable outcome consumes the same carrier
-                        # the workbook comparison path uses, so delivered
-                        # text and settlement agree.
-                        if (isinstance(_verified_comparison, dict)
-                                and _execution_id):
-                            session[f"_objective_evidence_{_execution_id}"] = (
-                                _verified_comparison)
                         _coverage = ((_verified_comparison or {}).get(
                             "coverage") or {})
+                        # The durable outcome consumes the same carrier
+                        # the workbook comparison path uses, so delivered
+                        # text and settlement agree. Don't overwrite a
+                        # more complete carrier recorded earlier.
+                        if (isinstance(_verified_comparison, dict)
+                                and _execution_id):
+                            _existing_carrier = session.get(
+                                f"_objective_evidence_{_execution_id}")
+                            if (not _existing_carrier
+                                    or _coverage.get("complete")):
+                                session[
+                                    f"_objective_evidence_{_execution_id}"
+                                ] = _verified_comparison
                         if (_verified.get("replaced")
                                 and _coverage.get("complete")):
                             ai_response["deterministic_delivery"] = True

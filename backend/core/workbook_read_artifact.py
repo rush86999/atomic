@@ -4341,6 +4341,13 @@ def render_workbook_artifact(artifact: Dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+_VERIFIED_COMPARISON_FIELDS = frozenset({
+    "date", "certification_date", "expiration_date",
+    "version", "required_version", "price", "quantity", "weight",
+    "lead_time",
+})
+
+
 def _canvas_body_text(content: Any) -> str:
     if isinstance(content, dict):
         for key in ("content", "body", "canvas_content"):
@@ -4361,11 +4368,14 @@ def _display_text(value: Any) -> str:
 def _field_values_in_text(text: Any, field: str) -> set:
     """Values of one typed field mentioned anywhere in a reply.
 
-    Reuses the canonical field vocabulary's own extractor; a reply that
-    mentions a different value for the field (even alongside the correct
-    one) is a contradiction, not a match."""
+    Reuses the canonical field vocabulary's own extractor on sentence and
+    clause chunks, collecting EVERY mention (a same-sentence correct-first/
+    wrong-second contradiction must not depend on extraction order)."""
     values = set()
-    for chunk in re.split(r"[\n.!?;]", str(text or "")):
+    chunks = re.split(
+        r"[\n.!?;,]|\b(?:and|while|whereas|but|versus|vs\.?)\b",
+        str(text or ""), flags=re.IGNORECASE)
+    for chunk in chunks:
         value = _text_field_value(chunk, field, None)
         if value:
             values.add(str(value).strip())
@@ -4572,6 +4582,8 @@ def verified_comparison_reply(
     verified values."""
     fields = [str(f) for f in ((requirement or {}).get("fields") or [])
               if str(f).strip()]
+    fields = [f for f in fields
+              if _canonical_field_name(f) in _VERIFIED_COMPARISON_FIELDS]
     if not fields or not isinstance(canvas, dict):
         return None
     if not source_observations:
@@ -4587,7 +4599,7 @@ def verified_comparison_reply(
     if not _compare_shaped:
         _compare_shaped = bool(re.search(
             r"\b(?:compare|match|matches|differ|differs|difference|same|"
-            r"consistent|align|discrepan|verify|check|confirm)\w*",
+            r"consistent|align|discrepan|verify)\w*",
             str(message or ""), re.IGNORECASE))
     if not _compare_shaped:
         return None
