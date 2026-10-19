@@ -4620,22 +4620,35 @@ def accepted_comparison_scope(
         values = accepted_request.get(key)
         if isinstance(values, list):
             candidates.extend(str(v) for v in values if str(v or "").strip())
+    _FIELD_SCOPE = re.compile(r"\b(?:fields?|attributes?|comparable)\b",
+                              re.IGNORECASE)
     _NARROWING = re.compile(
-        r"\b(?:do\s+not|don't|only|just|nothing\s+else|except)\b",
+        r"(?:\b(?:do\s+not|don't)\b[^\n]{0,50}"
+        r"\b(?:compare|check|assess|verify|look\s+at)\b)"
+        r"|(?:\b(?:only|just)\b[^\n]{0,30}"
+        r"\b(?:compare|check|assess|verify|look\s+at)\b)"
+        r"|\bnothing\s+else\b|\bexcept\b",
         re.IGNORECASE)
     _UNIVERSAL = re.compile(
         r"\b(?:anything|everything|all|every|other|remaining|additional|"
         r"any)\b", re.IGNORECASE)
-    if not (comparison_request_shaped(message)
-            or any(comparison_request_shaped(text)
-                   for text in candidates)):
+    _BROAD_DIFFERENCE = re.compile(
+        r"\b(?:flag|find|identify|report|show|list|highlight)\b"
+        r"[^\n]{0,40}\b(?:differences?|discrepanc(?:y|ies))\b",
+        re.IGNORECASE)
+    relevant = [
+        text for text in candidates
+        if comparison_request_shaped(text) or _FIELD_SCOPE.search(text)]
+    if not relevant:
         return False
-    for text in candidates:
-        if _NARROWING.search(text):
-            continue
-        if _UNIVERSAL.search(text):
-            return True
-    return False
+    # Narrowing wins even when another accepted constraint also asks for
+    # universal coverage: "flag anything" + "only compare the date" is a
+    # narrowed request.
+    if any(_NARROWING.search(text) for text in relevant):
+        return False
+    return any(
+        _UNIVERSAL.search(text) or _BROAD_DIFFERENCE.search(text)
+        for text in relevant)
 
 
 def verified_comparison_reply(

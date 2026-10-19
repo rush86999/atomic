@@ -153,8 +153,10 @@ def test_complete_search_receipt_does_not_erase_comparison_gaps():
     comparison gaps that belong to the same request. Mutation control:
     restoring ``and not validated`` on the context-fulfillment block makes
     this resolve ``completed`` with empty open_work."""
+    req = _requirement(artifact_attached=True)
+    req["broader_comparison"] = True
     session = _session(
-        requirement=_requirement(artifact_attached=True),
+        requirement=req,
         **{
             f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
             f"_planner_tool_receipts_{EXEC}": [_complete_search_receipt()],
@@ -672,6 +674,37 @@ def test_stash_uses_accepted_constraints_for_broader_comparison():
         })
     assert narrowed["broader_comparison"] is False, narrowed
 
+    just_broad = co._stash_evidence_requirement(
+        {"id": "s-just-broad"}, "exec-just-broad", decision, broad_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Just flag anything that differs."],
+            "requested_fields": ["Valid until date"],
+        })
+    assert just_broad["broader_comparison"] is True, just_broad
+
+    differences = co._stash_evidence_requirement(
+        {"id": "s-differences"}, "exec-differences", decision, broad_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Flag differences."],
+            "requested_fields": ["Valid until date"],
+        })
+    assert differences["broader_comparison"] is True, differences
+
+    mixed = co._stash_evidence_requirement(
+        {"id": "s-mixed"}, "exec-mixed", decision, broad_message, True,
+        workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Flag anything that differs.",
+                            "Only compare the valid until date."],
+            "requested_fields": ["Valid until date"],
+        })
+    assert mixed["broader_comparison"] is False, mixed
+
     degraded = co._stash_evidence_requirement(
         {"id": "s-degraded"}, "exec-degraded", decision, broad_message, True,
         workspace_id=WS, canvas_attached=True,
@@ -892,8 +925,10 @@ def test_builder_does_not_certify_a_comparison_from_a_search_receipt():
 
     TestSession, original, db_module, engine = _scratch_db()
     try:
+        _req = _requirement(artifact_attached=True)
+        _req["broader_comparison"] = True
         session = _session(
-            requirement=_requirement(artifact_attached=True),
+            requirement=_req,
             **{
                 f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
                 f"_planner_tool_receipts_{EXEC}": [
@@ -969,9 +1004,15 @@ def test_builder_rejects_completed_envelope_with_partial_comparison():
 
     TestSession, original, db_module, engine = _scratch_db()
     try:
+        _req = _requirement(artifact_attached=True)
+        _req["broader_comparison"] = True
         session = _session(
-            requirement=_requirement(artifact_attached=True),
-            **{f"_objective_evidence_{EXEC}": _partial_comparison_carrier()})
+            requirement=_req,
+            **{
+                f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
+                f"_planner_tool_receipts_{EXEC}": [
+                    _complete_search_receipt()],
+            })
         recorded = {"state": "completed", "delivered": True,
                     "execution_ids": [EXEC], "open_work": []}
         response = {"_recorded_outcome": recorded,
@@ -1061,6 +1102,25 @@ def test_builder_deterministic_retrieval_requires_completed_recorded_outcome():
     finally:
         db_module.engine, db_module.SessionLocal, db_module.get_db = original
         engine.dispose()
+
+
+def test_extra_unrequested_field_gap_does_not_make_a_narrow_request_partial():
+    req = _requirement(artifact_attached=True)
+    carrier = {"coverage": {
+        "outcome_count": 2, "request_complete": False, "complete": False,
+        "requested_fields": ["expiration_date", "price"],
+        "outcomes": [
+            {"field": "expiration_date", "status": "comparable_match",
+             "reasons": []},
+            {"field": "price", "status": "field_missing",
+             "reasons": ["field_missing"]},
+        ]}}
+    session = _session(
+        requirement=req,
+        **{f"_objective_evidence_{EXEC}": carrier})
+    out = _resolve(session)
+    assert out["state"] == "completed", out
+    assert out["open_work"] == []
 
 
 def test_price_only_comparison_cannot_satisfy_a_date_request():

@@ -575,11 +575,11 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **151 passed** across the interpretation, L2, transport, guard-order, scope/action-contract, context-fulfillment and
+  **152 passed** across the interpretation, L2, transport, guard-order, scope/action-contract, context-fulfillment and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **598 passed, 2 failed** — the same two
+  workbook read/comparison) → **599 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). The extended budget/fallback
   suite adds 2 pre-existing `test_turn_budget_rca_fixes` failures,

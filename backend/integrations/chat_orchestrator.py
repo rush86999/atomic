@@ -5898,6 +5898,39 @@ def _comparison_carrier_covers_fields(
     return bool(wanted) and wanted <= carrier_fields
 
 
+def _comparison_carrier_request_complete(
+    carrier: Any, requested_fields: Sequence[str],
+) -> bool:
+    """Whether the carrier delivered every requested field's outcome.
+
+    Unlike ``_comparison_carrier_complete``, extra unrequested fields do
+    not make a narrow request partial. The carrier must still bind the
+    requested fields (``_comparison_carrier_covers_fields``) and every
+    requested field's outcome must be covered.
+    """
+    if not isinstance(carrier, dict) or not requested_fields:
+        return False
+    if not _comparison_carrier_covers_fields(carrier, requested_fields):
+        return False
+    coverage = carrier.get("coverage") or {}
+    outcomes = [o for o in (coverage.get("outcomes") or [])
+                if isinstance(o, dict)]
+    by_field = {
+        str(o.get("field") or "").strip().lower(): o
+        for o in outcomes if str(o.get("field") or "").strip()}
+    for field in requested_fields:
+        key = str(field).strip().lower()
+        outcome = by_field.get(key)
+        if not outcome:
+            return False
+        status = str(outcome.get("status") or "unresolved")
+        reasons = {str(r) for r in (outcome.get("reasons") or [])}
+        if (status in _COMPARISON_UNCOVERED_STATUSES
+                or ({"field_missing", "evidence_missing"} & reasons)):
+            return False
+    return True
+
+
 def _comparison_carrier_complete(carrier: Any) -> bool:
     """Whether a recorded comparison carrier covers every compared field.
 
@@ -6214,7 +6247,11 @@ def _context_backed_fulfillment(
                     str(o.get("field") or "").strip().lower()
                     for o in _carrier_outcomes
                     if str(o.get("field") or "").strip()}
-            if (not _comparison_carrier_complete(_carrier)
+            if (not (
+                    _comparison_carrier_complete(_carrier)
+                    if req.get("broader_comparison")
+                    else _comparison_carrier_request_complete(
+                        _carrier, fields))
                     or not _comparison_carrier_covers_fields(
                         _carrier, fields)):
                 # both inputs available ≠ the comparison was performed.
@@ -8325,7 +8362,12 @@ class ChatOrchestrator:
             comparison_complete = bool(
                 comparison_total
                 and comparison_covered == comparison_total
-                and _comparison_carrier_complete(comparison)
+                and (
+                    _comparison_carrier_complete(comparison)
+                    if (_req_for_comparison or {}).get(
+                        "broader_comparison")
+                    else _comparison_carrier_request_complete(
+                        comparison, _req_fields_for_comparison))
                 and _comparison_carrier_covers_fields(
                     comparison, _req_fields_for_comparison)
             )
