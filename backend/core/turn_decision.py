@@ -97,6 +97,12 @@ INTERPRETATION_SCHEMA = "turn-interpretation-1"
 #: output, no available model). An unresolved interpretation NEVER
 #: authorizes guessed work — callers keep the deterministic floor.
 SCOPE_CHANGES = ("replace", "extend", "subset", "continue", "unresolved")
+#: The authoritative interpretation action vocabulary (same kinds the
+#: authorization policy and prompt already use).
+INTERPRETATION_ACTION_KINDS = (
+    "research", "learning", "canvas_edit", "calculation",
+    "presentation", "conversation",
+)
 
 # A negated edit command. "Research this; don't change the draft" carries
 # an edit verb + artifact and would ground an instruction by the verb
@@ -1381,6 +1387,13 @@ def _record_interpret_capture(
             "action_kinds": kinds,
             "rejection_reason": rejection_reason,
         })
+        _capture_record = dict(_interpret_capture[-1])
+    try:
+        logger.info(
+            "[turn-interpretation-capture] %s",
+            json.dumps(_capture_record, sort_keys=True))
+    except Exception:  # noqa: BLE001 — telemetry never raises
+        pass
 
 
 def get_interpret_capture() -> List[Dict[str, Any]]:
@@ -1519,7 +1532,13 @@ def _interpretation_prompt(
     parts.append(
         "Interpret the REQUEST. Propose: actions (research / learning / "
         "canvas_edit / calculation / presentation / conversation — more "
-        "than one allowed), the FULL subject names exactly as the user "
+        "than one allowed). Questions and follow-up comparisons are actions "
+        "too: propose the applicable read-only action for answering, "
+        "presenting, or consulting evidence (research/presentation/"
+        "conversation as appropriate). 'continue' describes the relationship "
+        "to prior work; it does not replace the action list. If the request "
+        "cannot be interpreted, return explicit unresolved scope. Specify "
+        "the FULL subject names exactly as the user "
         "means them, EXTERNAL evidence sources requiring consultation "
         "(if the request names a specific source, copy that source's "
         "complete filename/name exactly; for a prior observed source, copy "
@@ -1597,12 +1616,15 @@ async def interpret_turn_request(
         return _unresolved("pydantic_unavailable")
 
     class _ProposedAction(BaseModel):
-        kind: str = "conversation"
+        kind: Literal[
+            "research", "learning", "canvas_edit", "calculation",
+            "presentation", "conversation",
+        ]
         subjects: List[str] = Field(default_factory=list)
         note: str = ""
 
     class _Interpretation(BaseModel):
-        actions: List[_ProposedAction] = Field(default_factory=list)
+        actions: List[_ProposedAction]
         subjects: List[str] = Field(default_factory=list)
         sources: List[str] = Field(
             default_factory=list,
@@ -1636,6 +1658,13 @@ async def interpret_turn_request(
             except Exception:  # noqa: BLE001 — capture is additive
                 pass
             return data
+
+        @model_validator(mode="after")
+        def _require_action_for_resolved_scope(self):
+            if self.scope_change != "unresolved" and not self.actions:
+                raise ValueError(
+                    "Resolved interpretation requires an explicit action.")
+            return self
 
     if llm_service is None:
         try:
@@ -1723,6 +1752,13 @@ async def interpret_turn_request(
                     return _unresolved("scope_unresolved")
                 if _captured_scope and _captured_scope not in SCOPE_CHANGES:
                     return _unresolved("invalid_scope")
+                _captured_kinds = _last.get("action_kinds") or []
+                if any(not str(kind).strip() for kind in _captured_kinds):
+                    return _unresolved("missing_action_kind")
+                if any(str(kind).strip().lower()
+                       not in INTERPRETATION_ACTION_KINDS
+                       for kind in _captured_kinds):
+                    return _unresolved("invalid_action_kind")
                 if not _last.get("action_count"):
                     return _unresolved("no_actions_proposed")
         if (result is None
@@ -1779,7 +1815,16 @@ async def interpret_turn_request(
         else getattr(a, "model_dump", lambda: {})()
         for a in (data.get("actions") or [])
     ][:8]
-    if not raw_actions or scope_change == "unresolved":
+    _action_kinds = [
+        str(a.get("kind") or "").strip().lower()
+        for a in raw_actions]
+    _bad_action_reason = ""
+    if any(not kind for kind in _action_kinds):
+        _bad_action_reason = "missing_action_kind"
+    elif any(kind not in INTERPRETATION_ACTION_KINDS
+             for kind in _action_kinds):
+        _bad_action_reason = "invalid_action_kind"
+    if _bad_action_reason or not raw_actions or scope_change == "unresolved":
         if not _scope_present:
             reason = "missing_scope"
         elif _scope_raw_text == "unresolved":
@@ -1787,6 +1832,8 @@ async def interpret_turn_request(
         elif (_scope_raw_text not in SCOPE_CHANGES
               and scope_change == "unresolved"):
             reason = "invalid_scope"
+        elif _bad_action_reason:
+            reason = _bad_action_reason
         elif not raw_actions:
             reason = "no_actions_proposed"
         else:

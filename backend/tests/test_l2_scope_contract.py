@@ -97,6 +97,69 @@ async def test_no_actions_is_its_own_reason(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_valid_scope_with_empty_actions_is_rejected(monkeypatch):
+    monkeypatch.setenv("ATOM_TURN_INTERPRET_CAPTURE", "1")
+    out = await _run(_payload(scope="continue", actions=[]))
+    assert out["origin"] == "unresolved"
+    assert out["unresolved_reason"] == "no_actions_proposed", out
+
+
+@pytest.mark.asyncio
+async def test_omitted_actions_is_rejected(monkeypatch):
+    monkeypatch.setenv("ATOM_TURN_INTERPRET_CAPTURE", "1")
+    payload = _payload(scope="continue")
+    payload.pop("actions")
+    out = await _run(payload)
+    assert out["origin"] == "unresolved"
+    assert out["unresolved_reason"] == "no_actions_proposed", out
+
+
+@pytest.mark.asyncio
+async def test_missing_action_kind_is_rejected(monkeypatch):
+    monkeypatch.setenv("ATOM_TURN_INTERPRET_CAPTURE", "1")
+    out = await _run(_payload(
+        scope="continue", actions=[{"subjects": ["draft"]}]))
+    assert out["origin"] == "unresolved"
+    assert out["unresolved_reason"] == "missing_action_kind", out
+
+
+@pytest.mark.asyncio
+async def test_unknown_action_kind_is_rejected(monkeypatch):
+    monkeypatch.setenv("ATOM_TURN_INTERPRET_CAPTURE", "1")
+    out = await _run(_payload(
+        scope="continue", actions=[{"kind": "write", "subjects": []}]))
+    assert out["origin"] == "unresolved"
+    assert out["unresolved_reason"] == "invalid_action_kind", out
+
+
+@pytest.mark.asyncio
+async def test_explicit_unresolved_without_action_remains_valid_uncertainty(
+        monkeypatch):
+    monkeypatch.setenv("ATOM_TURN_INTERPRET_CAPTURE", "1")
+    out = await _run(_payload(scope="unresolved", actions=[]))
+    assert out["origin"] == "unresolved"
+    assert out["unresolved_reason"] == "scope_unresolved", out
+
+
+@pytest.mark.asyncio
+async def test_capture_is_logged_for_archive(monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setenv("ATOM_TURN_INTERPRET_CAPTURE", "1")
+    caplog.set_level(logging.INFO, logger="core.turn_decision")
+    out = await _run(_payload(scope="continue", actions=[]))
+    assert out["unresolved_reason"] == "no_actions_proposed"
+    capture_lines = [
+        record.getMessage() for record in caplog.records
+        if "[turn-interpretation-capture]" in record.getMessage()]
+    assert capture_lines, "capture must be logged for the archived run"
+    assert "scope_raw" in capture_lines[-1]
+    assert "action_kinds" in capture_lines[-1]
+    assert "message" not in capture_lines[-1].lower()
+    assert "authorization" not in capture_lines[-1].lower()
+
+
+@pytest.mark.asyncio
 async def test_valid_continue_scope_passes_the_producer():
     out = await _run(_payload(scope="continue"))
     assert out["origin"].startswith("llm"), out

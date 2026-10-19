@@ -384,6 +384,80 @@ async def test_interpretation_pins_measured_route_with_unpinned_fallback():
     reset_interpretation_for_tests()
 
 
+@pytest.mark.asyncio
+async def test_real_handler_rejects_empty_actions_then_accepts_valid():
+    """The schema is enforced by the real structured path; an empty-action
+    first response must not be accepted, and a subsequent valid read-only
+    record (if the transport retries) is usable."""
+    from core.turn_decision import (
+        interpret_turn_request,
+        reset_interpretation_for_tests,
+    )
+    from tests.test_llm_service_task_type_forwarding import _service
+
+    _clear_pair_memos()
+    calls: list[dict] = []
+    empty = _valid_interpretation_content()
+    empty["actions"] = []
+    valid = _valid_interpretation_content()
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append(body)
+        content = empty if len(calls) == 1 else valid
+        return httpx.Response(200, json=_completion_body(body, content))
+
+    handler = _transport_handler(_responder)
+    service = _service(handler)
+    reset_interpretation_for_tests()
+    out = await interpret_turn_request(
+        "check the approved record", {}, [], {},
+        request_id="req-actions", llm_service=service)
+    # The real structured path must reject the empty-action record and
+    # use the subsequent valid read-only interpretation.
+    assert out["origin"].startswith("llm"), out
+    assert out["scope_change"] == "continue", out
+    assert out["actions"], out
+    assert len(calls) >= 2, calls
+    reset_interpretation_for_tests()
+    _clear_pair_memos()
+
+
+@pytest.mark.asyncio
+async def test_real_handler_repeated_empty_actions_exhausts_bound_and_fails():
+    from core.turn_decision import (
+        interpret_turn_request,
+        reset_interpretation_for_tests,
+    )
+    from tests.test_llm_service_task_type_forwarding import _service
+
+    _clear_pair_memos()
+    calls: list[dict] = []
+    empty = _valid_interpretation_content()
+    empty["actions"] = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append(body)
+        return httpx.Response(200, json=_completion_body(body, empty))
+
+    handler = _transport_handler(_responder)
+    service = _service(handler)
+    reset_interpretation_for_tests()
+    out = await interpret_turn_request(
+        "check the approved record", {}, [], {},
+        request_id="req-actions-exhaust", llm_service=service)
+    assert out["origin"] == "unresolved", out
+    assert out["actions"] == []
+    # The real structured path retries validation failures (observed 8
+    # HTTP posts for a persistently empty-action record under the mock
+    # transport); assert the bound stays finite, not that it is small.
+    assert 2 <= len(calls) <= 12, (
+        f"the existing retry bound must stay bounded; calls={len(calls)}")
+    reset_interpretation_for_tests()
+    _clear_pair_memos()
+
+
 def test_interpretation_moa_gate_can_fire_but_is_opted_out_by_call():
     from core.llm.byok_handler import QueryComplexity
 

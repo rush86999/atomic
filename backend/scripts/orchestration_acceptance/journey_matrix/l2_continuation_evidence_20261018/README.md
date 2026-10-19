@@ -462,6 +462,30 @@ established conversation subject (continue, even when the prior turn
 completed) from resuming unfinished work and from genuinely ambiguous
 references; uncertainty is never mapped to continue.
 
+## Action-contract repair (2026-10-19) — S7 producer
+
+The same schema-to-consumer mismatch class remained for actions:
+`actions` had a silent empty default and action `kind` defaulted to
+conversation. The schema now requires `actions`, requires every action's
+`kind` from the authoritative six-kind vocabulary
+(research/learning/canvas_edit/calculation/presentation/conversation),
+and an after-validator requires at least one action when the scope is
+resolved; explicit `unresolved` remains valid without inventing an
+action. Rejections distinguish `no_actions_proposed`,
+`missing_action_kind`, and `invalid_action_kind`. The prompt now tells
+the producer that questions/follow-up comparisons are read-only actions
+too and that `continue` describes the relationship to prior work, not a
+replacement for the action list; policy still decides authorization.
+
+Capture is now archived: `[turn-interpretation-capture]` content-free
+lines (request id, phase, scope presence/value, action count/kinds,
+rejection reason) are logged when enabled, and the bounded diagnostic
+writes the in-process capture list into its result. The real structured
+path was measured: an empty-action response is rejected and retried; a
+subsequent valid read-only record is accepted (2 HTTP posts), while a
+persistently empty-action record exhausts the finite bound (observed 8
+HTTP posts) and stays unresolved.
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
@@ -478,11 +502,11 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **87 passed** across the interpretation, L2, transport, guard-order, scope-contract and
+  **96 passed** across the interpretation, L2, transport, guard-order, scope/action-contract and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **570 passed, 2 failed** — the same two
+  workbook read/comparison) → **579 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
   has 14 pre-existing failures in this environment, byte-identical on
