@@ -340,6 +340,50 @@ async def test_late_worker_completion_cannot_mutate_returned_interpretation(
     _clear_pair_memos()
 
 
+@pytest.mark.asyncio
+async def test_interpretation_pins_measured_route_with_unpinned_fallback():
+    """The diagnostic-selected route is a preference: the pin is tried
+    first, and a failed pin retries unpinned while excluding that route."""
+    from core.turn_decision import (
+        interpret_turn_request,
+        reset_interpretation_for_tests,
+    )
+
+    class _PinRecordingService:
+        def __init__(self):
+            self.calls: list[dict] = []
+            self._handler = type(
+                "H", (), {"clients": {"opencode-go": object()}})()
+
+        def _get_handler(self):
+            return self._handler
+
+        async def generate_structured_response(self, **kwargs):
+            self.calls.append(kwargs)
+            if kwargs.get("provider_model"):
+                return None  # the pinned attempt yields nothing
+            return _valid_interpretation_content()
+
+    service = _PinRecordingService()
+    reset_interpretation_for_tests()
+    out = await interpret_turn_request(
+        "check the approved record", {}, [], {},
+        request_id="req-pin", llm_service=service)
+
+    assert out["origin"].startswith("llm"), out
+    assert out["sources"] == ["approved_records_q2026_114.txt"], out
+    assert len(service.calls) == 2, service.calls
+    first, second = service.calls
+    assert first.get("provider_model") == ("opencode-go", "qwen3.8-flash")
+    assert second.get("provider_model") is None
+    assert second.get("exclude_provider_model") == (
+        "opencode-go", "qwen3.8-flash")
+    assert second.get("max_tokens") == 5500
+    assert second.get("disable_reasoning") is True
+    assert second.get("allow_moa") is False
+    reset_interpretation_for_tests()
+
+
 def test_interpretation_moa_gate_can_fire_but_is_opted_out_by_call():
     from core.llm.byok_handler import QueryComplexity
 

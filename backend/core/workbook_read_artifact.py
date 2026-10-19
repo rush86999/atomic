@@ -4325,3 +4325,270 @@ def render_workbook_artifact(artifact: Dict[str, Any]) -> str:
     if not coverage.get("complete", False):
         lines.append("WORKBOOK COVERAGE: INCOMPLETE")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# VERIFIED-FIELD COMPARISON REPLY (L2 narration defect, 2026-10-19)
+#
+# The served S3 comparison reply claimed a wrong approved date twice while
+# the retrieved excerpt carried the correct guarded field. The typed-field
+# machinery above can represent the values; these helpers adapt the
+# document/canvas case to it and render a deterministic, user-facing
+# comparison so free-form narration cannot replace verified values.
+# No date-specific rule: every value comes from the typed field vocabulary
+# (`_canonical_field_name` / `_text_field_value`) or the assembler's
+# recorded `field_associations`.
+# ---------------------------------------------------------------------------
+
+
+def _canvas_body_text(content: Any) -> str:
+    if isinstance(content, dict):
+        value = content.get("content")
+        if isinstance(value, str):
+            return value
+        return json.dumps(content, ensure_ascii=False, default=str)
+    if isinstance(content, str):
+        return content
+    return json.dumps(content, ensure_ascii=False, default=str)
+
+
+def observations_from_key_value_text(
+    text: str,
+    *,
+    entity_id: str,
+    requested_fields: Sequence[str],
+    source: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Typed observations from a single-entity key/value text (canvas).
+
+    Reuses the same field vocabulary and value extractors as the workbook
+    paths; a line is only read as a field when its label maps to a
+    requested canonical field and the extractor returns a value."""
+    fields = {_canonical_field_name(f) for f in requested_fields or []}
+    source_data = dict(source or {})
+    source_id = str(source_data.get("source_id") or "text-source")
+    source_data.setdefault("source_type", "artifact")
+    source_data.setdefault("version", source_id)
+    out: List[Dict[str, Any]] = []
+    for line_number, line in enumerate(str(text or "").splitlines(), start=1):
+        match = re.match(
+            r"\s*([A-Za-z][A-Za-z0-9 _()/.-]{0,60}?)\s*[:=]\s*(.+?)\s*$",
+            line)
+        if not match:
+            continue
+        label = match.group(1).strip()
+        value_text = match.group(2)
+        field = _canonical_field_name(label)
+        line_entity = entity_id
+        if field not in fields:
+            # A subject may ride the label ("Machine A valid until: ..."):
+            # try the longest trailing field-alias phrase and keep the
+            # prefix as the subject. Still no date/field-specific rule —
+            # the same canonical vocabulary decides.
+            words = label.split()
+            field = ""
+            for take in range(min(6, len(words)), 0, -1):
+                candidate = " ".join(words[-take:])
+                candidate_field = _canonical_field_name(candidate)
+                if candidate_field in fields:
+                    field = candidate_field
+                    prefix = " ".join(words[:-take]).strip()
+                    if prefix:
+                        line_entity = prefix
+                    break
+        if field not in fields:
+            continue
+        raw_value = _text_field_value(value_text, field, None)
+        if not raw_value:
+            continue
+        out.append(_normalise_comparison_observation({
+            "observation_id": (
+                f"{source_id}:{line_number}:{line_entity}:{field}"),
+            "entity_id": line_entity,
+            "field": field,
+            "raw_value": raw_value,
+            "field_meaning": field,
+            "source": {**source_data, "source_id": source_id},
+            "locator": {"line": line_number, "source_id": source_id},
+            "verification": "verified",
+        }))
+    return out
+
+
+def observations_from_field_associations(
+    entries: Sequence[Dict[str, Any]],
+    *,
+    entity_id: str,
+    requested_fields: Sequence[str],
+) -> List[Dict[str, Any]]:
+    """Typed observations from the assembler's recorded associations.
+
+    ``field_associations`` is the F-C2 verified evidence carrier
+    (anchor -> value -> span); only associations with a value become
+    observations, so a missing value stays missing (no invented match)."""
+    fields = [str(f) for f in requested_fields or [] if str(f).strip()]
+    out: List[Dict[str, Any]] = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        assoc_map = entry.get("field_associations")
+        if not isinstance(assoc_map, dict):
+            continue
+        file_name = str(entry.get("file_name") or entry.get("title") or "")
+        source_id = str(
+            entry.get("source_id") or entry.get("observation_id")
+            or file_name or "source")
+        for field in fields:
+            key = field if field in assoc_map else _canonical_field_name(field)
+            association = assoc_map.get(key)
+            if not isinstance(association, dict) or not association.get("value"):
+                continue
+            out.append(_normalise_comparison_observation({
+                "observation_id": f"{source_id}:{entity_id}:{field}",
+                "entity_id": entity_id,
+                "field": field,
+                "raw_value": association.get("value"),
+                "field_meaning": field,
+                "subject": association.get("subject"),
+                "source": {
+                    "source_id": file_name or source_id,
+                    "source_type": entry.get("source") or "ingested",
+                    "version": entry.get("content_hash") or file_name
+                    or source_id,
+                },
+                "verification": "verified",
+            }))
+    return out
+
+
+def render_verified_comparison_reply(
+    comparison: Dict[str, Any], *, artifact_source_id: str,
+    source_label: Optional[str] = None,
+) -> str:
+    """Deterministic user-facing text for a verified field comparison."""
+    if not comparison:
+        return ""
+    coverage = comparison.get("coverage") or {}
+    outcomes = [o for o in (coverage.get("outcomes") or [])
+                if isinstance(o, dict)]
+    if not outcomes:
+        return ""
+    lines = [
+        "Verified comparison (the values below are read directly from the "
+        "retrieved source; wording does not replace them):"
+    ]
+    for outcome in outcomes:
+        field = _comparison_text(outcome.get("field")).replace("_", " ")
+        target = _comparison_text(outcome.get("entity_id"))
+        target_prefix = f"{target} / " if target else ""
+        status = str(outcome.get("status") or "unresolved")
+        evidence = [e for e in (outcome.get("evidence") or [])
+                    if isinstance(e, dict)]
+        draft = next(
+            (e for e in evidence
+             if _comparison_text(e.get("source", {}).get("source_id"))
+             == _comparison_text(artifact_source_id)), None)
+        source_entry = next(
+            (e for e in evidence
+             if _comparison_text(e.get("source", {}).get("source_id"))
+             != _comparison_text(artifact_source_id)), None)
+        source_name = (
+            _comparison_text(source_entry.get("source", {}).get("source_id"))
+            if source_entry else "")
+        draft_value = (_comparison_text(draft.get("raw_value"))
+                       if draft else "")
+        source_value = (_comparison_text(source_entry.get("raw_value"))
+                        if source_entry else "")
+        if status == "comparable_match" and draft_value and source_value:
+            lines.append(
+                f"- {target_prefix}{field}: draft {draft_value} = "
+                f"{source_name} {source_value} (match)")
+        elif status in {"comparable_changed", "numeric_changed_incomparable"} \
+                and draft_value and source_value:
+            lines.append(
+                f"- {target_prefix}{field}: draft {draft_value} vs "
+                f"{source_name} {source_value} (difference)")
+        elif status == "numeric_match_incomparable" \
+                and draft_value and source_value:
+            lines.append(
+                f"- {target_prefix}{field}: draft {draft_value} = "
+                f"{source_name} {source_value} (values equal; semantics "
+                "not comparable)")
+        else:
+            lines.append(
+                f"- {target_prefix}{field}: no verified value from "
+                f"{source_name or source_label or 'the retrieved source'} — "
+                "a match or difference cannot be claimed.")
+    return "\n".join(lines)
+
+
+def verified_comparison_reply(
+    *,
+    message: str,
+    reply: str,
+    canvas: Dict[str, Any],
+    source_observations: Sequence[Dict[str, Any]],
+    requirement: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Deterministic verified comparison for a typed-field turn.
+
+    Returns ``None`` when the turn has no typed-field requirement or no
+    values to compare. When the model reply does not carry every verified
+    source value, the reply is REPLACED with the deterministic comparison;
+    otherwise the comparison is appended so the user always sees the
+    verified values."""
+    fields = [str(f) for f in ((requirement or {}).get("fields") or [])
+              if str(f).strip()]
+    if not fields or not isinstance(canvas, dict):
+        return None
+    body = _canvas_body_text(canvas.get("content"))
+    entity = str(canvas.get("title") or canvas.get("name") or "draft")
+    canvas_id = str(canvas.get("canvas_id") or canvas.get("id")
+                    or "canvas-artifact")
+    draft_observations = observations_from_key_value_text(
+        body, entity_id=entity, requested_fields=fields,
+        source={"source_id": canvas_id, "source_type": "artifact",
+                "version": canvas_id})
+    source_typed = observations_from_field_associations(
+        source_observations, entity_id=entity, requested_fields=fields)
+    if not draft_observations and not source_typed:
+        return None
+    entities: List[str] = []
+    for observation in [*draft_observations, *source_typed]:
+        name = str(observation.get("entity_id") or "").strip()
+        if name and name not in entities:
+            entities.append(name)
+    if not entities:
+        entities = [entity]
+    decision_ids = sorted({
+        str(o.get("source", {}).get("source_id") or "")
+        for o in source_typed
+        if o.get("source", {}).get("source_id")})
+    comparison = build_source_comparison(
+        [*draft_observations, *source_typed],
+        requested_entities=entities,
+        requested_fields=fields,
+        artifact_source_ids=[canvas_id],
+        decision_source_ids=decision_ids,
+    )
+    source_label = next(
+        (str(o.get("file_name") or o.get("title") or "")
+         for o in source_observations or []
+         if str(o.get("file_name") or o.get("title") or "").strip()), "")
+    deterministic = render_verified_comparison_reply(
+        comparison, artifact_source_id=canvas_id,
+        source_label=source_label or None)
+    if not deterministic:
+        return None
+    verified_values = [
+        _comparison_text(o.get("raw_value")) for o in source_typed
+        if _comparison_text(o.get("raw_value"))]
+    consistent = bool(verified_values) and all(
+        value in str(reply or "") for value in verified_values)
+    return {
+        "comparison": comparison,
+        "reply": (f"{reply}\n\n{deterministic}" if consistent
+                  else deterministic),
+        "replaced": not consistent,
+        "verified_values": verified_values,
+    }

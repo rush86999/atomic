@@ -1309,7 +1309,14 @@ def _scope_constraints(message: str) -> List[str]:
 # trip on a credit-dead ranked route BEFORE the healthy gateway answers
 # (live 2026-10-08: interpretation dispatched to opencode-go at ~6s and
 # timed out at the wall). Still far under the turn's reply budget.
-_INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "12"))
+# 12s was the original bound. The 2026-10-19 diagnostic (scratch replay of
+# the actual S3/S7 payloads on the frozen route) measured the first valid
+# S7 interpretation record at ~58s on the BPC-selected non-reasoning route
+# (qwen3.8-flash; reasoning-disable accepted), while the reasoning-mandatory
+# glm-5.3-flash path never validated within a 90s window. This is a
+# BOUNDED, EVALUATED increase (75s) for the interpretation stage only; the
+# served attempt measures total turn latency against the user-usable goal.
+_INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "75"))
 _INTERPRET_BREAKER_MAX = int(os.getenv("ATOM_TURN_INTERPRET_BREAKER", "3"))
 
 #: Structured-output budget for the turn interpretation. Derived from
@@ -1575,8 +1582,29 @@ async def interpret_turn_request(
 
     started = time.perf_counter()
     try:
+        from core.llm.pinned_planning import (
+            LAST_FAILURE,
+            build_provider_model_pin,
+            pinned_structured_call,
+        )
+
+        # The wrapper converts provider errors to None by contract; keep
+        # the interpretation's explicit "error" reason by reading its
+        # published failure kind for this call.
+        LAST_FAILURE.update(kind=None, detail="", label="")
+
+        # ROUTE SELECTION FROM THE 2026-10-19 DIAGNOSTIC: the measured
+        # compatible interpretation route accepts the reasoning-disable
+        # switch and produced a schema-valid record (the cheap
+        # reasoning-mandatory candidate rejected the switch and never
+        # validated within 90s). The pin is a preference only — the
+        # existing wrapper retries unpinned (excluding the failed pin)
+        # when this route yields nothing.
+        _interpret_pin = build_provider_model_pin(
+            llm_service, "opencode-go", "qwen3.8-flash")
         result = await asyncio.wait_for(
-            llm_service.generate_structured_response(
+            pinned_structured_call(
+                llm_service,
                 prompt=_interpretation_prompt(
                     message, history,
                     session if isinstance(session, dict) else {},
@@ -1585,27 +1613,27 @@ async def interpret_turn_request(
                 system_instruction=_INTERPRET_SYSTEM,
                 task_type="planning",
                 temperature=0.0,
-                # Small planning call: skip hidden reasoning where the
-                # provider supports it. The handler translates this into
-                # the transport's reasoning switch; reasoning-mandatory
-                # providers keep their existing bounded retry (drop the
-                # switch once) and a failure never becomes a guessed
-                # interpretation.
                 disable_reasoning=True,
-                max_tokens=_INTERPRET_OUTPUT_BUDGET_TOKENS,
-                # Correlation id for the structured dispatch/trace log
-                # lines (not a persisted record).
-                route_trace_id=(
-                    f"turn_interpretation:{request_id or session_id or '-'}"),
-                # MoA would multiply one small interpretation into N
-                # samples + an aggregator when a long prompt is classified
-                # COMPLEX/ADVANCED and ATOM_MOA_ENABLED is on. This call
-                # opts out explicitly; the shared handler default is
-                # unchanged.
-                allow_moa=False,
+                call_kwargs=_interpret_pin or None,
+                extra_kwargs={
+                    "max_tokens": _INTERPRET_OUTPUT_BUDGET_TOKENS,
+                    # MoA would multiply one small interpretation into N
+                    # samples + an aggregator when a long prompt is
+                    # classified COMPLEX/ADVANCED and ATOM_MOA_ENABLED is
+                    # on. This call opts out explicitly; the shared
+                    # handler default is unchanged.
+                    "allow_moa": False,
+                },
+                log_label="turn interpretation",
+                stage="turn_interpretation",
+                execution_id=request_id or session_id or "-",
             ),
             timeout=_INTERPRET_TIMEOUT_S,
         )
+        if result is None and LAST_FAILURE.get("kind"):
+            raise RuntimeError(
+                "structured interpretation failed: "
+                f"{LAST_FAILURE.get('kind')}")
     except asyncio.TimeoutError:
         _interpret_failures += 1
         _interpret_metrics["timeout"] += 1

@@ -15817,6 +15817,55 @@ class ChatOrchestrator:
 
                 main_message = ai_response["content"]
 
+                # VERIFIED-FIELD NARRATION GUARD (L2 narration defect,
+                # 2026-10-19): when this turn compared a typed field on
+                # the attached canvas against the retrieved source's
+                # recorded field association, the verified values are
+                # rendered deterministically and free-form narration
+                # cannot replace them. A reply that does not carry every
+                # verified value is replaced by the comparison; a reply
+                # that does is kept and the comparison appended. No
+                # date-specific rule — the typed-field comparison
+                # machinery and the retrieved associations are the
+                # authority.
+                try:
+                    from core.workbook_read_artifact import (
+                        verified_comparison_reply,
+                    )
+
+                    _verified_requirement = session.get(
+                        f"_evidence_requirement_{_execution_id}") or {}
+                    _verified_observations = session.get(
+                        f"_retrieval_source_observations_{_execution_id}") \
+                        or []
+                    _verified = verified_comparison_reply(
+                        message=message,
+                        reply=str(main_message or ""),
+                        canvas=(
+                            _canvas_ctx
+                            if isinstance(_canvas_ctx, dict) else {}),
+                        source_observations=_verified_observations,
+                        requirement=_verified_requirement,
+                    )
+                    if _verified and _verified.get("reply"):
+                        main_message = _verified["reply"]
+                        ai_response["content"] = main_message
+                        ai_response["verified_comparison"] = _verified.get(
+                            "comparison")
+                        if _verified.get("replaced"):
+                            ai_response["deterministic_delivery"] = True
+                        logger.info(
+                            "[verified-comparison] narration %s "
+                            "(session=%s execution=%s fields=%s)",
+                            "replaced" if _verified.get("replaced")
+                            else "appended",
+                            session_id, str(_execution_id)[:8],
+                            (_verified_requirement or {}).get("fields"))
+                except Exception:  # noqa: BLE001 — guard is additive
+                    logger.debug(
+                        "[verified-comparison] guard skipped: %r",
+                        sys.exc_info()[1])
+
                 # TRUTHFULNESS ENFORCEMENT (owner directive 2026-10-12,
                 # beyond the prompt envelope): a seek-shaped turn with NO
                 # executed tool work must never DELIVER a reply that

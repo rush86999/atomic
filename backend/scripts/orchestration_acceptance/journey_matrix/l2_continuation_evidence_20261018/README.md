@@ -357,6 +357,60 @@ interpretation and adopts no source; a late synchronous worker cannot
 mutate the returned decision; the output budget covers representative
 records; the MoA eligibility/opt-out boundary.
 
+## Diagnostic slice (2026-10-19) — measured explanation and selected change
+
+A scratch-only diagnostic replayed the ACTUAL attempt-3 S3/S7 inputs
+(message, session source context, recent history, canvas context) through
+the real candidate code and scoped service with a **90-second diagnostic
+window** (measurement only; the unchanged 12-second product deadline was
+recorded separately). HTTP attempts were instrumented with one request id;
+authorization headers were excluded.
+
+**Measured result (diagnostic_interpretation_results.json on main):**
+
+- **S3 / `glm-5.3-flash`:** 7 HTTP attempts; first `400` with the
+  reasoning-disable switch (reasoning-mandatory endpoint), then six
+  `200`s (504, 4140, 568, 780, 1782 output tokens), final `length` at the
+  5500 ceiling; **never schema-valid within the 90s window**; worker
+  total ~158s. This is a transport/capability rejection plus excessive
+  generated content, not simple slowness.
+- **S7 / `qwen3.8-flash`:** one `200`, `finish=stop`, 3188 output tokens,
+  **schema-valid at ~58s**, source identity resolved. The reasoning
+  switch was accepted; the valid record is just far beyond 12s.
+
+**Selected execution change (one change, using existing controls):**
+
+- Route the interpretation to the measured compatible model
+  (`opencode-go/qwen3.8-flash`) through the existing
+  `pinned_structured_call` wrapper: the pin is a preference, and the
+  wrapper's existing unpinned fallback excludes the failed pin.
+- Bounded interpretation deadline increase **12s → 75s** (the valid S7
+  record was ~58s; 75s leaves margin). This is an evaluated change, not a
+  latency claim: the served attempt measures total turn latency.
+- The 5,500-token ceiling is retained (the S3 model exceeded it; the
+  selected route produced 3,188 tokens). The reasoning switch, MoA
+  opt-out, trace id and source-resolution contract are unchanged.
+
+**Narration defect disposition (separate correctness failure):**
+
+The retrieved excerpt and draft carried `2026-12-31`; the reply claimed
+`2023-01-01`/`2026-12-30` in the preserved attempts — a narration
+fidelity failure, not retrieval. The existing typed-field comparison
+machinery (`build_source_comparison` / `render_source_comparison`,
+`observations_from_text`) is now adapted for the document/canvas case:
+
+- `observations_from_key_value_text` reads the attached canvas's typed
+  fields with the same canonical vocabulary; `observations_from_field_
+  associations` reads the retrieved source's recorded associations.
+- `verified_comparison_reply` builds the comparison, renders the exact
+  values/source identity/version, and **replaces** a reply that does not
+  carry every verified source value (or states a specific limitation when
+  the value is missing); a consistent reply gets the deterministic block
+  appended. The orchestrator applies it before delivery.
+- Controls: equal, different, missing, two subjects with different
+  values, reply replacement, and no-op without a typed-field requirement.
+  No date-specific regex; no additional broad model call.
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
@@ -372,6 +426,16 @@ the same test file copied in):
   structured-dispatch suites → **339 passed, 2 failed** — the two
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
+- Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
+  **68 passed** across the interpretation, L2, transport and
+  verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
+  Neighbors (turn-decision, interpretation, source-ask, continuation,
+  F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
+  workbook read/comparison) → **551 passed, 2 failed** — the same two
+  pre-existing `TestEditPlanRungKnob` failures
+  (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
+  has 14 pre-existing failures in this environment, byte-identical on
+  the frozen 10982e839 worktree (not caused by this change).
 - Parent L2 battery (pre-correction 28-test set) → **26 failed, 2
   passed** — the 20 composer capability tests (functions absent) and the
   8 chain regressions (capture, ambiguity, wrong-name, identifier,
