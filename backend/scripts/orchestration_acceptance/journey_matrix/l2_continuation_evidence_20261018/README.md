@@ -533,9 +533,15 @@ Repairs:
   verified search receipt proves execution, not obligation fulfillment.
 - `_stash_evidence_requirement` consumes the accepted interpretation's
   constraints/requested fields through
-  `accepted_comparison_scope` (universal scope with explicit
-  narrowing/negation handled); degraded/unresolved interpretations fall
+  `accepted_comparison_scope`; degraded/unresolved interpretations fall
   back to the message shape so a broad obligation is not silently lost.
+  Broad requires the accepted contract to name OTHER fields ("all
+  comparable quotation fields", "any differing fields"), not merely a
+  generic difference check ("flag anything that differs") about the
+  requested date. Explicit narrowing/negation wins. Attempt 10's served
+  S7 interpretation carried the generic constraint but date-scoped
+  requested fields, so it stays narrow; S3's "any differing fields" stays
+  broad.
 - `verified_comparison_reply` trusts the accepted requirement's
   `broader_comparison`, not a second message-shape OR. A date-only S7
   compares only `expiration_date`; S3's accepted "flag anything that

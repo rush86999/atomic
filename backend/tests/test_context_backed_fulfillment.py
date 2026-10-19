@@ -680,7 +680,7 @@ def test_stash_uses_accepted_constraints_for_broader_comparison():
         accepted_request={
             "origin": "llm:test", "scope_change": "continue",
             "constraints": ["Just flag anything that differs."],
-            "requested_fields": ["Valid until date"],
+            "requested_fields": ["Valid until date", "any differing fields"],
         })
     assert just_broad["broader_comparison"] is True, just_broad
 
@@ -690,7 +690,7 @@ def test_stash_uses_accepted_constraints_for_broader_comparison():
         accepted_request={
             "origin": "llm:test", "scope_change": "continue",
             "constraints": ["Flag differences."],
-            "requested_fields": ["Valid until date"],
+            "requested_fields": ["Valid until date", "any differing fields"],
         })
     assert differences["broader_comparison"] is True, differences
 
@@ -704,6 +704,36 @@ def test_stash_uses_accepted_constraints_for_broader_comparison():
             "requested_fields": ["Valid until date"],
         })
     assert mixed["broader_comparison"] is False, mixed
+
+    # The served attempt-10 S7 contract: the model kept the prior turn's
+    # generic "flag anything that differs" constraint, but its requested
+    # fields are date-scoped. That is a date-only request, not a broad
+    # field expansion.
+    date_scoped = co._stash_evidence_requirement(
+        {"id": "s-date-scoped"}, "exec-date-scoped", decision, narrow_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not change anything yet.",
+                            "Flag anything that differs."],
+            "requested_fields": [
+                "current Valid until date on the draft",
+                "approved record Valid Until date",
+                "whether the draft date still matches the approved record",
+                "any date difference"],
+        })
+    assert date_scoped["broader_comparison"] is False, date_scoped
+
+    s3_served = co._stash_evidence_requirement(
+        {"id": "s-s3-served"}, "exec-s3-served", decision, broad_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not change anything yet."],
+            "requested_fields": ["Valid Until date",
+                                 "any differing fields"],
+        })
+    assert s3_served["broader_comparison"] is True, s3_served
 
     degraded = co._stash_evidence_requirement(
         {"id": "s-degraded"}, "exec-degraded", decision, broad_message, True,

@@ -4605,13 +4605,17 @@ def accepted_comparison_scope(
 ) -> bool:
     """Whether the accepted request asks for a BROAD comparison.
 
-    The accepted interpretation's constraints/requested-fields are the
-    request contract. A broad comparison must ask for universal/other-field
-    coverage ("flag anything that differs", "all comparable fields"), not
-    merely contain comparison vocabulary ("does it still match?"). Explicit
-    narrowing/negation ("only", "just", "do not compare anything else")
-    wins over a universal word. This is a scope rule over the accepted
-    contract, not a raw-message domain phrase list.
+    The accepted interpretation's requested-fields/constraints are the
+    request contract. Broad means the contract names OTHER FIELDS to assess
+    ("all comparable quotation fields", "any differing fields"), not merely
+    that the turn contains comparison vocabulary or a generic difference
+    check ("does it still match?", "flag anything that differs" about the
+    requested date). This distinction keeps a date-only follow-up from
+    inheriting an earlier turn's broader field obligation.
+
+    Explicit narrowing/negation ("only compare the date", "do not compare
+    anything else") wins over a broad field contract. The rule consumes the
+    accepted contract, not a raw-message domain phrase list.
     """
     if not isinstance(accepted_request, dict):
         return False
@@ -4620,8 +4624,6 @@ def accepted_comparison_scope(
         values = accepted_request.get(key)
         if isinstance(values, list):
             candidates.extend(str(v) for v in values if str(v or "").strip())
-    _FIELD_SCOPE = re.compile(r"\b(?:fields?|attributes?|comparable)\b",
-                              re.IGNORECASE)
     _NARROWING = re.compile(
         r"(?:\b(?:do\s+not|don't)\b[^\n]{0,50}"
         r"\b(?:compare|check|assess|verify|look\s+at)\b)"
@@ -4629,27 +4631,26 @@ def accepted_comparison_scope(
         r"\b(?:compare|check|assess|verify|look\s+at)\b)"
         r"|\bnothing\s+else\b|\bexcept\b",
         re.IGNORECASE)
-    _UNIVERSAL = re.compile(
-        r"\b(?:anything|everything|all|every|other|remaining|additional|"
-        r"any)\b", re.IGNORECASE)
-    _BROAD_DIFFERENCE = re.compile(
-        r"\b(?:flag|find|identify|report|show|list|highlight)\b"
-        r"[^\n]{0,40}\b(?:differences?|discrepanc(?:y|ies))\b",
+    # A broad field contract names plural field/attribute nouns after a
+    # universal/other marker. A concrete date phrase ("any date
+    # difference") does NOT match, even though it carries "any".
+    _BROAD_FIELD = re.compile(
+        r"\b(?:all|every|other|remaining|additional|any)\b"
+        r"(?:\s+\w+){0,3}\s+"
+        r"(?:fields?|attributes?|columns?|properties?|metrics?)\b"
+        r"|\bany\s+other\s+(?:differences?|discrepanc(?:y|ies))\b"
+        r"|\b(?:comparable|quotation)\s+fields?\b",
         re.IGNORECASE)
-    relevant = [
-        text for text in candidates
-        if comparison_request_shaped(text) or _FIELD_SCOPE.search(text)]
+    relevant = [text for text in candidates
+                if comparison_request_shaped(text)
+                or re.search(r"\b(?:fields?|attributes?|columns?|"
+                             r"properties?|metrics?|comparable)\b",
+                             text, re.IGNORECASE)]
     if not relevant:
         return False
-    # Narrowing wins even when another accepted constraint also asks for
-    # universal coverage: "flag anything" + "only compare the date" is a
-    # narrowed request.
     if any(_NARROWING.search(text) for text in relevant):
         return False
-    return any(
-        _UNIVERSAL.search(text) or _BROAD_DIFFERENCE.search(text)
-        for text in relevant)
-
+    return any(_BROAD_FIELD.search(text) for text in relevant)
 
 def verified_comparison_reply(
     *,
