@@ -24350,19 +24350,22 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     _vfy_coverage = (((_vfy or {}).get("comparison") or {})
                                      .get("coverage") or {})
                     if (_vfy and _vfy.get("reply")
-                            and _vfy_coverage.get("complete")):
+                            and _vfy_coverage.get("complete")
+                            and not _is_llm_error_text(_content)
+                            and not _canvas_edit_shaped(
+                                message, {"canvas": canvas_context})):
                         response_data = dict(response_data or {})
                         response_data["content"] = _vfy["reply"]
                         response_data["verified_comparison"] = (
                             _vfy.get("comparison"))
                         response_data["deterministic_delivery"] = True
                         if (isinstance(session, dict) and execution_id):
-                            _vfy_existing = session.get(
-                                f"_objective_evidence_{execution_id}")
-                            if not _vfy_existing:
-                                session[
-                                    f"_objective_evidence_{execution_id}"
-                                ] = _vfy.get("comparison")
+                            # This path only runs on a COMPLETE comparison;
+                            # it is authoritative over any earlier partial
+                            # carrier for the same execution.
+                            session[
+                                f"_objective_evidence_{execution_id}"
+                            ] = _vfy.get("comparison")
                         logger.info(
                             "[verified-comparison] deterministic replacement "
                             "BEFORE corrective guards (execution=%s fields=%s)",

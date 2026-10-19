@@ -172,6 +172,18 @@ async def test_s3_verified_comparison_preempts_corrective_regeneration(
     assert "2023-01-01" not in content, content
     assert "couldn't search" not in content.casefold(), content
     assert out.get("deterministic_delivery") is True, out
+    assert not out.get("error_code"), out.get("error_code")
     assert endpoint.hit_count == 1, (
         "the verified comparison must preempt corrective regeneration; "
         f"reply endpoint calls={endpoint.hit_count}")
+
+
+def test_provider_failure_content_is_recognized_not_answered():
+    """The early guard must not turn a provider-failure envelope into a
+    successful deterministic answer."""
+    from integrations.chat_orchestrator import _is_llm_error_text
+
+    assert _is_llm_error_text(
+        "[Error: all providers failed for this request]")
+    assert _is_llm_error_text(
+        "No LLM provider is configured. Check your API key configuration.")
