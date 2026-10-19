@@ -462,22 +462,23 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **78 passed** across the interpretation, L2, transport, guard-order and
+  **80 passed** across the interpretation, L2, transport, guard-order and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **561 passed, 2 failed** — the same two
+  workbook read/comparison) → **563 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
   has 14 pre-existing failures in this environment, byte-identical on
   the frozen 10982e839 worktree (not caused by this change).
 
   The narration guard is comparison-intent gated, requires a retrieved
-  source observation, detects a contradictory value in the reply (not
-  only a missing one), preserves display case, uses association subjects
-  for multi-subject sources, stores the comparison on the existing
-  `_objective_evidence_{execution_id}` carrier, and does not mark
-  deterministic delivery for limitation-only output.
+  source observation, always delivers the renderer output alone (model
+  prose never survives), preserves display case, uses association
+  subjects for multi-subject sources, stores the comparison on the
+  existing `_objective_evidence_{execution_id}` carrier, and separates
+  field coverage from request coverage (`coverage.request_complete`; the
+  outcome stays partial while a broader obligation is open).
 - Parent L2 battery (pre-correction 28-test set) → **26 failed, 2
   passed** — the 20 composer capability tests (functions absent) and the
   8 chain regressions (capture, ambiguity, wrong-name, identifier,

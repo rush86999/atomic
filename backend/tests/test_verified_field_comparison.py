@@ -82,9 +82,10 @@ def test_equal_values_render_a_verified_match():
         canvas=CANVAS, source_observations=SOURCE_EQUAL,
         requirement=_requirement())
     assert out is not None
-    assert out["replaced"] is False, out
+    assert out["replaced"] is True, out
     assert "2026-12-31 = approved_records_q2026_114.txt 2026-12-31" in (
         out["reply"]), out["reply"]
+    assert "The draft's Valid until" not in out["reply"]
     assert "(match)" in out["reply"]
 
 
@@ -95,9 +96,10 @@ def test_different_values_render_a_verified_difference():
         canvas=CANVAS, source_observations=SOURCE_DIFFERENT,
         requirement=_requirement())
     assert out is not None
-    assert out["replaced"] is False, out
+    assert out["replaced"] is True, out
     assert "2026-12-31 vs approved_records_q2026_114.txt 2026-11-30" in (
         out["reply"]), out["reply"]
+    assert "The dates are" not in out["reply"]
     assert "(difference)" in out["reply"]
 
 
@@ -128,7 +130,6 @@ def test_actual_defect_shape_is_replaced():
         requirement=_requirement())
     assert out is not None
     assert out["replaced"] is True, out
-    assert out["contradiction"] is True, out
     assert "2023-01-01" not in out["reply"], out["reply"]
     assert "2026-12-31 = approved_records_q2026_114.txt 2026-12-31" in (
         out["reply"]), out["reply"]
@@ -143,7 +144,6 @@ def test_same_sentence_correct_then_wrong_is_a_contradiction():
         requirement=_requirement())
     assert out is not None
     assert out["replaced"] is True, out
-    assert out["contradiction"] is True, out
     assert "2023-01-01" not in out["reply"]
 
 
@@ -215,6 +215,68 @@ def test_deterministic_reply_makes_no_search_claim():
     assert "documents.search" not in lowered
     assert "i searched" not in lowered
     assert "i couldn't search" not in lowered
+
+
+def test_captured_s3_terms_mismatch_and_request_coverage():
+    source = [{
+        "source": "ingested",
+        "file_name": "approved_records_q2026_114.txt",
+        "content_hash": "hash-s3",
+        "excerpt": (
+            "APPROVED RECORDS \u2014 Quotation Q-2026-114\n"
+            "Approved unit price: $48,000.00\n"
+            "Approved payment terms: Net 30\n"
+            "Approved valid until: 2026-12-31\n"),
+        "field_associations": {
+            "expiration_date": {"value": "2026-12-31"},
+        },
+    }]
+    requirement = _requirement()
+    requirement["broader_comparison"] = True
+    out = verified_comparison_reply(
+        message=(
+            "Compare the draft quotation with my uploaded Approved Records "
+            "document. Does the Valid Until date in the draft match the "
+            "approved record? Flag anything that differs. Do not change "
+            "anything yet."),
+        reply="Everything appears consistent for now.",
+        canvas=CANVAS, source_observations=source,
+        requirement=requirement)
+    assert out is not None
+    lowered = out["reply"].casefold()
+    assert "everything appears consistent" not in lowered, out["reply"]
+    assert "payment terms" in lowered, out["reply"]
+    assert "net 45" in lowered and "net 30" in lowered, out["reply"]
+    assert "difference" in lowered, out["reply"]
+    assert "2026-12-31" in out["reply"], out["reply"]
+    assert out["request_complete"] == (
+        out["comparison"]["coverage"]["request_complete"])
+    if not out["request_complete"]:
+        assert "broader comparison obligation: open" in lowered, out["reply"]
+
+
+def test_wrong_subject_evidence_cannot_donate_a_value():
+    source = [{
+        "source": "ingested",
+        "file_name": "approved_records_q2026_114.txt",
+        "content_hash": "hash-wrong-subject",
+        "field_associations": {
+            "expiration_date": {"value": "2026-12-31",
+                                 "subject": "Machine B"},
+        },
+    }]
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply="The draft valid until is 2026-12-31.",
+        canvas=CANVAS, source_observations=source,
+        requirement=_requirement())
+    assert out is not None
+    # The source value belongs to Machine B, not the canvas subject; it
+    # must not become a match for the draft.
+    title_lines = [line for line in out["reply"].splitlines()
+                   if "quotation q-2026-114 (draft)" in line.casefold()]
+    assert title_lines, out["reply"]
+    assert not any("(match)" in line for line in title_lines), out["reply"]
 
 
 def test_draft_only_question_is_not_replaced():

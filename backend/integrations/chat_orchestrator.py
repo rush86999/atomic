@@ -5888,6 +5888,13 @@ def _comparison_carrier_complete(carrier: Any) -> bool:
     total = int(coverage.get("outcome_count") or 0)
     if not outcomes or total != len(outcomes):
         return False
+    # REQUEST COVERAGE (L2 correctness, 2026-10-19): a complete typed-field
+    # comparison does not fulfill a broader "flag any other differences"
+    # request. Older workbook carriers predate request_complete and fall
+    # back to their field-level complete flag.
+    if not coverage.get(
+            "request_complete", coverage.get("complete", False)):
+        return False
     covered = sum(
         1 for o in outcomes
         if str(o.get("status") or "unresolved")
@@ -6001,6 +6008,12 @@ def _stash_evidence_requirement(
     elif mentions:
         identity = _resolve_requirement_identity(
             _mentions_to_filename_candidates(mentions), workspace_id)
+    try:
+        from core.workbook_read_artifact import comparison_request_shaped
+
+        broader_comparison = comparison_request_shaped(str(message or ""))
+    except Exception:  # noqa: BLE001 — flag is additive
+        broader_comparison = False
     requirement = {
         "required": evidence_required is True,
         "sources": [
@@ -6012,6 +6025,7 @@ def _stash_evidence_requirement(
         "subjects": subjects,
         "identity": identity,
         "artifact_attached": bool(canvas_attached),
+        "broader_comparison": broader_comparison,
     }
     session[f"_evidence_requirement_{execution_id}"] = requirement
     return requirement
@@ -15872,9 +15886,7 @@ class ChatOrchestrator:
                                 session[
                                     f"_objective_evidence_{_execution_id}"
                                 ] = _verified_comparison
-                        if (_verified.get("replaced")
-                                and _coverage.get("complete")):
-                            ai_response["deterministic_delivery"] = True
+                        ai_response["deterministic_delivery"] = True
                         logger.info(
                             "[verified-comparison] narration %s "
                             "(session=%s execution=%s fields=%s)",
@@ -24350,7 +24362,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     _vfy_coverage = (((_vfy or {}).get("comparison") or {})
                                      .get("coverage") or {})
                     if (_vfy and _vfy.get("reply")
-                            and _vfy_coverage.get("complete")
                             and not _is_llm_error_text(_content)
                             and not _canvas_edit_shaped(
                                 message, {"canvas": canvas_context})):

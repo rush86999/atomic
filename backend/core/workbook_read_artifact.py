@@ -69,7 +69,7 @@ _FIELD_ALIASES: Dict[str, Sequence[str]] = {
     "price": (
         "price", "cost", "amount", "value", "msrp", "list", "wholesale",
         "dealer price", "dealer cost", "factory price", "retail",
-        "unit cost", "selling price", "quote",
+        "unit cost", "unit price", "selling price", "quote",
     ),
     "quantity": (
         "quantity", "qty", "stock", "on hand", "available", "units", "count",
@@ -108,6 +108,9 @@ _FIELD_ALIASES: Dict[str, Sequence[str]] = {
     "status": ("status", "state", "condition"),
     "warranty": ("warranty", "warranty terms", "guarantee"),
     "material": ("material", "materials"),
+    "payment_terms": (
+        "payment terms", "payment term", "terms", "payment conditions",
+    ),
 }
 _UNIT_TOKENS = {
     "kg", "g", "mg", "lb", "lbs", "oz", "cm", "mm", "m", "in", "ft",
@@ -3333,6 +3336,9 @@ def _text_source_basis(text: str) -> Optional[str]:
 def _text_field_value(
     text: str, field: str, source_currency: Optional[str]
 ) -> Optional[str]:
+    if field == "payment_terms":
+        value = re.sub(r"\s+", " ", str(text or "").strip())
+        return value[:80] if value else None
     if field in {"date", "certification_date", "expiration_date"}:
         match = re.search(
             r"\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b",
@@ -4344,7 +4350,7 @@ def render_workbook_artifact(artifact: Dict[str, Any]) -> str:
 _VERIFIED_COMPARISON_FIELDS = frozenset({
     "date", "certification_date", "expiration_date",
     "version", "required_version", "price", "quantity", "weight",
-    "lead_time",
+    "lead_time", "payment_terms",
 })
 
 
@@ -4423,7 +4429,9 @@ def observations_from_key_value_text(
                 if candidate_field in fields:
                     field = candidate_field
                     prefix = " ".join(words[:-take]).strip()
-                    if prefix:
+                    if (prefix and prefix.casefold() not in {
+                            "approved", "current", "draft", "the",
+                            "our", "your"}):
                         line_entity = prefix
                     break
         if field not in fields:
@@ -4506,10 +4514,19 @@ def render_verified_comparison_reply(
         return ""
     lines = [
         "Verified comparison (the values below are read directly from the "
-        "retrieved source; wording does not replace them):",
-        "Scope: only the requested typed field(s) below are compared; "
-        "other differences are not assessed.",
+        "retrieved source; wording does not replace them):"
     ]
+    if coverage.get("request_complete"):
+        lines.append(
+            "Scope: all requested typed fields below are compared.")
+    elif coverage.get("broader_requested"):
+        lines.append(
+            "Scope: the fields below are compared; named gaps remain and "
+            "the broader comparison is open.")
+    else:
+        lines.append(
+            "Scope: only the requested typed field(s) below are compared; "
+            "other differences are not assessed.")
     for outcome in outcomes:
         field = _display_text(outcome.get("field")).replace("_", " ")
         target = _display_text(outcome.get("entity_id"))
@@ -4564,7 +4581,23 @@ def render_verified_comparison_reply(
                 f"- {target_prefix}{field}: no verified value from "
                 f"{source_name or source_label or 'the retrieved source'} — "
                 "a match or difference cannot be claimed.")
+    lines.append("No canvas change was made by this comparison.")
     return "\n".join(lines)
+
+
+def comparison_request_shaped(message: str) -> bool:
+    """General comparison/verification intent (not a value/phrase blacklist)."""
+    try:
+        from core.turn_program import is_comparison_request
+
+        if is_comparison_request(message):
+            return True
+    except Exception:  # noqa: BLE001 — classifier optional
+        pass
+    return bool(re.search(
+        r"\b(?:compare|match|matches|differ|differs|difference|same|"
+        r"consistent|align|discrepan|verify)\w*",
+        str(message or ""), re.IGNORECASE))
 
 
 def verified_comparison_reply(
@@ -4617,30 +4650,57 @@ def verified_comparison_reply(
     }
     if len(_source_names) > 1:
         return None
-    try:
-        from core.turn_program import is_comparison_request
-
-        _compare_shaped = is_comparison_request(message)
-    except Exception:  # noqa: BLE001 — classifier optional
-        _compare_shaped = False
-    if not _compare_shaped:
-        _compare_shaped = bool(re.search(
-            r"\b(?:compare|match|matches|differ|differs|difference|same|"
-            r"consistent|align|discrepan|verify)\w*",
-            str(message or ""), re.IGNORECASE))
+    _compare_shaped = comparison_request_shaped(message)
     if not _compare_shaped:
         return None
+    broader_requested = bool(
+        (requirement or {}).get("broader_comparison")) or _compare_shaped
     body = _canvas_body_text(canvas.get("content"))
     entity = str(canvas.get("title") or canvas.get("name") or "draft")
     canvas_id = str(canvas.get("canvas_id") or canvas.get("id")
                     or "canvas-artifact")
+    parse_fields = list(_FIELD_ALIASES.keys())
+    explicit_fields = [f for f in fields if f]
     draft_observations = observations_from_key_value_text(
-        body, entity_id=entity, requested_fields=fields,
+        body, entity_id=entity, requested_fields=parse_fields,
         source={"source_id": canvas_id, "source_type": "artifact",
                 "version": canvas_id})
-    source_typed = observations_from_field_associations(
-        source_observations, entity_id=entity, requested_fields=fields)
+    # Source values: recorded associations are authoritative for the
+    # explicit fields; the bounded excerpt supplies the additional fields
+    # a broader "flag anything that differs" comparison needs.
+    source_associations = observations_from_field_associations(
+        source_observations, entity_id=entity,
+        requested_fields=explicit_fields)
+    source_excerpt_observations: List[Dict[str, Any]] = []
+    for observation in source_observations:
+        excerpt = str(observation.get("excerpt") or "")
+        if not excerpt:
+            continue
+        source_excerpt_observations.extend(observations_from_key_value_text(
+            excerpt, entity_id=entity, requested_fields=parse_fields,
+            source={
+                "source_id": _display_text(
+                    observation.get("file_name")
+                    or observation.get("title") or "source"),
+                "source_type": observation.get("source") or "ingested",
+                "version": observation.get("content_hash")
+                or observation.get("file_name") or "source",
+            }))
+    source_by_field: Dict[str, Dict[str, Any]] = {}
+    for observation in source_excerpt_observations:
+        source_by_field[str(observation.get("field") or "")] = observation
+    for observation in source_associations:
+        source_by_field[str(observation.get("field") or "")] = observation
+    source_typed = [o for o in source_by_field.values() if o]
     if not draft_observations and not source_typed:
+        return None
+    draft_fields = {str(o.get("field") or "") for o in draft_observations}
+    source_fields = {str(o.get("field") or "") for o in source_typed}
+    shared_fields = sorted(
+        (draft_fields & source_fields) & _VERIFIED_COMPARISON_FIELDS)
+    requested_fields = list(dict.fromkeys(
+        explicit_fields + (shared_fields if broader_requested else [])))
+    if not requested_fields:
         return None
     entities: List[str] = []
     for observation in [*draft_observations, *source_typed]:
@@ -4656,10 +4716,23 @@ def verified_comparison_reply(
     comparison = build_source_comparison(
         [*draft_observations, *source_typed],
         requested_entities=entities,
-        requested_fields=fields,
+        requested_fields=requested_fields,
         artifact_source_ids=[canvas_id],
         decision_source_ids=decision_ids,
     )
+    coverage = comparison.get("coverage") or {}
+    field_coverage_complete = bool(coverage.get("complete"))
+    request_complete = bool(field_coverage_complete)
+    coverage["broader_requested"] = broader_requested
+    coverage["field_coverage_complete"] = field_coverage_complete
+    coverage["request_complete"] = request_complete
+    coverage["open_obligations"] = [
+        f"{outcome.get('entity_id')} / {outcome.get('field')}"
+        for outcome in (coverage.get("outcomes") or [])
+        if isinstance(outcome, dict)
+        and str(outcome.get("status") or "") not in {
+            "comparable_match", "comparable_changed"}
+    ]
     source_label = next(
         (str(o.get("file_name") or o.get("title") or "")
          for o in source_observations or []
@@ -4669,36 +4742,20 @@ def verified_comparison_reply(
         source_label=source_label or None)
     if not deterministic:
         return None
+    if not request_complete:
+        deterministic += (
+            "\nBroader comparison obligation: OPEN — the unassessed "
+            "fields above remain to be verified.")
     verified_values = [
         _display_text(o.get("raw_value")) for o in source_typed
         if _display_text(o.get("raw_value"))]
-    reply_folded = str(reply or "").casefold()
-    consistent = bool(verified_values) and all(
-        value.casefold() in reply_folded for value in verified_values)
-    # CONTRADICTION: a reply that also states a different value for a
-    # compared field (e.g. the correct date plus a wrong one) is not
-    # consistent, even though the correct value appears somewhere.
-    contradiction = False
-    for outcome in (comparison.get("coverage") or {}).get("outcomes") or []:
-        if not isinstance(outcome, dict):
-            continue
-        field = str(outcome.get("field") or "")
-        allowed = set()
-        for evidence in outcome.get("evidence") or []:
-            if isinstance(evidence, dict) and evidence.get("raw_value"):
-                allowed.add(_display_text(evidence.get("raw_value")).casefold())
-        for value in _field_values_in_text(reply, field):
-            if value.casefold() not in allowed:
-                contradiction = True
-                break
-        if contradiction:
-            break
-    consistent = bool(consistent and not contradiction)
     return {
         "comparison": comparison,
-        "reply": (f"{reply}\n\n{deterministic}" if consistent
-                  else deterministic),
-        "replaced": not consistent,
-        "contradiction": contradiction,
+        "reply": deterministic,
+        "replaced": True,
+        "contradiction": False,
         "verified_values": verified_values,
+        "field_coverage_complete": field_coverage_complete,
+        "request_complete": request_complete,
+        "broader_requested": broader_requested,
     }
