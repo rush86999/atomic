@@ -5960,6 +5960,9 @@ def _stash_evidence_requirement(
         mentions = detect_file_mentions(str(message or "")) or []
     except Exception:  # noqa: BLE001
         mentions = []
+    _cont = refs.get("continuation_evidence") if isinstance(
+        refs.get("continuation_evidence"), dict) else None
+    _cont_state = str((_cont or {}).get("state") or "")
     if file_ref and (file_ref.get("file_name") or file_ref.get("name")
                      or file_ref.get("resource_id")):
         identity = _resolve_requirement_identity(
@@ -5972,6 +5975,27 @@ def _stash_evidence_requirement(
                 "file_id": str(file_ref.get("resource_id")),
                 "file_name": (file_ref.get("file_name")
                               or file_ref.get("name")),
+            }
+    elif _cont is not None and _cont_state in ("ambiguous", "unresolved"):
+        # L2 correction (2026-10-18, owner review): the reference
+        # resolution preserved an AMBIGUOUS or UNRESOLVED antecedent —
+        # carry that state into the requirement's identity verbatim
+        # (the settlement reports the clarification / the honest
+        # non-match; never a silently chosen source).
+        if _cont_state == "ambiguous":
+            identity = {
+                "state": "ambiguous",
+                "candidates": [
+                    {"file_name": c.get("file_name"),
+                     "file_id": c.get("file_id")}
+                    for c in (_cont.get("candidates") or [])
+                    if isinstance(c, dict)][:4],
+            }
+        else:
+            identity = {
+                "state": "unresolved",
+                "names": [str(n)[:120]
+                          for n in (_cont.get("names") or [])][:4],
             }
     elif mentions:
         identity = _resolve_requirement_identity(

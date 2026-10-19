@@ -1,4 +1,4 @@
-# L2 — continuation evidence requirement (S7 finding) — frozen candidate
+# L2 — continuation evidence requirement (S7 finding) — frozen successor
 
 **Finding under repair (composed job run 4,
 `journey_matrix/composed_job_20261017/evidence/browser_composed_job_20261017_221606_5fdbf5.json`):**
@@ -17,12 +17,14 @@ settled `success=false` / `outcome=unconfirmed` / `error_code=outcome_unconfirme
 - **Parent (immutable):** `ddab120c43333efdc219098cba35fdecd9a0988f`
   (main HEAD after the L3 promotion; the L3 candidate branch and all
   earlier evidence are untouched).
-- **Candidate:** branch `codex/l2-continuation-evidence` — the repair
-  commit + this evidence commit (see `CHECKSUMS.sha256`).
+- **Candidate:** branch `codex/l2-continuation-evidence` — the first
+  candidate `d36d6ed1f` (superseded after owner review), then this
+  **corrected successor** (repair correction + this evidence record; see
+  `CHECKSUMS.sha256`).
 - **Status when frozen:** locally verified on scratch stores
-  (parent-failing / successor-passing, mutation-checked). **Served
-  acceptance NOT run; no promotion.** Integration/deployment remains
-  separate; the L3 repair is not reopened.
+  (parent-failing / successor-passing, boundary mutation-checked).
+  **Served acceptance NOT run; no promotion.** Integration/deployment
+  remains separate; the L3 repair is not reopened.
 
 ## Captured S7 chain (from the preserved run-4 world, read-only)
 
@@ -54,78 +56,115 @@ F-C2 verdict decided the turn (`partial`, `success=true`).
 
 **The accepted interpretation of the continuation ask.** The
 deterministic floor reads the message's own nouns; "the approved record"
-carries none (`_requested_sources` → []), the continuation resolver
-returns None for question-shaped turns (`if "?" in t: return None`), and
-`task_state_view.active_objective` is null — so `provenance.signals: []`
-and the decision carries a bare conversation action. The async
-interpretation's `sources` (the semantic layer that names the reference)
-were **never consumed anywhere** (grep: no reader), so no evidence
-requirement was captured and the turn's own verified retrieval of
-`approved_records_q2026_114.txt` could not certify. The S7 settlement
-stayed non-certified despite correct content.
+carries none, the continuation resolver refuses question-shaped turns,
+and `task_state_view.active_objective` is null — so the decision carried
+only a conversation action. The async interpretation's `sources` (the
+semantic layer that names the reference) were **never consumed anywhere**,
+so no evidence requirement was captured and the turn's own verified
+retrieval could not certify.
 
 ## The repair (interpretation chain, structured; no noun regex)
 
 - `core/turn_decision.py`
-  - `session_evidence_sources(session)`: the conversation's own verified
-    evidence sources from the F-C2 execution-keyed carriers (accepted
-    requirements' kinds/identities + retrieval observations' source
-    families/file identities), bounded and deduped.
+  - `session_observed_sources(session)`: the conversation's OBSERVED
+    evidence — supplied retrieval observations only.
+  - `session_requested_sources(session)`: requirement carriers —
+    nominations, never evidence.
   - `apply_interpretation_references(decision, interpretation, session)`:
-    composes the RESOLVED interpretation's proposed source references into
-    the accepted decision's `references` — only when the floor found none,
-    and only when the reference resolves against the conversation's own
-    evidence (exact kind via the program vocabulary, or a name resolved by
-    bounded token containment against the observed source identities).
-    A provenance marker (`references.continuation_evidence`) records what
-    was proposed and what resolved. Degraded interpretations and
-    unresolvable references change nothing (fail-closed).
-  - `_interpretation_prompt` enrichment: a
-    `PRIOR EVIDENCE SOURCES (this conversation)` line so the interpreter
-    can name the antecedent by the identity the conversation already
-    verified.
-- `integrations/chat_orchestrator.py`: right after the interpretation is
-  obtained, `_td = apply_interpretation_references(_td,
-  _td_interpretation, session)` — every downstream consumer (the F-C2
-  requirement stash, `turn_evidence_required`, the planner, settlement)
-  sees one composed decision. Nothing else changed: the F-C2 resolver,
-  the outcome builder, and every success/error mapping are untouched.
+    composes the resolved interpretation's reference into the accepted
+    decision under the corrected reference contract (below).
+  - `_interpretation_prompt` enrichment: `PRIOR EVIDENCE SOURCES (this
+    conversation)` — observed entries plain, nominations labeled
+    `requested:`.
+- `integrations/chat_orchestrator.py`: one composition call after the
+  interpretation; the F-C2 requirement stash carries the composer's
+  resolved/ambiguous/unresolved state into the requirement identity
+  (a small structured addition at the requirement boundary only).
+  The settlement resolver, outcome builder and success/error mappings
+  are untouched.
+
+## Owner-review correction (2026-10-18) — the reference contract
+
+Four composition-boundary defects were reproduced against the first
+candidate `d36d6ed1f` using its real composition functions:
+
+| Input / state | `d36d6ed1f` (defect) | corrected successor |
+|---|---|---|
+| "the approved record" + Alpha and Beta approved-record files | silently selected Beta | **ambiguous** — both candidates preserved, no file adopted |
+| "the approved record" + only `unapproved_records.txt` | resolved to the **unapproved** file (substring donation) | **unresolved** — the wrong file never adopted; honest non-match preserved |
+| Interpreter proposes `document`, no prior evidence | adopted as a resolved continuation source | **unchanged** — a generic kind cannot nominate an antecedent |
+| Prior requirement names a file (unresolved identity), no observation | treated the requirement as verified prior evidence | **unchanged** — requirements nominate; they are never evidence |
+
+Corrected contract (implemented in `_reference_candidates` +
+`apply_interpretation_references`):
+
+* **Requested ≠ observed**: only retrieval observations establish prior
+  evidence; requirement carriers are nominations.
+* **No substring donation**: boundary-preserving token equality with
+  plural tolerance only ("approved" never matches "unapproved";
+  "record" matches "records").
+* **Collect all eligible matches first**: zero → unresolved preserved
+  (name proposals inside an observed evidence context; kind grounded in
+  the observed families); one → the identity is adopted; several →
+  **ambiguity preserved** (never insertion-order selection).
+* **Generic kinds stay separate**: a kind proposal resolves to the
+  observed sources of its family (one → adopt, several → ambiguity, none
+  → no obligation).
+* **No first-filename collapse**: candidates are unioned across
+  proposals; several distinct candidates mean ambiguity.
+
+The decision pattern:
+
+```python
+candidates = resolve_against_observed_conversation_sources(reference)
+if len(candidates) == 1:
+    adopt_resolved_identity(candidates[0])
+elif len(candidates) > 1:
+    preserve_ambiguity(candidates)
+else:
+    preserve_unresolved_reference(reference)
+```
 
 ## Controls
 
-Decision layer (`tests/test_l2_continuation_evidence.py`,
-successor-only capability tests — the composer does not exist on the
-parent):
+Decision layer (`tests/test_l2_continuation_evidence.py::TestL2ReferenceResolution`):
 
 | Control | Result |
 |---|---|
-| Name reference resolves to the conversation source (`document` + file identity + `turn_evidence_required` True) | PASS |
-| Kind-word reference resolves via the program vocabulary | PASS |
-| Unresolved interpretation changes nothing | PASS |
-| Unresolvable reference never invents an obligation | PASS |
-| Floor-captured references always win | PASS |
-| Session collector + prompt enrichment carry the prior sources | PASS |
+| Unique-source S7 positive (name → resolved identity, `turn_evidence_required` True) | PASS |
+| **Ambiguity negative** (two candidates → both preserved, no selection) | PASS |
+| **Wrong-name negative** (no substring donation; unresolved, wrong file never adopted) | PASS |
+| **Generic-kind negative** (no observed evidence → decision unchanged) | PASS |
+| Kind + one observed source → adopts that identity | PASS |
+| **Requirement-not-evidence negative** (nomination without observation → unchanged) | PASS |
+| Unresolved interpretation / no observed context / floor-wins controls | PASS |
+| Collectors split requested from observed; prompt labels both | PASS |
+| Stash carries ambiguous/unresolved identities verbatim | PASS |
 
-Real turn chain (product entry point; interpretation, retrieval, planner
-and reply endpoints are the controlled seams; decision, composition,
-requirement stash, settlement and durable row run real):
+Real turn chain (`TestL2ContinuationChain`, product entry point;
+interpretation, retrieval, planner and reply are the controlled seams;
+decision, composition, requirement stash, settlement and the durable row
+run real):
 
 | Control | Parent | Successor |
 |---|---|---|
-| Continuation ask captures the requirement (`required: true`, sources `["document"]`, resolved identity) and the turn's own retrieval certifies it (verdict `completed/partial/unsupplied`, settled `completed`, delivered) | **FAIL** (captured `required: False, sources: []` — the exact S7 shape) | **PASS** |
-| Unresolved interpretation keeps the turn unobligated (`unconfirmed`) | PASS | PASS |
-| Unresolvable reference does not obligate the turn | PASS | PASS |
-| Message-named source ask keeps the floor's capture (not overridden) and certifies | PASS | PASS |
+| S7 positive: requirement captured (`required: true`, resolved identity) and the turn's own retrieval certifies it | **FAIL** (exact S7 shape `required: False, sources: []`) | **PASS** |
+| **Ambiguity negative through the real turn**: two matching sources → requirement identity `ambiguous`, settlement `partial` (validated) with the "which source" clarification; no file adopted | **FAIL** | **PASS** |
+| **Wrong-name negative through the real turn**: only an unapproved file observed → identity `unresolved`, settlement `partial` (validated) with the honest non-match; the wrong file never adopted | **FAIL** | **PASS** |
+| Unresolved interpretation → unobligated (`unconfirmed`) | PASS | PASS |
+| Message-named source ask keeps the floor's capture and certifies | PASS | PASS |
 
 Mutation controls (throwaway edits; restored + checksum-verified):
 
-- **A — composition disabled** in the orchestrator: the chain capture
-  test fails (`logs/mutation_a_composition_disabled.log`).
-- **B — fail-closed broken** (unresolvable references default to a
-  kind): the two unresolvable-reference controls fail
-  (`logs/mutation_b_failclosed_broken.log`).
-- **C — floor override** (existing references no longer protected): the
-  two floor-wins controls fail (`logs/mutation_c_floor_override.log`).
+- **A — composition disabled**: the chain capture test fails
+  (`logs/mutation_a_composition_disabled.log`).
+- **D — substring donation restored**: both wrong-name regressions
+  (decision + chain) fail (`logs/mutation_d_substring_donation.log`).
+- **E — first-match selection restored**: the ambiguity regressions
+  (decision + chain) fail (`logs/mutation_e_first_match.log`).
+- **F — requirements admitted to the observed pool**: the
+  requirement-not-evidence regression fails
+  (`logs/mutation_f_requirement_as_evidence.log`).
 
 ## Verification records
 
@@ -133,16 +172,15 @@ Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
 `DATABASE_URL`; the parent runs from a pristine `ddab120c4` worktree with
 the same test file copied in):
 
-- Successor L2 battery → **11 passed** (`logs/l2_successor.log`).
-- Parent L2 battery → **8 failed, 3 passed** — the 7 composer capability
-  tests (function absent) and the chain capture test failing for the
-  intended reason; the fail-closed/floor controls pass
-  (`logs/l2_parent.log`).
-- Focused neighbors (turn-decision, F-C2, action-program, source-ask
-  batteries) → **143 passed** (`logs/neighbors_a.log`).
-- Interpretation/continuation neighbors → **145 passed, 2 failed** —
-  `TestEditPlanRungKnob` (pre-existing; the identical 2 failures
-  reproduce on the pristine parent, `logs/neighbors_b_parent.log`).
+- Successor L2 battery → **17 passed** (`logs/l2_successor.log`).
+- Parent L2 battery → **15 failed, 2 passed** — the 12 composer
+  capability tests (functions absent) and the 3 chain regressions
+  (capture + ambiguity + wrong-name) failing for the intended reasons;
+  the two fail-closed controls pass (`logs/l2_parent.log`).
+- Neighbors (turn-decision, F-C2, action-program, source-ask batteries,
+  interpretation/continuation sets) → **277 passed, 2 failed** — the two
+  pre-existing `TestEditPlanRungKnob` failures, identical on the
+  pristine parent (`logs/neighbors.log`).
 
 ## Verification limits
 
@@ -150,9 +188,8 @@ the same test file copied in):
   controlled interpretation/retrieval/planner/reply seams). No served
   process, browser, or live world was touched; the pilot
   (`:8001`/`:3000`) is untouched.
-- The run-4 S7 interpretation record was **not persisted** (no
-  `interpret`/`sources` string in the world DB) — the slice captures the
-  decision/requirement/observations/outcome and scripts the
+- The run-4 S7 interpretation record was **not persisted** — the slice
+  captures the decision/requirement/observations/outcome and scripts the
   interpretation record as the controlled semantic seam; the prompt
   enrichment is what lets a real interpreter name the antecedent.
 - The scratch harness has no task run, so the envelope's work-turn gate
@@ -160,22 +197,20 @@ the same test file copied in):
   assert the settlement's single decision function
   (`_context_backed_fulfillment` + `_fallback_turn_outcome`) over the
   turn's OWN session state — the same predicate the served envelope
-  consumes (run-4 S7: `work_turn` True via the conversation's active task
-  run; the served acceptance re-establishes the envelope path).
-- Interpretation availability is an external dependency (the diagnostic
-  itself hit the recorded credit-dead-route class): a degraded
+  consumes. A served run re-establishes the envelope path.
+- Interpretation availability is an external dependency: a degraded
   interpretation keeps the old behavior (unconfirmed), never a false
   certification.
 
 ## Exact next acceptance action
 
-Independent review of this candidate; then the sole acceptance owner runs
-the ORIGINAL S7 continuation ask on a served build of the frozen
-candidate under a predeclared configuration (same world shape: uploaded
+Independent review of this corrected successor; then the sole acceptance
+owner runs the ORIGINAL S7 continuation ask on a served build of the
+frozen successor under a predeclared configuration (uploaded
 approved-records fixture + draft canvas + the S3 comparison turn first,
-then S7), and reads the authoritative record: the requirement captured
-(`required: true` with the resolved source), the settlement validated
-(`success=true`, outcome `completed`/`partial` with the F-C2 basis
-recorded), fresh-history agreement, and zero new writes
-(`s7-zero-new-work` preserved). No mid-run repairs; every attempt
-preserved; promotion only on that served pass.
+then S7) and reads the authoritative record: requirement captured
+(`required: true` with the resolved source), settlement validated
+(`success=true`, outcome completed/partial with the F-C2 basis),
+fresh-history agreement, and zero new writes (`s7-zero-new-work`
+preserved). No mid-run repairs; every attempt preserved; promotion only
+on that served pass.

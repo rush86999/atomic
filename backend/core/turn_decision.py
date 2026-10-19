@@ -345,14 +345,25 @@ def _task_objective(session: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return {}
 
 
-#: L2 (2026-10-18) — continuation evidence references. The conversation's
-#: own VERIFIED evidence state (the execution-keyed carriers the F-C2
-#: chain maintains) is the antecedent a continuation ask refers to; the
-#: async interpretation names the reference, and the composer below
-#: resolves it against THIS state — never against a message-noun
-#: vocabulary.
+#: L2 (2026-10-18; corrected 2026-10-18 after owner review) — continuation
+#: evidence references. REQUESTED sources (the F-C2 requirement carriers)
+#: only NOMINATE candidates; OBSERVED sources (the supplied retrieval
+#: observations) are the only prior evidence. The composer resolves the
+#: async interpretation's proposed reference against the observed pool —
+#: all eligible matches collected first — and preserves resolved /
+#: ambiguous / unresolved states explicitly. Never substring donation,
+#: never insertion-order selection.
 _EVIDENCE_REQ_PREFIX = "_evidence_requirement_"
 _EVIDENCE_OBS_PREFIX = "_retrieval_source_observations_"
+
+#: Observation source families -> the program kind vocabulary.
+_OBSERVED_FAMILY_KINDS = {
+    "ingested": "document",
+    "vector": "document",
+    "communication": "email",
+    "communications": "email",
+    "comms": "email",
+}
 
 
 def _normalize_reference(text: Any) -> str:
@@ -360,60 +371,50 @@ def _normalize_reference(text: Any) -> str:
     return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
 
 
-def session_evidence_sources(
+def _reference_tokens(text: Any) -> List[str]:
+    """Token-boundary tokens of a reference (>= 4 chars)."""
+    return [t for t in re.findall(r"[a-z0-9]{4,}", str(text or "").lower())]
+
+
+def _token_matches(proposed: str, name_token: str) -> bool:
+    """Boundary-preserving token equality with plural tolerance only.
+
+    "approved" never matches "unapproved" (substring donation is the
+    defect this replaces); "record" matches "records" (a singular/plural
+    inflection of the SAME token)."""
+    a = proposed.rstrip("s")
+    b = name_token.rstrip("s")
+    return bool(a) and a == b
+
+
+def session_observed_sources(
     session: Optional[Dict[str, Any]], limit: int = 8,
 ) -> List[Dict[str, Any]]:
-    """The conversation's own verified evidence sources, bounded.
-
-    Sources: the F-C2 execution-keyed carriers — accepted requirements
-    (source kinds + resolved identity) and retrieval observations
-    (source families + file identities) this conversation produced.
-    Insertion order approximates recency; the most recent carriers win
-    the bound. Never raises; an unreadable carrier contributes nothing.
-    """
+    """The conversation's OBSERVED evidence sources — supplied retrieval
+    observations only (never requirement carriers; a request nominates,
+    it does not establish evidence). Bounded and deduped."""
     if not isinstance(session, dict):
         return []
-    req_keys = [k for k in session
-                if str(k).startswith(_EVIDENCE_REQ_PREFIX)]
-    obs_keys = [k for k in session
-                if str(k).startswith(_EVIDENCE_OBS_PREFIX)]
     entries: List[Dict[str, Any]] = []
-    for key in (req_keys + obs_keys)[-12:]:
+    for key in [k for k in session
+                if str(k).startswith(_EVIDENCE_OBS_PREFIX)][-8:]:
         try:
             value = session.get(key)
         except Exception:  # noqa: BLE001 — carriers are best-effort
             continue
-        if key.startswith(_EVIDENCE_REQ_PREFIX):
-            execution_id = str(key)[len(_EVIDENCE_REQ_PREFIX):]
-            if not isinstance(value, dict):
+        if not isinstance(value, list):
+            continue
+        execution_id = str(key)[len(_EVIDENCE_OBS_PREFIX):]
+        for obs in value:
+            if not isinstance(obs, dict):
                 continue
-            identity = value.get("identity") if isinstance(
-                value.get("identity"), dict) else {}
-            file_name = str(identity.get("file_name") or "").strip()
-            for kind in (value.get("sources") or []):
-                kind = str(kind or "").strip().lower()
-                if kind:
-                    entries.append({"kind": kind, "file_name": file_name,
-                                    "execution_id": execution_id})
-        else:
-            execution_id = str(key)[len(_EVIDENCE_OBS_PREFIX):]
-            if not isinstance(value, list):
-                continue
-            for obs in value:
-                if not isinstance(obs, dict):
-                    continue
-                fam = str(obs.get("source") or "").strip().lower()
-                if fam in ("ingested", "vector"):
-                    kind = "document"
-                elif fam in ("communication", "communications", "comms"):
-                    kind = "email"
-                else:
-                    kind = ""
-                name = str(obs.get("file_name")
-                           or obs.get("title") or "").strip()
-                if kind and name:
-                    entries.append({"kind": kind, "file_name": name,
-                                    "execution_id": execution_id})
+            kind = _OBSERVED_FAMILY_KINDS.get(
+                str(obs.get("source") or "").strip().lower(), "")
+            name = str(obs.get("file_name")
+                       or obs.get("title") or "").strip()
+            if kind and name:
+                entries.append({"kind": kind, "file_name": name,
+                                "execution_id": execution_id})
     out: List[Dict[str, Any]] = []
     seen = set()
     for entry in reversed(entries):
@@ -428,46 +429,103 @@ def session_evidence_sources(
     return out
 
 
-def _resolve_continuation_reference(
-    proposed: str, known: List[Dict[str, Any]],
-) -> Tuple[List[str], str, Optional[Dict[str, Any]]]:
-    """Resolve ONE interpretation-proposed source reference.
+def session_requested_sources(
+    session: Optional[Dict[str, Any]], limit: int = 8,
+) -> List[Dict[str, Any]]:
+    """The conversation's REQUESTED sources (requirement carriers) —
+    nominations for the interpreter, never prior evidence."""
+    if not isinstance(session, dict):
+        return []
+    out: List[Dict[str, Any]] = []
+    seen = set()
+    for key in [k for k in session
+                if str(k).startswith(_EVIDENCE_REQ_PREFIX)][-8:]:
+        try:
+            value = session.get(key)
+        except Exception:  # noqa: BLE001
+            continue
+        if not isinstance(value, dict):
+            continue
+        execution_id = str(key)[len(_EVIDENCE_REQ_PREFIX):]
+        identity = value.get("identity") if isinstance(
+            value.get("identity"), dict) else {}
+        name = str(identity.get("file_name") or "").strip()
+        kinds = [str(k or "").strip().lower()
+                 for k in (value.get("sources") or [])
+                 if str(k or "").strip()]
+        for kind in (kinds or [""]):
+            dedupe_key = (kind, _normalize_reference(name))
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            out.append({"kind": kind, "file_name": name,
+                        "execution_id": execution_id})
+            if len(out) >= limit:
+                return out
+    return out
 
-    Returns ``(kinds, file_name, antecedent)`` — all empty when nothing
-    resolves (fail-closed: an unresolvable reference never invents an
-    obligation). Exact kind words resolve via the program vocabulary;
-    name references resolve against the conversation's own observed
-    source identities by bounded token containment (every token of
-    length >= 4 present in the antecedent name, at least one of length
-    >= 6 — "the approved record" -> approved_records_q2026_114.txt).
-    """
+
+def session_evidence_sources(
+    session: Optional[Dict[str, Any]], limit: int = 8,
+) -> List[Dict[str, Any]]:
+    """Combined view for the INTERPRETATION PROMPT only: observed sources
+    first (``observed: True``), then requested nominations
+    (``observed: False``). Never used for resolution."""
+    observed = [dict(e, observed=True)
+                for e in session_observed_sources(session, limit)]
+    requested = [dict(e, observed=False)
+                 for e in session_requested_sources(session, limit)]
+    seen = {(e["kind"], _normalize_reference(e["file_name"]))
+            for e in observed}
+    combined = list(observed)
+    for entry in requested:
+        key = (entry["kind"], _normalize_reference(entry["file_name"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        combined.append(entry)
+        if len(combined) >= limit:
+            break
+    return combined
+
+
+def _reference_candidates(
+    proposed: str, observed: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """ALL observed sources a reference could mean — collected before any
+    decision (zero / one / many). A canonical kind resolves to the
+    observed sources of that family; a name resolves by boundary-
+    preserving token containment (every proposed token matches a distinct
+    name token, at least one of length >= 5)."""
     from core.action_program import normalize_source_kind
 
     text = str(proposed or "").strip()
     if not text:
-        return [], "", None
+        return []
     kind = normalize_source_kind(text)
     if kind:
-        return [kind], "", None
-    norm = _normalize_reference(text)
-    tokens = re.findall(r"[a-z0-9]{4,}", text.lower())
-    if len(norm) < 6 or not tokens:
-        return [], "", None
-    if not any(len(t) >= 6 for t in tokens):
-        return [], "", None
-    best: Optional[Dict[str, Any]] = None
-    best_hits = 0
-    for entry in known or []:
-        name = _normalize_reference(entry.get("file_name"))
-        if len(name) < 6:
+        return [e for e in observed or []
+                if str(e.get("kind") or "") == kind]
+    tokens = _reference_tokens(text)
+    if not tokens or not any(len(t) >= 5 for t in tokens):
+        return []
+    matches: List[Dict[str, Any]] = []
+    for entry in observed or []:
+        name_tokens = _reference_tokens(entry.get("file_name"))
+        if len(name_tokens) < len(tokens):
             continue
-        hits = sum(1 for t in tokens if t in name)
-        if hits == len(tokens) and hits > best_hits:
-            best, best_hits = entry, hits
-    if best is None:
-        return [], "", None
-    return ([str(best.get("kind") or "document")],
-            str(best.get("file_name") or ""), best)
+        available = list(name_tokens)
+        ok = True
+        for token in tokens:
+            hit = next((nt for nt in available
+                        if _token_matches(token, nt)), None)
+            if hit is None:
+                ok = False
+                break
+            available.remove(hit)
+        if ok:
+            matches.append(entry)
+    return matches
 
 
 def apply_interpretation_references(
@@ -475,30 +533,27 @@ def apply_interpretation_references(
     interpretation: Optional[Dict[str, Any]],
     session: Optional[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
-    """Compose the resolved interpretation's source references into the
-    accepted decision (L2 repair, 2026-10-18).
+    """Compose the resolved interpretation's source reference into the
+    accepted decision (L2 repair; corrected after owner review).
 
-    The deterministic floor reads the message's own nouns; a CONTINUATION
-    ask that references an earlier source by description ("does it still
-    match the approved record?") carries no noun for it, so the evidence
-    obligation was lost and the turn's verified retrieval could not
-    certify (S7: correct content, ``outcome_unconfirmed``). The async
-    interpretation is the semantic layer that names the reference; THIS
-    composer consumes it — but only when:
+    The reference is resolved against the conversation's OBSERVED sources
+    (supplied retrieval observations). Requirements nominate candidates;
+    they are never prior evidence. Decision pattern:
 
-    * the interpretation is RESOLVED (degraded records change nothing),
-    * the deterministic decision carries NO references (the floor's own
-      capture always wins),
-    * and the proposed reference resolves against the conversation's own
-      verified evidence state (kind vocabulary or an observed source
-      identity).
+    * one candidate -> adopt its identity (the stash re-resolves it
+      against the catalog for the exact identity);
+    * several candidates -> preserve the AMBIGUITY (candidates recorded;
+      never insertion-order selection);
+    * no candidate, name proposal, observed evidence context present ->
+      preserve the UNRESOLVED reference (kinds grounded in the observed
+      families; the settlement reports the honest non-match);
+    * no candidate otherwise (no observed context, or generic-kind-only
+      proposals) -> the decision is UNCHANGED: a generic kind describes a
+      proposed lookup and cannot prove which record the reference means.
 
-    On adoption the decision's ``references`` gain the source kinds and,
-    when a name resolves, the resolved file identity — the SAME shape
-    the message-noun capture produces, so the whole downstream chain
-    (the F-C2 requirement stash, ``turn_evidence_required``, settlement)
-    consumes it unchanged. The provenance marker records what was
-    proposed and what resolved.
+    Guards unchanged: only a RESOLVED interpretation composes; the
+    deterministic floor's own references always win; degraded
+    interpretations and unresolvable references never invent anything.
     """
     if not isinstance(decision, dict) or not isinstance(
             interpretation, dict):
@@ -517,36 +572,92 @@ def apply_interpretation_references(
                 if str(s or "").strip()][:4]
     if not proposed:
         return decision
-    known = session_evidence_sources(session)
-    kinds: List[str] = []
-    file_name = ""
-    antecedents: List[Dict[str, Any]] = []
+    observed = session_observed_sources(session)
+    if not observed:
+        return decision  # no observed evidence context: nothing to resolve
+    candidates: List[Dict[str, Any]] = []
+    seen = set()
     for proposal in proposed:
-        resolved_kinds, resolved_file, antecedent = (
-            _resolve_continuation_reference(proposal, known))
-        for kind in resolved_kinds:
-            if kind not in kinds:
-                kinds.append(kind)
-        if resolved_file and not file_name:
-            file_name = resolved_file
-        if antecedent is not None:
-            antecedents.append(antecedent)
-    if not kinds:
-        return decision  # nothing resolved: never invent an obligation
-    new_refs = dict(refs)
-    new_refs["sources"] = kinds
-    if file_name:
-        new_refs["file"] = {"file_name": file_name}
-    new_refs["continuation_evidence"] = {
+        for entry in _reference_candidates(proposal, observed):
+            key = (entry.get("kind"),
+                   _normalize_reference(entry.get("file_name")))
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(entry)
+    marker: Dict[str, Any] = {
         "origin": "interpretation",
         "proposed": proposed,
-        "resolved_kinds": kinds,
-        "resolved_file": file_name,
-        "antecedents": [
-            {"kind": a.get("kind"), "file_name": a.get("file_name"),
-             "execution_id": a.get("execution_id")}
-            for a in antecedents[:4]],
     }
+    if len(candidates) == 1:
+        candidate = candidates[0]
+        kinds = [str(candidate.get("kind") or "document")]
+        file_name = str(candidate.get("file_name") or "")
+        marker.update({
+            "state": "resolved",
+            "resolved_kinds": kinds,
+            "resolved_file": file_name,
+            "antecedents": [{"kind": candidate.get("kind"),
+                             "file_name": file_name,
+                             "execution_id": candidate.get("execution_id")}],
+        })
+        new_refs = dict(refs)
+        new_refs["sources"] = kinds
+        new_refs["file"] = {"file_name": file_name}
+        new_refs["continuation_evidence"] = marker
+        composed = dict(decision)
+        composed["references"] = new_refs
+        return composed
+    if len(candidates) > 1:
+        kinds: List[str] = []
+        for entry in candidates:
+            kind = str(entry.get("kind") or "")
+            if kind and kind not in kinds:
+                kinds.append(kind)
+        marker.update({
+            "state": "ambiguous",
+            "resolved_kinds": kinds,
+            "resolved_file": "",
+            "candidates": [
+                {"kind": e.get("kind"), "file_name": e.get("file_name"),
+                 "execution_id": e.get("execution_id")}
+                for e in candidates[:4]],
+        })
+        new_refs = dict(refs)
+        new_refs["sources"] = kinds or ["document"]
+        new_refs["continuation_evidence"] = marker
+        composed = dict(decision)
+        composed["references"] = new_refs
+        return composed
+    # Zero candidates. An unresolved obligation is preserved only for a
+    # NAME proposal inside an observed evidence context (its kind is
+    # grounded in the observed families); generic-kind-only proposals
+    # never nominate an antecedent.
+    from core.action_program import normalize_source_kind
+
+    names = [p for p in proposed if not normalize_source_kind(p)]
+    if not names:
+        return decision
+    kinds = []
+    for proposal in proposed:
+        kind = normalize_source_kind(proposal)
+        if kind and kind not in kinds:
+            kinds.append(kind)
+    for entry in observed:
+        kind = str(entry.get("kind") or "")
+        if kind and kind not in kinds:
+            kinds.append(kind)
+    if not kinds:
+        return decision
+    marker.update({
+        "state": "unresolved",
+        "resolved_kinds": kinds,
+        "resolved_file": "",
+        "names": names,
+    })
+    new_refs = dict(refs)
+    new_refs["sources"] = kinds
+    new_refs["continuation_evidence"] = marker
     composed = dict(decision)
     composed["references"] = new_refs
     return composed
@@ -1195,10 +1306,14 @@ def _interpretation_prompt(
     # instead of the reference being lost with the message's nouns.
     prior_sources = session_evidence_sources(session)
     if prior_sources:
+        def _render_prior(entry: Dict[str, Any]) -> str:
+            kind = str(entry.get("kind") or "")
+            name = str(entry.get("file_name") or "")
+            label = "" if entry.get("observed") else "requested: "
+            return (f"{label}{kind}: {name}" if name else f"{label}{kind}")
+
         rendered = "; ".join(
-            (f"{entry.get('kind')}: {entry.get('file_name')}"
-             if entry.get("file_name") else str(entry.get("kind")))
-            for entry in prior_sources[:6])
+            _render_prior(entry) for entry in prior_sources[:6])
         parts.append(
             "PRIOR EVIDENCE SOURCES (this conversation): " + rendered)
     parts.append(
