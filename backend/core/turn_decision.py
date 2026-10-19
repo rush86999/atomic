@@ -42,8 +42,9 @@ import json
 import logging
 import os
 import re
+import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Reference detector: ONE shared constant with the validator — the
 # round-2 independent review (2026-10-15) found the two hand-mirrored
@@ -1339,6 +1340,53 @@ _interpret_metrics: Dict[str, Any] = {
     "ok": 0, "unresolved": 0, "timeout": 0, "error": 0, "skipped": 0,
     "max_ms": 0.0, "sum_ms": 0.0}
 
+#: Scratch-only capture of the producer's raw scope/action shape before
+#: normalization (enabled by ATOM_TURN_INTERPRET_CAPTURE=1). Records no
+#: message/source content and no credentials.
+_interpret_capture: List[Dict[str, Any]] = []
+_interpret_capture_request_id = ""
+_interpret_capture_lock = threading.Lock()
+
+
+def reset_interpret_capture(request_id: str = "") -> None:
+    global _interpret_capture_request_id
+    with _interpret_capture_lock:
+        _interpret_capture.clear()
+        _interpret_capture_request_id = str(request_id or "")
+
+
+def _record_interpret_capture(
+    data: Any, *, phase: str, rejection_reason: str = "",
+) -> None:
+    if os.getenv("ATOM_TURN_INTERPRET_CAPTURE", "0").lower() not in (
+            "1", "on", "true", "yes"):
+        return
+    if not isinstance(data, dict):
+        return
+    raw_scope = data.get("scope_change")
+    actions = data.get("actions") or []
+    kinds = []
+    for action in actions[:8]:
+        if isinstance(action, dict):
+            kinds.append(str(action.get("kind") or "")[:40])
+        else:
+            kinds.append(type(action).__name__)
+    with _interpret_capture_lock:
+        _interpret_capture.append({
+            "request_id": _interpret_capture_request_id,
+            "phase": phase,
+            "scope_present": "scope_change" in data,
+            "scope_raw": str(raw_scope)[:40] if raw_scope is not None else None,
+            "action_count": len(actions),
+            "action_kinds": kinds,
+            "rejection_reason": rejection_reason,
+        })
+
+
+def get_interpret_capture() -> List[Dict[str, Any]]:
+    with _interpret_capture_lock:
+        return [dict(item) for item in _interpret_capture]
+
 
 def interpretation_enabled() -> bool:
     return os.getenv("ATOM_TURN_INTERPRETATION", "1").lower() not in (
@@ -1483,15 +1531,20 @@ def _interpretation_prompt(
         "the wording; never append explanations, parentheses, or "
         "uncertainty notes; never include the attached draft/canvas as an "
         "external source), the data fields wanted, output format, explicit "
-        "constraints (including things the user said NOT to do), and how "
-        "the requested scope relates to the persisted unfinished work: "
-        "replace (new subject supersedes), extend (adds items), subset "
-        "(narrows to some items), continue (resume the persisted work), "
-        "or unresolved. A request that names its own subjects when "
-        "there is NO persisted unfinished work is 'replace' (it "
-        "establishes the scope). 'unresolved' is only for requests you "
-        "genuinely cannot establish. Copy constraint wording from the "
-        "request; never invent subjects.")
+        "constraints (including things the user said NOT to do), and the "
+        "requested scope: replace (a new subject supersedes the current "
+        "conversation/work), extend (adds items), subset (narrows to some "
+        "items), continue (FOLLOW UP on an established conversation "
+        "subject — even when the prior turn completed — or resume "
+        "persisted unfinished work), or unresolved (the reference is "
+        "genuinely ambiguous or cannot be established). A request that "
+        "names its own NEW subject unrelated to the established "
+        "conversation is 'replace'; a follow-up that refers to the "
+        "established subject/antecedent is 'continue' even if no "
+        "unfinished work remains. scope_change is REQUIRED and must be "
+        "exactly one of those five values; do not map uncertainty to "
+        "'continue'. Copy constraint wording from the request; never "
+        "invent subjects.")
     return "\n\n".join(parts)
 
 
@@ -1539,7 +1592,7 @@ async def interpret_turn_request(
         return _unresolved("breaker_open")
 
     try:
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, Field, model_validator
     except ImportError:  # pragma: no cover — pydantic always present
         return _unresolved("pydantic_unavailable")
 
@@ -1569,8 +1622,20 @@ async def interpret_turn_request(
         requested_fields: List[str] = Field(default_factory=list)
         output_format: str = ""
         constraints: List[str] = Field(default_factory=list)
-        scope_change: str = "unresolved"
+        scope_change: Literal[
+            "replace", "extend", "subset", "continue", "unresolved"
+        ]
         confidence: float = 0.0
+
+        @model_validator(mode="before")
+        @classmethod
+        def _capture_before_validation(cls, data):
+            try:
+                _record_interpret_capture(
+                    data, phase="pre_validation")
+            except Exception:  # noqa: BLE001 — capture is additive
+                pass
+            return data
 
     if llm_service is None:
         try:
@@ -1597,6 +1662,10 @@ async def interpret_turn_request(
         _interpret_label = (
             f"turn interpretation:{request_id or session_id or '-'}")
         LAST_FAILURE.update(kind=None, detail="", label="")
+        try:
+            reset_interpret_capture(_interpret_label)
+        except Exception:  # noqa: BLE001 — capture is additive
+            pass
 
         # ROUTE SELECTION FROM THE 2026-10-19 DIAGNOSTIC: the measured
         # compatible interpretation route accepts the reasoning-disable
@@ -1637,6 +1706,21 @@ async def interpret_turn_request(
             ),
             timeout=_INTERPRET_TIMEOUT_S,
         )
+        if result is None:
+            try:
+                _captured = get_interpret_capture()
+            except Exception:  # noqa: BLE001
+                _captured = []
+            if _captured:
+                _last = _captured[-1]
+                if not _last.get("scope_present"):
+                    return _unresolved("missing_scope")
+                _captured_scope = str(
+                    _last.get("scope_raw") or "").strip().lower()
+                if _captured_scope and _captured_scope not in SCOPE_CHANGES:
+                    return _unresolved("invalid_scope")
+                if not _last.get("action_count"):
+                    return _unresolved("no_actions_proposed")
         if (result is None
                 and LAST_FAILURE.get("label") == _interpret_label
                 and LAST_FAILURE.get("kind")):
@@ -1666,7 +1750,13 @@ async def interpret_turn_request(
 
     data = result if isinstance(result, dict) else (
         getattr(result, "model_dump", lambda: {})())
-    scope_change = str(data.get("scope_change") or "").strip().lower()
+    try:
+        _record_interpret_capture(data, phase="post_validation")
+    except Exception:  # noqa: BLE001 — capture is additive
+        pass
+    _scope_present = "scope_change" in data
+    _scope_raw_text = str(data.get("scope_change") or "").strip().lower()
+    scope_change = _scope_raw_text
     # Near-miss normalization (live 2026-10-08: v4-flash served
     # "replacement"/"narrow" against the enumerated enum): map the
     # obvious variants, everything else stays unresolved — never a
@@ -1686,10 +1776,26 @@ async def interpret_turn_request(
         for a in (data.get("actions") or [])
     ][:8]
     if not raw_actions or scope_change == "unresolved":
+        if not raw_actions:
+            reason = "no_actions_proposed"
+        elif not _scope_present:
+            reason = "missing_scope"
+        elif _scope_raw_text == "unresolved":
+            reason = "scope_unresolved"
+        elif (_scope_raw_text not in SCOPE_CHANGES
+              and scope_change == "unresolved"):
+            reason = "invalid_scope"
+        else:
+            reason = "scope_unresolved"
+        try:
+            _record_interpret_capture(
+                data, phase="normalized", rejection_reason=reason)
+        except Exception:  # noqa: BLE001
+            pass
         _interpret_metrics["unresolved"] += 1
-        _emit_interpret("unparseable" if raw_actions else "empty")
-        return _unresolved("malformed_output" if raw_actions
-                           else "no_actions_proposed")
+        _emit_interpret(
+            "unparseable" if raw_actions else "empty", reason=reason)
+        return _unresolved(reason)
 
     canvas_id = (context or {}).get("canvas_id") or (
         (context or {}).get("canvas") or {}).get("canvas_id")

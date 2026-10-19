@@ -446,6 +446,22 @@ source identity cannot supply values, wrong-execution observations are
 not read, partial coverage keeps its named gap, the deterministic reply
 makes no search claim, and no canvas writes occur.
 
+## Scope-contract repair (2026-10-19) — S7 producer
+
+The attempt-7 S7 response passed Pydantic parsing but was rejected after
+normalization (`unparseable`). The schema now REQUIRES `scope_change` as
+a `Literal` of the five existing values (`replace`, `extend`, `subset`,
+`continue`, `unresolved`), with no silent uncertainty default. A
+scratch-only capture (env `ATOM_TURN_INTERPRET_CAPTURE=1`) records field
+presence, the raw scope value, action kinds/count, and the rejection
+reason before/after normalization, without message/source content or
+credentials. Rejections now distinguish `missing_scope`, `invalid_scope`,
+`scope_unresolved`, and `no_actions_proposed`; downstream fail-closed
+behavior is unchanged. The prompt distinguishes following up on an
+established conversation subject (continue, even when the prior turn
+completed) from resuming unfinished work and from genuinely ambiguous
+references; uncertainty is never mapped to continue.
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
@@ -462,11 +478,11 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **81 passed** across the interpretation, L2, transport, guard-order and
+  **87 passed** across the interpretation, L2, transport, guard-order, scope-contract and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **564 passed, 2 failed** — the same two
+  workbook read/comparison) → **570 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
   has 14 pre-existing failures in this environment, byte-identical on
