@@ -162,6 +162,61 @@ def test_non_extractable_text_field_does_not_trigger_the_guard():
     assert out is None
 
 
+def test_wrong_source_observation_cannot_supply_values():
+    requirement = _requirement()
+    requirement["identity"] = {
+        "state": "resolved",
+        "file_name": "approved_records_q2026_114.txt",
+    }
+    wrong = [{
+        "source": "ingested",
+        "file_name": "unapproved_records.txt",
+        "field_associations": {
+            "expiration_date": {"value": "2026-12-31"},
+        },
+    }]
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply="The approved record says 2026-12-31.",
+        canvas=CANVAS, source_observations=wrong,
+        requirement=requirement)
+    assert out is None
+
+
+def test_partial_coverage_remains_partial_with_a_named_gap():
+    requirement = _requirement(fields=("expiration_date", "price"))
+    source = [{
+        "source": "ingested",
+        "file_name": "approved_records_q2026_114.txt",
+        "content_hash": "hash-p",
+        "field_associations": {
+            "expiration_date": {"value": "2026-12-31"},
+        },
+    }]
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply="The draft valid until is 2026-12-31.",
+        canvas=CANVAS, source_observations=source,
+        requirement=requirement)
+    assert out is not None
+    assert out["comparison"]["coverage"]["complete"] is False, out
+    lowered = out["reply"].casefold()
+    assert "price" in lowered and "no verified value" in lowered, out["reply"]
+
+
+def test_deterministic_reply_makes_no_search_claim():
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply="",
+        canvas=CANVAS, source_observations=SOURCE_EQUAL,
+        requirement=_requirement())
+    assert out is not None
+    lowered = out["reply"].casefold()
+    assert "documents.search" not in lowered
+    assert "i searched" not in lowered
+    assert "i couldn't search" not in lowered
+
+
 def test_draft_only_question_is_not_replaced():
     """A typed-field question that is not a comparison must not be
     converted into a source limitation."""

@@ -4506,7 +4506,9 @@ def render_verified_comparison_reply(
         return ""
     lines = [
         "Verified comparison (the values below are read directly from the "
-        "retrieved source; wording does not replace them):"
+        "retrieved source; wording does not replace them):",
+        "Scope: only the requested typed field(s) below are compared; "
+        "other differences are not assessed.",
     ]
     for outcome in outcomes:
         field = _display_text(outcome.get("field")).replace("_", " ")
@@ -4589,6 +4591,31 @@ def verified_comparison_reply(
     if not source_observations:
         # A draft-only question is not a comparison: do not inject a
         # source limitation or replace the answer.
+        return None
+    # WRONG-SOURCE / AMBIGUOUS-SOURCE PROTECTION: when the requirement
+    # names the source, only that source's observations may supply
+    # values; several distinct source identities cannot produce a
+    # deterministic replacement.
+    _required_name = _display_text(
+        ((requirement or {}).get("identity") or {}).get("file_name")
+        or ((requirement or {}).get("file") or {}).get("file_name")
+        or "")
+    if _required_name:
+        source_observations = [
+            observation for observation in source_observations
+            if _display_text(observation.get("file_name")
+                             or observation.get("title")).casefold()
+            == _required_name.casefold()]
+        if not source_observations:
+            return None
+    _source_names = {
+        _display_text(observation.get("file_name")
+                      or observation.get("title") or "").casefold()
+        for observation in source_observations
+        if _display_text(observation.get("file_name")
+                         or observation.get("title") or "")
+    }
+    if len(_source_names) > 1:
         return None
     try:
         from core.turn_program import is_comparison_request

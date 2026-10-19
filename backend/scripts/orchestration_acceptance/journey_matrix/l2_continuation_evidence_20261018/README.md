@@ -412,6 +412,40 @@ machinery (`build_source_comparison` / `render_source_comparison`,
   values, reply replacement, and no-op without a typed-field requirement.
   No date-specific regex; no additional broad model call.
 
+## Guard-order repair (2026-10-19) — verified comparison before corrective regeneration
+
+The preserved attempt-4 S3 trace showed the internal reply existed at
+64.0s with 31s left, then the search/absence guard replaced an
+unsupported absence claim and launched a corrective model call that
+exhausted the 68s reply-leg clock; the verified-comparison guard ran only
+after the timeout. The new guard order:
+
+- `_get_qwen_response` builds the typed-field verified comparison
+  immediately after the reply text exists and **before** the
+  grounding/absence/search-narration corrective chain. When the
+  comparison is **complete for the requested typed fields**, it returns
+  the deterministic comparison as the turn's reply
+  (`deterministic_delivery=True`), so no corrective model call is made.
+- The comparison requires the current execution's observations, filters
+  them to the requirement's resolved source identity when named, refuses
+  ambiguous multi-source sets, and only replaces on complete coverage;
+  partial coverage falls through to the existing guarded processing with
+  named gaps.
+- The deterministic reply states its scope explicitly ("only the
+  requested typed field(s) below are compared; other differences are not
+  assessed") and never claims that a tool search ran.
+- The main-flow guard remains as a fallback for paths that bypass
+  `_get_qwen_response`, and skips when the pre-guard replacement already
+  ran. Search/absence protections are unchanged for non-comparison turns.
+
+Controls: the captured S3 state drives the REAL `process_chat_message` /
+`_get_qwen_response` path with a controlled reply endpoint; the
+deterministic comparison is delivered and the reply endpoint is called
+exactly once (no corrective regeneration). Additional controls: wrong
+source identity cannot supply values, wrong-execution observations are
+not read, partial coverage keeps its named gap, the deterministic reply
+makes no search claim, and no canvas writes occur.
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
@@ -428,11 +462,11 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **73 passed** across the interpretation, L2, transport and
+  **77 passed** across the interpretation, L2, transport, guard-order and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **556 passed, 2 failed** — the same two
+  workbook read/comparison) → **560 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
   has 14 pre-existing failures in this environment, byte-identical on

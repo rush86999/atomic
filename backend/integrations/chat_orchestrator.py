@@ -15840,7 +15840,8 @@ class ChatOrchestrator:
                         f"_retrieval_source_observations_{_execution_id}") \
                         or []
                     _verified = None
-                    if not _is_llm_error_text(str(main_message or "")):
+                    if (not _is_llm_error_text(str(main_message or ""))
+                            and not ai_response.get("verified_comparison")):
                         _verified = verified_comparison_reply(
                             message=message,
                             reply=str(main_message or ""),
@@ -24318,6 +24319,60 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 from core.chat_tool_planner import (
                     _explicit_web_research_requested,
                 )
+                # VERIFIED COMPARISON BEFORE CORRECTIVE GUARDS (L2 guard-
+                # order repair, 2026-10-19): when the turn's own typed-field
+                # requirement + retrieved observations + attached canvas
+                # produce a COMPLETE verified comparison, deliver that
+                # deterministic answer NOW, before the grounding/absence/
+                # search-narration guards can spend the remaining turn
+                # budget regenerating prose. Partial/limitation comparisons
+                # fall through to the existing guarded processing.
+                try:
+                    from core.workbook_read_artifact import (
+                        verified_comparison_reply,
+                    )
+
+                    _vfy_requirement = (
+                        (session or {}).get(
+                            f"_evidence_requirement_{execution_id}") or {})
+                    _vfy_observations = (
+                        (session or {}).get(
+                            f"_retrieval_source_observations_{execution_id}")
+                        or [])
+                    _vfy = verified_comparison_reply(
+                        message=message,
+                        reply=_content,
+                        canvas=(canvas_context
+                                if isinstance(canvas_context, dict) else {}),
+                        source_observations=_vfy_observations,
+                        requirement=_vfy_requirement,
+                    )
+                    _vfy_coverage = (((_vfy or {}).get("comparison") or {})
+                                     .get("coverage") or {})
+                    if (_vfy and _vfy.get("reply")
+                            and _vfy_coverage.get("complete")):
+                        response_data = dict(response_data or {})
+                        response_data["content"] = _vfy["reply"]
+                        response_data["verified_comparison"] = (
+                            _vfy.get("comparison"))
+                        response_data["deterministic_delivery"] = True
+                        if (isinstance(session, dict) and execution_id):
+                            _vfy_existing = session.get(
+                                f"_objective_evidence_{execution_id}")
+                            if not _vfy_existing:
+                                session[
+                                    f"_objective_evidence_{execution_id}"
+                                ] = _vfy.get("comparison")
+                        logger.info(
+                            "[verified-comparison] deterministic replacement "
+                            "BEFORE corrective guards (execution=%s fields=%s)",
+                            str(execution_id)[:8],
+                            (_vfy_requirement or {}).get("fields"))
+                        return response_data
+                except Exception:  # noqa: BLE001 — guard is additive
+                    logger.debug(
+                        "[verified-comparison] pre-guard replacement "
+                        "skipped: %r", sys.exc_info()[1])
                 # GROUNDING GUARD (non-streaming path): same wobble guard as
                 # the streaming path — one grounded regeneration when the
                 # reply denies having data that a LIVE TOOL RESULT provided.
