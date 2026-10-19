@@ -114,6 +114,15 @@ reconciled by the evidence cited here.
   reliability, pilot deployment, or restart durability. Evidence:
   `journey_matrix/l2_continuation_served_20261019/` (attempts 1–5,
   diagnostic results, corrected assessment). Not deployed to the pilot.
+  **Attempt 7 (2026-10-19, `65b63494e`)** then demonstrated the **S3
+  truthful deterministic delivery + request coverage**: renderer output
+  alone (no "everything consistent" prose), verified `2026-12-31` match,
+  terms mismatch recorded (Net 45 vs Net 30), no corrective model call,
+  zero writes, 52.5 s. However, the **S7 interpretation producer returned
+  malformed output** (`origin=unresolved`, `reason=malformed_output`,
+  32.9 s), so the S7 source identity/settlement was not established and
+  the complete S3→S7 chain remains **open**. No new full-chain promotion;
+  the S3 correctness claim is added to the evidence.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)

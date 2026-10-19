@@ -378,6 +378,27 @@ differences were not assessed, but the broader whole-document
 `journey_matrix/l2_continuation_served_20261019/` (attempts 1–5,
 diagnostic results, corrected assessment, `CHECKSUMS_ATTEMPT5`).
 
+**Rev 18 (2026-10-19, L2 S3 deterministic/request-coverage PASSED;
+S7 producer malformed — chain open, no full-chain promotion).** Candidate
+**`65b63494e`** (deterministic verified reply alone; reviewed
+`payment_terms` mapping and source-excerpt parsing; broader requests
+include every typed field the artifact exposes, draft-only fields as
+named gaps, `coverage.request_complete=false` keeps the overall result
+partial/open; interpretation unchanged; focused 81 passed, neighbors 564
+passed + 2 pre-existing `TestEditPlanRungKnob`) was served on the same
+S3→S7 job/configuration (port 8102). **S3 passed:** 52.5 s, renderer
+output alone, verified `2026-12-31` match, terms mismatch recorded (Net 45
+vs Net 30), no global consistency claim, no corrective model call, zero
+writes, draft unchanged, agreement true. **S7 did not:** the
+interpretation dispatched and completed in 32.9 s but returned
+`origin=unresolved`, `reason=malformed_output`, actions/sources empty, so
+the requirement stayed `required=false` and source identity/settlement
+were not established; the deterministic S7 text was not certified. This is
+a producer-output-validity failure, not a timeout or guard-order failure.
+No new full-chain promotion; L2 remains open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempt 7,
+`CHECKSUMS_ATTEMPT7`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
