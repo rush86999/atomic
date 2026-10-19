@@ -267,6 +267,34 @@ bounded question: clean interpreter source-identity proposals (exact
 filename or canonical kind), not tokenizer expansion or composer substring
 relaxation.
 
+**Rev 14 (2026-10-19, L2 continuation served attempt 2 — NOT PASSED, no
+promotion).** The producer-corrected candidate **`51628b925`** (parent
+`a6cd2c8ba`; `sources` keeps `List[str]` with an explicit identity
+contract in schema + prompt, structured `SOURCE REFERENCES` separating
+observed evidence/requested sources/attached artifact, supported kinds
+from `SOURCE_KINDS`; the composer/consumer is untouched; local L2 battery
+41 passed, neighbors 277 passed + the 2 pre-existing
+`TestEditPlanRungKnob` failures) was served in the same predeclared
+configuration on a fresh port/world (8096, scratch stores). **Both**
+interpretation calls (S3 and S7) timed out at the product's 12-second
+bound (structured dispatch attempted on `opencode-go/glm-5.3-flash` and
+`opencode-go/qwen3.8-flash`; 8 Zen posts, 0 Go-inference posts), so the
+producer correction was never exercised. The S7 requirement therefore
+stayed uncaptured (`required=false`, `sources=[]`), the fallback reply
+lane returned a wrong approved date in S3 (`2026-12-30`; the fixture says
+`2026-12-31`) and settled S7 `unconfirmed`; zero writes and draft
+unchanged held, and the pilot identity was unchanged. The live-DB guard
+also flagged a change during the window (external pilot activity
+expected; the attempt used only scratch stores and the server log
+contains no live dev DB path), so this was not a clean isolated run.
+15/22 predeclared gates passed; the first failure is
+`real_interpretation_dispatched`. **No promotion**; L2 remains open and
+the producer correction is unverified by served evidence. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempt 1 record +
+`README_ATTEMPT2.md`, `attempt2_*`, `summary_attempt2.json`,
+`CHECKSUMS_ATTEMPT2.sha256`). A further served run, an
+interpretation-timeout change, or a model change is an owner decision.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

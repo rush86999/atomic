@@ -91,21 +91,28 @@ reconciled by the evidence cited here.
   re-verified there.
 - **L2 — continuation ask**: "does it still match the approved record?"
   is answered correctly, but the requirement is **not yet certified with a
-  resolved source identity** in the served product. The candidate repair
-  captures the obligation from the interpretation (`required=true`) and
-  the conversation's observed source, but the served attempt on
-  **2026-10-19** (candidate `a6cd2c8ba`, predeclared isolated
-  configuration; evidence
-  `journey_matrix/l2_continuation_served_20261019/`) **did NOT pass**:
-  the real interpreter proposed annotated source descriptions, and the
-  owner-approved composer preserved the identity as `unresolved`
-  (no substring donation). The reply was correct, zero-write and
-  partially settled (`success=true`, `outcome=partial`), but the
-  resolved-source/F-C2 certification target was not met. L2 remains open;
-  the next bounded question is a clean interpreter source-identity
-  proposal (exact filename or canonical kind), **not** tokenizer
-  expansion or a composer substring relaxation. Not deployed to the
-  pilot; the pilot limitation stands.
+  resolved source identity** in the served product. Attempt 1 on
+  **`a6cd2c8ba`** (2026-10-19, predeclared isolated configuration)
+  captured the requirement (`required=true`) but the real interpreter
+  proposed annotated source descriptions and the owner-approved composer
+  preserved the identity as `unresolved` (no substring donation). The
+  bounded **producer correction** on `51628b925` (schema/prompt exact
+  identities; structured `SOURCE REFERENCES` separating observed evidence,
+  requested sources and the attached artifact; supported source kinds;
+  composer untouched; L2 battery 41 passed, neighbors 277 passed + 2
+  pre-existing) has **not** been verified in the served product: attempt 2
+  (same predeclared job, fresh port/world) failed at the interpretation
+  gate — both interpretation calls timed out at the 12 s bound, so the
+  producer correction was never exercised, the S7 requirement stayed
+  uncaptured (`required=false`), and the fallback reply lane returned a
+  wrong approved date in S3 and settled S7 `unconfirmed`; zero writes and
+  draft unchanged held. The live-DB guard also flagged a change during the
+  attempt-2 window (external pilot activity expected; the attempt used
+  only scratch stores). L2 remains open; **no promotion**. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (attempt 1 record +
+  `README_ATTEMPT2.md`/`summary_attempt2.json`/`CHECKSUMS_ATTEMPT2`).
+  A further served run, an interpretation-timeout change, or a model
+  change is an owner decision; not deployed to the pilot.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)
