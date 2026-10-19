@@ -384,9 +384,10 @@ authorization headers were excluded.
   (`opencode-go/qwen3.8-flash`) through the existing
   `pinned_structured_call` wrapper: the pin is a preference, and the
   wrapper's existing unpinned fallback excludes the failed pin.
-- Bounded interpretation deadline increase **12s → 75s** (the valid S7
-  record was ~58s; 75s leaves margin). This is an evaluated change, not a
-  latency claim: the served attempt measures total turn latency.
+- Bounded interpretation deadline increase **12s → 65s** (the valid S7
+  record was ~58s; 65s leaves margin and fits the ordinary 95s turn
+  budget with ~30s left for the reply leg). This is an evaluated change,
+  not a latency claim: the served attempt measures total turn latency.
 - The 5,500-token ceiling is retained (the S3 model exceeded it; the
   selected route produced 3,188 tokens). The reasoning switch, MoA
   opt-out, trace id and source-resolution contract are unchanged.
@@ -427,15 +428,22 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **68 passed** across the interpretation, L2, transport and
+  **71 passed** across the interpretation, L2, transport and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **551 passed, 2 failed** — the same two
+  workbook read/comparison) → **554 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). `test_chat_canvas_editor.py`
   has 14 pre-existing failures in this environment, byte-identical on
   the frozen 10982e839 worktree (not caused by this change).
+
+  The narration guard is comparison-intent gated, requires a retrieved
+  source observation, detects a contradictory value in the reply (not
+  only a missing one), preserves display case, uses association subjects
+  for multi-subject sources, stores the comparison on the existing
+  `_objective_evidence_{execution_id}` carrier, and does not mark
+  deterministic delivery for limitation-only output.
 - Parent L2 battery (pre-correction 28-test set) → **26 failed, 2
   passed** — the 20 composer capability tests (functions absent) and the
   8 chain regressions (capture, ambiguity, wrong-name, identifier,

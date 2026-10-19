@@ -116,6 +116,44 @@ def test_missing_source_value_is_a_specific_limitation():
     assert "cannot be claimed" in out["reply"]
 
 
+def test_actual_defect_shape_is_replaced():
+    """The served reply carried the correct draft/source value AND a
+    wrong source value; presence of the correct value alone must not
+    bless the contradiction."""
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply=("The draft's Valid until date is 2026-12-31. The Approved "
+               "Record specifies 2023-01-01, so the dates do not match."),
+        canvas=CANVAS, source_observations=SOURCE_EQUAL,
+        requirement=_requirement())
+    assert out is not None
+    assert out["replaced"] is True, out
+    assert out["contradiction"] is True, out
+    assert "2023-01-01" not in out["reply"], out["reply"]
+    assert "2026-12-31 = approved_records_q2026_114.txt 2026-12-31" in (
+        out["reply"]), out["reply"]
+
+
+def test_draft_only_question_is_not_replaced():
+    """A typed-field question that is not a comparison must not be
+    converted into a source limitation."""
+    out = verified_comparison_reply(
+        message="What is the valid until date on the draft?",
+        reply="The draft's valid until date is 2026-12-31.",
+        canvas=CANVAS, source_observations=SOURCE_EQUAL,
+        requirement=_requirement())
+    assert out is None
+
+
+def test_no_source_observations_is_not_replaced():
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record",
+        reply="The draft's valid until date is 2026-12-31.",
+        canvas=CANVAS, source_observations=[],
+        requirement=_requirement())
+    assert out is None
+
+
 def test_two_subjects_with_different_values_are_both_present():
     body = (
         "Machine A valid until: 2026-12-31\n"
@@ -126,16 +164,27 @@ def test_two_subjects_with_different_values_are_both_present():
     assert len(draft) == 2, draft
     assert {o["entity_id"] for o in draft} == {"Machine A", "Machine B"}
     assert {o["raw_value"] for o in draft} == {"2026-12-31", "2027-01-31"}
+    source_two = [{
+        "source": "ingested",
+        "file_name": "approved_records_q2026_114.txt",
+        "content_hash": "hash-d",
+        "field_associations": {
+            "expiration_date": {"value": "2026-12-31",
+                                 "subject": "Machine A"},
+        },
+    }]
     out = verified_comparison_reply(
-        message="compare the draft with the approved record",
+        message="Compare the draft with the approved record",
         reply="",
         canvas={"canvas_id": "canvas-two", "title": "draft",
                 "content": body},
-        source_observations=SOURCE_MISSING,
+        source_observations=source_two,
         requirement=_requirement())
     assert out is not None
     lowered = out["reply"].casefold()
-    assert "machine a" in lowered and "machine b" in lowered, out["reply"]
+    assert "machine a" in lowered and "(match)" in lowered, out["reply"]
+    assert "machine b" in lowered and "no verified value" in lowered, (
+        out["reply"])
 
 
 def test_guard_replaces_a_reply_that_lacks_the_verified_value():

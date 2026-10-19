@@ -4343,13 +4343,33 @@ def render_workbook_artifact(artifact: Dict[str, Any]) -> str:
 
 def _canvas_body_text(content: Any) -> str:
     if isinstance(content, dict):
-        value = content.get("content")
-        if isinstance(value, str):
-            return value
+        for key in ("content", "body", "canvas_content"):
+            value = content.get(key)
+            if isinstance(value, str):
+                return value
         return json.dumps(content, ensure_ascii=False, default=str)
     if isinstance(content, str):
         return content
     return json.dumps(content, ensure_ascii=False, default=str)
+
+
+def _display_text(value: Any) -> str:
+    """User-facing value/name display without casefolding."""
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _field_values_in_text(text: Any, field: str) -> set:
+    """Values of one typed field mentioned anywhere in a reply.
+
+    Reuses the canonical field vocabulary's own extractor; a reply that
+    mentions a different value for the field (even alongside the correct
+    one) is a contradiction, not a match."""
+    values = set()
+    for chunk in re.split(r"[\n.!?;]", str(text or "")):
+        value = _text_field_value(chunk, field, None)
+        if value:
+            values.add(str(value).strip())
+    return values
 
 
 def observations_from_key_value_text(
@@ -4443,9 +4463,10 @@ def observations_from_field_associations(
             association = assoc_map.get(key)
             if not isinstance(association, dict) or not association.get("value"):
                 continue
+            subject = str(association.get("subject") or "").strip() or entity_id
             out.append(_normalise_comparison_observation({
-                "observation_id": f"{source_id}:{entity_id}:{field}",
-                "entity_id": entity_id,
+                "observation_id": f"{source_id}:{subject}:{field}",
+                "entity_id": subject,
                 "field": field,
                 "raw_value": association.get("value"),
                 "field_meaning": field,
@@ -4478,26 +4499,31 @@ def render_verified_comparison_reply(
         "retrieved source; wording does not replace them):"
     ]
     for outcome in outcomes:
-        field = _comparison_text(outcome.get("field")).replace("_", " ")
-        target = _comparison_text(outcome.get("entity_id"))
+        field = _display_text(outcome.get("field")).replace("_", " ")
+        target = _display_text(outcome.get("entity_id"))
         target_prefix = f"{target} / " if target else ""
         status = str(outcome.get("status") or "unresolved")
+        reasons = ", ".join(
+            _display_text(r) for r in (outcome.get("reasons") or [])
+            if _display_text(r)) or "none"
         evidence = [e for e in (outcome.get("evidence") or [])
                     if isinstance(e, dict)]
         draft = next(
             (e for e in evidence
-             if _comparison_text(e.get("source", {}).get("source_id"))
-             == _comparison_text(artifact_source_id)), None)
+             if _display_text(e.get("source", {}).get("source_id"))
+             .casefold()
+             == _display_text(artifact_source_id).casefold()), None)
         source_entry = next(
             (e for e in evidence
-             if _comparison_text(e.get("source", {}).get("source_id"))
-             != _comparison_text(artifact_source_id)), None)
+             if _display_text(e.get("source", {}).get("source_id"))
+             .casefold()
+             != _display_text(artifact_source_id).casefold()), None)
         source_name = (
-            _comparison_text(source_entry.get("source", {}).get("source_id"))
+            _display_text(source_entry.get("source", {}).get("source_id"))
             if source_entry else "")
-        draft_value = (_comparison_text(draft.get("raw_value"))
+        draft_value = (_display_text(draft.get("raw_value"))
                        if draft else "")
-        source_value = (_comparison_text(source_entry.get("raw_value"))
+        source_value = (_display_text(source_entry.get("raw_value"))
                         if source_entry else "")
         if status == "comparable_match" and draft_value and source_value:
             lines.append(
@@ -4514,6 +4540,13 @@ def render_verified_comparison_reply(
                 f"- {target_prefix}{field}: draft {draft_value} = "
                 f"{source_name} {source_value} (values equal; semantics "
                 "not comparable)")
+        elif (status in {"partially_comparable", "unverified", "unresolved"}
+              and draft_value and source_value):
+            lines.append(
+                f"- {target_prefix}{field}: draft {draft_value} vs "
+                f"{source_name or source_label or 'the retrieved source'} "
+                f"{source_value} ({status}; reasons: {reasons}) — "
+                "the comparison is not complete.")
         else:
             lines.append(
                 f"- {target_prefix}{field}: no verified value from "
@@ -4540,6 +4573,23 @@ def verified_comparison_reply(
     fields = [str(f) for f in ((requirement or {}).get("fields") or [])
               if str(f).strip()]
     if not fields or not isinstance(canvas, dict):
+        return None
+    if not source_observations:
+        # A draft-only question is not a comparison: do not inject a
+        # source limitation or replace the answer.
+        return None
+    try:
+        from core.turn_program import is_comparison_request
+
+        _compare_shaped = is_comparison_request(message)
+    except Exception:  # noqa: BLE001 — classifier optional
+        _compare_shaped = False
+    if not _compare_shaped:
+        _compare_shaped = bool(re.search(
+            r"\b(?:compare|match|matches|differ|differs|difference|same|"
+            r"consistent|align|discrepan|verify|check|confirm)\w*",
+            str(message or ""), re.IGNORECASE))
+    if not _compare_shaped:
         return None
     body = _canvas_body_text(canvas.get("content"))
     entity = str(canvas.get("title") or canvas.get("name") or "draft")
@@ -4581,14 +4631,35 @@ def verified_comparison_reply(
     if not deterministic:
         return None
     verified_values = [
-        _comparison_text(o.get("raw_value")) for o in source_typed
-        if _comparison_text(o.get("raw_value"))]
+        _display_text(o.get("raw_value")) for o in source_typed
+        if _display_text(o.get("raw_value"))]
+    reply_folded = str(reply or "").casefold()
     consistent = bool(verified_values) and all(
-        value in str(reply or "") for value in verified_values)
+        value.casefold() in reply_folded for value in verified_values)
+    # CONTRADICTION: a reply that also states a different value for a
+    # compared field (e.g. the correct date plus a wrong one) is not
+    # consistent, even though the correct value appears somewhere.
+    contradiction = False
+    for outcome in (comparison.get("coverage") or {}).get("outcomes") or []:
+        if not isinstance(outcome, dict):
+            continue
+        field = str(outcome.get("field") or "")
+        allowed = set()
+        for evidence in outcome.get("evidence") or []:
+            if isinstance(evidence, dict) and evidence.get("raw_value"):
+                allowed.add(_display_text(evidence.get("raw_value")).casefold())
+        for value in _field_values_in_text(reply, field):
+            if value.casefold() not in allowed:
+                contradiction = True
+                break
+        if contradiction:
+            break
+    consistent = bool(consistent and not contradiction)
     return {
         "comparison": comparison,
         "reply": (f"{reply}\n\n{deterministic}" if consistent
                   else deterministic),
         "replaced": not consistent,
+        "contradiction": contradiction,
         "verified_values": verified_values,
     }

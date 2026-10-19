@@ -10,6 +10,7 @@ This module provides a unified chat interface that connects all ATOM capabilitie
 """
 import asyncio
 import contextlib
+import sys
 import time
 from core.turn_learning import get_turn_learning
 from core import log_redaction
@@ -15838,21 +15839,34 @@ class ChatOrchestrator:
                     _verified_observations = session.get(
                         f"_retrieval_source_observations_{_execution_id}") \
                         or []
-                    _verified = verified_comparison_reply(
-                        message=message,
-                        reply=str(main_message or ""),
-                        canvas=(
-                            _canvas_ctx
-                            if isinstance(_canvas_ctx, dict) else {}),
-                        source_observations=_verified_observations,
-                        requirement=_verified_requirement,
-                    )
+                    _verified = None
+                    if not _is_llm_error_text(str(main_message or "")):
+                        _verified = verified_comparison_reply(
+                            message=message,
+                            reply=str(main_message or ""),
+                            canvas=(
+                                _canvas_ctx
+                                if isinstance(_canvas_ctx, dict) else {}),
+                            source_observations=_verified_observations,
+                            requirement=_verified_requirement,
+                        )
                     if _verified and _verified.get("reply"):
                         main_message = _verified["reply"]
                         ai_response["content"] = main_message
-                        ai_response["verified_comparison"] = _verified.get(
-                            "comparison")
-                        if _verified.get("replaced"):
+                        _verified_comparison = _verified.get("comparison")
+                        ai_response["verified_comparison"] = (
+                            _verified_comparison)
+                        # The durable outcome consumes the same carrier
+                        # the workbook comparison path uses, so delivered
+                        # text and settlement agree.
+                        if (isinstance(_verified_comparison, dict)
+                                and _execution_id):
+                            session[f"_objective_evidence_{_execution_id}"] = (
+                                _verified_comparison)
+                        _coverage = ((_verified_comparison or {}).get(
+                            "coverage") or {})
+                        if (_verified.get("replaced")
+                                and _coverage.get("complete")):
                             ai_response["deterministic_delivery"] = True
                         logger.info(
                             "[verified-comparison] narration %s "

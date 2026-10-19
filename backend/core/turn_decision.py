@@ -1311,12 +1311,14 @@ def _scope_constraints(message: str) -> List[str]:
 # timed out at the wall). Still far under the turn's reply budget.
 # 12s was the original bound. The 2026-10-19 diagnostic (scratch replay of
 # the actual S3/S7 payloads on the frozen route) measured the first valid
-# S7 interpretation record at ~58s on the BPC-selected non-reasoning route
-# (qwen3.8-flash; reasoning-disable accepted), while the reasoning-mandatory
+# S7 interpretation record at ~58s on the BPC-selected compatible route
+# (qwen3.8-flash; reasoning switch accepted, though the route still
+# reported hidden reasoning tokens), while the reasoning-mandatory
 # glm-5.3-flash path never validated within a 90s window. This is a
-# BOUNDED, EVALUATED increase (75s) for the interpretation stage only; the
-# served attempt measures total turn latency against the user-usable goal.
-_INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "75"))
+# BOUNDED, EVALUATED increase (65s) that fits the ordinary 95s turn budget
+# with ~30s left for the reply leg; the served attempt measures total turn
+# latency against the user-usable goal.
+_INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "65"))
 _INTERPRET_BREAKER_MAX = int(os.getenv("ATOM_TURN_INTERPRET_BREAKER", "3"))
 
 #: Structured-output budget for the turn interpretation. Derived from
@@ -1584,13 +1586,16 @@ async def interpret_turn_request(
     try:
         from core.llm.pinned_planning import (
             LAST_FAILURE,
-            build_provider_model_pin,
             pinned_structured_call,
+            resolve_pinned_provider_model,
         )
 
         # The wrapper converts provider errors to None by contract; keep
-        # the interpretation's explicit "error" reason by reading its
-        # published failure kind for this call.
+        # the interpretation's explicit reason by reading ITS OWN call's
+        # published failure (a unique label avoids the shared-dict race
+        # with the canvas editor).
+        _interpret_label = (
+            f"turn interpretation:{request_id or session_id or '-'}")
         LAST_FAILURE.update(kind=None, detail="", label="")
 
         # ROUTE SELECTION FROM THE 2026-10-19 DIAGNOSTIC: the measured
@@ -1599,9 +1604,11 @@ async def interpret_turn_request(
         # reasoning-mandatory candidate rejected the switch and never
         # validated within 90s). The pin is a preference only — the
         # existing wrapper retries unpinned (excluding the failed pin)
-        # when this route yields nothing.
-        _interpret_pin = build_provider_model_pin(
-            llm_service, "opencode-go", "qwen3.8-flash")
+        # when this route yields nothing. Operators can override the
+        # measured default through ATOM_TURN_INTERPRET_PIN.
+        _interpret_pin = resolve_pinned_provider_model(
+            llm_service, "ATOM_TURN_INTERPRET_PIN", "qwen3.8-flash",
+            provider="opencode-go")
         result = await asyncio.wait_for(
             pinned_structured_call(
                 llm_service,
@@ -1624,13 +1631,17 @@ async def interpret_turn_request(
                     # handler default is unchanged.
                     "allow_moa": False,
                 },
-                log_label="turn interpretation",
+                log_label=_interpret_label,
                 stage="turn_interpretation",
                 execution_id=request_id or session_id or "-",
             ),
             timeout=_INTERPRET_TIMEOUT_S,
         )
-        if result is None and LAST_FAILURE.get("kind"):
+        if (result is None
+                and LAST_FAILURE.get("label") == _interpret_label
+                and LAST_FAILURE.get("kind")):
+            if LAST_FAILURE.get("kind") == "deadline_cancelled":
+                raise asyncio.TimeoutError()
             raise RuntimeError(
                 "structured interpretation failed: "
                 f"{LAST_FAILURE.get('kind')}")
