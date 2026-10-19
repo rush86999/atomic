@@ -416,6 +416,29 @@ scope default or a timeout. No new full-chain promotion; L2 remains open.
 Evidence: `journey_matrix/l2_continuation_served_20261019/` (attempt 8,
 `CHECKSUMS_ATTEMPT8`).
 
+**Rev 20 (2026-10-19, L2 S7 action contract PASSED; chain reaches
+settlement classification mismatch — open).** Candidate
+**`a3875d6bb`** (required actions + required six-kind action `kind`; at
+least one action for a resolved scope; explicit unresolved allowed
+without synthesis; reasons/telemetry independent of capture; content-free
+archived capture; schema/decode failures cannot bench a provider; focused
+102 passed, neighbors 584 passed + 2 pre-existing) was served on the same
+S3→S7 job/configuration (port 8104). The bounded S7 producer diagnostic
+first returned `continue`, 2 actions (`research`, `presentation`),
+resolved identity, and pre/post capture in 28.2 s (1 HTTP post, 65 s
+bound). **S3** passed the typed verified-narration gate (deterministic
+renderer alone, `2026-12-31` match, terms/price unverified, broader open,
+zero writes). **S7** passed the action contract, requirement capture
+(resolved `approved_records_q2026_114.txt`), truthful reply, zero writes,
+and fresh-history agreement — but **failed `s7_settlement_basis`**:
+`outcome=completed` while `context_fulfillment=partial` (expiration met;
+payment terms + price unmet; ledger covered=1/missing=2; broader
+comparison open). This is a settlement/outcome classification mismatch,
+not a producer or narration failure. No new full-chain promotion; L2
+remains open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempt 9,
+`README_ATTEMPT9.md`, `summary_attempt9.json`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

@@ -131,6 +131,18 @@ reconciled by the evidence cited here.
   the producer action-contract gap, not the old silent scope default or a
   timeout. S3 passed with the deterministic renderer/terms/coverage
   behavior. The complete chain remains open; no further promotion.
+  **Attempt 9 (2026-10-19, `a3875d6bb`)** resolved the action contract:
+  S7 returned `continue` with two read-only actions (`research`,
+  `presentation`), content-free pre/post capture was archived, the
+  requirement resolved to `approved_records_q2026_114.txt`, the reply
+  was truthful, zero writes occurred, and fresh-history agreement was
+  true; S3's typed verified-narration gate passed. The full-chain
+  acceptance still **failed one check**: S7 settled `outcome=completed`
+  while `context_fulfillment=partial` (expiration matched; payment terms
+  and price unverified; ledger covered=1, missing=2; broader comparison
+  open). That settlement/outcome classification mismatch is the remaining
+  L2 blocker; no new promotion, and the scoped typed-field claim above
+  stands.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)
