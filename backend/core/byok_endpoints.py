@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import tempfile
 import secrets
 import threading
@@ -70,6 +71,28 @@ BYOK_ENC_KEY_FILE = os.getenv("BYOK_ENC_KEY_FILE") or os.path.join(
     "byok_encryption_key"
 )
 
+#: Bounded length of the friendly display label persisted with a credential.
+_KEY_LABEL_MAX_LENGTH = 120
+
+
+def sanitize_key_label(label: Any) -> Optional[str]:
+    """Normalise a FRIENDLY key label for storage — display only.
+
+    The label is user-facing prose ("Ollama (local)", "Personal OpenAI key").
+    It is deliberately NEVER part of credential identity: the resolver decides
+    on ``(scope, provider_id, key_name, environment)``, so a label can never
+    make a stored key unreachable nor let one key shadow another. Control
+    characters are dropped, whitespace collapsed, length bounded; an empty
+    result means "no label".
+    """
+    if label is None:
+        return None
+    text = re.sub(r"[\x00-\x1f\x7f]", " ", str(label))
+    text = " ".join(text.split())
+    if not text:
+        return None
+    return text[:_KEY_LABEL_MAX_LENGTH]
+
 
 @dataclass
 class AIProviderConfig:
@@ -132,15 +155,36 @@ class APIKey:
     # writers share data/byok_keys.json, so the field must round-trip here or
     # the runtime manager silently drops the ownership the admin manager wrote.
     tenant_id: Optional[str] = None
+    # FRIENDLY DISPLAY LABEL — never part of the lookup identity
+    # (scope, provider, key_name, environment).  The onboarding wizard's
+    # human label ("Ollama (local)", "<provider> (onboarding)") lives here so
+    # the canonical identity stays key_name="default" and every resolver can
+    # find wizard-stored keys. Round-trips through the shared file like the
+    # fields above (APIKey is filtered by dataclass fields on load).
+    label: Optional[str] = None
 
 
 class BYOKManager:
     """BYOK (Bring Your Own Key) Management System"""
 
+    #: Serialises key-store mutations against the lazy disk refresh below.
+    #: CLASS-level so managers constructed via ``BYOKManager.__new__`` (an
+    #: established test/tooling pattern that bypasses ``__init__``'s disk
+    #: access) still have it; an instance lock is created in ``__init__``
+    #: and shared semantics are identical.
+    _store_lock: "threading.RLock" = threading.RLock()
+    #: File signature (mtime_ns, size) of the last key-store read/write —
+    #: drives the lazy refresh that lets this runtime manager see writes
+    #: made by the admin manager (api/byok_routes) without a restart.
+    #: Class-level default for ``__new__``-constructed instances.
+    _keys_file_signature: Optional[tuple] = None
+
     def __init__(self):
         self.providers: Dict[str, AIProviderConfig] = {}
         self.usage_stats: Dict[str, ProviderUsage] = {}
         self.api_keys: Dict[str, APIKey] = {}
+        self._store_lock = threading.RLock()
+        self._keys_file_signature: Optional[tuple] = None
         # R61: env override wins; otherwise reuse the persisted key (same file
         # as the admin manager) so stored ciphertext survives restarts and is
         # shared across both managers.
@@ -175,12 +219,40 @@ class BYOKManager:
             logger.error(f"Failed to load BYOK config: {e}")
 
         # Load API keys
-        # TOCTOU FIX: Use try-except instead of exists check
-        try:
-            with open(BYOK_KEYS_FILE, "r") as f:
-                data = json.load(f)
+        self._refresh_api_keys_from_disk(force=True)
+
+    def _refresh_api_keys_from_disk(self, force: bool = False) -> None:
+        """(Re)load encrypted API keys from the shared key file.
+
+        The admin manager (``api/byok_routes``) is the production writer of
+        ``BYOK_KEYS_FILE``; this runtime manager used to read it ONCE at
+        process start. A key stored through the wizard/Settings then stayed
+        invisible to chat until a restart (and a deleted key stayed valid).
+        The durable file is authoritative: when its signature changed since
+        the last read/write, reload it. Readers see a whole-dict rebind,
+        never a partially filled view.
+
+        Mutation-safe: callers doing read-modify-write (``store_api_key``)
+        hold ``_store_lock`` for the whole operation, so a refresh cannot
+        rebind the dict between their mutation and their save.
+        """
+        with self._store_lock:
+            try:
+                stamp = os.stat(BYOK_KEYS_FILE)
+                signature = (stamp.st_mtime_ns, stamp.st_size)
+            except OSError:
+                if force:
+                    self.api_keys = {}
+                self._keys_file_signature = None
+                return
+            if not force and signature == self._keys_file_signature:
+                return
+            try:
+                with open(BYOK_KEYS_FILE, "r") as f:
+                    data = json.load(f)
                 from dataclasses import fields
                 key_fields = {f.name for f in fields(APIKey)}
+                fresh: Dict[str, APIKey] = {}
                 for k_id, k_data in data.get("keys", {}).items():
                     # Convert ISO strings back to datetime
                     if k_data.get("created_at"):
@@ -190,13 +262,61 @@ class BYOKManager:
 
                     # Filter to only valid fields for APIKey
                     k_data_filtered = {k: v for k, v in k_data.items() if k in key_fields}
-                    api_key = APIKey(**k_data_filtered)
-                    self.api_keys[k_id] = api_key
-        except FileNotFoundError:
-            # Keys file doesn't exist yet, start empty
-            logger.debug(f"BYOK keys file not found: {BYOK_KEYS_FILE}")
-        except Exception as e:
-            logger.error(f"Failed to load BYOK keys: {e}")
+                    fresh[k_id] = APIKey(**k_data_filtered)
+                self.api_keys = fresh
+                self._keys_file_signature = signature
+            except FileNotFoundError:
+                # Keys file doesn't exist yet, start empty
+                if force:
+                    self.api_keys = {}
+                logger.debug(f"BYOK keys file not found: {BYOK_KEYS_FILE}")
+            except Exception as e:
+                # Keep the current in-memory view — never drop credentials
+                # because of a torn/foreign read. The next read retries.
+                logger.error(f"Failed to load BYOK keys: {e}")
+
+    def _ensure_fresh_store(self) -> None:
+        """Refresh the key store when another writer saved since our last
+        read/write — the runtime-visible half of the wizard/Settings writes."""
+        self._refresh_api_keys_from_disk(force=False)
+
+    def _merge_disk_entries(self) -> None:
+        """Adopt entries another writer saved since our last read/write.
+
+        LOST-UPDATE GUARD (review finding 3): every writer serialises its
+        in-memory view over the SAME file, so a writer that loaded before a
+        peer's save would drop the peer's entries on its next save. Disk-only
+        entries are adopted here; entries this writer already holds win (they
+        are its current truth). Called before every save.
+        """
+        with self._store_lock:
+            try:
+                stamp = os.stat(BYOK_KEYS_FILE)
+                signature = (stamp.st_mtime_ns, stamp.st_size)
+            except OSError:
+                return
+            if signature == self._keys_file_signature:
+                return
+            try:
+                with open(BYOK_KEYS_FILE, "r") as f:
+                    data = json.load(f)
+                from dataclasses import fields
+                key_fields = {f.name for f in fields(APIKey)}
+                for k_id, k_data in (data.get("keys") or {}).items():
+                    if k_id in self.api_keys:
+                        continue
+                    row = dict(k_data)
+                    if row.get("created_at"):
+                        row["created_at"] = datetime.fromisoformat(row["created_at"])
+                    if row.get("last_used"):
+                        row["last_used"] = datetime.fromisoformat(row["last_used"])
+                    filtered = {k: v for k, v in row.items() if k in key_fields}
+                    self.api_keys[k_id] = APIKey(**filtered)
+                self._keys_file_signature = signature
+            except Exception as e:
+                # Never drop this writer's entries because of a foreign read;
+                # the next save retries the merge.
+                logger.error(f"Failed to merge BYOK keys from disk: {e}")
 
     def _save_configuration(self):
         """Save configuration to disk"""
@@ -214,12 +334,21 @@ class BYOKManager:
 
         # Save API keys
         try:
+            # LOST-UPDATE GUARD: adopt entries a peer writer saved since our
+            # last read/write before serialising our view (see
+            # _merge_disk_entries).
+            self._merge_disk_entries()
             keys_data = {
                 k_id: self._api_key_to_dict(k_obj)
                 for k_id, k_obj in self.api_keys.items()
                 if isinstance(k_obj, APIKey)
             }
             self._atomic_write_json(BYOK_KEYS_FILE, {"keys": keys_data})
+            try:
+                stamp = os.stat(BYOK_KEYS_FILE)
+                self._keys_file_signature = (stamp.st_mtime_ns, stamp.st_size)
+            except OSError:
+                self._keys_file_signature = None
         except Exception as e:
             logger.error(f"Failed to save BYOK keys: {e}")
 
@@ -259,6 +388,7 @@ class BYOKManager:
             "usage_count": api_key.usage_count,
             "environment": api_key.environment,
             "tenant_id": api_key.tenant_id,
+            "label": api_key.label,
         }
 
     @staticmethod
@@ -569,7 +699,7 @@ class BYOKManager:
                 base_url="https://openrouter.ai/api/v1",
                 supported_tasks=["general", "chat", "code", "reasoning", "analysis", "vision"],
                 cost_per_token=0.000003,  # Varies by model — this is a rough floor
-                model="openai/gpt-4o-mini",
+                model="minimax/minimax-m3",
                 reasoning_level=4,
                 supports_structured_output=True,
                 supports_vision=True,
@@ -665,7 +795,7 @@ class BYOKManager:
                 base_url="https://opencode.ai/zen/v1",
                 supported_tasks=["code", "general", "chat", "reasoning"],
                 cost_per_token=0.0,
-                model="deepseek-v4-flash",
+                model="deepseek-v4.1-flash",
                 reasoning_level=3,
                 supports_structured_output=True,
                 supports_tools=True,
@@ -678,7 +808,7 @@ class BYOKManager:
                 base_url="https://opencode.ai/zen/v1",
                 supported_tasks=["code", "general", "chat", "reasoning"],
                 cost_per_token=0.0,
-                model="deepseek-v4-flash",
+                model="deepseek-v4.1-flash",
                 reasoning_level=3,
                 supports_structured_output=True,
                 supports_tools=True,
@@ -818,8 +948,13 @@ class BYOKManager:
         api_key: str,
         key_name: str = "default",
         environment: str = "production",
+        label: Optional[str] = None,
     ) -> str:
-        """Store an encrypted API key"""
+        """Store an encrypted API key.
+
+        ``label`` is the friendly display name (never identity — see
+        :func:`sanitize_key_label`); ``key_name`` remains the lookup key.
+        """
         key_name = self._normalize_key_part(key_name, "default")
         environment = self._normalize_key_part(environment, "production")
         if provider_id not in self.providers:
@@ -836,10 +971,12 @@ class BYOKManager:
             key_hash=key_hash,
             created_at=datetime.now(),
             environment=environment,
+            label=sanitize_key_label(label),
         )
 
-        self.api_keys[key_id] = api_key_obj
-        self._save_configuration()
+        with self._store_lock:
+            self.api_keys[key_id] = api_key_obj
+            self._save_configuration()
 
         return key_id
 
@@ -887,6 +1024,11 @@ class BYOKManager:
         (``get_api_key``, ``is_configured``, ``get_tenant_api_key``, the
         credential service and the runtime handler) resolves through it.
 
+        The durable key file is authoritative: a write made by the admin
+        manager since our last read is picked up HERE (lazy refresh), so a
+        wizard/Settings-stored credential is dispatchable on the next turn
+        without a restart.
+
         Match by FIELDS, never by the dict id: id shapes differ per writer and
         key names may contain underscores/spaces. The scoping rules are:
 
@@ -906,6 +1048,7 @@ class BYOKManager:
         Precedence is otherwise first-writer-wins WITHIN a scope; across scopes
         it never depends on dict/insertion order.
         """
+        self._ensure_fresh_store()
         global_entry: Optional[APIKey] = None
         scoped: Dict[str, APIKey] = {}
         for key_id, obj in self.api_keys.items():

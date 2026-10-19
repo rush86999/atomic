@@ -45,6 +45,13 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+# Reference detector: ONE shared constant with the validator — the
+# round-2 independent review (2026-10-15) found the two hand-mirrored
+# phrase sets had drifted and certified reference text as supplied.
+from core.factual_change_validation import (
+    REFERENCE_PHRASE as _SOURCE_REF_PHRASE,
+)
+
 logger = logging.getLogger(__name__)
 
 SCHEMA = "turn-decision-1"
@@ -686,6 +693,160 @@ def build_turn_decision(
         # contract does not route yet — directive step 2).
         "routed_lane": routed_lane,
     }
+
+
+def extract_request_assignments(
+    message: str,
+) -> Dict[str, Any]:
+    """The request's OWN assignments, deterministically extracted.
+
+    "update/set/change <target> to <value>" → an accepted assignment
+    (the user authored the new value in the instruction). "add <label>"
+    and "use the ... from <somewhere>" phrases → unresolved obligations:
+    the value must come from records, systems, or the user — the request
+    does not supply it. This is the ACCEPTED ASSIGNMENT table the
+    factual-change validator checks proposed edits against (an LLM's
+    assertion that a change is grounded is not its evidence; the
+    instruction's own assignment is)."""
+    import re as _re
+
+    text = str(message or "")
+    assignments: List[Dict[str, Any]] = []
+    unresolved: List[Dict[str, Any]] = []
+    source_refs: List[str] = []
+
+    def _is_source_reference(value: str) -> bool:
+        """The value span POINTS at where a fact lives instead of stating
+        the fact ("the exact number from our records", "see the attached
+        schedule", "the supplier's quoted date"). Such a span is an
+        unresolved source reference — recording it as an explicit
+        assignment would let the plan certify its own echo as a supplied
+        value. Detection uses the SHARED REFERENCE_PHRASE constant
+        (factual_change_validation, imported at module level), so the
+        extractor and the validator can never drift apart on what counts
+        as a reference."""
+        return bool(_SOURCE_REF_PHRASE.search(value))
+
+    for m in _re.finditer(
+            r"(?:update|set|change)\s+(?:the\s+)?"
+            r"(?P<target>[a-z0-9][a-z0-9 /'-]{1,60}?)\s+to\s+"
+            r"(?P<value>[^;\n]+?)(?=[.;](?:\s|$)|$)",
+            text, _re.IGNORECASE):
+        value = m.group("value").strip().rstrip(".")
+        if not value:
+            continue
+        if _is_source_reference(value):
+            # A source reference in the VALUE position: the target is
+            # real, the value is an obligation to resolve — recorded as
+            # unresolved, never as an explicit assignment.
+            unresolved.append({
+                "target": _norm_target(m.group("target")),
+                "reference": value,
+            })
+            continue
+        assignments.append({
+            "target": _norm_target(m.group("target")),
+            "value": value,
+            "span": list(m.span()),
+        })
+    for m in _re.finditer(
+            r"\badd\s+(?:the\s+)?(?P<label>[a-z0-9][a-z0-9 /'-]{2,60})",
+            text, _re.IGNORECASE):
+        label = m.group("label").strip()
+        # "add X to THIS/the quotation/the canvas" — a LOCATION, not a
+        # value: the value is an unresolved obligation (fetch or ask).
+        window = text[m.start():m.end() + 60]
+        if _re.search(r"\bto\s+(?:this|the\s+quotation|the\s+canvas)\b",
+                      window, _re.IGNORECASE):
+            label = _re.split(
+                r"\s+to\s+(?:this|the\s+quotation|the\s+canvas)\b",
+                label, maxsplit=1, flags=_re.IGNORECASE)[0].strip()
+            unresolved.append({"label": label})
+    for m in _re.finditer(
+            r"\bfrom\s+(our\s+)?(records|systems?|files?|crm|workbook|"
+            r"database|hr\s+system|personnel\s+record)\b", text, _re.IGNORECASE):
+        source_refs.append(m.group(0))
+    return {
+        "assignments": assignments,
+        "unresolved_additions": unresolved,
+        "source_references": source_refs,
+    }
+
+
+def _norm_target(target: str) -> str:
+    import re as _re
+    return _re.sub(r"\s+", " ", str(target or "").strip().lower())
+
+
+def turn_evidence_required(
+    decision: Optional[Dict[str, Any]],
+) -> Optional[bool]:
+    """Does the ACCEPTED request require live evidence for this turn?
+
+    The decision already records this: a research action (source_ask,
+    continuation, direct ask, approval resume, evidence back-reference)
+    or named references (``references.sources`` / ``references.file``).
+    A SELF-CONTAINED edit — the replacement value is supplied in the
+    instruction — carries none of those, and its lane must not pay a
+    general lookup's latency before its own plan can run.
+
+    Returns True (required), False (not required), or None when the
+    decision is absent/unreadable — callers must treat None as "keep
+    the existing behavior", never as "not required".
+    """
+    if not isinstance(decision, dict):
+        return None
+    for action in decision.get("requested_actions") or []:
+        if isinstance(action, dict) and action.get("kind") == _KIND_RESEARCH:
+            return True
+    refs = decision.get("references")
+    if isinstance(refs, dict):
+        if refs.get("sources"):
+            return True
+        if refs.get("file"):
+            return True
+    # A SOURCE REFERENCE IN THE REQUEST CREATES THE EVIDENCE OBLIGATION
+    # (owner directive): "use the value from our records" names a
+    # consultable source the same as "the workbook" does — the absence of
+    # a research action must not prove the evidence unnecessary.
+    try:
+        message = str(decision.get("message") or "")
+        if extract_request_assignments(message).get("source_references"):
+            return True
+    except Exception:  # noqa: BLE001 — additive; never blocks the lane
+        pass
+    return False
+
+
+def turn_presentation_only(
+    decision: Optional[Dict[str, Any]],
+) -> bool:
+    """Whether the ACCEPTED request is PRESENTATION-ONLY over the
+    attached artifact: a presentation action was granted, no edit or
+    research action was requested, and the request carries no live-
+    evidence requirement (``turn_evidence_required`` is False — no
+    sources, no file, no source references in the words).
+
+    The recorded-outcome resolver consumes this to classify a turn that
+    presents the artifact it was handed and whose accepted request
+    names nothing live to go fetch (owner directive 2026-10-15, the J6
+    T2 envelope defect: a correct, delivered canvas comparison resolved
+    success=false / outcome_unconfirmed in every recorded run because
+    no recorded delivery fact existed for a presentation). The guard
+    NEVER blesses an answer's wording — narration agreement stays with
+    the fabrication layer. False for absent or unreadable decisions
+    (callers treat it as "not presentation-only" — the conservative
+    direction)."""
+    if not isinstance(decision, dict):
+        return False
+    actions = [action for action in decision.get("requested_actions") or []
+               if isinstance(action, dict)]
+    kinds = {str(action.get("kind") or "") for action in actions}
+    if _KIND_CANVAS_EDIT in kinds or _KIND_RESEARCH in kinds:
+        return False
+    if "presentation" not in kinds:
+        return False
+    return turn_evidence_required(decision) is False
 
 
 def _looks_seek_shaped(text: str) -> bool:

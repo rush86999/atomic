@@ -84,7 +84,24 @@ def build_provider_model_pin(
     that provider actually has a client in the handler (otherwise the pin names
     a provider this workspace cannot call at all and the first attempt is
     guaranteed to fail, paying a full round trip for nothing).
+
+    LOCAL-ONLY (owner directive 2026-10-15): a cloud pin is refused outright
+    when the documented local-only policy is enabled — no cloud dispatch may
+    happen under ATOM_LOCAL_ONLY=true, pins included. The caller's fallback
+    then routes through the handler's local-only candidate pool (the same
+    pool the handler's own pin consumption re-enters).
     """
+    try:
+        from core.llm.byok_handler import _local_only_blocks_provider
+
+        if _local_only_blocks_provider(provider):
+            logger.warning(
+                "LOCAL-ONLY: pin %s/%s refused — cloud dispatch is "
+                "blocked; the call routes locally instead",
+                provider, model)
+            return {}
+    except Exception:  # noqa: BLE001 — the gate must not break pinning
+        pass
     try:
         if provider in llm_service._get_handler().clients:
             return {"provider_model": (provider, model)}
@@ -172,6 +189,8 @@ async def pinned_structured_call(
     task_type: Optional[str] = None,
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    stage: Optional[str] = None,
 ) -> Any:
     """Structured call that honours a pin, then falls back to unpinned routing.
 
@@ -220,6 +239,12 @@ async def pinned_structured_call(
         base["workspace_id"] = workspace_id
     if tenant_id:
         base["tenant_id"] = tenant_id
+    # PLAN-ATTEMPT ATTRIBUTION (verifier work order, steps 1-2): the
+    # dispatch traces carry THIS execution and stage, so per-attempt
+    # lines are attributable to one turn's one planning stage — model
+    # calls are distinguishable from fresh-data and narration calls.
+    if execution_id:
+        base["route_trace_id"] = f"{stage or log_label}:{execution_id}"
     if extra_kwargs:
         base.update(extra_kwargs)
 

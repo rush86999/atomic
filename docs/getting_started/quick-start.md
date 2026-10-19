@@ -10,7 +10,7 @@
 
 | Tool | Version | Why |
 |------|---------|-----|
-| Python | 3.11+ | Backend runtime |
+| Python | 3.11–3.13 (3.11 recommended) | Backend runtime — `torch<3` publishes no 3.14 wheels; CI/Docker pin 3.11 |
 | Node.js | 20.9+ | Frontend runtime (Next.js 16.2.2) |
 | npm | 9+ | Frontend deps |
 | git | any | Clone the repo |
@@ -35,7 +35,10 @@ make setup
 # Backend deps in a venv
 cd backend
 python3.11 -m venv venv
-./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install --prefer-binary -r requirements.txt
+# --prefer-binary: some in-range releases (e.g. cryptography 49.x on Intel
+# macOS) publish only an sdist; the flag picks the newest wheel instead of
+# running a Rust build. It does not lower the range's security floor.
 
 # Frontend deps
 cd ../frontend-nextjs

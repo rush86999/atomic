@@ -352,6 +352,62 @@ def apply_failed_pin_exclusion(
     return filtered or [tuple(exclude_provider_model)]
 
 
+#: LOCAL-ONLY PROVIDER BOUNDARY (owner directive 2026-10-15): the
+#: documented local-only policy (core.privsec.local_only_guard) blocks
+#: cloud services — DeepSeek included — but the LLM layer never consulted
+#: the guard, so a mounted cloud key or an operator env pin dispatched
+#: cloud calls under ATOM_LOCAL_ONLY=true. These helpers close that gap at
+#: every dispatch seam: the ranked candidate pools (primary routing AND
+#: the static fallback rotation), the pin gate
+#: (pinned_planning.build_provider_model_pin), and the handler's own
+#: provider_model consumption (a pin arriving by any other path).
+_LOCAL_PROVIDER_IDS = frozenset((
+    "ollama", "lmstudio", "lm-studio", "vllm", "llamacpp", "llama.cpp",
+    "localai", "text-generation-webui", "koboldcpp"))
+
+
+def _provider_is_cloud(provider_id: Any, local_routes: Any = None) -> bool:
+    """Whether a provider's calls leave this machine.
+
+    Known local runtimes and REGISTERED local routes are local; every
+    other provider is cloud — the SAFE direction (an unknown provider is
+    not trusted to be local, and callers use this only to BLOCK under
+    local-only mode)."""
+    pid = str(provider_id or "").strip().lower()
+    if not pid:
+        return False
+    if pid in _LOCAL_PROVIDER_IDS or pid.startswith("local"):
+        return False
+    try:
+        if isinstance(local_routes, dict):
+            for route in local_routes.values():
+                if not isinstance(route, dict):
+                    continue
+                for key in ("provider_id", "provider_key"):
+                    if str(route.get(key) or "").strip().lower() == pid:
+                        return False
+    except Exception:  # noqa: BLE001 — the classification stays conservative
+        pass
+    return True
+
+
+def _local_only_blocks_provider(provider_id: Any,
+                                local_routes: Any = None) -> bool:
+    """True when local-only mode is enabled AND the provider is cloud.
+
+    A guard read failure never blocks (routing must not depend on the
+    guard being importable); the env is the guard's own source of truth
+    via its singleton."""
+    try:
+        from core.privsec.local_only_guard import get_local_only_guard
+
+        if not get_local_only_guard().is_local_only_enabled():
+            return False
+    except Exception:  # noqa: BLE001 — never block on a guard read failure
+        return False
+    return _provider_is_cloud(provider_id, local_routes)
+
+
 def _interactive_structured_max_seconds() -> float:
     raw = os.getenv("ATOM_INTERACTIVE_STRUCTURED_MAX_SECONDS")
     if raw is not None and str(raw).strip() != "":
@@ -1119,8 +1175,11 @@ COST_EFFICIENT_MODELS = {
     "opencode-go": {  # OpenCode Go — low-cost subscription via OpenCode Zen gateway
         # https://opencode.ai/zen — tested+verified open coding models served
         # by the OpenCode team; one subscription key, no per-provider signups.
-        QueryComplexity.SIMPLE: "deepseek-v4-flash",
-        QueryComplexity.MODERATE: "deepseek-v4-flash",
+        # Live-measured 2026-10-15 on the Go key: deepseek-v4.1-flash is the
+        # cheapest ENTITLED paid model (legacy deepseek-v4-flash is no longer
+        # in the authenticated catalog); pro/coding models sit above it.
+        QueryComplexity.SIMPLE: "deepseek-v4.1-flash",
+        QueryComplexity.MODERATE: "deepseek-v4.1-flash",
         QueryComplexity.COMPLEX: "deepseek-v4-pro",
         QueryComplexity.ADVANCED: "kimi-k2.7-code",
     },
@@ -1196,24 +1255,28 @@ MODELS_WITHOUT_TOOLS = {
 }
 
 # OpenCode Go free-usage vs subscription-paid split.
-# Per the official Zen docs (opencode.ai/docs/zen): free models carry a
-# "-free" suffix in their gateway ID (deepseek-v4-flash-free, mimo-v2.5-free,
-# laguna-s-2.1-free, ling-3.0-tiny-free, longcat-2.0-free, north-mini-code-free,
-# nemotron-3-ultra-free, big-pickle) and are "available for a limited time".
-# Their free allowance can be exhausted — the gateway then returns
-# CreditsError / "Insufficient balance" even with an ACTIVE subscription,
-# while the paid models would complete fine. When a free-usage attempt fails
-# with an insufficient-balance error, the same request is retried on a paid
-# model before falling back to other providers. Override via env:
-#   OPENCODE_FREE_PAID_FALLBACK='{"deepseek-v4-flash-free": "deepseek-v4-flash"}'
+# Per the live Zen models endpoint (2026-10-15): free models carry a "-free"
+# suffix in their gateway ID (deepseek-v4.1-flash-free, mimo-v2.6-flash-free,
+# longcat-2.5-preview-free, nemotron-3.5-lightning-free, ...) plus the free
+# stealth id "big-pickle", and are "available for a limited time". Their free
+# allowance can be exhausted — the gateway then returns CreditsError /
+# "Insufficient balance" even with an ACTIVE subscription, while the paid
+# models would complete fine. When a free-usage attempt fails with an
+# insufficient-balance error, the same request is retried on a paid model
+# before falling back to other providers. Override via env:
+#   OPENCODE_FREE_PAID_FALLBACK='{"deepseek-v4.1-flash-free": "deepseek-v4.1-flash"}'
 OPCODE_FREE_MODEL_SUFFIX = "-free"
 
 # Documented paid-sibling fallbacks (model ID as listed on opencode.ai/zen).
-# Any free model WITHOUT an explicit entry falls back to the cheapest PAID
-# model (deepseek-v4-flash, $0.14/$0.28 per 1M tokens).
+# Legacy "-free" ids are kept so older gateway lineups still map to their
+# sibling. Any free model WITHOUT an explicit entry falls back to the cheapest
+# CURRENT paid model (deepseek-v4.1-flash, $0.30/$1.20 per 1M tokens —
+# live-measured as the cheapest model entitled on the Go subscription key).
 OPCODE_FREE_MODEL_PAID_FALLBACK_DEFAULTS = {
-    "deepseek-v4-flash-free": "deepseek-v4-flash",
-    "mimo-v2.5-free": "minimax-m2.7",
+    "deepseek-v4.1-flash-free": "deepseek-v4.1-flash",
+    "mimo-v2.6-flash-free": "minimax-m2.7",
+    "deepseek-v4-flash-free": "deepseek-v4-flash",  # legacy free ID
+    "mimo-v2.5-free": "minimax-m2.7",               # legacy free ID
 }
 
 
@@ -1243,19 +1306,22 @@ def _opencode_paid_fallback_model(model: str) -> Optional[str]:
     paid = fallbacks.get(model)
     if paid:
         return paid
-    return "deepseek-v4-flash"  # cheapest paid model
+    return "deepseek-v4.1-flash"  # cheapest current paid model (Go key, 2026-10-15)
 
 
 # Free-usage models to retry with when the PAID tier is out of credits.
 # The subscription balance can be exhausted (CreditsError on every paid
-# model) while the "-free" allowance still works — verified live against
-# the Zen gateway: nemotron-3.5-lightning-free, laguna-s-2.1-free and
-# nemotron-3-ultra-free all complete with a zero-balance workspace.
+# model) while the "-free" allowance still works — verified live against the
+# Zen gateway on 2026-09. IDs refreshed 2026-10-15 from the live models
+# endpoint (laguna-s-2.1-free / nemotron-3-ultra-free are no longer served).
+# NOTE: since 2026-10 the free tier answers 403 "can only be used from within
+# OpenCode" for direct API clients — the chain is kept for in-OpenCode /
+# future routes, and failures fall through to other providers as before.
 # Override via env: OPENCODE_FREE_TIER_MODELS='["model-a-free", ...]'
 OPCODE_FREE_TIER_FALLBACK_DEFAULTS = [
     "nemotron-3.5-lightning-free",
-    "laguna-s-2.1-free",
-    "nemotron-3-ultra-free",
+    "deepseek-v4.1-flash-free",
+    "longcat-2.5-preview-free",
 ]
 
 
@@ -1290,12 +1356,17 @@ def _opencode_free_tier_fallbacks(model: str) -> list:
 # OpenRouter serves many models with a ":free" variant that has no per-token
 # cost but lower rate limits. When the user's credits are exhausted on a
 # paid model, retry on the :free sibling before skipping the provider.
+# Refreshed 2026-10-15 against the live catalog: the old targets
+# (google/gemma-2-9b-it:free, meta-llama/llama-3.1-8b-instruct:free) are no
+# longer served. Default = nvidia/nemotron-3-super-120b-a12b:free —
+# live-verified (tools + structured output, 262K context); the 2026 flash/
+# coding picks map there too.
+OPENROUTER_FREE_FALLBACK_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+
 OPENROUTER_PAID_FREE_FALLBACK_DEFAULTS = {
-    "openai/gpt-4o-mini": "google/gemma-2-9b-it:free",
-    "anthropic/claude-3.5-sonnet": "meta-llama/llama-3.1-8b-instruct:free",
-    "anthropic/claude-3-sonnet": "meta-llama/llama-3.1-8b-instruct:free",
-    "openai/gpt-4o": "google/gemma-2-9b-it:free",
-    "google/gemini-flash-1.5": "google/gemma-2-9b-it:free",
+    "minimax/minimax-m3": OPENROUTER_FREE_FALLBACK_MODEL,
+    "deepseek/deepseek-v4-pro": OPENROUTER_FREE_FALLBACK_MODEL,
+    "openai/gpt-4o-mini": OPENROUTER_FREE_FALLBACK_MODEL,
 }
 
 _openrouter_free_fallback_cache: dict | None = None
@@ -1333,8 +1404,8 @@ def _openrouter_free_fallback_model(model: str) -> Optional[str]:
     free = fallbacks.get(model)
     if free:
         return free
-    # Default: use a known-good free model
-    return "google/gemma-2-9b-it:free"
+    # Default: use a known-good free model (live-verified 2026-10-15).
+    return OPENROUTER_FREE_FALLBACK_MODEL
 
 
 def _is_insufficient_balance_error(err: Exception) -> bool:
@@ -1635,6 +1706,43 @@ class BYOKHandler:
         return sorted(
             m for m, r in (self._local_routes or {}).items()
             if r["provider_key"] == provider_id) or None
+
+    def _served_local_models_for(self, provider_id: str) -> Optional[List[str]]:
+        """Served set for a LOCAL provider, ready for ``evaluate_route``.
+
+        The authoritative record differs by local provider class:
+
+        * the auto-initialized runtime (``ollama``) — its runtime probe's
+          pulled set while UP; DOWN/unknown means "not served", never
+          "assume everything";
+        * a registered local provider (``local_*``) — the workspace's own
+          capability rows (:meth:`_local_served_models`), independent of
+          any public catalogue.
+
+        ``None`` for non-local providers (their catalogue is discovered).
+        """
+        if provider_id == "ollama":
+            try:
+                state, pulled = self._ollama_runtime_state()
+            except Exception:  # noqa: BLE001 — eligibility must never raise
+                return None
+            return sorted(pulled) if state == "up" and pulled else None
+        return self._local_served_models(provider_id)
+
+    @staticmethod
+    def _local_only_active() -> bool:
+        """The documented local-only policy, from its canonical guard.
+
+        A guard read failure returns False (do not grant): the admission
+        below is an addition to routing, so its trigger must be positive
+        evidence, never a failure default.
+        """
+        try:
+            from core.privsec.local_only_guard import get_local_only_guard
+
+            return bool(get_local_only_guard().is_local_only_enabled())
+        except Exception:  # noqa: BLE001
+            return False
 
     def _provider_serves_model(self, provider_id: str, model: str) -> bool:
         """Does this provider actually serve this model identifier?
@@ -3304,6 +3412,112 @@ class BYOKHandler:
                 "workspace_id": route["workspace_id"],
             }
 
+    def _admit_runtime_local_route(self) -> None:
+        """Materialize the healthy auto-local runtime as a declared local route.
+
+        F5 (Phase D, 2026-10-17): under the documented local path
+        (``ATOM_LOCAL_ONLY=true``) cloud providers are excluded before ranking
+        BY DESIGN, but the auto-initialized ollama runtime never entered the
+        BPC candidate pool — the public pricing cache has no entry
+        attributable to it — so the reply/planning leg ranked ZERO candidates
+        and ``generate_response`` returned "No eligible LLM providers found
+        for your current plan." while the SAME turn's explicit stream leg
+        served from ollama.
+
+        The repair reuses the existing registered-local-route mechanism
+        instead of inventing a second admission path: the healthy runtime
+        becomes an implicit route on THIS handler (its own association, like
+        a registration row), so the SAME stamping/attribution/capability/
+        reconcile gates apply.
+
+        Evidence rules (nothing is assumed):
+
+        * probe DOWN (or the declared model not pulled) → no route;
+        * the model is the operator's declared ``OLLAMA_MODEL`` (falling back
+          to the product default in ``COST_EFFICIENT_MODELS``);
+        * the declared quality (``OLLAMA_QUALITY_SCORE``, 0-1) is what the
+          quality floor judges — the same contract as a registration's
+          ``quality_score``; the default 0.9 is the declaration the J4/J5 r18
+          line used for this exact model (llama3.1:8b) through the product
+          registration path;
+        * an EXPLICIT registration for the same model name keeps precedence.
+
+        Scoped to LOCAL-ONLY mode: mixed-mode ranking is unchanged.
+        """
+        if not self._local_only_active():
+            return
+        for provider_id in ("ollama",):
+            if provider_id not in self.clients:
+                continue
+            # Declared-model candidates, in precedence order: the operator's
+            # OLLAMA_MODEL, the product's cost-efficient default, then the
+            # documented settings default for the auto-initialized runtime
+            # (settings_catalog / byok_endpoints: "llama3:8b"). The FIRST
+            # candidate the runtime probe confirms it actually serves wins —
+            # a documented default must work with the documented
+            # configuration (OLLAMA_MODEL unset), and nothing is admitted
+            # that the probe does not confirm.
+            declared_candidates = []
+            env_model = os.getenv("OLLAMA_MODEL", "").strip()
+            if env_model:
+                declared_candidates.append(env_model)
+            declared_candidates.append(
+                (COST_EFFICIENT_MODELS.get(provider_id) or {}).get(
+                    QueryComplexity.SIMPLE) or "")
+            declared_candidates.append("llama3:8b")
+            served = self._served_local_models_for(provider_id)
+            if not served:
+                continue
+            served_norm = {str(s).strip().lower() for s in served}
+
+            def _served_by_runtime(name: str) -> bool:
+                if not name:
+                    return False
+                low = name.lower()
+                return (
+                    low in served_norm
+                    or low.split(":", 1)[0] in served_norm
+                )
+
+            model = next(
+                (m.strip() for m in declared_candidates
+                 if _served_by_runtime(m.strip())),
+                "",
+            )
+            if not model:
+                continue
+            if model in (self._local_routes or {}):
+                # A workspace registration for this model is authoritative.
+                continue
+            try:
+                quality = float(os.getenv("OLLAMA_QUALITY_SCORE", "0.9"))
+            except (TypeError, ValueError):
+                quality = 0.9
+            quality = max(0.0, min(1.0, quality))
+            try:
+                context_window = int(os.getenv("OLLAMA_CONTEXT_WINDOW", "8192"))
+            except (TypeError, ValueError):
+                context_window = 8192
+            self._local_routes[model] = {
+                "provider_key": provider_id,
+                "workspace_id": self.workspace_id,
+                "provider_id": provider_id,
+                "provider_type": provider_id,
+                # The runtime is the authority for its own models — the same
+                # convention is_model_approved documents for pulled names.
+                "supports_tools": True,
+                "supports_vision": False,
+                "supports_reasoning": False,
+                "quality_score": quality,
+                "context_window": max(1, context_window),
+                "runtime_declared": True,
+            }
+            logger.info(
+                "LOCAL-ONLY: admitted healthy local runtime route %s/%s "
+                "(probe UP; declared quality %.2f; served: %s)",
+                provider_id, model, quality,
+                ", ".join(sorted(served_norm)[:6]))
+
     def _load_local_providers(self) -> None:
         """Load registered local model providers from the DB into self.clients.
 
@@ -3826,6 +4040,11 @@ class BYOKHandler:
         for _fb_provider in self._get_provider_fallback_order("auto"):
             if _fb_provider not in self.clients:
                 continue
+            # LOCAL-ONLY BOUNDARY (F5): the fallback order must not re-admit a
+            # cloud provider the policy blocks (same rationale as the static
+            # rotation below). Local providers continue through the checks.
+            if _local_only_blocks_provider(_fb_provider, self._local_routes):
+                continue
             if self._provider_cooldown_active(_fb_provider):
                 continue
             _tier_default = (
@@ -3847,8 +4066,19 @@ class BYOKHandler:
                 continue
             if self._model_cooldown_active(_fb_provider, _tier_default):
                 continue
-            if self._provider_serves_model(
-                    _fb_provider, _tier_default) or not (
+            _serves = self._provider_serves_model(
+                _fb_provider, _tier_default)
+            _pid_low = str(_fb_provider or "").strip().lower()
+            if not _serves and (
+                    _pid_low in _LOCAL_PROVIDER_IDS
+                    or _pid_low.startswith("local")):
+                # A LOCAL runtime's probe is authoritative: a model it does
+                # not advertise is UNSERVED, never "unknown" — the fallback
+                # must not return a pair the dispatch gate will reject
+                # (documented-default gap: the probe said llama3:8b served,
+                # the fallback named llama3.1:8b).
+                continue
+            if _serves or not (
                     self._ranked_model_is_known_unserved(
                         _fb_provider, _tier_default)):
                 return AwaitableResult((_fb_provider, _tier_default))
@@ -3951,11 +4181,12 @@ class BYOKHandler:
             for provider_id, model_id in options:
                 decision = evaluate_route(
                     provider_id, model_id, configured_providers=configured,
-                    # REGISTERED-LOCAL routes (J2) carry their served set
-                    # on the handler — the same source the dispatch gate
-                    # uses — or reconcile would drop every local pair the
-                    # moment ANY catalogue is verified.
-                    local_runtime_models=self._local_served_models(
+                    # LOCAL routes carry their served set on the handler —
+                    # the same source the dispatch gate uses — or reconcile
+                    # would drop every local pair the moment ANY catalogue
+                    # is verified. Covers registered routes (J2) AND the
+                    # auto-local runtime's live probe (F5).
+                    local_runtime_models=self._served_local_models_for(
                         provider_id))
                 if decision.eligible:
                     eligible.append((provider_id, model_id))
@@ -4061,6 +4292,10 @@ class BYOKHandler:
             # that happen after handler construction are picked up here,
             # at the same boundary, for every ranking.
             self._load_local_providers()
+            # F5: materialize the healthy auto-local runtime as an implicit
+            # declared route BEFORE the stamp, so an explicit registration
+            # for the same model name keeps precedence.
+            self._admit_runtime_local_route()
             self._stamp_local_routes_into_pricing_cache(fetcher)
             
             # Context window requirements
@@ -4204,6 +4439,25 @@ class BYOKHandler:
                     "BPC executable-routes gate: %d provider(s) on "
                     "provider-level cooldown — excluded before ranking: %s",
                     len(_benched), ", ".join(sorted(_benched)))
+            # LOCAL-ONLY PROVIDER BOUNDARY (owner directive 2026-10-15):
+            # under ATOM_LOCAL_ONLY=true the documented policy blocks
+            # cloud providers — this layer previously never consulted the
+            # guard, so a mounted cloud key (or a pin, or the static
+            # fallback below) dispatched cloud calls anyway. Excluded
+            # HERE, before any candidate is scored or attempted; the pin
+            # gate and the provider_model consumption below close the
+            # remaining seams.
+            _cloud_blocked = [
+                p for p in available_providers
+                if _local_only_blocks_provider(p, self._local_routes)]
+            if _cloud_blocked:
+                available_providers = [
+                    p for p in available_providers
+                    if p not in _cloud_blocked]
+                logger.info(
+                    "LOCAL-ONLY: %d cloud provider(s) excluded from "
+                    "ranking before dispatch: %s",
+                    len(_cloud_blocked), ", ".join(sorted(_cloud_blocked)))
             candidates = []
             # 2026-09-23 route-exclusion trace: ranking-stage skips (latency
             # cap, rate budgets) shrink the candidate pool BEFORE the
@@ -4812,17 +5066,21 @@ class BYOKHandler:
             # (platform-billed) keys only: an env-provided key IS the
             # operator's own credential (see env_key_providers note in
             # __init__), so plan allowlists must not zero out its candidates.
-            # A registered-LOCAL provider is the workspace's own hardware —
-            # it bills nobody, so a free-plan allowlist of platform models
-            # must not hide it either (J2: the fresh-install blocker).
+            # A local provider — registered (``local_*``) OR the
+            # auto-initialized runtime (``ollama``, F5) — is the workspace's
+            # own hardware: it bills nobody, so a free-plan allowlist of
+            # platform models must not hide it either.
             def _plan_applies(provider_id: str) -> bool:
                 own_keys = getattr(self, "env_key_providers", set())
                 if provider_id in own_keys or \
-                        provider_id.startswith("local_"):
+                        not _provider_is_cloud(provider_id, self._local_routes):
                     return False
                 return is_managed_service
 
-            def is_model_approved(model_id: str, allowed_list: any) -> bool:
+            def is_model_approved(
+                model_id: str, allowed_list: any,
+                provider_id: Optional[str] = None,
+            ) -> bool:
                 # The local runtime is the authority for its own models: the
                 # remote catalog carries no capability data for pulled names,
                 # and its conservative default hid working local models
@@ -4832,13 +5090,22 @@ class BYOKHandler:
                 # normal call error like any other provider mismatch.
                 # A REGISTERED route's own record is equally authoritative —
                 # with the registration's declared tools support (J2).
+                # F5: the local-authority rule keys on the route's PROVIDER
+                # (the runtime that will serve the call), not on a bare
+                # "ollama/"-prefixed model id — the documented local runtime
+                # serves bare names like ``llama3.1:8b``.
                 own_route = (self._local_routes or {}).get(model_id)
                 if own_route is not None:
                     if (requires_tools or requires_structured) and \
                             not own_route["supports_tools"]:
                         return False
                 else:
-                    is_local = model_id.lower().startswith("ollama/")
+                    pid = str(provider_id or "").strip().lower()
+                    is_local = (
+                        model_id.lower().startswith("ollama/")
+                        or pid in _LOCAL_PROVIDER_IDS
+                        or pid.startswith("local")
+                    )
                     if (
                         (requires_tools or requires_structured)
                         and not is_local
@@ -4860,7 +5127,7 @@ class BYOKHandler:
                     MODEL_TIER_RESTRICTIONS.get((tenant_plan or "free").lower(), MODEL_TIER_RESTRICTIONS["free"])
                     if _plan_applies(c["provider"]) else "*"
                 )
-                if is_model_approved(c["model"], allowed_models):
+                if is_model_approved(c["model"], allowed_models, c["provider"]):
                     ranked_options.append((c["provider"], c["model"]))
 
             # Availability-first fail-open: the pricing cache's capability
@@ -4904,6 +5171,14 @@ class BYOKHandler:
             provider_priority = ["gemini", "deepseek", "anthropic", "qwen", "minimax", "opencode-go", "openai", "moonshot", "openrouter"]
         else: # ADVANCED
             provider_priority = ["openai", "deepseek", "opencode-go", "anthropic", "qwen", "gemini", "moonshot", "minimax", "openrouter"]
+        # LOCAL-ONLY PROVIDER BOUNDARY (owner directive 2026-10-15): the
+        # STATIC fallback rotation is a fallback route — it must not
+        # re-admit cloud providers the movement above excluded (the same
+        # "fallback must not override the gates" contract the hard-gate
+        # parity below already enforces for rate/context skips).
+        provider_priority = [
+            p for p in provider_priority
+            if not _local_only_blocks_provider(p, self._local_routes)]
         
         capability_blocked_options: List[tuple] = []
 
@@ -7206,7 +7481,22 @@ class BYOKHandler:
             # used to bypass every context check, and a learning-heavy prompt
             # overflowed it where the ranker would have chosen a bigger model.
             if provider_model is not None:
-                if self._provider_cooldown_active(provider_model[0]) or self._model_cooldown_active(
+                if _local_only_blocks_provider(
+                        provider_model[0], self._local_routes):
+                    # LOCAL-ONLY PROVIDER BOUNDARY (owner directive
+                    # 2026-10-15): the pin arrived by some path that did
+                    # not pass the pin gate (build_provider_model_pin) —
+                    # the handler refuses it here, last before dispatch.
+                    # The request re-ranks through the local-only pool
+                    # (or fails locally); NO cloud call is made.
+                    logger.warning(
+                        "LOCAL-ONLY: refusing pin %s/%s — cloud dispatch "
+                        "is blocked; re-ranking across local providers",
+                        provider_model[0], provider_model[1])
+                    provider_model = None
+                if provider_model is None:
+                    pass  # refused above; the ranked options below govern
+                elif self._provider_cooldown_active(provider_model[0]) or self._model_cooldown_active(
                     provider_model[0], provider_model[1]
                 ):
                     # A pinned provider on cooldown (rejected credential,
@@ -7502,6 +7792,22 @@ class BYOKHandler:
                     if _json_mode:
                         instructor_client = instructor.from_openai(
                             client, mode=instructor.Mode.JSON)
+                    # MEASURED, NOT ADOPTED (round-19 A/B,
+                    # ab_native_schema_20261014_173715.json): a native
+                    # json_schema response_format for registered ollama
+                    # routes VALIDATES (result_type=CanvasEditPlan) but
+                    # drives this model to DEGENERATE empty ops — 0/3
+                    # valid plans, no better than the original path's
+                    # 0/3 shape-instability failures. Per the work
+                    # order, production changes only on a demonstrated
+                    # improvement; the constraint selection is therefore
+                    # NOT active. The measured arms: original scaffold +
+                    # default transport 0/3 (shape instability); original
+                    # scaffold + native constraint 0/3 (degenerate ops);
+                    # minimal scaffold + default transport 3/3 at
+                    # 2.3-11.9s with the full canvas preserved. (The
+                    # dispatch/cancellation instrumentation stays — it is
+                    # measurement, not behavior.)
                     # TEMPERATURE-LOCKED pairs (OpenCode Go: kimi-k2.7-code et
                     # al. accept only ONE temperature value each) send their
                     # required value from the start — the memo below means the
@@ -7636,19 +7942,85 @@ class BYOKHandler:
                             # structured round trip (same starvation as
                             # generate_response).
                             _attempt_t0 = time.time()
-                            if not self._claim_model_attempt(
+                            # BOUNDED CLAIM WAIT (J6 round 19): the
+                            # turn's OWN sibling legs (chat-leg tool plan,
+                            # edit plan) target the same local route; an
+                            # instant refusal made the second leg fail
+                            # before any dispatch (counted campaign
+                            # 20261014_201654: model_inflight, 0.4s
+                            # CanvasPlanUnavailable). Wait — bounded well
+                            # inside the caller's own wait_for deadline —
+                            # for the current holder to finish, instead
+                            # of failing the sibling leg.
+                            _claim_wait_deadline = time.time() + 20.0
+                            while not self._claim_model_attempt(
                                     provider_id, model,
                                     holder="completion2:" + str(
                                         task_type or "general")):
-                                raise _ModelAttemptInFlight(
-                                    f"{provider_id}/{model} is already in flight")
+                                if time.time() >= _claim_wait_deadline:
+                                    raise _ModelAttemptInFlight(
+                                        f"{provider_id}/{model} claim "
+                                        "still held after the bounded "
+                                        "wait")
+                                await asyncio.sleep(0.25)
                             _attempted_any = True
                             _attempt_count += 1
+                            # PLAN-ATTEMPT ATTRIBUTION, BEFORE THE
+                            # BLOCKING CALL (verifier work order, round
+                            # 19): the completion trace below emits only
+                            # when the worker RETURNS — a cancelled or
+                            # hung wait emits nothing and the two are
+                            # indistinguishable from queueing. This line
+                            # fixes the dispatch point: identity, prompt
+                            # size, effective cap, and the wrapper's
+                            # internal retry policy. [structured-trace]
+                            # after it = worker completed; the absence
+                            # of both = still running or cancelled.
+                            _dispatch_prompt_chars = len(str(
+                                _create_kwargs.get("prompt") or ""))
+                            if not _dispatch_prompt_chars:
+                                # Instructor converts the prompt into
+                                # messages — size THEM.
+                                _dispatch_prompt_chars = sum(
+                                    len(str(m.get("content") or ""))
+                                    for m in (
+                                        _create_kwargs.get("messages")
+                                        or []) if isinstance(m, dict))
+                            logger.info(
+                                "[structured-dispatch] %s/%s route=%s "
+                                "attempt=%d prompt_chars=%d cap=%s "
+                                "instructor_retries=%s",
+                                provider_id, model,
+                                route_trace_id or "-", _attempt_count,
+                                _dispatch_prompt_chars,
+                                _create_kwargs.get("max_tokens"),
+                                getattr(instructor_client, "max_retries",
+                                        None))
                             try:
                                 result = await _to_thread_safe(
                                     instructor_client.chat.completions.create,
                                     **_create_kwargs
                                 )
+                            except asyncio.CancelledError:
+                                # CANCELLATION IS ITS OWN EVENT (verifier
+                                # step 3): the awaiting task died but the
+                                # worker thread's synchronous request is
+                                # NOT cancelled by this — and the finally
+                                # below releases the model-attempt
+                                # reservation immediately, so another
+                                # request can claim the endpoint while
+                                # this one still runs. Logged separately;
+                                # re-raised so the caller sees the true
+                                # cause.
+                                logger.warning(
+                                    "[structured-cancelled] %s/%s "
+                                    "route=%s attempt=%d waited=%.1fs "
+                                    "reservation_released=true "
+                                    "worker_may_still_run=true",
+                                    provider_id, model,
+                                    route_trace_id or "-", _attempt_count,
+                                    time.time() - _attempt_t0)
+                                raise
                             finally:
                                 self._release_model_attempt(
                                     provider_id, model)
@@ -7662,12 +8034,14 @@ class BYOKHandler:
                             logger.info(
                                 "[structured-trace] %s/%s cap=%s "
                                 "dur=%.1fs finish=%s content_present=%s "
-                                "tool_calls_present=%s result_type=%s",
+                                "tool_calls_present=%s result_type=%s "
+                                "route=%s attempt=%d",
                                 provider_id, model,
                                 _create_kwargs.get("max_tokens"),
                                 time.time() - _attempt_t0, _fr,
                                 _content_present, _tool_calls_present,
-                                type(result).__name__)
+                                type(result).__name__,
+                                route_trace_id or "-", _attempt_count)
                             _record_structured_latency(
                                 provider_id, model,
                                 time.time() - _structured_start)

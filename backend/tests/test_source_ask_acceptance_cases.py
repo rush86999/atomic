@@ -265,6 +265,29 @@ class TestReceipts:
         assert rows[0]["verified"] is False
         assert "VPC unreachable" in rows[0]["outcome"]
 
+    def test_text_only_dispatch_records_executed_not_not_executed(self):
+        """A text-returning execution with no structured meta is an
+        EXECUTED lookup — the returned block is the same dispatch fact
+        the settle arm reads. The row must not say the lookup never ran
+        (live J6 T2 2026-10-15: the settle recorded invoked=true while
+        the companion receipt row said not_executed)."""
+        import integrations.chat_orchestrator as co
+
+        plan = _plan("memory", use_tool=True, intent="search",
+                     query="Quotation Q-2026-114")
+        block = ("LIVE TOOL RESULTS (memory.search, query='Quotation "
+                 "Q-2026-114'): nothing in the ingested workspace "
+                 "matched.")
+        rows = co._planner_receipt_rows(plan, block=block)
+        assert rows and rows[0]["tool"] == "memory"
+        assert rows[0]["outcome"] == "executed_no_verifiable_evidence", \
+            rows[0]
+        assert rows[0]["verified"] is None
+        assert rows[0]["required"] is True
+        # callers without the block keep the previous behavior
+        rows_nb = co._planner_receipt_rows(plan)
+        assert rows_nb[0]["outcome"] == "not_executed"
+
     def test_truncated_or_degraded_reads_carry_the_flag(self):
         """CASE 6 — truncated/paginated results: the receipt names the
         gap (degraded reads are NOT verified complete) so follow-up work

@@ -1,0 +1,106 @@
+{
+  "journey": "R4-read-recovery",
+  "subject": "db0c78356",
+  "mode": "integrated_main_head",
+  "diagnostic_only": true,
+  "counted": false,
+  "guard": {
+    "pinned_runtime": "db0c78356",
+    "worktree": "/Users/rushiparikh/projects/atom-r4-successor",
+    "worktree_head": "db0c78356267c40e1e322a09759ec54b790be7bd",
+    "runtime_dirty_entries": [],
+    "runtime_identical": true,
+    "guard_ok": true
+  },
+  "started_at": "2026-10-17T01:52:33+00:00",
+  "runtime_config": {
+    "provider_mode": "hybrid (cloud edit-plan rung + local reply lane)",
+    "edit_plan_pin": "deepseek/deepseek-v4-pro",
+    "local_only": "false",
+    "reply_lane": "product-registered local ollama llama3.1:8b",
+    "scratch_instrumentation": "ATOM_R4_DIAG=1 counter (read_invoked/read_completed); delivery-latch arm removed - the kill-at-completion barrier replaces it"
+  },
+  "identity": {
+    "mode": "configuration_parity_plus_public_api_smoke",
+    "source": {
+      "note": "no code export \u2014 configuration-parity checkout boot",
+      "commit": "db0c78356267c40e1e322a09759ec54b790be7bd"
+    },
+    "config_digest": "29dcd95049437fe113b7c2dfacb69f92e2674da9b644aa0e5ba01bd2df4d0d42",
+    "storage": {
+      "scratch_root": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v",
+      "run_dir": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v/run",
+      "database": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v/run/atom.db",
+      "lancedb": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v/data/atom_memory",
+      "byok_config": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v/byok_config.json",
+      "byok_keys": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v/byok_keys.json",
+      "byok_enc_key": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_r4_read_recovery_zrjrog4v/byok_encryption_key"
+    }
+  },
+  "boot": {
+    "booted": true,
+    "seconds": 11.8,
+    "git_commit": "db0c78356267"
+  },
+  "user": {
+    "registered": true,
+    "email": "jprobe_8395caac9b@example.com",
+    "id": "4b84358f-957c-4a04-a88c-e9e520e8bc41",
+    "workspace_id": "63d5c72b-6ccd-4c25-8471-6143ed83bcce"
+  },
+  "provider_setup": {
+    "register": {
+      "http": 200,
+      "registered": true
+    },
+    "discover": {
+      "http": 200,
+      "count": 1
+    },
+    "capabilities": {
+      "http": 200
+    },
+    "test": {
+      "http": 200,
+      "ok": null
+    },
+    "provider_id": "3e736554-a05a-49e7-8e1e-97dc60a1256a"
+  },
+  "ollama_capability_report": {
+    "supports_tools": true,
+    "context_length": 8192
+  },
+  "pin_provider_setup": {
+    "pin_spec": "deepseek/deepseek-v4-pro",
+    "cloud_backed": true,
+    "store_http": 200,
+    "keys_visible": 1,
+    "decrypts": true
+  },
+  "restart_after_pin_store": {
+    "booted": true,
+    "seconds": 11.9,
+    "restart_number": 1
+  },
+  "setup": {
+    "create_http": 200,
+    "canvas_id": "003238d5-f04d-4488-b24a-42f8e122a12d",
+    "seed_http": 200
+  },
+  "upload": {
+    "http": 200,
+    "name": "Consolidated Price List 2019.xlsx"
+  },
+  "dataset_catalog": {
+    "entry_materialized": true,
+    "entries": 1
+  },
+  "barrier": {
+    "read_completed_seen": false,
+    "delivery_won": true,
+    "wait_s": 12.6
+  },
+  "turn1_delivered_reply": null,
+  "invalid_reason": "delivery won the race before the read completed - attempt diagnostic-invalid, retained",
+  "pass": false
+}

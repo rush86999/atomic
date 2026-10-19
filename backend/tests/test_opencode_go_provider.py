@@ -65,8 +65,8 @@ class TestOpenCodeGoRegistration:
 
     def test_cost_efficient_models_per_complexity(self):
         models = COST_EFFICIENT_MODELS["opencode-go"]
-        assert models[QueryComplexity.SIMPLE] == "deepseek-v4-flash"
-        assert models[QueryComplexity.MODERATE] == "deepseek-v4-flash"
+        assert models[QueryComplexity.SIMPLE] == "deepseek-v4.1-flash"
+        assert models[QueryComplexity.MODERATE] == "deepseek-v4.1-flash"
         assert models[QueryComplexity.COMPLEX] == "deepseek-v4-pro"
         assert models[QueryComplexity.ADVANCED] == "kimi-k2.7-code"
 
@@ -324,19 +324,21 @@ class TestProviderRateTracker:
 
 class TestOpenCodePricing:
     def test_static_fallback_tags_provider(self):
+        from core.llm.opencode_catalog import OPCODE_KNOWN_PRICES
+
         fetcher = DynamicPricingFetcher()
         pricing = fetcher._opencode_static_fallback()
-        assert pricing["deepseek-v4-flash"]["litellm_provider"] == "opencode-go"
-        assert pricing["deepseek-v4-flash"]["input_cost_per_token"] == pytest.approx(0.14 / 1e6)
+        assert pricing["deepseek-v4.1-flash"]["litellm_provider"] == "opencode-go"
+        assert pricing["deepseek-v4.1-flash"]["input_cost_per_token"] == pytest.approx(0.30 / 1e6)
         assert pricing["kimi-k2.7-code"]["litellm_provider"] == "opencode-go"
-        assert len(pricing) >= 5
+        assert set(pricing) == set(OPCODE_KNOWN_PRICES)
 
     def test_fetch_opencode_falls_back_offline(self):
         import asyncio
         fetcher = DynamicPricingFetcher()
         with patch("httpx.AsyncClient.get", side_effect=Exception("offline")):
             pricing = asyncio.run(fetcher.fetch_opencode_pricing())
-        assert pricing["deepseek-v4-flash"]["source"] == "opencode-zen"
+        assert pricing["deepseek-v4.1-flash"]["source"] == "opencode-zen"
 
 
 # ============================================================================
@@ -818,12 +820,17 @@ class TestOpenCodePaidFallbackHelper:
             _is_opencode_free_model,
             _opencode_paid_fallback_model,
         )
-        assert _is_opencode_free_model("deepseek-v4-flash-free")
-        assert not _is_opencode_free_model("deepseek-v4-flash")
+        assert _is_opencode_free_model("deepseek-v4.1-flash-free")
+        assert not _is_opencode_free_model("deepseek-v4.1-flash")
+        # Current lineup: live free IDs map to their paid siblings, and the
+        # unknown-free default is the cheapest CURRENT entitled paid model.
+        assert _opencode_paid_fallback_model("deepseek-v4.1-flash-free") == "deepseek-v4.1-flash"
+        assert _opencode_paid_fallback_model("mimo-v2.6-flash-free") == "minimax-m2.7"
+        assert _opencode_paid_fallback_model("mystery-model-free") == "deepseek-v4.1-flash"
+        # Legacy free IDs stay mapped so older gateway lineups still retry.
         assert _opencode_paid_fallback_model("deepseek-v4-flash-free") == "deepseek-v4-flash"
         assert _opencode_paid_fallback_model("mimo-v2.5-free") == "minimax-m2.7"
-        assert _opencode_paid_fallback_model("mystery-model-free") == "deepseek-v4-flash"
-        assert _opencode_paid_fallback_model("deepseek-v4-flash") is None
+        assert _opencode_paid_fallback_model("deepseek-v4.1-flash") is None
 
     def test_env_override(self, monkeypatch):
         from core.llm.byok_handler import _opencode_paid_fallback_model

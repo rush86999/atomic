@@ -339,44 +339,42 @@ class TestFetchOpenRouter:
 
 class TestOpencodeFallback:
     def test_static_fallback_shape(self, fetcher):
+        from core.llm.opencode_catalog import OPCODE_KNOWN_PRICES
+
         table = fetcher._opencode_static_fallback()
-        assert table["deepseek-v4-flash"]["input_cost_per_token"] == pytest.approx(0.14 / 1e6)
-        assert table["deepseek-v4-flash"]["output_cost_per_token"] == pytest.approx(0.28 / 1e6)
-        assert table["deepseek-v4-flash"]["max_input_tokens"] == 200000
-        assert table["deepseek-v4-flash"]["litellm_provider"] == "opencode-go"
-        assert table["deepseek-v4-flash"]["source"] == "opencode-zen"
+        entry = table["deepseek-v4.1-flash"]
+        assert entry["input_cost_per_token"] == pytest.approx(0.30 / 1e6)
+        assert entry["output_cost_per_token"] == pytest.approx(1.20 / 1e6)
+        assert entry["max_input_tokens"] == 200000
+        assert entry["litellm_provider"] == "opencode-go"
+        assert entry["source"] == "opencode-zen"
+        assert entry["supports_cache"] is False
         assert table["deepseek-v4-pro"]["input_cost_per_token"] == pytest.approx(1.74 / 1e6)
-        assert "qwen3.7-max" in table
-        assert len(table) == 11
+        assert "qwen3.8-max" in table
+        # The fallback is the shared docs table, whole and with no extras.
+        assert set(table) == set(OPCODE_KNOWN_PRICES)
+        # Legacy id stays priced for Console pay-as-you-go keys.
+        assert table["deepseek-v4-flash"]["input_cost_per_token"] == pytest.approx(0.14 / 1e6)
 
 
 class TestFetchOpencode:
     @pytest.mark.asyncio
-    async def test_bare_list_payload(self, fetcher):
-        payload = [
-            {"id": "deepseek-v4-flash", "input_cost": 0.14, "output_cost": 0.28,
-             "context_length": 200000, "name": "DeepSeek V4 Flash",
-             "supports_cache": True},
-            {"model": "minimax-m3", "prompt": "0.30", "completion": "1.20",
-             "context": 100000},
-            {"name": "no-id-model"},  # no id/model -> skipped
-        ]
+    async def test_id_list_merged_with_known_prices(self, fetcher):
+        payload = ["deepseek-v4.1-flash", "kimi-k2.7-code", "totally-delisted-model"]
         resp = json_response(payload)
         client, cls = make_httpx(resp)
         with patch.object(dpf.httpx, "AsyncClient", cls):
             pricing = await fetcher.fetch_opencode_pricing()
-        assert pricing["deepseek-v4-flash"]["litellm_provider"] == "opencode-go"
-        assert pricing["deepseek-v4-flash"]["input_cost_per_token"] == pytest.approx(0.14 / 1e6)
-        assert pricing["deepseek-v4-flash"]["supports_cache"] is True
-        assert pricing["minimax-m3"]["input_cost_per_token"] == pytest.approx(0.30 / 1e6)
-        assert pricing["minimax-m3"]["max_input_tokens"] == 100000
-        assert pricing["minimax-m3"]["name"] == "minimax-m3"
-        assert pricing["minimax-m3"]["supports_cache"] is False
-        assert "no-id-model" not in pricing
+        # The live endpoint returns IDs only — prices come from the table.
+        assert pricing["deepseek-v4.1-flash"]["input_cost_per_token"] == pytest.approx(0.30 / 1e6)
+        assert pricing["deepseek-v4.1-flash"]["output_cost_per_token"] == pytest.approx(1.20 / 1e6)
+        assert pricing["kimi-k2.7-code"]["litellm_provider"] == "opencode-go"
+        # Served-but-unpriced IDs are dropped, never mispriced as $0.
+        assert "totally-delisted-model" not in pricing
 
     @pytest.mark.asyncio
     async def test_envelope_payload(self, fetcher):
-        payload = {"data": [{"id": "kimi-k2.7-code", "input_cost": 0.95}]}
+        payload = {"data": [{"id": "kimi-k2.7-code"}]}
         resp = json_response(payload)
         client, cls = make_httpx(resp)
         with patch.object(dpf.httpx, "AsyncClient", cls):
@@ -385,12 +383,52 @@ class TestFetchOpencode:
         assert pricing["kimi-k2.7-code"]["max_input_tokens"] == 200000
 
     @pytest.mark.asyncio
+    async def test_free_models_excluded(self, fetcher):
+        payload = ["deepseek-v4.1-flash-free", "big-pickle", "deepseek-v4.1-flash"]
+        resp = json_response(payload)
+        client, cls = make_httpx(resp)
+        with patch.object(dpf.httpx, "AsyncClient", cls):
+            pricing = await fetcher.fetch_opencode_pricing()
+        assert "deepseek-v4.1-flash-free" not in pricing
+        assert "big-pickle" not in pricing  # suffixed-free stealth model
+        assert "deepseek-v4.1-flash" in pricing
+
+    @pytest.mark.asyncio
+    async def test_table_price_wins_for_known_id(self, fetcher):
+        payload = [{"id": "deepseek-v4.1-flash", "input_cost": 9.9,
+                    "output_cost": 9.9, "supports_cache": True}]
+        resp = json_response(payload)
+        client, cls = make_httpx(resp)
+        with patch.object(dpf.httpx, "AsyncClient", cls):
+            pricing = await fetcher.fetch_opencode_pricing()
+        # Docs table is the price authority for known IDs.
+        assert pricing["deepseek-v4.1-flash"]["input_cost_per_token"] == pytest.approx(0.30 / 1e6)
+        assert pricing["deepseek-v4.1-flash"]["supports_cache"] is True
+
+    @pytest.mark.asyncio
+    async def test_live_price_used_for_unpriced_id(self, fetcher):
+        payload = [{"id": "brand-new-model", "input_cost": 0.5, "output_cost": 1.0,
+                    "context_length": 128000, "name": "Brand New",
+                    "supports_cache": True}]
+        resp = json_response(payload)
+        client, cls = make_httpx(resp)
+        with patch.object(dpf.httpx, "AsyncClient", cls):
+            pricing = await fetcher.fetch_opencode_pricing()
+        entry = pricing["brand-new-model"]
+        assert entry["input_cost_per_token"] == pytest.approx(0.5 / 1e6)
+        assert entry["output_cost_per_token"] == pytest.approx(1.0 / 1e6)
+        assert entry["max_input_tokens"] == 128000
+        assert entry["name"] == "Brand New"
+        assert entry["supports_cache"] is True
+        assert entry["litellm_provider"] == "opencode-go"
+
+    @pytest.mark.asyncio
     async def test_dict_without_data_falls_back(self, fetcher):
         resp = json_response({"foo": "bar"})
         client, cls = make_httpx(resp)
         with patch.object(dpf.httpx, "AsyncClient", cls):
             pricing = await fetcher.fetch_opencode_pricing()
-        assert pricing["deepseek-v4-flash"]["source"] == "opencode-zen"
+        assert pricing["deepseek-v4.1-flash"]["source"] == "opencode-zen"
 
     @pytest.mark.asyncio
     async def test_empty_list_falls_back(self, fetcher):
@@ -398,7 +436,15 @@ class TestFetchOpencode:
         client, cls = make_httpx(resp)
         with patch.object(dpf.httpx, "AsyncClient", cls):
             pricing = await fetcher.fetch_opencode_pricing()
-        assert "deepseek-v4-flash" in pricing
+        assert "deepseek-v4.1-flash" in pricing
+
+    @pytest.mark.asyncio
+    async def test_all_unpriced_falls_back(self, fetcher):
+        resp = json_response(["mystery-a", "mystery-b"])
+        client, cls = make_httpx(resp)
+        with patch.object(dpf.httpx, "AsyncClient", cls):
+            pricing = await fetcher.fetch_opencode_pricing()
+        assert pricing["deepseek-v4.1-flash"]["source"] == "opencode-zen"
 
     @pytest.mark.asyncio
     async def test_network_error_falls_back(self, fetcher):

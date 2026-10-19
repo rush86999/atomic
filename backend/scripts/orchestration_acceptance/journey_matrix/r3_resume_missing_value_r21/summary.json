@@ -1,0 +1,108 @@
+{
+ "campaign": "2026-10-16 R3 \u2014 supplying a missing value AFTER RESTART (owner milestone directive)",
+ "subject_repair": "b9e2d8e5c \u2014 the awaiting-value requirement persists in the task lifecycle's unresolved ledger; intake binds the user's answer (single value -> resume the recorded edit; multiple -> one clarification, zero writes)",
+ "subject_diagnosed": "df72807b8 (the integrated main HEAD before the repair)",
+ "sequence": [
+  "1. missing-information request via the public app",
+  "2. draft unchanged; the specific ask delivered",
+  "3. REAL restart (ScratchServer.restart: same DB, same port)",
+  "4. the bare value only, same conversation",
+  "5-6. association (artifact/subject/field/authorization), one correct edit, preservation, attributable audit evidence, reload agreement",
+  "7. ambiguous value: one clarification, zero writes"
+ ],
+ "runs": [
+  {
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_071658_4970db.json",
+   "subject": "df72807b8 (pre-repair)",
+   "result": "THE GAP DEMONSTRATED: the request turn was perfect (success=true, outcome=partial, zero writes, the specific ask), but after the restart the bare value was treated as a LOOKUP question ('I did not find a match for \"03-4567-8912\" in the records\u2026') \u2014 mutation.requested=false, the turn resolved failed. The association existed only in conversation prose.",
+   "verdict": "repair required (owner pre-authorized the shape: persist the minimal structured requirement in the existing pending-task/lifecycle machinery)"
+  },
+  {
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_073932_8373eb.json",
+   "subject": "b9e2d8e5c (repair)",
+   "result": "THE RESUME WORKS END-TO-END: request turn green as before; after the REAL restart the bare value bound to the recorded requirement ('Client's tax registration number updated to 03-4567-8912.'), ONE write, the value landed once, protected content preserved, attributable audit row (operation_id = the resume execution id), durable mutation evidence (objective_met=true, readback_matched=true), reload agreement, zero failed requests. Scenario B: the ambiguous value produced exactly one clarification naming both candidates, zero writes, question stayed open.",
+   "verdict": "the R3 user experience passes; the run's one false check was a DRIVER artifact (details[:400] truncated the audit row's operation_id mid-string \u2014 attribution was present and is verified in the row dump)",
+   "note": "harness artifact fixed in a9b8372a2 (details[:900] + prefix match)"
+  },
+  {
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_074317_a6d935.json",
+   "subject": "b9e2d8e5c (repair)",
+   "result": "REPAIR STABLE, RUNG VARIANCE EXPOSED: the resume machinery worked again (binding, apply, settle, attribution now green, ambiguous scenario green), but this run's cloud edit-plan output was a sloppy TWO-op patch: the value landed twice (after the Client line AND after a duplicated 'Terms: Terms: Net 30' label) and the delivered reply omitted the value. The editor applied both ops faithfully \u2014 each grounded, postcondition matched. This is plan-quality variance of the accepted rung (same class as the earlier patch-format rounds), not a resume defect: the prior run on the same candidate produced a clean single-op plan.",
+   "verdict": "recorded as an OPEN planner-quality limitation of the resume flow; not reopened now (owner: do not reopen; diagnostics over repairs). Candidate future repair, if the owner calls for it: a resume-plan preference for minimal ops / a post-apply no-op-duplication check."
+  },
+  {
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_091140_b75a3b.json",
+   "subject": "de3a647fb (pre-settled-lookup-fix)",
+   "result": "PATH VARIANCE DEMONSTRATED LIVE: scenario B fully green (the specific ask + the ambiguity clarification), but scenario A's named-source lookup SETTLED with nothing grounding the reference \u2014 that path shipped the generic block decline (no specific ask, no stamp, unconfirmed/failed envelope) and the follow-up value was answered by model prose ('I did not find one in what this turn actually searched'). Both lookup endings are the same unresolved requirement.",
+   "verdict": "bounded repair: the settled-lookup decline joins the requirement machinery (8ebe1a2f0)"
+  },
+  {
+   "evidence_archived": {
+    "path": "evidence_r3_resume_20261016_093604_f8f641.json",
+    "note": "sanitized in-repo archive; credential scan clean"
+   },
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_093604_f8f641.json",
+   "subject": "8ebe1a2f0 (review-approved runtime)",
+   "counted": false,
+   "pass": true,
+   "failed_request_count": 0,
+   "result": "ALL GATES GREEN after three real restarts: the request ships the specific ask (partial, zero writes, draft unchanged); after the restart the bare value binds the stamped requirement ('Client's tax registration number updated to 03-4567-8912.') with ONE write, the value once, protected content intact, attributable audit row, objective_met=true + readback_matched=true, reload agreement; the ambiguous value asks once naming both candidates verbatim with zero writes.",
+   "checks": "every check on every turn true; zero failed requests"
+  },
+  {
+   "evidence_archived": {
+    "path": "evidence_r3_resume_20261016_110140_b9354f.json",
+    "sha256": "d1fcf996923d2f0d9e91bb9dc8e2fc0de38451b54e829df0af3c4160a53e50e5",
+    "note": "sanitized in-repo archive; the FOCUSED restart/resume acceptance on the review-approved frozen candidate"
+   },
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_110140_b9354f.json",
+   "subject": "ec325cdc9 (structurally-closed frozen candidate; reviewer blob-verified the runtime byte-identical to the commit)",
+   "counted": false,
+   "pass": true,
+   "failed_request_count": 0,
+   "result": "FOCUSED ACCEPTANCE PASSES: request turn ships the specific ask (partial, zero writes, draft unchanged); after the real restart the bare value binds the stamped requirement ('Added client tax registration number 03-4567-8912 to the quotation.') with ONE write, the value EXACTLY ONCE, protected content intact, attributable audit row, reload agreement; the ambiguous value asks once naming both candidates. Zero failed requests; every check on every turn true.",
+   "review_round_6": "structurally closed (Option A): anchored frames bind ONLY digit-bearing or quoted tails \u2014 an unquoted non-digit tail is an open class and resolves to unresolved; quoted tails fall through to the quote branch; the word denylist is deleted. Reviewer APPROVE with the condition the run launches from the settled pinned tree (met)."
+  },
+  {
+   "evidence_archived": {
+    "path": "evidence_r3_resume_20261016_115723_578116.json",
+    "sha256": "f7aaac9c2df0fc1267ad0cbf5aa08c43bcad8712ba42a9ee2ed39daa01aa447e",
+    "note": "sanitized in-repo archive; the FOCUSED restart/resume acceptance on the review-approved round-7 runtime (the semantic-boundary candidate)"
+   },
+   "evidence": "/tmp/r3_resume_evidence/r3_resume_20261016_115723_578116.json",
+   "subject": "853226d79 (the narrow supply syntax + uniform frame-tail rules; reviewer round 7 APPROVE with the pin-bump condition, met)",
+   "counted": false,
+   "pass": true,
+   "failed_request_count": 0,
+   "result": "FOCUSED ACCEPTANCE PASSES on the semantic-boundary runtime: request turn ships the specific ask (partial, zero writes, draft unchanged); after the real restart the bare identifier binds the stamped requirement ('Client's tax registration number updated to 03-4567-8912.') with ONE write, the value EXACTLY ONCE, protected content intact, attributable audit row, reload agreement; the ambiguous value asks once naming both candidates. Zero failed requests; every check on every turn true.",
+   "review_round_7": "uniform frame-tail rules: anchored coordinated tails ask (segment split); generic frames bind only bare digit tails (quoted -> mention); bare-digit-first classification ('47:11' whole); multi-quote ambiguity. Reviewer APPROVE with the mechanical pin-bump condition, met."
+  }
+ ],
+ "tests": {
+  "behavioral": "tests/test_resume_pending_requirement.py \u2014 4 passed (real decline->stamp->resume loop with REAL lifecycle runs: one write + question settles; ambiguous one-clarification-zero-writes; other-canvas never hijacked; no-record normal flow)",
+  "neighbor_sweep": "73 passed / 3 failed \u2014 the 3 are the known pre-existing failures in test_write_zero_effect_claims.py (attributed at c05cfd69b)"
+ },
+ "status": "R3 PASSES its live diagnostic on 8ebe1a2f0 (pass=true, 0 failed requests, every check true on every turn): restart, answer the question, continue without repeating the request. The settled-lookup and timeout paths both deliver the specific ask and stamp the requirement.",
+ "limits": [
+  "diagnostic runs (counted=false); the driver's SHA guard pins the runtime candidate and allows harness-only HEAD deltas",
+  "the value-candidate split is structural (comma/semicolon/newline/'or'); values containing those separators natively are out of scope for this round",
+  "the resume binding is scoped to the same conversation AND the same recorded canvas"
+ ],
+ "review": {
+  "rounds": [
+   "round 1 REJECT: 3 required fixes \u2014 reply interpretation (word removal + numeric comma splits + cancel-as-value), answerable multi-requirement + stamp dedup, restore-race guard; plus expiry dead-code",
+   "round 2 REJECT: 1 required fix \u2014 selection-only replies ('1', 'option 2', 'The VAT number') bound the selection token as the value",
+   "round 3 APPROVE on de3a647fb-lineage fixes; then the live run exposed the settled-lookup variance \u2192 bounded extension 8ebe1a2f0 \u2192 scoped re-review APPROVE (non-gating NOTEs: planner_declined residual message-accuracy class, chain-report append ordering, answer-frame inversion and other [MINOR] polish recorded for follow-up)"
+  ],
+  "verdict": "APPROVE \u2014 live run unblocked (the reviewer's independent probes, suite runs, and neighbor sweep all confirmed)"
+ },
+ "closure": "Identifier resume across restart verified; general answer recognition remains constrained to the narrow supply syntax above \u2014 broader natural-language answers are clarified, not guessed, and belong in the structured interpretation mechanism. (Owner-directed boundary, implemented.)",
+ "interpretation_contract": [
+  "six classes: answer | question | cancel | selection | new_instruction | unresolved; unrecognized text is UNRESOLVED, never an answer by default",
+  "an answer is recognized only with an EXACT value span into the original message: requirement-anchored frame with a DIGIT-BEARING tail, a digit-bearing reply, or an explicitly quoted span",
+  "unanchored multi-word non-digit values (e.g. 'Research and Development', 'Acme, Inc' unquoted) ASK; the quoted form binds verbatim (recorded contract change)",
+  "ambiguity (several spans) and several open requirements produce specific clarifications with zero writes",
+  "pre-persistence preservation on the proposed artifact; post-write readback + revision-guarded restore only as exceptional recovery"
+ ],
+ "boundary": "SUPPLY = a bare digit value, or an explicitly quoted value inside a requirement-anchored frame; coordination in either form asks; everything else \u2014 prose, mentions, negations, questions, selections, fresh directives \u2014 never writes. Values are exact spans of the user's own text; preservation is enforced pre-persistence with post-write recovery under a race guard; settlement requires verified fulfillment; the ledger dedups and expires. (Independent-reviewer closing statement, round 7.)"
+}

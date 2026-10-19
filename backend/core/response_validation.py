@@ -20,9 +20,35 @@ _TOOL_CALL_TAG_RE = re.compile(
     r"<invoke\b|<parameter\b|</(?:[a-z0-9_.:-]*:)?function_call>",
     re.IGNORECASE,
 )
+#: Reasoning wrappers, in every observed variant:
+#:   * ``<think>…</think>`` / ``<think attr=…>…</think>`` (DeepSeek/R1 style),
+#:   * ``<thinking>…</thinking>``,
+#:   * MiniMax's namespaced forms ``<mm:thinking>…</mm:thinking>`` and
+#:     ``<mm:think>…</mm:think>``.
+#: An UNPAIRED marker of any of these forms stays flagged by this same
+#: pattern — the boundary REJECTS incomplete protocol rather than exposing
+#: text whose provenance (reasoning vs answer) cannot be established.
 _REASONING_TAG_RE = re.compile(
-    r"<think\b|</(?:mm:)?think>|</?(?:mm:)?thinking>",
+    r"<think\b"
+    r"|</?(?:mm:)?think(?:ing)?\b[^>]*>",
     re.IGNORECASE,
+)
+#: COMPLETE reasoning wrapper blocks (open+close, attributes tolerated on the
+#: open tag). Only these are converted: their contents are known reasoning.
+_REASONING_BLOCK_RE = re.compile(
+    r"<(?:mm:)?think(?:ing)?\b[^>]*>.*?</(?:mm:)?think(?:ing)?>",
+    re.IGNORECASE | re.DOTALL,
+)
+#: The inner content of a complete wrapper (used for reasoning capture).
+_REASONING_BLOCK_CONTENT_RE = re.compile(
+    r"^<(?:mm:)?think(?:ing)?\b[^>]*>(?P<content>.*)</(?:mm:)?think(?:ing)?>$",
+    re.IGNORECASE | re.DOTALL,
+)
+#: COMPLETE tool-call blocks (open+close of the same spelling).
+_TOOL_CALL_BLOCK_RE = re.compile(
+    r"<(?:[a-z0-9_.:-]+:)?(?:tool_call|function_call)>.*?"
+    r"</(?:[a-z0-9_.:-]+:)?(?:tool_call|function_call)>",
+    re.IGNORECASE | re.DOTALL,
 )
 _TOOL_NAME_JSON_LINE_RE = re.compile(
     r"^\s*[a-z][a-z0-9_-]{2,40}\s*:\s*\{.*\}[,;]?\s*$",
@@ -282,25 +308,63 @@ def is_malformed_output(
     ).valid
 
 
+def _remove_outside_exempt_spans(text: str, pattern) -> str:
+    """Remove ``pattern`` matches that are NOT inside a quoted/code example."""
+    raw = str(text or "")
+    spans = _exempt_spans(raw)
+    if not spans:
+        return pattern.sub("", raw)
+    pieces: List[str] = []
+    cursor = 0
+    for match in pattern.finditer(raw):
+        if match.start() < cursor or _inside_spans(match.start(), spans):
+            continue
+        pieces.append(raw[cursor:match.start()])
+        cursor = match.end()
+    pieces.append(raw[cursor:])
+    return "".join(pieces)
+
+
 def strip_protocol_fragments(
     text: str, captured: Optional[List[str]] = None
 ) -> str:
-    normalized = _ZERO_WIDTH_RE.sub("", str(text or "")).strip()
-    if captured is not None:
-        for match in re.finditer(r"<think>(.*?)</think>", normalized, flags=re.DOTALL):
-            block = (match.group(1) or "").strip()
+    """Convert a model reply into its FINAL-ANSWER content.
+
+    COMPLETE reasoning wrappers (``<think>…</think>``, ``<thinking>…``,
+    ``<mm:think>…``, ``<mm:thinking>…``, attributes tolerated) are removed as
+    BLOCKS: their contents are known reasoning, so they are captured for the
+    reasoning drawer (when ``captured`` is provided) and never re-exposed as
+    answer text. Quoted/code examples that legitimately SHOW a marker survive
+    (the same exemption spans the validator uses).
+
+    UNPAIRED/partial markers are deliberately NOT stripped here: their
+    provenance is unknown, and removing just the tag would promote reasoning
+    text into an apparent answer. They survive into
+    :func:`validate_response_payload`, which rejects the payload — the
+    response boundary's "incomplete protocol" outcome.
+    """
+    normalized = _ZERO_WIDTH_RE.sub("", str(text or ""))
+    # 1. Complete reasoning wrappers -> capture contents, remove the block.
+    spans = _exempt_spans(normalized)
+    kept: List[str] = []
+    cursor = 0
+    for match in _REASONING_BLOCK_RE.finditer(normalized):
+        if match.start() < cursor or _inside_spans(match.start(), spans):
+            continue
+        if captured is not None:
+            inner = _REASONING_BLOCK_CONTENT_RE.match(match.group(0))
+            block = (inner.group("content") if inner else "").strip()
             if block:
                 captured.append(block)
-    normalized = re.sub(r"<think>.*?</think>", "", normalized, flags=re.DOTALL)
-    normalized = re.sub(
-        r"<(?:[a-z0-9_.:-]+:)?(?:tool_call|function_call)>.*?"
-        r"</(?:[a-z0-9_.:-]+:)?(?:tool_call|function_call)>",
-        "",
-        normalized,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-    normalized = re.sub(r"</?(?:mm:)?think>", "", normalized, flags=re.IGNORECASE)
-    normalized = _PARTIAL_MARKER_RE.sub("", normalized)
+        kept.append(normalized[cursor:match.start()])
+        cursor = match.end()
+    kept.append(normalized[cursor:])
+    normalized = "".join(kept)
+    # 2. Complete tool-call blocks -> remove (never user-facing).
+    normalized = _remove_outside_exempt_spans(normalized, _TOOL_CALL_BLOCK_RE)
+    # 3. A dangling PARTIAL marker at the very end is a fragment, not content
+    # (the pattern cannot match a complete tag — ">" is outside its class).
+    normalized = _remove_outside_exempt_spans(normalized, _PARTIAL_MARKER_RE)
     return normalized.strip()
 
 
@@ -355,3 +419,38 @@ def split_safe_prefix(text: str) -> "tuple[str, str, bool]":
         if not _inside_spans(match.start(), spans):
             return t[: match.start()], t[match.start() :], False
     return t, "", False
+
+
+def normalize_final_text(
+    text: Any,
+    captured: Optional[List[str]] = None,
+    *,
+    content_type: str = "text/markdown",
+) -> "tuple[str, Optional[str]]":
+    """The final-answer boundary: convert protocol, then validate.
+
+    Returns ``(normalized_text, reject_reason)``. ``reject_reason`` is
+    ``None`` when the normalized content may be delivered and persisted;
+    otherwise the caller must NOT surface ``normalized_text`` (honest
+    fallback / quarantine instead).
+
+    One contract for streaming, persisted history and the public response:
+
+    * complete reasoning wrappers are converted (contents captured, never
+      re-exposed);
+    * a non-empty reply that converts to EMPTY (reasoning-only output) is
+      rejected as incomplete — an empty success would be a lie;
+    * unpaired/partial protocol markers survive conversion and the payload
+      validator rejects them ("still malformed");
+    * quoted/code examples are preserved by the same exemption spans the
+      validator uses.
+    """
+    raw = str(text or "")
+    normalized = strip_protocol_fragments(raw, captured=captured)
+    if raw.strip() and not normalized.strip():
+        return normalized, "reasoning-only output (no final answer content)"
+    validation = validate_response_payload(
+        normalized, channel="final_text", content_type=content_type)
+    if not validation.valid:
+        return normalized, validation.reason
+    return normalized, None

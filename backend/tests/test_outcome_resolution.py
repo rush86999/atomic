@@ -266,3 +266,38 @@ def test_authorized_noop_is_not_manufactured_into_failure(world):
     # the envelope is unchanged otherwise (identity, message)
     assert out["message"] == payload["message"]
     assert out["execution_id"] == "exec-noop"
+
+
+def test_presentation_only_canvas_turn_is_completed(world):
+    """Owner directive 2026-10-15 (the J6 T2 envelope defect): a
+    presentation-only turn that READ the attached artifact delivered
+    the requested presentation — the decision contract is the
+    delivery's classification, and the turn must not resolve
+    unconfirmed by construction. No operation carries values here: the
+    guard is the accepted (presentation-only) request plus the read of
+    the attached artifact."""
+    out = _resolve(world, "conv-or-pres", None, "exec-pres",
+                   canvas_was_read=True, presentation_only_turn=True)
+    assert out["state"] == "completed", out
+    assert out["delivered"] is True
+
+
+def test_presentation_flag_never_certifies_without_the_artifact_read(world):
+    """The guard's other half: the flag alone certifies nothing — with
+    no attached canvas read this turn, the resolver keeps resolving
+    unconfirmed (the conservative direction)."""
+    out = _resolve(world, "conv-or-pres2", None, "exec-pres2",
+                   canvas_was_read=False, presentation_only_turn=True)
+    assert out["state"] == "unconfirmed", out
+
+
+def test_presentation_flag_never_overrides_a_recorded_failure(world):
+    """A recorded failure on this turn's own operation still resolves
+    failed — the presentation classification is a delivery fact, never
+    a failure eraser."""
+    run_id, _op = _stage(world, "conv-or-pres3", "exec-pres3",
+                         findings=[], op_status="failed",
+                         outcome="read_failed", with_delivery=False)
+    out = _resolve(world, "conv-or-pres3", run_id, "exec-pres3",
+                   canvas_was_read=True, presentation_only_turn=True)
+    assert out["state"] == "failed", out

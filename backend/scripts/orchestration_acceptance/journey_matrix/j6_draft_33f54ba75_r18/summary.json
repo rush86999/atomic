@@ -85,5 +85,159 @@
    "stage_ladders": "recorded per turn in the evidence file"
   },
   "acceptance_status": "OPEN \u2014 gates: (1) authorized edit completes within the turn (awaits the planning-cost decision: prompt-reduction benchmark vs preservation, or a budget call \u2014 owner's), (2) comparison attribution observed at the user boundary (fix landed, lane-proven; boundary observation pending a completing run), (3) decline-outcome envelope at the boundary (classification landed; boundary observation pending). Negative controls committed."
+ },
+ "instrumented_benchmark_454616578": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_134011_df3310.json",
+  "instrumentation": "per-attribution events landed: [plan-stage] eid/stage/outcome/attempts/contract at every planning terminal; [structured-trace] route=<stage>:<eid> attempt=N per dispatch; [lane-stage] fresh_data marker separating fresh-data calls from edit-plan calls; driver ladder v2 requires POSITIVE contract=valid evidence for plan_validated",
+  "findings": [
+   "RETRACTION (step 2): the '74.4s validated plan vs 74s bound' conclusion is withdrawn. The instrumented run shows ZERO completed structured dispatches and ZERO [plan-stage] events inside the bound on every turn: plan_validated=not_reached. What is established: the edit-plan model call is a SINGLE dispatch whose inference exceeds the 74s leg bound; it is cancelled before any completion.",
+   "POST accounting (step 1): 12 ollama POSTs in the T1 window but 0 edit-plan completions \u2014 the other POSTs are fresh-data, memory, and chat-leg calls, now distinguishable per stage.",
+   "small-edit allowance (step 3): the J6 ask QUALIFIES (_small_edit_shape: 82 chars, no row vocabulary) \u2014 the 2000-token output cap already applies; the latency is generation-dominated single-call inference on the accepted 8B profile, not retries (0 completed) and not an oversized reservation."
+  ],
+  "step4_status": "No optimization chosen: with zero completed planning calls inside the bound, no prompt reduction can be benchmarked against a completing baseline, and widening the bound is an owner decision. The measured fact for that decision: one 8B planning call needs >74s on this hardware. The instrumentation now measures whichever path is chosen, with positive validation.",
+  "acceptance_status": "OPEN \u2014 milestone unchanged: an attributable usable plan (positive [plan-stage] contract=valid), then one verified write."
+ },
+ "step5_review": {
+  "scope": "84143bdd8's exact delta (comparison carrier + mutation refs + covered-set classification) and its negative controls",
+  "verdict": "DEFECTS \u2014 three defects, all confirmed with file:line and empirical reproduction; fixed in 7cde15616",
+  "defects": [
+   "covered-set divergence: the builder counted field_missing as covered while the fallback excluded it \u2014 the same carrier read completed on one resolver, unconfirmed on the other. Fixed: field_missing joins the builder's exclusion set (its own ledger already counted it as not-known).",
+   "inert revision ref: build_source_comparison emits no top-level source, so the compared-revision ref never settled from a real producer (the test's fixture fabricated it). Fixed: build_canvas_evidence_comparison names the compared canvas at top level; a new test settles the ref through the real producer.",
+   "clobbered mutation refs + no consumer: the evidence-contract spread overwrote evidence_refs (with observation-id STRINGS) and nothing consumed canvas_edit.evidence_refs. Fixed: mutation refs win the key on every success path, observation ids keep postcondition_observation_ids, _copy_ref keeps canvas_id/audit_id, and the builder settles a canvas_mutation ref from a verified readback-matched canvas_edit."
+  ],
+  "clean_findings": "carrier staleness clean (uuid4 per turn, exact per-execution keys); no downstream misinterpretation (neither new ref kind can certify a complete search); fallback branch additive-only for existing journeys; the audit-id guarantee on the verified success path holds (apply_canvas_edit requires audit_id for postcondition_verified=True).",
+  "negative_controls": "mutation-tested by the reviewer: both guard controls fail when their guard is removed; the decline pin is a baseline pin (protected by the unresolved-carrier control)."
+ },
+ "acceptance_status": "OPEN \u2014 milestone unchanged: an attributable usable plan (positive [plan-stage] contract=valid), then one verified write. The planning-latency decision (prompt-reduction benchmark or a bound change) is the owner's; the instrumentation measures either path with positive validation. The comparison-attribution and delivery-classification repairs are review-corrected and committed (7cde15616); their boundary observation still requires a completing run.",
+ "round19_instrumented_diagnosis": {
+  "directives": "instrument before the blocking call; count HTTP attempts inside the structured call; test cancellation overlap; isolated bounded diagnostic; compare a smaller prompt; identify the bottleneck before any counted campaign",
+  "landed": [
+   "[structured-dispatch] BEFORE the blocking call (route/attempt/prompt-size/cap/instructor_retries=2); [structured-cancelled] as its own event stating reservation_released=true; [structured-trace] carries route+attempt (40eb4ed03)",
+   "cancellation/overlap DEMONSTRATED with a controlled blocking client (tests/test_structured_cancellation.py): after the awaiter is cancelled the worker is still inside create(); the reservation is claimable; a second dispatch reaches the same endpoint \u2014 the review's risk is now a pinned mechanism",
+   "isolated diagnostic (diagnostic_plan_benchmark.py): no acceptance server, real planning payload through the real plan_canvas_edit against a bound-to-Ollama handler, /api/ps load state, native /api/generate breakdown"
+  ],
+  "measurements": {
+   "raw_native_original_payload": "COMPLETES in 11.16s: prompt_eval_count=2598, eval_count=81, done=stop \u2014 a schema-valid plan (wants_edit true, find 2026-11-30 \u2192 replace 2026-12-31). Model workload is EXCLUDED as the bottleneck.",
+   "wrapper_original_payload_run_A": "CanvasPlanUnavailable after 45.29s = 3 identical attempts (276 tokens each) rejected: the model echoed the TOOL-CALL ENVELOPE ({\"name\": ..., \"parameters\": {...}}) with function-schema-wrapped ops \u2014 an output-SHAPE mismatch, not latency.",
+   "wrapper_original_payload_run_B": "InstructorRetryException: ops arrived JSON-ENCODED AS A STRING through native tool-calls. Both shapes now tolerated (CanvasEditPlan before-validator: envelope unwrap, function-schema ops flatten, string-encoded ops parse) \u2014 pinned by tests.",
+   "shape_instability": "A follow-up lane run exhausted on yet ANOTHER variant (decline-shaped plan with junk ops via native tool-calls) while the direct call validated \u2014 the accepted 8B profile's structured output is SHAPE-UNSTABLE for this prompt; model workload excluded, conversion stability is the bottleneck.",
+   "reduced_prompt_comparison": "the reduced-prompt variant COMPLETED through the wrapper (15.89s, 2 dispatches) where the original repeatedly failed \u2014 prompt sensitivity is demonstrated. CAVEAT: the benchmark's reduced canvas dropped content, which does NOT satisfy the owner's preservation requirement; it demonstrates sensitivity, it is not a production candidate."
+  },
+  "bottleneck_identified": "STRUCTURED-CONVERSION SHAPE INSTABILITY of the accepted 8B profile through the instructor path \u2014 not model workload (raw native completes the same payload in 11.2s with a valid plan), not nested retries (retries=2; each failed attempt ~15s), not cancellation contention (pinned as a real mechanism but no evidence it fired in these runs).",
+  "next_candidate_for_owner_review": "stabilize the planning conversion for the accepted profile \u2014 e.g., request the native json format (the raw call's mode, which produced a valid plan deterministically) instead of tool-call-shaped structured output for the canvas-edit plan, benchmarked original-vs-candidate on completion rate and time-to-valid-plan with the FULL canvas preserved. That is a production change and waits for the owner's go.",
+  "acceptance_status": "OPEN. The acceptance timeout stands as failed for every run; diagnostics do not retroactively pass it. No counted J6 campaign until the owner picks the stabilization direction."
+ },
+ "step5_rereview": {
+  "scope": "7cde15616's exact delta: real producer \u2192 carrier \u2192 response assembly \u2192 normalization \u2192 fresh reload; field_missing; revision identity; mutation refs",
+  "verdict": "APPROVE \u2014 the full chain verified empirically on the exact commit tree; mutation-tested; zero regressions (every failure identical on the parent 908507039)",
+  "chain_links": "A producer (top-level source names the canvas; zero-outcome case never counts as complete) | B carrier (verbatim, execution-keyed; nothing strips the new key) | C assembly\u2192builder (revision ref settles and survives _copy_ref; mutation refs win the spread; builder consumer verified end-to-end) | D field_missing aligned on both resolvers (comparable_match shapes unchanged) | E fresh reload round-trips both ref kinds through metadata_json",
+  "nonblocking_findings_closed_in_4e098bf92": [
+   "coverage gap: the builder's canvas_mutation settlement now has a committed test (conjunctive gate: updated + readback_matched + audit_id; unverified writes settle nothing)",
+   "residual divergence: the builder's per-criterion met rows join the one covered-set (field_missing no longer reads met in criterion rows)"
+  ],
+  "accepted_residuals": "execution_id is not whitelisted on canvas_mutation refs (the operation_id IS the turn's execution linkage); the decline pin is a baseline pin protected by the unresolved-carrier control",
+  "acceptance_status": "OPEN \u2014 unchanged: attributable usable plan \u2192 one verified write; counted campaign awaits the owner's stabilization choice (native-json candidate measured, recorded in round19_instrumented_diagnosis)."
+ },
+ "w_round": {
+  "work_order": "W1 explicit prompt assembly + manifest; W2 compact through the helper; W3 comparable benchmark; W4 discriminative regressions; W5 cancellation isolation; freeze \u2192 review \u2192 counted campaign",
+  "landed": {
+   "W1": "_build_edit_plan_prompt with the section manifest; findings interpolation fixed; identity/playbooks budgeted; canvas serialized in full (the 6,000-char silent cap removed from the edit-plan path)",
+   "W2": "the implementation owner's MEASURED concrete compact shape (422308016); _small_edit_shape stays a prompt-shape heuristic, never authorization; heavyweight-content pins force compact=False explicitly",
+   "W3": "the comparable A/B (fa9d16b59): compact 3/3 effective (2.3-20.8s, 1,410 chars) vs heavyweight 0/3 (bound/cancel) \u2014 identical payload through the REAL plan_canvas_edit; the native-json adapter measured 0/3 (degenerate ops) and was NOT adopted (6688fe995)",
+   "W4": "8 discriminative regressions in tests/test_edit_prompt_assembly.py",
+   "W5": "test_structured_cancellation.py self-contained (test-owned fetcher patched at consumers, workers released in finally); BOTH test orders pass"
+  },
+  "handoff": "the frozen candidate is 422308016 (the implementation owner's measured compact shape; driver subject already moved); the counted J6 campaign belongs to the implementation owner per the one-owner directive",
+  "acceptance_status": "OPEN \u2014 milestone: an attributable usable plan ([plan-stage] contract=valid), then one verified write, then the negative controls; the counted campaign decides."
+ },
+ "counted_campaign_f79c40218": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_202810_89d6e0.json (+ the prior counted run j6_draft_20261014_201654_b85085.json on the same SHA)",
+  "result": "0/3 turns. T1/T3 bounded at 115s, T2 at 95s. FAILS the finish line: no authorized write, no preservation evidence, no readback.",
+  "first_broken_transition": "the edit-plan structured call NEVER DISPATCHES: zero route=canvas_edit_plan:<eid> dispatch lines, zero [plan-stage] events, zero [plan-prompt] manifests across both counted runs \u2014 the 30s plan wait_for expired at the 74s leg bound after a ~44s pre-dispatch phase inside the edit leg (between the fresh_data marker and the first dispatch). The three structured-<hex> dispatches visible in the turn (11.8-12.2k prompt chars) belong to OTHER legs \u2014 the edit plan is not among them. The isolated harness dispatches the same route natively in 15.9s, so the defect is in the LANE's pre-dispatch/window path, not the model or the transport.",
+  "regression": "the counted run's T1 gate (J6.T1_authorized_edit) IS the failing regression \u2014 its stage ladder shows edit_plan_dispatches=0, plan_validated=not_reached, edit_applied=false on both counted runs",
+  "surgical_target": "instrument between the fresh_data marker and the first edit-plan dispatch in _try_canvas_edit (the authorization evaluation, plan_canvas_edit entry, and the 30s wait_for) \u2014 the next owner's single probe"
+ },
+ "counted_campaign_4186a2137": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_212328_c110a2.json",
+  "milestone": "T1 authorized edit PASSES the full gate: dispatch 1, contract=valid, ops match current content, applied EXACTLY ONCE (audit delta 1, the write row recorded), protected content intact (rest_intact, old date gone), authoritative readback TRUE, durable mutation evidence TRUE, objective_met TRUE \u2014 in 8.3s",
+  "fence_verified": "T3 (unmet requirement: tax number exists nowhere) NO LONGER WRITES OR CERTIFIES: preserved=True, delta=0, objective_met=None. The no-invention fence refused the plan and the lane answered honestly.",
+  "reload": "agreement TRUE (t1_value_in_history, final_canvas_matches_t1, t3_still_unmet)",
+  "first_remaining_failure": "ENVELOPE CLASSIFICATION: T2 answered the comparison correctly (preserved, 1 comparison ref settled) and T3 declined honestly \u2014 both deliver truthful answers but the envelope resolves success=False/failed. A delivered honest answer must not resolve failed. Narrow outcome-classification repair in the decline fall-through; nothing else remains."
+ },
+ "counted_campaign_4186a2137_r2": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_212328_c110a2.json",
+  "what_works": "T1 authorized edit: FULL GATE PASS \u2014 dispatch, contract=valid, ops match, applied exactly once, protected content intact, authoritative readback, durable mutation evidence, objective_met TRUE, 8.3s. Preservation TRUE. Reload agreement TRUE. T3: the no-invention fence refused the fabricated op (zero writes, objective_met=None \u2014 never certified) and the lane answered honestly. T2: the comparison answered correctly with the comparison ref settled (1 ref).",
+  "first_remaining_failure": "ENVELOPE CLASSIFICATION OF HONEST ANSWERS: T2 (delivered comparison, zero writes) and T3 (fence refusal + honest ask) both resolve success=False/failed. The recorded outcome treats the edit-request turn as failed even though a truthful answer was delivered and no unauthorized change occurred. This is an outcome-resolution classification repair in the decline fall-through \u2014 nothing in the edit path remains.",
+  "next_concrete_action": "the decline fall-through envelope: a turn whose edit leg declined and whose reply delivered a truthful answer resolves success=True with outcome=unconfirmed/partial (never certified completion); then the counted campaign closes J6 or names the next failure."
+ },
+ "counted_campaign_cb3dd76ed": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_221627_b027d9.json",
+  "T1": "GREEN again \u2014 full gate (apply-once, readback, evidence, 12.0s)",
+  "T2": "comparison answered correctly; envelope resolves failed (delivered answer misclassified) \u2014 unchanged from the prior run",
+  "T3": "the fence's grounding rule has a residual vector: the model's insertion echoed the request's own words ('client's tax registration number...') with NO factual value. The fence grounds digit-bearing VALUE runs; a request-echo insertion without any value run passes. The canvas was written (audit 1) and the durable outcome certified it. The audit row's content is not captured by the current driver (T1 only) \u2014 the next driver revision must capture every turn's write content.",
+  "next_concrete_action": "extend the fence: an insertion that adds a content unit naming a MISSING FACT (the evidence gate skipped the lookup because the accepted request carries no evidence requirement, yet the plan asserts new factual content) must carry a grounded VALUE run \u2014 or the plan must decline naming the gap. Deterministic signal: the evidence gate's own skip decision + the absence of a grounded value run in the insertion."
+ },
+ "counted_campaign_20d428a61": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261014_231418_138157.json",
+  "T1": "GREEN (7.9s) \u2014 the authorized-edit milestone HOLDS across campaigns: dispatch 1, contract valid, applied once, preserved, readback, evidence.",
+  "T2": "comparison answered correctly, zero writes; envelope success=False (delivered-honest-answer classification \u2014 unchanged, F3)",
+  "T3": "STILL WROTE (audit 1, 'Added client's tax registration number to quotation') \u2014 the gate's value-grounding check passed because the inserted value ECHOED THE REQUEST's own words ('the exact number from our records' appears in the message). The request-echo is the remaining vector: the inserted 'value' is composed of the request's words, not a fact from the world.",
+  "next_concrete_action": "anti-echo rule at the net-new labeled-line gate: the value must not be composed of the request message's own words \u2014 strip request-word spans; an empty remainder means no supplied value \u2192 refuse with the named requirement. The evidence gate's skip decision (no accepted evidence requirement) supplies the other half: net-new factual lines on such turns need the value from the user, period."
+ },
+ "round20_state": {
+  "head": "96c60c67c (compact scaffold restored to the working phrasing) + uncommitted: the corrected user-supplied forms in factual_change_validation.py",
+  "what_works": "T1 milestone held in three campaigns (dispatch, validate, apply-once, preserve, readback, evidence); the corrected rule refuses ungrounded digit-bearing values as UNRESOLVED (named); T2 delivered with the comparison ref; T3's digit-bearing fabrications refused",
+  "open_t1_regression": "the REPLACE-MODE branch refuses the T1 date update as unresolved_requirement \u2014 the added-runs probe shows 2026-12-31 IS in the request, so the refusal comes from elsewhere in the replace branch (the next single probe: the replace branch's added-runs extraction on the actual T1 payload)",
+  "open_t3_vector": "the request-echo insertion (alpha-only, net-new labeled line) passes the labeled-line gate and applies \u2014 the anti-echo rule (the value must add content beyond the request's words, or be evidence-grounded) is designed but not implemented; it over-refuses pure-echo prose notes (the user rephrases), per 'never manufacture support'",
+  "handoff": "the implementation owner's next pass: (1) the replace-branch probe \u2192 the T1 repair; (2) the anti-echo rule \u2192 the T3 repair; then freeze, review, counted campaign"
+ },
+ "counted_campaign_2cba1b52d": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_081415_0c6b61.json",
+  "result": "0/3 turns pass; zero writes on every turn (preservation held); failed_request_count 3",
+  "what_works": "the enforcement held: T3's honest refusal, zero fabricated writes anywhere, T2's comparison answered with zero writes",
+  "first_remaining_failure": "T1: the edit-plan structured call for the edit leg did not DISPATCH within the leg window (the ladder shows edit_plan_dispatches=0, audit 0) \u2014 the compact planner's origin-tagging plan (per the sharpened scaffold) either didn't complete or was attributed to another eid; the run's plan-stage events show outcome=edit under a DIFFERENT eid (8e714f27 vs T1's e49c5af0) \u2014 the driver's ladder attributes dispatches per turn but the log tail truncates early-turn lines",
+  "T2_envelope": "the comparison answered correctly with zero writes; envelope success=False (the delivered-honest-answer classification \u2014 F3, unchanged)",
+  "next_concrete_action": "the driver's stage_ladder must attribute dispatches AND plan-stage events per turn eid (currently the truncated log tail mixes turns); then the counted campaign attributes the T1 failure to the exact turn and stage"
+ },
+ "counted_campaign_9309b9886": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_082452_10b74a.json",
+  "result": "0/3 turns; zero writes on every turn \u2014 the deterministic enforcement held (nothing applied, nothing certified)",
+  "what_works": "T2's comparison answered correctly with the comparison ref settled (refs 1); T1's refusal is honest; T3 timed out honestly; preservation held (final canvas matches post-T1)",
+  "first_remaining_failure": "T1: the compact planner's proposed patch ops did not match the current canvas verbatim ('couldn't match your request to exact text') \u2014 an 8B-profile patch-precision variance, not a code defect: the same candidate lineage applied the identical edit in the 20d428a61 gated run (audit 1, 7.9s). T3's budget timeout is the same variance.",
+  "next_concrete_action": "the product's own mechanism for edit-plan precision is the ATOM_ASYNC_EDIT_PLAN_MODEL rung pin (the async-tier schema-capable rung for exactly this latency/precision trade) \u2014 a CONFIGURATION choice for the owner, not a code change; alternatively accept the 8B variance and iterate counted campaigns. The deterministic enforcement is complete and correct."
+ },
+ "counted_campaign_a8d1ee3cf": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_084149_8191fc.json",
+  "result": "0/3 turns; ZERO WRITES everywhere (the enforcement and the bypass closure held \u2014 nothing fabricated, nothing certified)",
+  "what_works": "T3: preserved (the net-new labeled-line gate + the origin consistency refused the echo). T2: the comparison answered correctly (envelope misclassification \u2014 F3, unchanged). T1: honest refusal, zero writes.",
+  "first_remaining_failure": "T1: the compact planner's patch ops did not match the canvas verbatim ('couldn't match your request to exact text') \u2014 the 8B profile's patch-precision on the origin-tagging scaffold. The prior scaffold phrasing (b8b5bbf9f) produced the same failure in its counted run; the 20d428a61 gated run applied the identical edit (7.9s) \u2014 LLM variance on this profile.",
+  "owner_lever": "the planning-alternative benchmark the verifier authorized: a stronger configured planning rung (ATOM_ASYNC_EDIT_PLAN_MODEL). This environment has only llama3.1:8b locally \u2014 the benchmark needs a stronger planning model installed (e.g., a 14B/32B-class local model), which is an environment provision the owner controls."
+ },
+ "counted_campaign_c7e97a30f": {
+  "evidence": "/tmp/j6_r18_draft_evidence/j6_draft_20261015_130640_4fb319.json",
+  "review": "round-3 independent review APPROVE - D1-D5 all PASS (rounds 1-2 REJECT, repaired X2=dfaf62c09, X3=c7e97a30f); verdict /tmp/verifier_c7e97a30f/REVIEW_VERDICT.md",
+  "result": "0/3 turns; ZERO WRITES everywhere (audit_delta 0 on every turn \u2014 nothing fabricated, nothing certified); reload agreement PASS; failed_request_count 3",
+  "what_works": "T1 refused with the corrected no-re-ask wording (the request's own value named: valid until date = 2026-12-31; the draft untouched). T2: the comparison answered correctly (Unit price $48,000.00 ... consistent), durable comparison evidence settled (refs 1), byte-identical preservation. T3: zero writes (115s budget envelope; nothing certified).",
+  "first_remaining_failure": "T1: the edit-plan DID dispatch (1 dispatch, local llama3.1:8b, 8.8s, CanvasEditPlan tool_calls) but every replace-mode attempt came back unavailable \u2014 no apply, no write; the reply names the match failure. The 8B-profile plan-precision family (the 20d428a61 gated run applied the identical edit in 7.9s). T2's envelope still resolves failed/turn_failed_no_result (a required memory outcome recorded not_executed dominates \u2014 F3). T3's budget envelope is generic (unmet_named_or_honest false).",
+  "owner_lever": "unchanged: the ATOM_ASYNC_EDIT_PLAN_MODEL rung pin (the benchmark on this candidate: 8B compact 0/6 effective vs deepseek-v4-pro 6/6 effective, mean 12.5s, ~$0.0057/attempt), or accept the 8B variance and iterate counted campaigns."
+ },
+ "counted_campaign_ddd300dbf": {
+  "evidence": "/tmp/j6_r19_evidence/j6_draft_20261015_183129_020449.json",
+  "candidate": "ddd300dbf (c7e97a30f + 4 net fixes: 5f25d1662 exec-context crash; 6896b57f4 presentation delivery + bare-value target + receipt rows; 60718777b decline identity; 88dbd4d10 artifact attribution). Review: round-19 focused review, first REJECT on 88dbd4d10 (the presentation-only pre-start skip forced the planner-independent dispatch's read_failed), repaired by revert ddd300dbf, re-verified APPROVE (/tmp/verifier_r19_fix/REVIEW_VERDICT.md).",
+  "configuration": "edit-plan pin deepseek/deepseek-v4-pro (ATOM_ASYNC_EDIT_PLAN_MODEL; benchmark arm B 6/6, mean 12.5s) with the credential mounted through the product store call (dev vault read-only); ATOM_LOCAL_ONLY=true retained; reply lane local Ollama llama3.1:8b; pin side effect recorded: edit-plan window max(30,75)=75s; turn budget NOT changed (95s default / 115s derivation). Cloud-backed planning, labeled as such.",
+  "result": "1/3 turns. T1 PASSES the full gate (21.1s; plan 8.3s on the pinned rung; applied once; audit_delta 1; authoritative readback; durable refs 1; objective_met true) - the authorized-edit milestone (a correct edit saved once) is MET on the measured rung. T2: the comparison was answered CORRECTLY (69.3s, under budget) with the artifact-attribution ref settled and zero writes - but the envelope resolved failed/turn_failed_no_result. T3: 115.05s budget, zero writes, nothing certified. Preservation PASS; reload agreement PASS.",
+  "t2_first_remaining_failure": "the PRE-EXISTING planner-independent canvas-scoped dispatch: when the tool planner returns no lookup plan (declined/did not resolve), the reply leg's fallback dispatch runs a receiptless per-item scan over the datasets store (content-less in this world) and settles read_failed on THIS turn's execution (op outcome read_failed; recorded_failure) - which dominates the envelope to turn_failed_no_result although the delivered reply was correct and zero writes happened. Present before this cycle's changes too (60718777b full diagnostic, T2 op a44b48e7 read_failed). The cycle's fixes made every OTHER aspect of T2 correct (answer, comparison ref, attribution ref, preservation, no writes).",
+  "t3_first_remaining_failure": "the local tool planner's latency under the live host: the edit lane's fresh_data_lookup consumed ~63s (the free LOCAL rung under BPC cost-priority; the planner is deliberately unpinned - 'do not reintroduce a PLANNER_MODEL constant') and the turn hit the 115s derivation budget; zero writes, nothing certified.",
+  "environment_note": "host = the live dev machine (dev backend at ~570% CPU during the diagnostics; lower load ~2.8 at the counted run). The local 8B's latency (54-88s generation/planner calls under load) is the dominant budget factor for T2/T3; T1 (no planner call) is stable at 16-21s across all runs.",
+  "next_concrete_action": "ONE bounded repair remains for the finish line: the planner-independent canvas-scoped dispatch must not settle a receiptless scan as read_failed on a turn whose accepted request requires no live evidence - or the dispatch's settle must distinguish 'ran, nothing in scope' (bounded absence / no-receipt) from 'the read failed'. Then the finish line (edit saved once + useful read-only answer success + specific clarification) can close with the rung configuration.",
+  "baseline_8b_diagnosis": "Owner directive 2026-10-15, recorded as the 8B profile's failure mode: REDUNDANT INVALID-OPERATION GENERATION. Benchmark arm A (committed benchmark_t1_rung_20261015_110851.json): in every attempt the first local plan contained the CORRECT date patch op (find 'Valid until: 2026-11-30' -> replace 'Valid until: 2026-12-31', match=matched) PLUS an invalid extra empty-'find' operation targeting 'Valid Until' (failed_ops=1, why='empty_find'), so the whole plan was rejected and the turn returned 'unavailable (no plan)' - 0/6 effective. Not a generic 'model precision' loss and not a validator defect: the plan content was usable; the extra empty op invalidated it. Arm B (the measured rung) produced one clean op per attempt, 6/6 effective."
+ },
+ "acceptance_campaign_02568191b": {
+  "evidence": "/tmp/j6_r19_evidence/j6_draft_20261015_212444_81d4a7.json",
+  "candidate": "02568191b (reviewed: the T2 settlement repair, the T3 bounded clarification path, the local-only dispatch enforcement)",
+  "harness": "the implementation owner's driver with the --t2-only diagnostic mode and the per-turn operation attribution",
+  "result": "T1 GREEN (28.05s), T2 GREEN (69.13s), preservation GREEN, reload GREEN. T3: the refusal behavior is CORRECT per the finish line \u2014 zero writes, preserved, not certified, the reply names the missing value and asks for it \u2014 but the ENVELOPE resolves success=False/failed instead of partial.",
+  "the_single_remaining_defect": "the decline-carrier envelope mapping: the lane stamps the decline (named reason, zero writes) and delivers the clarification, but the recorded outcome resolves failed instead of partial \u2014 so the user sees a failure for an honest clarification. Narrow outcome-resolution repair in the decline-carrier path.",
+  "per_the_owner_rule": "a request awaiting the missing value is PARTIAL (delivered clarification, the requirement named); it is not certified complete; a declined edit with no useful delivery must not automatically become successful"
  }
 }

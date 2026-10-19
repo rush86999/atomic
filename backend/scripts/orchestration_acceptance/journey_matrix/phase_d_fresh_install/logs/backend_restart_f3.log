@@ -1,0 +1,16 @@
+=== F3 intervention: stop backend, pin pyarrow ===
+Sat Oct 17 10:27:13 EDT 2026
+--- stopping own backend tree (make 96329 / uvicorn parent 96370 / worker 99084) ---
+port 18100 now: []
+--- pyarrow availability check (wheel for this platform) ---
+Saved /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase_d_pipcheck4/pyarrow-25.0.1-cp311-cp311-macosx_12_0_x86_64.whl
+Successfully downloaded pyarrow
+--- installing pyarrow==25.0.1 (binary only) ---
+    Found existing installation: pyarrow 26.0.0
+    Uninstalling pyarrow-26.0.0:
+      Successfully uninstalled pyarrow-26.0.0
+Successfully installed pyarrow-25.0.1
+--- verify ---
+Name: pyarrow
+Version: 25.0.1
+No broken requirements found.

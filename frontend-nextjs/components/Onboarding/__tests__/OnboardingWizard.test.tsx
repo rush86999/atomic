@@ -131,9 +131,15 @@ describe('OnboardingWizard', () => {
       ([url]: [string, RequestInit?]) => String(url).includes('/api/ai/providers/ollama/keys')
     );
     expect(post).toBeDefined();
-    expect(JSON.parse(post[1].body)).toEqual(
-      expect.objectContaining({ api_key: 'ollama-local-no-key-required' })
-    );
+    // F4: canonical lookup identity + separate display label — the wizard
+    // must post exactly what Settings→AI posts ("default"), or the stored
+    // key is invisible to every resolver until a Settings re-save.
+    expect(JSON.parse(post[1].body)).toEqual(expect.objectContaining({
+      api_key: 'ollama-local-no-key-required',
+      key_name: 'default',
+      label: 'Ollama (local)',
+      environment: 'production',
+    }));
   });
 
   it('shows install instructions when Ollama is not reachable', async () => {
@@ -196,9 +202,13 @@ describe('OnboardingWizard', () => {
       ([url]: [string, RequestInit?]) => String(url).includes('/api/ai/providers/anthropic/keys')
     );
     expect(post).toBeDefined();
-    expect(JSON.parse(post[1].body)).toEqual(
-      expect.objectContaining({ api_key: 'sk-ant-1234567890' })
-    );
+    // F4: same canonical identity + label split as the Ollama card.
+    expect(JSON.parse(post[1].body)).toEqual(expect.objectContaining({
+      api_key: 'sk-ant-1234567890',
+      key_name: 'default',
+      label: 'anthropic (onboarding)',
+      environment: 'production',
+    }));
   });
 
   it('toasts an error when saving the API key fails', async () => {

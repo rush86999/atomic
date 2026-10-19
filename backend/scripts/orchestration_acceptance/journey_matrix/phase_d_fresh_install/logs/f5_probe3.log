@@ -1,0 +1,13 @@
+U4: jprobe_u4_1792248638@example.com (0c5d7fac-50f3-4099-a2ee-1034866b63ff)
+== key store (both shapes, like run 2) ==
+stored (both)
+== upload ==
+{"id":"doc_7a010ef9543b3ff9b005904e","title":"u4_zephyr.txt","type":"text/plain","metadata":{"source":"upload","size":12
+== chat ~15s after upload (run-2 timing) ==
+success: True | error_code: None | model: llama3.1:8b
+message: The system has searched your uploaded documents with the following results:
+
+* No matches found in your uploaded documents using the pattern "launch code for project Zephyr-9".
+
+However, I can help you refine the search if you'd like to try a different query or scope the search to a specific store. Can you provide more context or clarify what you're looking for?
+done

@@ -1,0 +1,574 @@
+{
+ "journey": "composed-user-job-spine",
+ "phase": "E-composed",
+ "started_at": "2026-10-18T02:11:20+00:00",
+ "harness": {
+  "file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/scripts/orchestration_acceptance/browser_composed_job.py",
+  "sha256": "bee75736aa2955c544239ec29e9f9103010d6cdfe249862be6b6279f0b74524a",
+  "protocol": "docs/acceptance/COMPOSED_JOB_PROTOCOL_2026-10-17.md"
+ },
+ "frozen_candidate": "9c9e5c76e2ef013139dcff48f7f170e6948bd08a",
+ "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate",
+ "effective_config": {
+  "provider_mode": "hybrid (cloud edit-plan rung + local reply lane)",
+  "local_only": "false",
+  "reply_lane": "product-registered local ollama llama3.1:8b (wizard Card A)",
+  "planning_lane_cloud_backed": true,
+  "edit_plan_pin": "deepseek/deepseek-v4-pro"
+ },
+ "versions": {
+  "pyarrow": "25.0.1",
+  "numpy": "1.26.4",
+  "lancedb": "0.25.3",
+  "playwright": "1.58.0",
+  "cryptography": "48.0.1"
+ },
+ "sha_guard": {
+  "head": "9c9e5c76e2ef013139dcff48f7f170e6948bd08a",
+  "tracked_dirt": []
+ },
+ "pin_credential": {
+  "decrypts": true,
+  "live_probe": {
+   "http": 200,
+   "ok": true
+  }
+ },
+ "world": {
+  "mode": "configuration_parity_plus_public_api_smoke",
+  "source": {
+   "note": "no code export \u2014 configuration-parity checkout boot",
+   "commit": "9c9e5c76e2ef013139dcff48f7f170e6948bd08a"
+  },
+  "config_digest": "ab23d9764f6b120d1c7926dd6cd6709ffa92fad421a53ad79f6a523dabf834e8",
+  "storage": {
+   "scratch_root": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy",
+   "run_dir": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/run",
+   "database": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/run/atom.db",
+   "lancedb": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/data/atom_memory",
+   "byok_config": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/byok_config.json",
+   "byok_keys": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/byok_keys.json",
+   "byok_enc_key": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/byok_encryption_key"
+  }
+ },
+ "boot": {
+  "booted": true,
+  "seconds": 7.7,
+  "status": "healthy",
+  "pid": 77453,
+  "git_commit": "9c9e5c76e2ef"
+ },
+ "frontend": {
+  "dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/frontend-nextjs",
+  "port": 18501,
+  "api_url": "http://127.0.0.1:18500",
+  "env_local_rewritten": true,
+  "env_local_backup": null,
+  "log": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/evidence/composed_job/frontend_dev.log",
+  "up": true
+ },
+ "frontend_route_preflight": {
+  "probe_status": 307,
+  "ok": true
+ },
+ "product_user": {
+  "registered": true,
+  "email": "jprobe_e6623511f4@example.com",
+  "id": "ff78af66-8b3c-4e1a-91c3-6b8fabac4b8e"
+ },
+ "pin_mount": {
+  "pin_spec": "deepseek/deepseek-v4-pro",
+  "credential_source": "dev BYOK vault entry 'tenant_default_deepseek_default_production' (read-only), stored via POST /api/ai/providers/deepseek/keys",
+  "store_http": 200,
+  "stored": true,
+  "keys_visible": 1,
+  "decrypts": true
+ },
+ "canvas": {
+  "seed": {
+   "create_http": 200,
+   "canvas_id": "8d844464-7b68-4a84-b34d-41f0caf04272",
+   "seed_http": 200,
+   "seeded_matches": true
+  },
+  "id": "8d844464-7b68-4a84-b34d-41f0caf04272",
+  "audit_after_seed": 2
+ },
+ "browser_version": "145.0.7632.6",
+ "s1_setup": {
+  "login": {
+   "url": "http://localhost:18501/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792289494}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_e6623511f4@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792289494920_4ezybchk3"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792289494920_4ezybchk3"
+   }
+  },
+  "login_200": true,
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Journey!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "enable_ollama_found": true,
+    "enable_clicked": true,
+    "advanced_to_ready": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 20.82,
+   "overlay_closed_at": 21.85,
+   "overlay_closed_seconds_after_click": 1.03,
+   "toasts_seen": [
+    "Ollama connected",
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 20.84,
+     "method": "POST",
+     "url": "http://127.0.0.1:18500/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 20.85,
+     "status": 200,
+     "url": "http://127.0.0.1:18500/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-18T02:11:41.586182+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 20.84,
+      "method": "POST",
+      "url": "http://127.0.0.1:18500/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     },
+     {
+      "t": 44.5,
+      "method": "GET",
+      "url": "http://127.0.0.1:18500/api/maturity/proposals?status_filter=pending_approval&limit=10",
+      "authorization_present": true,
+      "content_type": null,
+      "post_data": null
+     }
+    ],
+    "responses": [
+     {
+      "t": 20.85,
+      "status": 200,
+      "url": "http://127.0.0.1:18500/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-18T02:11:41.586182+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     },
+     {
+      "t": 44.51,
+      "status": 200,
+      "url": "http://127.0.0.1:18500/api/maturity/proposals?status_filter=pending_approval&limit=10"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:18501/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"span-end\",\"startTime\":1792289494154,\"endTime\":1792289494399.5,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:18501/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10716:13)\\n    at http://localhost:18501/_next/static/chunks/%5Broot-of-the-server%5D__07yy\u2026(+1053)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"22:11:34.924\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"22:11:34.927\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"console\",\"consoleMethodStack\":\"    at console.warn (http://localhost:18501/_next/static/chunks/node_modules_next_dist_08w_b42._.js:1380:13)\\n    at GlobalChatWidget.useEffect.fetchPendingApprovals (http://localhost:18501/_next/static/chunks/%5Broot-of-the-\u2026(+219)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"22:11:35.062\",\"level\":\"WARN\",\"message\":\"[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown.\"}]}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"client-success\",\"clientId\":1792289494410}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":4413079074207941}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"2\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"3\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"4\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true}}",
+       "{\"type\":\"built\",\"hash\":\"5\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"6\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"7\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"8\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/documents\":true,\"/dashboard\":true,\"/login\":true}}",
+       "{\"type\":\"built\",\"hash\":\"9\",\"errors\":[],\"warnings\":[]}"
+      ]
+     },
+     {
+      "url": "ws://127.0.0.1:18500/ws?token=<jwt-redacted>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "onboarding_status": {
+   "status": 200,
+   "auth_header_present": true,
+   "body": {
+    "success": true,
+    "data": {
+     "onboarding_step": "completed",
+     "onboarding_completed": true
+    },
+    "timestamp": "2026-10-18T02:12:11.769841+00:00"
+   }
+  },
+  "onboarding_completed": true,
+  "ollama_store_posts": 1,
+  "ollama_store_200": true,
+  "store_payload": {
+   "api_key": "<redacted>",
+   "key_name": "default",
+   "label": "Ollama (local)",
+   "environment": "production"
+  },
+  "canonical_payload": true,
+  "store_post_count_before_chat": 1,
+  "ollama_provider": {
+   "has_tenant_key": true,
+   "status": "active"
+  }
+ },
+ "s2_upload": {
+  "file_input_found": true,
+  "success_text_seen": true,
+  "upload_responses": [
+   {
+    "t": 55.37,
+    "status": 200,
+    "url": "http://127.0.0.1:18500/api/documents/upload",
+    "body_head": "{\"id\":\"doc_3abaf0d03badbc965b0f2770\",\"title\":\"approved_records_q2026_114.txt\",\"type\":\"text/plain\",\"metadata\":{\"source\":\"upload\",\"size\":279,\"title\":\"approved_records_q2026_114.txt\",\"filename\":\"approved_records_q2026_114.txt\",\"file_type\":\"txt\",\"ingested_at\":\"2026-10-17T22:12:16.035262\",\"doc_id\":\"doc_3abaf0d03badbc965b0f2770\",\"pg_document_id\":\"doc_3abaf0d03badbc965b0f2770\",\"source_type\":\"upload\",\"integration_id\":\"manual_upload\",\"author\":\"jprobe_e6623511f4@example.com\"},\"ingested_at\":\"2026-10-17T22:\u2026(+30)"
+   }
+  ],
+  "upload_200": true,
+  "fixture_in_list": true
+ },
+ "s3_input_found": true,
+ "s3_compare": {
+  "ask": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+  "sent_at": 1792289540.732676,
+  "sent": true,
+  "http": 200,
+  "success": true,
+  "session_id": "d12f1ac6-c582-45bf-b476-f7189b0845d7",
+  "execution_id": "204d6c5b-c51b-44c7-9553-c94faed6eb27",
+  "outcome": "partial",
+  "error_code": null,
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "latency_s": 65.57,
+  "failed_request": false,
+  "responses_after": 1,
+  "panel_tail": "Chat\nTraining\nJourney\nAutonomy\nAgent Co-Editor\n\nChat with the agent while editing this canvas\n\nCompare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.\n\nValid Until: the two don't match.\n\nDraft (canvas, Q-2026-114): Valid until 2026-11-30\nApproved Records register (approved_records_q2026_114): Approved valid until 2026-12-31\n\nThe draft expires a month earlier than what Sales Operations approved \u2014 that's the one substantive discrepancy. I did not find one in what this turn actually searched, and I can't rule out places that were not searched. Worth opening the stored copy to eyeball that field before we act on it. Everything else lines up:\n\nClient: Dunmore Fabrication LLC \u2014 match\nItem: CNC press brake, 50-ton \u2014 match\nPayment terms: Net 30 \u2014 match\nUnit price line reads the same in both (identical amount); I'm not re-quoting the figure since I couldn't verify it against a freshly opened copy of the register\nPresent only in the draft: \"Prepared for: Elena Sorokina, Operations,\" plus the Subtotal line \u2014 additive, not conflicting\nPresent only in the app\u2026",
+  "canvas_after": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-11-30\n",
+  "audit_after": 2,
+  "mismatch_identified": true
+ },
+ "s4_edit": {
+  "ask": "Please update the draft quotation's Valid Until date to 2026-12-31 to match the approved record.",
+  "sent_at": 1792289607.8978271,
+  "sent": true,
+  "http": 200,
+  "success": true,
+  "session_id": "d12f1ac6-c582-45bf-b476-f7189b0845d7",
+  "execution_id": "c09e92ed-809e-4345-94c3-e5515baf2f12",
+  "outcome": null,
+  "error_code": null,
+  "provider": null,
+  "model": null,
+  "latency_s": 14.37,
+  "failed_request": false,
+  "responses_after": 1,
+  "panel_tail": "Chat\nTraining\nJourney\nAutonomy\nAgent Co-Editor\n\nChat with the agent while editing this canvas\n\nCompare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.\n\nValid Until: the two don't match.\n\nDraft (canvas, Q-2026-114): Valid until 2026-11-30\nApproved Records register (approved_records_q2026_114): Approved valid until 2026-12-31\n\nThe draft expires a month earlier than what Sales Operations approved \u2014 that's the one substantive discrepancy. I did not find one in what this turn actually searched, and I can't rule out places that were not searched. Worth opening the stored copy to eyeball that field before we act on it. Everything else lines up:\n\nClient: Dunmore Fabrication LLC \u2014 match\nItem: CNC press brake, 50-ton \u2014 match\nPayment terms: Net 30 \u2014 match\nUnit price line reads the same in both (identical amount); I'm not re-quoting the figure since I couldn't verify it against a freshly opened copy of the register\nPresent only in the draft: \"Prepared for: Elena Sorokina, Operations,\" plus the Subtotal line \u2014 additive, not conflicting\nPresent only in the app\u2026",
+  "audit_after": 3,
+  "canvas_after": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-12-31\n",
+  "canvas_updated": true,
+  "one_audit_write": true,
+  "reply_truthful": true
+ },
+ "s4_reply_message": "Updated the draft quotation's Valid until date from 2026-11-30 to 2026-12-31; all other lines are unchanged.",
+ "s5_calc": {
+  "attempt_structured": {
+   "ask": "calculate expression QTY * UNIT_PRICE with QTY=2 UNIT_PRICE=48000",
+   "sent_at": 1792289623.846621,
+   "sent": true,
+   "http": 200,
+   "success": true,
+   "message": "**QTY * UNIT_PRICE \u2014 formula engine result**\n- Value (computed): 96000\n- Inputs: QTY=2, UNIT_PRICE=48000\n- Steps: 96000\n[calc:result_id=e4fdbeab-d454-47b1-84b2-4962054cb109]",
+   "session_id": "d12f1ac6-c582-45bf-b476-f7189b0845d7",
+   "execution_id": "6c332052-5eba-4f99-8059-ef5128029f23",
+   "outcome": "completed",
+   "error_code": null,
+   "provider": "ollama",
+   "model": "llama3.1:8b",
+   "latency_s": 33.01,
+   "failed_request": false,
+   "responses_after": 1
+  },
+  "http": 200,
+  "success": true,
+  "session_id": "d12f1ac6-c582-45bf-b476-f7189b0845d7",
+  "execution_id": "6c332052-5eba-4f99-8059-ef5128029f23",
+  "outcome": "completed",
+  "error_code": null,
+  "provider": "ollama",
+  "model": "llama3.1:8b",
+  "latency_s": 33.01,
+  "failed_request": false,
+  "audit_after": 3,
+  "total_correct": true
+ },
+ "s5_reply_message": "**QTY * UNIT_PRICE \u2014 formula engine result**\n- Value (computed): 96000\n- Inputs: QTY=2, UNIT_PRICE=48000\n- Steps: 96000\n[calc:result_id=e4fdbeab-d454-47b1-84b2-4962054cb109]",
+ "s6_interruption": {
+  "send": {
+   "sent": true,
+   "sent_at": 1792289658.369469
+  },
+  "turn_accepted_before_kill": true,
+  "accepted_after_s": 7.49,
+  "killed_at_delta_s": 7.49,
+  "page_text_after_crash": "A\nATOM\nCORE\nDashboard\nChat\nCanvases\nSearch\nDocuments\nTasks\nKanban\nAutomations\nAgents\nGoal Runs\nMarketplace\nCOMMAND CENTERS\nProjects\nSales & CRM\nSupport\nKnowledge\nCommunication\nBUSINESS\nSales\nMarketing\nFinance\nAnalytics\nPRODUCTIVITY\nCalendar\nHealth\nVoice\nGOVERNANCE\nSelf-Healing Harness\nPLATFORM\nIntegrations\nSettings\n\njprobe_e6623511f4\n\njprobe_e6623511f4@example.com\n\nNo unread notifications\nAll Canvases\nQuotation Q-2026-114 (draft)\nDOCUMENT\nAdd agent\nLOAD DATA\nUpload file\nAttach an agent to load data.\n\nThis canvas has no agent yet\n\nAdd an agent to collaborate in chat, load data, and train it on this canvas.\n\nAdd an agent\nQuotation Q-2026-114 (draft)\nv4\nDOCUMENT\n\u25be\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n#\u00a0Quotation\u00a0Q-2026-114\u00a0(DRAFT)\nClient:\u00a0Dunmore\u00a0Fabrication\u00a0LLC\nPrepared\u00a0for:\u00a0Elena\u00a0Sorokina,\u00a0Operations\nItem:\u2026(+2445)",
+  "response_arrived_before_kill": false,
+  "audit_after_crash": 4,
+  "crash_state_honest": true,
+  "restart": {
+   "booted": true,
+   "seconds": 7.6,
+   "status": "healthy",
+   "pid": 78301,
+   "git_commit": "9c9e5c76e2ef",
+   "restart_number": 1
+  },
+  "canvas_after_restart_terms": "Net 45",
+  "canvas_after_restart": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+  "resend": {
+   "ask": "Please also update the payment terms in the draft to Net 45.",
+   "sent_at": 1792289685.0725162,
+   "sent": true,
+   "http": 200,
+   "success": false,
+   "session_id": "d12f1ac6-c582-45bf-b476-f7189b0845d7",
+   "execution_id": "08d30819-b48b-446e-8224-a7b1e29d6ddc",
+   "outcome": "unconfirmed",
+   "error_code": "outcome_unconfirmed",
+   "provider": null,
+   "model": null,
+   "latency_s": 20.81,
+   "failed_request": true,
+   "responses_after": 1
+  },
+  "resend_message": "I didn't apply that canvas change, so nothing was changed. The change was clear; the canvas editor declined it, which usually means it could not match your wording to a specific part of this canvas. Naming the exact text to change (for example 'change \"Quote validity: 15 days\" to \"30 days\"') usually gets it applied.",
+  "terms_converged": true,
+  "valid_until_intact": true,
+  "final_audit": 4,
+  "audit_converged": true
+ },
+ "s7_continue": {
+  "ask": "What is the current Valid until date on the draft, and does it still match the approved record?",
+  "sent_at": 1792289707.4541068,
+  "sent": true,
+  "http": 200,
+  "success": false,
+  "session_id": "d12f1ac6-c582-45bf-b476-f7189b0845d7",
+  "execution_id": "1948f252-2a6d-4ac4-9554-de90af17e96f",
+  "outcome": "unconfirmed",
+  "error_code": "outcome_unconfirmed",
+  "provider": "deepseek",
+  "model": "deepseek-v4-pro",
+  "latency_s": 49.47,
+  "failed_request": true,
+  "responses_after": 1,
+  "panel_tail": "Chat\nTraining\nJourney\nAutonomy\nAgent Co-Editor\n\nChat with the agent while editing this canvas\n\nCompare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.\n\nValid Until: the two don't match.\n\nDraft (canvas, Q-2026-114): Valid until 2026-11-30\nApproved Records register (approved_records_q2026_114): Approved valid until 2026-12-31\n\nThe draft expires a month earlier than what Sales Operations approved \u2014 that's the one substantive discrepancy. I did not find one in what this turn actually searched, and I can't rule out places that were not searched. Worth opening the stored copy to eyeball that field before we act on it. Everything else lines up:\n\nClient: Dunmore Fabrication LLC \u2014 match\nItem: CNC press brake, 50-ton \u2014 match\nPayment terms: Net 30 \u2014 match\nUnit price line reads the same in both (identical amount); I'm not re-quoting the figure since I couldn't verify it against a freshly opened copy of the register\nPresent only in the draft: \"Prepared for: Elena Sorokina, Operations,\" plus the Subtotal line \u2014 additive, not conflicting\nPresent only in the app\u2026",
+  "audit_after": 4,
+  "current_matches": true
+ },
+ "s7_reply_message": "The draft\u2019s Valid until date is **2026-12-31**, which still matches the approved record\u2019s **Approved valid until: 2026-12-31**.",
+ "final_reload": {
+  "canvas": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+  "wizard_present": false
+ },
+ "failed_turns": [
+  "Please also update the payment terms in the draft to Net 45.",
+  "What is the current Valid until date on the draft, and does it still match the approved record?"
+ ],
+ "console_tail": [
+  {
+   "t": 195.98,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 195.99,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 196.86,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 196.86,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 196.92,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 3, current 5) \u2014 ignoring"
+  },
+  {
+   "t": 277.41,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 277.44,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 277.47,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://127.0.0.1:18500/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 277.48,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://127.0.0.1:18500/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 277.48,
+   "type": "error",
+   "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+  },
+  {
+   "t": 277.48,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 277.48,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 277.56,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 277.56,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 277.57,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 3, current 5) \u2014 ignoring"
+  }
+ ],
+ "page_errors": [],
+ "world_final": {
+  "db": "/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/atom_journey_composed_cgcdepiy/run/atom.db",
+  "audit_total": 4,
+  "log_tail": "INFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/chat/history/session_1792289494920_4ezybchk3\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/auth/me -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/agents/approvals/pending\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/maturity/training/context\nINFO:core.notification_manager:WebSocket connected for workspace default. Total: 2\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/auth/me\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272/context\nINFO:integrations.chat_routes:Retrieving history for session session_1792289494920_4ezybchk3 and user ff78af66-8b3c-4e1a-91c3-6b8fabac4b8e\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/maturity/proposals -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/v1/preferences -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272/agents -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1792289494920_4ezybchk3 -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/notifications\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/maturity/training/context -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/notifications\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/agents/approvals/pending -> 403\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/v1/preferences\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/auth/me -> 200\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272/context -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/chat/history/session_1792289494920_4ezybchk3\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272 -> 200\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272/context\nINFO:core.notification_manager:WebSocket disconnected for workspace default\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/chat/history/d12f1ac6-c582-45bf-b476-f7189b0845d7\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/chat/trace/d12f1ac6-c582-45bf-b476-f7189b0845d7\nINFO:core.notification_manager:WebSocket connected for workspace default. Total: 2\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 200\nINFO:integrations.chat_routes:Retrieving history for session session_1792289494920_4ezybchk3 and user ff78af66-8b3c-4e1a-91c3-6b8fabac4b8e\nINFO:main_api_app:\ud83d\ude80 [ULTRA LOUD] GET /api/canvas/8d844464-7b68-4a84-b34d-41f0caf04272/history\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/notifications -> 200\nINFO:integrations.chat_routes:Retrieving history for session d12f1ac6-c582-45bf-b476-f7189b0845d7 and user ff78af66-8b3c-4e1a-91c3-6b8fabac4b8e\nINFO:integrations.chat_routes:Loaded 12 messages from DB for session d12f1ac6-c582-45bf-b476-f7189b0845d7\nINFO:main_api_app:\ud83c\udfc1 [ULTRA LOUD] GET /api/chat/history/session_1792289494920_4ezybchk3 -> 200\nINFO:main_api_app:\ud83c\udfc1 [UL\u2026"
+ },
+ "checks": {
+  "s0-sha-guard": true,
+  "s0-pin-key-live": true,
+  "s0-scratch-world-booted": true,
+  "s0-frontend-up": true,
+  "s0-canvas-route-servable": true,
+  "s1-fresh-user-registered": true,
+  "s2-pin-mounted": true,
+  "s2-canvas-seeded": true,
+  "s1-fresh-user-signin": true,
+  "s1-wizard-present": true,
+  "s1-completion-overlay-closed": true,
+  "s1-completion-persisted": true,
+  "s1-no-settings-resave-needed": true,
+  "s1-provider-active": true,
+  "s2-document-uploaded-durable": true,
+  "s3-reply-received": true,
+  "s3-mismatch-identified": true,
+  "s3-zero-writes": true,
+  "s4-reply-received": true,
+  "s4-canvas-updated-readback": true,
+  "s4-exactly-one-audit-write": true,
+  "s4-reply-truthful-update": true,
+  "s5-reply-received": true,
+  "s5-total-correct": true,
+  "s5-zero-writes": true,
+  "s6-turn-accepted-before-kill": true,
+  "s6-killed-in-flight": true,
+  "s6-crash-state-honest": true,
+  "s6-restart-healthy": true,
+  "s6-resend-reply-received": false,
+  "s6-terms-converged-exactly-once": true,
+  "s6-valid-until-intact": true,
+  "s6-audit-converged": true,
+  "s7-reply-received": false,
+  "s7-current-value-matches": true,
+  "s7-zero-new-work": true,
+  "final-reload-agrees": true,
+  "final-no-wizard": true,
+  "no-failed-requests": false
+ },
+ "pass": false,
+ "finished_at": "2026-10-18T02:16:06+00:00"
+}

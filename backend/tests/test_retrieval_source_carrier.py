@@ -60,12 +60,22 @@ async def test_knowledge_leg_lines_only_observations_via_out_param():
     # evidence: the hybrid search returns source="ingested" — a category
     # — for ingested docs; the title is the real document identity);
     # absent hash stays empty — never a source-category echo.
-    assert observations == [
+    identity = [{k: o[k] for k in ("source", "title", "file_name",
+                                   "content_hash")}
+                for o in observations]
+    assert identity == [
         {"source": "knowledge/spec.md", "title": "Spec",
          "file_name": "spec.md", "content_hash": "hash-1"},
         {"source": "knowledge/notes.md", "title": "Notes",
          "file_name": "Notes", "content_hash": ""},
     ]
+    # F-C2 extension (2026-10-17): each observation additionally carries
+    # the authenticated workspace, the bounded excerpt that reached the
+    # answer context, and the requested-field coverage.
+    assert all(o["workspace_id"] == "ws-1" for o in observations)
+    assert observations[0]["excerpt"].startswith("rated capacity")
+    assert observations[0]["requested_fields"] == []
+    assert observations[0]["supplied_fields"] == []
 
 
 @pytest.mark.asyncio
@@ -291,3 +301,53 @@ def test_fallback_resolver_resolves_through_the_users_workspace(
     assert state["state"] in (
         "unconfirmed", "partial", "completed", "failed",
         "continuation_queued")
+
+
+def test_canvas_context_source_is_recorded_for_no_live_evidence_turns():
+    """The attached artifact as the basis of a no-live-evidence turn
+    (owner R4 attribution; the 2026-10-15 J6 T2 evidence): presentation/
+    self-contained turns record the canvas revision they were answered
+    from on the SAME execution-keyed carrier the builder settles."""
+    canvas = {"canvas_id": "cv-77", "canvas_type": "document",
+              "title": "Quotation Q-2026-114", "content": "# Quotation ..."}
+    session = {}
+    chat.record_canvas_context_source(
+        session, "exec-cv", canvas, no_live_evidence=True)
+    key = "_retrieval_source_observations_exec-cv"
+    assert key in session and len(session[key]) == 1
+    ref = session[key][0]
+    assert ref["source_id"] == "cv-77"
+    assert ref["service"] == "canvas"
+    assert ref["source_type"] == "artifact"
+    assert ref["title"] == "Quotation Q-2026-114"
+
+
+def test_canvas_context_source_never_replaces_the_assembler():
+    """The assembler's own observations are the basis when present — the
+    canvas is recorded only when no other source identity did."""
+    session = {"_retrieval_source_observations_e2": [
+        {"source_id": "file-1", "service": "documents"}]}
+    chat.record_canvas_context_source(
+        session, "e2", {"canvas_id": "cv-1", "content": "x"},
+        no_live_evidence=True)
+    assert session["_retrieval_source_observations_e2"] == [
+        {"source_id": "file-1", "service": "documents"}]
+
+
+def test_canvas_context_source_gates():
+    """Evidence-required turns keep their lookup receipts; absent
+    session/execution or content records nothing."""
+    canvas = {"canvas_id": "cv-9", "content": "x"}
+    s1 = {}
+    chat.record_canvas_context_source(
+        s1, "e3", canvas, no_live_evidence=False)
+    assert s1 == {}
+    s2 = {}
+    chat.record_canvas_context_source(
+        s2, None, canvas, no_live_evidence=True)
+    assert s2 == {}
+    s3 = {}
+    chat.record_canvas_context_source(
+        s3, "e4", {"canvas_id": "cv", "content": None},
+        no_live_evidence=True)
+    assert s3 == {}

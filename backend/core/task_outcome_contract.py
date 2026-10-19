@@ -73,6 +73,12 @@ def _copy_ref(value: Any) -> Dict[str, Any]:
     for key in ("operation_id", "result_id", "policy_id"):
         if value.get(key) is not None:
             ref[key] = _bounded_text(value[key], 120)
+    # CANVAS MUTATION IDENTITY SURVIVES SETTLEMENT (verifier review
+    # defect 3, 84143bdd8): the audit row id is the write's durable
+    # attribution; canvas_id names what was written.
+    for key in ("canvas_id", "audit_id"):
+        if value.get(key) is not None:
+            ref[key] = _bounded_text(value[key], 120)
     match_count = value.get("match_count")
     if isinstance(match_count, int) and not isinstance(match_count, bool):
         ref["match_count"] = match_count
@@ -549,6 +555,35 @@ def _mutation_verifier(outcome: Dict[str, Any]) -> "bool | None":
 
 register_criteria_verifier("mutation", _mutation_verifier)
 register_criteria_verifier("scheduling", _mutation_verifier)
+
+
+def _context_source_fulfillment_verifier(
+    outcome: Dict[str, Any],
+) -> "bool | None":
+    """Context-backed fulfillment criterion (F-C2, 2026-10-17).
+
+    The criterion is declared only when the outcome resolver completed
+    the context-backed fulfillment — this verifier re-states the RECORDED
+    shape it rests on: a verified ``context_assembly`` tool outcome whose
+    evidence refs address the request as context sources. Reply wording
+    is never consulted; a claimed criterion without the recorded shape
+    is not met.
+    """
+    for tool in outcome.get("tool_outcomes") or []:
+        if (not isinstance(tool, dict)
+                or tool.get("tool") != "context_assembly"
+                or tool.get("verified") is not True):
+            continue
+        refs = [r for r in (tool.get("evidence_refs") or [])
+                if isinstance(r, dict)]
+        if any(str(r.get("kind") or "") == "context_source"
+               for r in refs):
+            return True
+    return False
+
+
+register_criteria_verifier(
+    "context_source_fulfillment", _context_source_fulfillment_verifier)
 
 
 def _has_verified_evidence(outcome: Dict[str, Any], tools: List[Dict[str, Any]]) -> bool:

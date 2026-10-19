@@ -1,0 +1,858 @@
+cd frontend-nextjs && npm run dev -- -p 18101
+
+> atomic-app@0.1.0-alpha.4 dev
+> cross-env NODE_OPTIONS='--max-old-space-size=4096' next dev -p 18101
+
+▲ Next.js 16.2.2 (Turbopack)
+- Local:         http://localhost:18101
+- Network:       http://192.168.50.154:18101
+- Environments: .env.local
+✓ Ready in 524ms
+⚠ `eslint` configuration in next.config.js is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.js options detected: 
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+- Experiments (use with caution):
+  ✓ externalDir
+
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+○ Compiling /login ...
+ GET /login 200 in 6.6s (next.js: 6.4s, proxy.ts: 73ms, application-code: 118ms)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A18101%2Fdashboard 200 in 92ms (next.js: 31ms, proxy.ts: 9ms, application-code: 53ms)
+ GET /login 200 in 44ms (next.js: 9ms, proxy.ts: 4ms, application-code: 32ms)
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+ GET /api/auth/session 200 in 509ms (next.js: 469ms, proxy.ts: 16ms, application-code: 24ms)
+ GET /api/auth/session 200 in 113ms (next.js: 102ms, proxy.ts: 3ms, application-code: 8ms)
+ GET /_next/data/development/dashboard.json 200 in 430ms (next.js: 381ms, proxy.ts: 8ms, application-code: 41ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /documents 200 in 330ms (next.js: 297ms, proxy.ts: 3ms, application-code: 29ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 77ms (next.js: 55ms, proxy.ts: 3ms, application-code: 19ms)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 18ms (next.js: 7ms, proxy.ts: 3ms, application-code: 9ms)
+[browser] [API Error] {
+  code: [32m'ERR_BAD_RESPONSE'[39m,
+  message: [32m'Request failed with status code 500'[39m,
+  status: [33m500[39m,
+  url: [32m'/api/documents/upload'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async DocumentsPage.useCallback[handleFile] (pages/documents.tsx:43:30)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ERR_BAD_RESPONSE'[39m,
+  message: [32m'Request failed with status code 500'[39m,
+  status: [33m500[39m,
+  url: [32m'/api/documents/upload'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async response.maxAttempts (lib/api.ts:99:18)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ERR_BAD_RESPONSE'[39m,
+  message: [32m'Request failed with status code 500'[39m,
+  status: [33m500[39m,
+  url: [32m'/api/documents/upload'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async response.maxAttempts (lib/api.ts:99:18)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ERR_BAD_RESPONSE'[39m,
+  message: [32m'Request failed with status code 500'[39m,
+  status: [33m500[39m,
+  url: [32m'/api/documents/upload'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async response.maxAttempts (lib/api.ts:99:18)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] Upload failed AxiosError: Request failed with status code 500
+    at async response.maxAttempts (lib/api.ts:99:18)
+    at async DocumentsPage.useCallback[handleFile] (pages/documents.tsx:43:30)
+   97 |       const response = await retry(
+   98 |         async () => {
+>  99 |           return await apiClient(originalRequest);
+      |                  ^
+  100 |         },
+  101 |         {
+  102 |           maxAttempts: MAX_RETRIES, (pages/_app.tsx:49:7)
+ GET /chat 200 in 2.9s (next.js: 2.8s, proxy.ts: 2ms, application-code: 39ms)
+ GET /api/auth/session 200 in 51ms (next.js: 35ms, proxy.ts: 4ms, application-code: 13ms)
+ GET /api/auth/session 200 in 25ms (next.js: 8ms, proxy.ts: 1657µs, application-code: 16ms)
+ GET /chat 304 in 137ms (next.js: 34ms, proxy.ts: 24ms, application-code: 78ms)
+ GET /api/auth/session 200 in 108ms (next.js: 79ms, proxy.ts: 8ms, application-code: 22ms)
+ GET /api/auth/session 200 in 39ms (next.js: 8ms, proxy.ts: 1818µs, application-code: 29ms)
+[browser] [API Error] {
+  code: [32m'ECONNABORTED'[39m,
+  message: [32m'timeout of 5000ms exceeded'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/chat/sessions/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ECONNABORTED'[39m,
+  message: [32m'timeout of 5000ms exceeded'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/chat/sessions?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async fetchChatHistory (components/chat/ChatHistorySidebar.tsx:41:28)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] Error fetching chat history: AxiosError: timeout of 5000ms exceeded
+    at async fetchChatHistory (components/chat/ChatHistorySidebar.tsx:41:28)
+  39 |             let response: any;
+  40 |             try {
+> 41 |                 response = await apiClient.get(`/api/chat/sessions?user_id=${getCurrentUse...
+     |                            ^
+  42 |                     timeout: 5000,
+  43 |                     // @ts-ignore
+  44 |                     retry: false (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ECONNABORTED'[39m,
+  message: [32m'timeout of 5000ms exceeded'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/chat/sessions?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async fetchChatHistory (components/chat/ChatHistorySidebar.tsx:41:28)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] Error fetching chat history: AxiosError: timeout of 5000ms exceeded
+    at async fetchChatHistory (components/chat/ChatHistorySidebar.tsx:41:28)
+  39 |             let response: any;
+  40 |             try {
+> 41 |                 response = await apiClient.get(`/api/chat/sessions?user_id=${getCurrentUse...
+     |                            ^
+  42 |                     timeout: 5000,
+  43 |                     // @ts-ignore
+  44 |                     retry: false (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ECONNABORTED'[39m,
+  message: [32m'timeout of 5000ms exceeded'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/chat/sessions/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ECONNABORTED'[39m,
+  message: [32m'timeout of 8000ms exceeded'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/chat/history/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async useChatInterface.useCallback[loadSessionHistory] (hooks/chat/useChatInterface.ts:124:28)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] Failed to load history: AxiosError: timeout of 8000ms exceeded
+    at async useChatInterface.useCallback[loadSessionHistory] (hooks/chat/useChatInterface.ts:124:28)
+  122 |             let response: any;
+  123 |             try {
+> 124 |                 response = await apiClient.get(`/api/chat/history/${sid}?user_id=${getCur...
+      |                            ^
+  125 |                     timeout: 8000,
+  126 |                     // @ts-ignore
+  127 |                     retry: false (pages/_app.tsx:49:7)
+[browser] [API Error] {
+  code: [32m'ECONNABORTED'[39m,
+  message: [32m'timeout of 8000ms exceeded'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/chat/history/session_1792246589335_bybpcdexo?user_id=30b24f82-3cf5-4c19-b980-f5ae181272c5'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async useChatInterface.useCallback[loadSessionHistory] (hooks/chat/useChatInterface.ts:124:28)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] Failed to load history: AxiosError: timeout of 8000ms exceeded
+    at async useChatInterface.useCallback[loadSessionHistory] (hooks/chat/useChatInterface.ts:124:28)
+  122 |             let response: any;
+  123 |             try {
+> 124 |                 response = await apiClient.get(`/api/chat/history/${sid}?user_id=${getCur...
+      |                            ^
+  125 |                     timeout: 8000,
+  126 |                     // @ts-ignore
+  127 |                     retry: false (pages/_app.tsx:49:7)
+ GET /dashboard 200 in 35ms (next.js: 8ms, proxy.ts: 1914µs, application-code: 24ms)
+ GET /api/auth/session 200 in 25ms (next.js: 11ms, proxy.ts: 3ms, application-code: 11ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 12ms (next.js: 7ms, proxy.ts: 1657µs, application-code: 4ms)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A18101%2Fdashboard 200 in 34ms (next.js: 11ms, proxy.ts: 936µs, application-code: 22ms)
+ GET /login 200 in 20ms (next.js: 3ms, proxy.ts: 2ms, application-code: 15ms)
+ GET /api/auth/session 200 in 28ms (next.js: 17ms, proxy.ts: 5ms, application-code: 6ms)
+ GET /api/auth/session 200 in 18ms (next.js: 6ms, proxy.ts: 1237µs, application-code: 11ms)
+ GET /_next/data/development/dashboard.json 200 in 25ms (next.js: 6ms, proxy.ts: 1890µs, application-code: 17ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /login 200 in 15ms (next.js: 4ms, proxy.ts: 1408µs, application-code: 10ms)
+ GET /api/auth/session 200 in 25ms (next.js: 13ms, proxy.ts: 5ms, application-code: 7ms)
+ GET /api/auth/session 200 in 16ms (next.js: 4ms, proxy.ts: 1222µs, application-code: 11ms)
+ GET /_next/data/development/dashboard.json 200 in 23ms (next.js: 5ms, proxy.ts: 1639µs, application-code: 17ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /settings/ai 200 in 322ms (next.js: 295ms, proxy.ts: 1432µs, application-code: 26ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 38ms (next.js: 28ms, proxy.ts: 2ms, application-code: 8ms)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 10ms (next.js: 4ms, proxy.ts: 2ms, application-code: 4ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+⚠ You have added a custom /_error page without a custom /404 page. This prevents the 404 page from being auto statically optimized.
+See here for info: https://nextjs.org/docs/messages/custom-error-no-custom-404
+ GET /api/satellite/key 404 in 217ms (next.js: 200ms, proxy.ts: 2ms, application-code: 14ms)
+ GET /api/satellite/key 404 in 42ms (next.js: 31ms, proxy.ts: 1276µs, application-code: 10ms)
+ GET /documents 200 in 23ms (next.js: 8ms, proxy.ts: 1243µs, application-code: 13ms)
+ GET /api/auth/session 200 in 18ms (next.js: 14ms, proxy.ts: 1540µs, application-code: 2ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 8ms (next.js: 4ms, proxy.ts: 1094µs, application-code: 3ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /chat 200 in 21ms (next.js: 5ms, proxy.ts: 1602µs, application-code: 14ms)
+ GET /api/auth/session 200 in 36ms (next.js: 24ms, proxy.ts: 5ms, application-code: 7ms)
+ GET /api/auth/session 200 in 14ms (next.js: 4ms, proxy.ts: 1241µs, application-code: 8ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /chat 304 in 51ms (next.js: 13ms, proxy.ts: 1604µs, application-code: 36ms)
+ GET /api/auth/session 200 in 44ms (next.js: 29ms, proxy.ts: 3ms, application-code: 12ms)
+ GET /api/auth/session 200 in 14ms (next.js: 5ms, proxy.ts: 1292µs, application-code: 8ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /dashboard 200 in 19ms (next.js: 6ms, proxy.ts: 1846µs, application-code: 12ms)
+ GET /api/auth/session 200 in 17ms (next.js: 9ms, proxy.ts: 2ms, application-code: 5ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 9ms (next.js: 5ms, proxy.ts: 1384µs, application-code: 2ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A18101%2Fdashboard 200 in 29ms (next.js: 10ms, proxy.ts: 1141µs, application-code: 18ms)
+ GET /login 200 in 16ms (next.js: 4ms, proxy.ts: 1491µs, application-code: 11ms)
+ GET /api/auth/session 200 in 27ms (next.js: 15ms, proxy.ts: 5ms, application-code: 6ms)
+ GET /api/auth/session 200 in 16ms (next.js: 4ms, proxy.ts: 1325µs, application-code: 10ms)
+ GET /_next/data/development/dashboard.json 200 in 22ms (next.js: 4ms, proxy.ts: 1671µs, application-code: 16ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /login 200 in 17ms (next.js: 4ms, proxy.ts: 2ms, application-code: 10ms)
+ GET /api/auth/session 200 in 25ms (next.js: 13ms, proxy.ts: 6ms, application-code: 6ms)
+ GET /api/auth/session 200 in 13ms (next.js: 4ms, proxy.ts: 1311µs, application-code: 8ms)
+ GET /_next/data/development/dashboard.json 200 in 21ms (next.js: 5ms, proxy.ts: 1705µs, application-code: 15ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /settings/ai 200 in 20ms (next.js: 5ms, proxy.ts: 1522µs, application-code: 13ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/satellite/key 404 in 58ms (next.js: 37ms, proxy.ts: 1721µs, application-code: 19ms)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 58ms (next.js: 50ms, proxy.ts: 2ms, application-code: 5ms)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 19ms (next.js: 7ms, proxy.ts: 1352µs, application-code: 11ms)
+ GET /api/satellite/key 404 in 20ms (next.js: 9ms, proxy.ts: 1268µs, application-code: 10ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /documents 200 in 15ms (next.js: 5ms, proxy.ts: 1280µs, application-code: 9ms)
+ GET /api/auth/session 200 in 15ms (next.js: 12ms, proxy.ts: 2ms, application-code: 1452µs)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 8ms (next.js: 5ms, proxy.ts: 1552µs, application-code: 1361µs)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /chat 200 in 19ms (next.js: 6ms, proxy.ts: 1252µs, application-code: 11ms)
+ GET /api/auth/session 200 in 33ms (next.js: 21ms, proxy.ts: 6ms, application-code: 6ms)
+ GET /api/auth/session 200 in 13ms (next.js: 4ms, proxy.ts: 1530µs, application-code: 8ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /chat 304 in 25ms (next.js: 5ms, proxy.ts: 1509µs, application-code: 18ms)
+ GET /api/auth/session 200 in 17ms (next.js: 8ms, proxy.ts: 3ms, application-code: 6ms)
+ GET /api/auth/session 200 in 11ms (next.js: 6ms, proxy.ts: 3ms, application-code: 1934µs)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /dashboard 200 in 15ms (next.js: 4ms, proxy.ts: 1665µs, application-code: 10ms)
+ GET /api/auth/session 200 in 11ms (next.js: 7ms, proxy.ts: 3ms, application-code: 2ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 10ms (next.js: 7ms, proxy.ts: 1643µs, application-code: 1687µs)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A18101%2Fdashboard 200 in 13ms (next.js: 3ms, proxy.ts: 919µs, application-code: 9ms)
+ GET /login 200 in 15ms (next.js: 3ms, proxy.ts: 1918µs, application-code: 10ms)
+ GET /api/auth/session 200 in 24ms (next.js: 13ms, proxy.ts: 5ms, application-code: 6ms)
+ GET /api/auth/session 200 in 14ms (next.js: 5ms, proxy.ts: 1219µs, application-code: 8ms)
+ GET /_next/data/development/dashboard.json 200 in 20ms (next.js: 4ms, proxy.ts: 1631µs, application-code: 14ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /login 200 in 13ms (next.js: 3ms, proxy.ts: 1440µs, application-code: 8ms)
+ GET /api/auth/session 200 in 13ms (next.js: 6ms, proxy.ts: 1432µs, application-code: 6ms)
+ GET /api/auth/session 200 in 7ms (next.js: 4ms, proxy.ts: 1595µs, application-code: 1598µs)
+ GET /_next/data/development/dashboard.json 200 in 14ms (next.js: 3ms, proxy.ts: 1553µs, application-code: 9ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /settings/ai 200 in 15ms (next.js: 3ms, proxy.ts: 1284µs, application-code: 10ms)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/satellite/key 404 in 38ms (next.js: 21ms, proxy.ts: 1462µs, application-code: 16ms)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 37ms (next.js: 31ms, proxy.ts: 1864µs, application-code: 3ms)
+[next-auth][error][JWT_SESSION_ERROR] 
+https://next-auth.js.org/errors#jwt_session_error Invalid Compact JWE {
+  message: 'Invalid Compact JWE',
+  stack: 'JWEInvalid: Invalid Compact JWE\n' +
+    '    at compactDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwe/compact/decrypt.js:16:15)\n' +
+    '    at jwtDecrypt (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/jose/dist/node/cjs/jwt/decrypt.js:8:61)\n' +
+    '    at Object.decode (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/jwt/index.js:56:34)\n' +
+    '    at async Object.session (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/routes/session.js:48:28)\n' +
+    '    at async AuthHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/core/index.js:136:27)\n' +
+    '    at async NextAuthApiHandler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:18:19)\n' +
+    '    at async NextAuth._args$ (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next-auth/next/index.js:91:14)\n' +
+    '    at async apiResolver (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:4425)\n' +
+    '    at async PagesAPIRouteModule.render (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/compiled/next-server/pages-api-turbo.runtime.dev.js:2:5955)\n' +
+    '    at async Module.handler (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/.next/dev/server/chunks/[root-of-the-server]__0slwa_v._.js:5698:13)\n' +
+    '    at async DevServer.runApi (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:695:9)\n' +
+    '    at async NextNodeServer.handleCatchallRenderRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/next-server.js:335:37)\n' +
+    '    at async DevServer.handleRequestImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/base-server.js:934:17)\n' +
+    '    at async /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:394:20\n' +
+    '    at async Span.traceAsyncFn (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/trace/trace.js:164:20)\n' +
+    '    at async DevServer.handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/dev/next-dev-server.js:390:24)\n' +
+    '    at async invokeRender (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:266:21)\n' +
+    '    at async handleRequest (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:465:24)\n' +
+    '    at async requestHandlerImpl (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/router-server.js:514:13)\n' +
+    '    at async Server.requestListener (/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs/node_modules/next/dist/server/lib/start-server.js:225:13)',
+  name: 'JWEInvalid'
+}
+ GET /api/auth/session 200 in 17ms (next.js: 13ms, proxy.ts: 1246µs, application-code: 2ms)
+ GET /api/satellite/key 404 in 17ms (next.js: 6ms, proxy.ts: 1180µs, application-code: 10ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /documents 200 in 14ms (next.js: 4ms, proxy.ts: 1390µs, application-code: 8ms)
+ GET /api/auth/session 200 in 13ms (next.js: 9ms, proxy.ts: 1421µs, application-code: 1914µs)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 7ms (next.js: 5ms, proxy.ts: 1421µs, application-code: 1277µs)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /chat 200 in 18ms (next.js: 4ms, proxy.ts: 1963µs, application-code: 12ms)
+ GET /api/auth/session 200 in 36ms (next.js: 21ms, proxy.ts: 8ms, application-code: 8ms)
+ GET /api/auth/session 200 in 13ms (next.js: 4ms, proxy.ts: 1178µs, application-code: 7ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /chat 304 in 23ms (next.js: 4ms, proxy.ts: 1570µs, application-code: 17ms)
+ GET /api/auth/session 200 in 15ms (next.js: 8ms, proxy.ts: 1613µs, application-code: 5ms)
+ GET /api/auth/session 200 in 10ms (next.js: 7ms, proxy.ts: 1458µs, application-code: 2ms)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)
+ GET /dashboard 200 in 15ms (next.js: 3ms, proxy.ts: 1408µs, application-code: 10ms)
+ GET /api/auth/session 200 in 16ms (next.js: 12ms, proxy.ts: 2ms, application-code: 1565µs)
+[browser] [API Error] {
+  code: [32m'ERR_CANCELED'[39m,
+  message: [32m'canceled'[39m,
+  status: [90mundefined[39m,
+  url: [32m'/api/maturity/proposals?status_filter=pending_approval&limit=10'[39m
+} 
+    at push.console.error (pages/_app.tsx:49:7)
+    at <unknown> (lib/api.ts:79:15)
+    at async push.apiClient.fetch (lib/api.ts:170:22)
+    at async listActionProposals (lib/maturity-api.ts:545:15)
+  47 |         w.__atomErrors.push(`console.error: ${args.map(a => (a instanceof Error ? a.stack ...
+  48 |       } catch { /* never break the caller */ }
+> 49 |       origError(...args);
+     |       ^
+  50 |     };
+  51 |   }
+  52 | (pages/_app.tsx:49:7)
+ GET /api/auth/session 200 in 7ms (next.js: 4ms, proxy.ts: 1165µs, application-code: 1786µs)
+[browser] [ChatWidget] Pending approvals unauthorized (HTTP 403) — token may be missing/expired; queue treated as unknown. (components/GlobalChatWidget.tsx:122:33)

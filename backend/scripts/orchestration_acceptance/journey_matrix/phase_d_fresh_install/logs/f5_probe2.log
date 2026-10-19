@@ -1,0 +1,16 @@
+U3: jprobe_u3_1792248581@example.com (9a0aed1a-fe77-48ed-82e1-4836294a93b6)
+== 1) wizard-shape store (key_name 'Ollama (local)', body, no query) ==
+True tenant_09b33941-7132-44b1-b460-9d2ea1ab025d_ollama_Ollama (local)_production
+== 2) settings-shape store (?key_name=default) ==
+True tenant_09b33941-7132-44b1-b460-9d2ea1ab025d_ollama_default_production
+== 3) GET providers ==
+ollama -> {'has_api_keys': True, 'has_tenant_key': True, 'status': 'active'}
+== 4) CHAT #1 (poison theory: expect sentinel failure) ==
+success: True | error_code: None | model: llama3.1:8b
+message: Hello, I'm ATOM, here to assist with your business automation needs.
+== 5) delete the wizard-shape key, then CHAT #2 (healing test) ==
+{"success":true,"data":{"removed":["tenant_09b33941-7132-44b1-b460-9d2ea1ab025d_ollama_Ollama (local)_production"]},"error":null,"message":"API key ollama/Ollam
+success: True | error_code: None | model: llama3.1:8b
+message: Hello, I'm ATOM, your business automation assistant here to help with managing leads, automating workflows, and more.
+EMAIL=jprobe_u3_1792248581@example.com PASS=<scratch-user-password>
+done

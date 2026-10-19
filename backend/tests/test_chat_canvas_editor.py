@@ -203,7 +203,8 @@ async def test_editor_prompt_demands_preservation_and_excludes_sends():
     llm = MagicMock()
     llm._get_handler.return_value.clients = {}
     llm.generate_structured_response = AsyncMock(return_value=CanvasEditPlan(wants_edit=False))
-    await plan_canvas_edit("try sending it again", [], _canvas(), llm)
+    await plan_canvas_edit(
+        "try sending it again", [], _canvas(), llm, compact=False)
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]
     assert "MANUAL EDITS" in prompt                 # user edits outrank memory
     assert 'edit_mode="patch"' in prompt            # surgical by default
@@ -223,7 +224,8 @@ async def test_editor_prompt_excludes_teaching_points_and_pure_lookups():
     llm = MagicMock()
     llm._get_handler.return_value.clients = {}
     llm.generate_structured_response = AsyncMock(return_value=CanvasEditPlan(wants_edit=False))
-    await plan_canvas_edit("this will be the norm", [], _canvas(), llm)
+    await plan_canvas_edit(
+        "this will be the norm", [], _canvas(), llm, compact=False)
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]
     assert "TEACHING POINTS" in prompt              # norms are wants_edit=false
     assert "do not change my writing" in prompt     # named as guidance, not edits
@@ -1100,6 +1102,34 @@ async def test_canvas_edit_none_marks_retryable_no_apply():
     assert shared["canvas_planning_unavailable"] is True
     assert shared["canvas_planning_outcome"] == "returned_none"
     assert shared["canvas_edit_no_apply_reason"] == "planner_returned_none"
+
+
+def test_no_apply_message_does_not_reask_an_explicit_assignment():
+    """Owner work order 2026-10-15, item 4: when the request already named
+    the value ("update X to Y") and the planner still could not match it,
+    the recovery wording must explain the mismatch and leave the draft
+    untouched — never send the user back to restate the value they gave
+    (observed: J6 T1 "update the Valid Until date to 2026-12-31")."""
+    from integrations.chat_orchestrator import (
+        _planner_returned_none_message)
+
+    msg = _planner_returned_none_message(
+        "On this quotation, update the Valid Until date to 2026-12-31. "
+        "Change nothing else.")
+    assert "nothing was changed" in msg
+    assert "already names the value to set" in msg
+    assert "valid until date = 2026-12-31" in msg
+    assert "Naming the exact text" not in msg
+    assert "draft is untouched" in msg
+
+
+def test_no_apply_message_keeps_naming_advice_without_an_assignment():
+    from integrations.chat_orchestrator import (
+        _planner_returned_none_message)
+
+    msg = _planner_returned_none_message("tighten the second paragraph")
+    assert "nothing was changed" in msg
+    assert "Naming the exact text to change" in msg
 
 
 @pytest.mark.asyncio
@@ -2143,7 +2173,8 @@ async def test_plan_prompt_includes_recent_versions_with_restore_rule():
         "actor": "supervisor", "content": "the ORIGINAL draft",
     }]
     await plan_canvas_edit(
-        "go back to my original draft", [], _canvas(content="overwritten"), llm,
+        "go back to my original draft",
+        [], _canvas(content="overwritten"), llm, compact=False,
         versions=versions,
     )
     prompt = llm.generate_structured_response.call_args.kwargs["prompt"]

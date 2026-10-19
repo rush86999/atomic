@@ -29,7 +29,7 @@ import os
 os.environ.setdefault("TESTING", "1")
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import integrations.chat_orchestrator as co
 import core.chat_canvas_editor as cce
@@ -93,7 +93,8 @@ def _valid_plan() -> cce.CanvasEditPlan:
         wants_edit=True,
         edit_mode="patch",
         ops=[cce.CanvasPatchOp(find="Valid until: 2026-11-30",
-                               replace="Valid until: 2026-12-31")],
+                               replace="Valid until: 2026-12-31",
+                               origin="user_supplied")],
     )
 
 
@@ -150,9 +151,224 @@ def test_edit_response_carries_durable_mutation_evidence():
         f"outcome; got {edit!r}")
 
 
+def test_mutation_refs_survive_the_evidence_contract_path():
+    """Review defect 3 (84143bdd8): the evidence-contract spread used to
+    overwrite evidence_refs AFTER the mutation refs were written — and
+    its value was a list of observation-id STRINGS. The mutation refs
+    now win the key on every success path and the observation ids keep
+    their own field. apply_canvas_edit is pinned to a verified result so
+    the contract spread and the mutation spread are both live in the
+    same assembly — exactly the clobber scenario."""
+    contract = {"coverage": {"outcomes": [
+        {"status": "comparable_match"}]}}
+    store = _DurableStore(QUOTE)
+    upd_patch, read_patch = store.patches()
+    verified = {"success": True, "postcondition_verified": True,
+                "audit_id": "audit-contract-1",
+                "review_status": "accepted",
+                "postcondition_evidence_refs": ["obs-1", "obs-2"]}
+    with patch.object(cce, "plan_canvas_edit",
+                      new=AsyncMock(return_value=_valid_plan())), \
+         patch.object(
+             cce, "fetch_fresh_data_section",
+             new=AsyncMock(return_value=cce.FreshDataResult(
+                 "", False, True, evidence_contract=contract))), \
+         patch.object(cce, "apply_canvas_edit",
+                      new=AsyncMock(return_value=(verified, None))), \
+         upd_patch, read_patch:
+        out = asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+            _orch(), MESSAGE, [], {
+                "canvas_id": CANVAS_ID, "canvas_type": "document",
+                "title": "Q", "content": QUOTE,
+            }, "user-j6", "sess-j6", "exec-j6-contract", None))
+    edit = (out.get("data") or {}).get("canvas_edit") or {}
+    refs = edit.get("evidence_refs") or []
+    assert refs and isinstance(refs[0], dict), (
+        f"mutation ref dicts must survive the contract path; got {refs!r}")
+    assert refs[0]["kind"] == "canvas_mutation"
+    assert refs[0]["audit_id"] == "audit-contract-1", (
+        "the audit row id is the write's attribution")
+    obs = edit.get("postcondition_observation_ids") or []
+    assert obs == ["obs-1", "obs-2"], (
+        f"the observation ids keep their own field; got {obs!r}")
+
+
 def test_lane_makes_no_model_calls():
     """The lane ran with llm_service=None and a canned plan: if any code
     path tried to reach a model it would have raised — completing proves
     the downstream stages are model-free once the plan exists."""
     out, _store = _run_lane()
     assert out is not None
+
+
+def test_the_model_s_tool_call_envelope_echo_validates():
+    """Round-19 diagnostic (diagnostic_benchmark_20261014_140958.json):
+    THREE identical attempts, 276 tokens each, all rejected — the model
+    answers the structured request by echoing the TOOL-CALL ENVELOPE as
+    content, with each op wrapped function-schema style. The plan inside
+    is valid; the wrapper must accept the observed output shape. The
+    raw native call with the same payload completed in 11.2s — the
+    rejection was the wrapper's, not the model's workload."""
+    import json as _json
+
+    model_said = _json.loads(
+        '{"name": "CanvasEditPlan", "parameters": {"edit_mode": "patch", '
+        '"ops": [{"title": "Update Valid Until date", "properties": '
+        '{"find": "2026-11-30", "replace": "2026-12-31", "field": null, '
+        '"cell": null}}], "reply": "", "restore_audit_id": null, '
+        '"updated_content_json": null, "wants_edit": true}}')
+    plan = cce.CanvasEditPlan.model_validate(model_said)
+    assert plan.wants_edit is True
+    assert plan.ops[0].find == "2026-11-30"
+    assert plan.ops[0].replace == "2026-12-31"
+    # A clean plan (the reduced run's shape) still validates unchanged.
+    plain = cce.CanvasEditPlan.model_validate({
+        "wants_edit": True,
+        "edit_mode": "patch",
+        "ops": [{"find": "2026-11-30", "replace": "2026-12-31"}],
+    })
+    assert plain.ops[0].find == "2026-11-30"
+    # OBSERVED SHAPE 3 (native tool-calls reproduction): ops arrive
+    # JSON-ENCODED as a string.
+    string_ops = cce.CanvasEditPlan.model_validate({
+        "wants_edit": True,
+        "ops": _json.dumps(
+            [{"find": "2026-11-30", "replace": "2026-12-31"}]),
+    })
+    assert string_ops.ops[0].replace == "2026-12-31"
+
+
+def test_plan_stage_events_are_positive_evidence(caplog):
+    """Verifier steps 1-2: the lane emits [plan-stage] events with the
+    execution id, and a usable plan is recorded as outcome=edit with
+    contract=valid — the ONLY shape downstream may read as
+    plan_validated. A None plan must log outcome=unavailable, never a
+    validated shape."""
+    import logging
+
+    store = _DurableStore(QUOTE)
+    upd_patch, read_patch = store.patches()
+    # plan_canvas_edit's early guard needs a non-None service; the model
+    # work itself is intercepted at _plan_structured below.
+    _orch_llm = _orch()
+    _orch_llm.llm_service = MagicMock()
+
+    async def _structured(llm_service, *, prompt, response_model,
+                          **kwargs):
+        # One level below plan_canvas_edit: the REAL plan_canvas_edit
+        # runs, so its contract checks and [plan-stage] events execute.
+        if response_model is cce.CanvasEditPlan:
+            return _valid_plan()
+        return None
+
+    with patch.object(cce, "_plan_structured",
+                      new=AsyncMock(side_effect=_structured)), \
+         patch.object(cce, "fetch_fresh_data_section",
+                      new=AsyncMock(return_value=cce.FreshDataResult(
+                          "", False, True))), \
+         upd_patch, read_patch, \
+         caplog.at_level(logging.INFO, logger="core.chat_canvas_editor"):
+        asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+            _orch_llm, MESSAGE, [], {
+                "canvas_id": CANVAS_ID, "canvas_type": "document",
+                "title": "Q", "content": QUOTE,
+            }, "user-j6", "sess-j6", "exec-j6-stage", None))
+
+    events = [r for r in caplog.records
+              if "[plan-stage]" in r.getMessage()]
+    assert events, "the lane must emit [plan-stage] events"
+    edit_events = [r for r in events
+                   if "outcome=edit" in r.getMessage()
+                   and "eid=exec-j6-stage" in r.getMessage()]
+    assert edit_events, (
+        f"a usable plan must log outcome=edit for its execution; "
+        f"got {[r.getMessage() for r in events]}")
+    assert any("contract=valid" in r.getMessage()
+               for r in edit_events)
+    # Fresh-data is marked as its OWN stage — its calls are never
+    # edit-plan attempts.
+    lane_events = [r for r in caplog.records
+                   if "[lane-stage]" in r.getMessage()
+                   and "stage=fresh_data" in r.getMessage()]
+    assert lane_events, "fresh-data work is recorded as its own stage"
+
+    # The negative shape: a None structured call logs outcome=unavailable.
+    async def _structured_none(llm_service, *, prompt, response_model,
+                               **kwargs):
+        return None
+
+    _orch_llm2 = _orch()
+    _orch_llm2.llm_service = MagicMock()
+    with patch.object(cce, "_plan_structured",
+                      new=AsyncMock(side_effect=_structured_none)), \
+         patch.object(cce, "fetch_fresh_data_section",
+                      new=AsyncMock(return_value=cce.FreshDataResult(
+                          "", False, True))), \
+         caplog.at_level(logging.INFO, logger="core.chat_canvas_editor"):
+        try:
+            asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+                _orch_llm2, MESSAGE, [], {
+                    "canvas_id": CANVAS_ID, "canvas_type": "document",
+                    "title": "Q", "content": QUOTE,
+                }, "user-j6", "sess-j6", "exec-j6-none", None))
+        except cce.CanvasPlanUnavailable:
+            pass  # the honest infrastructure failure
+    none_events = [r for r in caplog.records
+                   if "[plan-stage]" in r.getMessage()
+                   and "eid=exec-j6-none" in r.getMessage()
+                   and "outcome=unavailable" in r.getMessage()]
+    assert none_events, (
+        "a None plan logs outcome=unavailable — never validated")
+
+
+REF_REQUIREMENT_MESSAGE = (
+    "Add the client's tax registration number to this quotation. "
+    "Use the exact number from our records.")
+
+
+def test_reference_requirement_declines_before_planning_when_lookup_stalls():
+    """Owner directive 2026-10-15, item 4: the accepted request NAMES the
+    value's source by reference; the source lookup cannot settle inside
+    its bounded window, so the lane identifies the requirement FIRST —
+    declines with the named ask, dispatches NO edit plan (it could not
+    ground the referenced value anyway), and writes nothing."""
+    import time as _time
+
+    store = _DurableStore(QUOTE)
+    upd_patch, read_patch = store.patches()
+    shared: dict = {}
+    plan_calls = {"n": 0}
+
+    async def _slow_fresh(*a, **k):
+        await asyncio.sleep(30)
+        return cce.FreshDataResult("", True, True)
+
+    async def _plan(*a, **k):
+        plan_calls["n"] += 1
+        return _valid_plan()
+
+    t0 = _time.monotonic()
+    with patch.object(cce, "plan_canvas_edit",
+                      new=AsyncMock(side_effect=_plan)), \
+         patch.object(cce, "fetch_fresh_data_section",
+                      new=AsyncMock(side_effect=_slow_fresh)), \
+         patch.object(co, "_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS", 0.3), \
+         upd_patch, read_patch:
+        out = asyncio.run(co.ChatOrchestrator._try_canvas_edit(
+            _orch(), REF_REQUIREMENT_MESSAGE, [], {
+                "canvas_id": CANVAS_ID,
+                "canvas_type": "document",
+                "title": "Quotation Q-2026-114",
+                "content": QUOTE,
+            }, "user-j6", "sess-j6", "exec-j6", None,
+            shared_tool_state=shared))
+    elapsed = _time.monotonic() - t0
+    assert out is None, "the lane declines (the requirement is unresolved)"
+    assert plan_calls["n"] == 0, (
+        "no edit plan is dispatched for a value that grounds nowhere")
+    assert store.writes == 0, "nothing is written"
+    assert shared.get("canvas_evidence_unavailable") is True
+    assert (shared.get("canvas_requirement_unresolved") or {}).get(
+        "references") == ["from our records"], shared
+    assert elapsed < 5.0, (
+        f"the wait is bounded (no 30s stall); took {elapsed:.1f}s")

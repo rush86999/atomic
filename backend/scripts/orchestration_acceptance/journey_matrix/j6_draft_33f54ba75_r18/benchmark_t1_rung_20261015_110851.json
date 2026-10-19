@@ -1,0 +1,1447 @@
+{
+ "benchmark": "T1 op-capture + planning-rung (isolated; NOT acceptance)",
+ "started_at": "2026-10-15T15:04:52+00:00",
+ "workload": {
+  "title": "Quotation Q-2026-114 (J6 draft)",
+  "content": "# Quotation Q-2026-114\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-11-30\n",
+  "ask": "On this quotation, update the Valid Until date to 2026-12-31. Change nothing else.",
+  "intended": "# Quotation Q-2026-114\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 30\nValid until: 2026-12-31\n",
+  "user_identity": {
+   "name": "Journey Probe",
+   "email": "jprobe_bench@example.com"
+  },
+  "versions_source": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/t1_world_versions.json",
+  "production_prompt_capture": "/tmp/j6_r18_draft_evidence/t1_capture/plan_capture.jsonl (byte-identical verified)"
+ },
+ "attempt_bound_s": 75.0,
+ "pricing_cache": {
+  "path": "/Users/rushiparikh/projects/atom/backend/data/ai_pricing_cache.json",
+  "md5": "33d8234790aa36426f2f082183c45499",
+  "seeded_models": [
+   "deepseek-flash",
+   "deepseek-v4-pro",
+   "deepseek-v4.1-flash",
+   "deepseek/deepseek-v4-pro",
+   "glm-5.3-flash",
+   "llama3.1:8b"
+  ]
+ },
+ "providers_available": [
+  "deepseek",
+  "ollama",
+  "opencode-go",
+  "openrouter"
+ ],
+ "git_head": "ab97a78c0",
+ "arm_A_compact_baseline": [
+  {
+   "label": "A-baseline-1",
+   "timed_out": false,
+   "elapsed_s": 17.91,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-1",
+     "t0": 398575.445103541,
+     "elapsed_s": 7.98,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1186,
+      "completion_tokens": 93,
+      "total_tokens": 1279
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    },
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2980,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": null,
+     "t0": 398583.427260625,
+     "elapsed_s": 2.41,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1249,
+      "completion_tokens": 85,
+      "total_tokens": 1334
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "replace",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": false,
+   "contract_violation": "no-plan",
+   "wants_edit": false,
+   "result": "unavailable (no plan)",
+   "tokens": {
+    "prompt_tokens": 2435,
+    "completion_tokens": 178
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-2",
+   "timed_out": false,
+   "elapsed_s": 16.81,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-2",
+     "t0": 398593.40944875,
+     "elapsed_s": 6.06,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1186,
+      "completion_tokens": 93,
+      "total_tokens": 1279
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    },
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2980,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": null,
+     "t0": 398599.467514291,
+     "elapsed_s": 2.51,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1249,
+      "completion_tokens": 85,
+      "total_tokens": 1334
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "replace",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": false,
+   "contract_violation": "no-plan",
+   "wants_edit": false,
+   "result": "unavailable (no plan)",
+   "tokens": {
+    "prompt_tokens": 2435,
+    "completion_tokens": 178
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-3",
+   "timed_out": false,
+   "elapsed_s": 17.14,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-3",
+     "t0": 398610.265909666,
+     "elapsed_s": 6.39,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1186,
+      "completion_tokens": 93,
+      "total_tokens": 1279
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    },
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2980,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": null,
+     "t0": 398616.652814416,
+     "elapsed_s": 2.59,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1249,
+      "completion_tokens": 85,
+      "total_tokens": 1334
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "replace",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": false,
+   "contract_violation": "no-plan",
+   "wants_edit": false,
+   "result": "unavailable (no plan)",
+   "tokens": {
+    "prompt_tokens": 2435,
+    "completion_tokens": 178
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-4",
+   "timed_out": false,
+   "elapsed_s": 18.49,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-4",
+     "t0": 398627.454224666,
+     "elapsed_s": 6.75,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1186,
+      "completion_tokens": 93,
+      "total_tokens": 1279
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    },
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2980,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": null,
+     "t0": 398634.202816,
+     "elapsed_s": 2.81,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1249,
+      "completion_tokens": 85,
+      "total_tokens": 1334
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "replace",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": false,
+   "contract_violation": "no-plan",
+   "wants_edit": false,
+   "result": "unavailable (no plan)",
+   "tokens": {
+    "prompt_tokens": 2435,
+    "completion_tokens": 178
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-5",
+   "timed_out": false,
+   "elapsed_s": 28.89,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-5",
+     "t0": 398645.996672666,
+     "elapsed_s": 7.2,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1186,
+      "completion_tokens": 93,
+      "total_tokens": 1279
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    },
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2980,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": null,
+     "t0": 398653.196607375,
+     "elapsed_s": 4.06,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1249,
+      "completion_tokens": 85,
+      "total_tokens": 1334
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "replace",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": false,
+   "contract_violation": "no-plan",
+   "wants_edit": false,
+   "result": "unavailable (no plan)",
+   "tokens": {
+    "prompt_tokens": 2435,
+    "completion_tokens": 178
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  },
+  {
+   "label": "A-baseline-6",
+   "timed_out": false,
+   "elapsed_s": 63.28,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-A-baseline-6",
+     "t0": 398675.077960375,
+     "elapsed_s": 18.33,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1186,
+      "completion_tokens": 93,
+      "total_tokens": 1279
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid Until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid Until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    },
+    {
+     "kind": "structured",
+     "provider_model": null,
+     "exclude_provider_model": null,
+     "prompt_chars": 2980,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": null,
+     "t0": 398693.405907208,
+     "elapsed_s": 13.71,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1249,
+      "completion_tokens": 85,
+      "total_tokens": 1334
+     },
+     "model_echo": "llama3.1:8b",
+     "wants_edit": true,
+     "edit_mode": "replace",
+     "ops_count": 2,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "2026-11-30",
+        "replace": "2026-12-31",
+        "find_len": 10,
+        "targets_requested_change": true,
+        "match": "matched"
+       },
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "failed_ops": 1,
+      "failed": [
+       {
+        "index": 1,
+        "field": "Valid until",
+        "cell": null,
+        "find": "",
+        "replace": "",
+        "find_len": 0,
+        "targets_requested_change": true,
+        "match": "FAILED",
+        "why": "empty_find (field='Valid until')"
+       }
+      ],
+      "apply_clean": false,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": false,
+   "contract_violation": "no-plan",
+   "wants_edit": false,
+   "result": "unavailable (no plan)",
+   "tokens": {
+    "prompt_tokens": 2435,
+    "completion_tokens": 178
+   },
+   "cost_usd": 0.0,
+   "cost_note": null
+  }
+ ],
+ "arm_A_summary": {
+  "attempts": 6,
+  "effective_edits": 0,
+  "refusals": 0,
+  "unavailable": 6,
+  "ineffective_or_invalid": 0,
+  "results": [
+   "unavailable (no plan)",
+   "unavailable (no plan)",
+   "unavailable (no plan)",
+   "unavailable (no plan)",
+   "unavailable (no plan)",
+   "unavailable (no plan)"
+  ],
+  "latency_s": [
+   17.91,
+   16.81,
+   17.14,
+   18.49,
+   28.89,
+   63.28
+  ],
+  "latency_mean_s": 27.09,
+  "cost_usd_total": 0.0,
+  "failed_op_whys": [
+   "empty_find (field='Valid Until')",
+   "empty_find (field='Valid until')",
+   "empty_find (field='Valid Until')",
+   "empty_find (field='Valid until')",
+   "empty_find (field='Valid Until')",
+   "empty_find (field='Valid until')",
+   "empty_find (field='Valid Until')",
+   "empty_find (field='Valid until')",
+   "empty_find (field='Valid Until')",
+   "empty_find (field='Valid until')",
+   "empty_find (field='Valid Until')",
+   "empty_find (field='Valid until')"
+  ],
+  "pin_mismatches": [],
+  "first_plan_classifications": [
+   {
+    "ops": [
+     {
+      "index": 0,
+      "field": null,
+      "cell": null,
+      "find": "Valid until: 2026-11-30",
+      "replace": "Valid until: 2026-12-31",
+      "find_len": 23,
+      "targets_requested_change": true,
+      "match": "matched"
+     },
+     {
+      "index": 1,
+      "field": "Valid Until",
+      "cell": null,
+      "find": "",
+      "replace": "",
+      "find_len": 0,
+      "targets_requested_change": true,
+      "match": "FAILED",
+      "why": "empty_find (field='Valid Until')"
+     }
+    ],
+    "failed_ops": 1,
+    "failed": [
+     {
+      "index": 1,
+      "field": "Valid Until",
+      "cell": null,
+      "find": "",
+      "replace": "",
+      "find_len": 0,
+      "targets_requested_change": true,
+      "match": "FAILED",
+      "why": "empty_find (field='Valid Until')"
+     }
+    ],
+    "apply_clean": false,
+    "extra_ops_touching_other_text": 0
+   }
+  ]
+ },
+ "arm_B_pin": {
+  "provider": "deepseek",
+  "model": "deepseek-v4-pro",
+  "mechanism": "ATOM_ASYNC_EDIT_PLAN_MODEL"
+ },
+ "arm_B_planning_rung": [
+  {
+   "label": "B-deepseek-1",
+   "timed_out": false,
+   "elapsed_s": 17.41,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-1",
+     "t0": 398738.432891583,
+     "elapsed_s": 17.41,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1607,
+      "completion_tokens": 1148,
+      "total_tokens": 2755
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated the Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1607,
+    "completion_tokens": 1148
+   },
+   "cost_usd": 0.00666732,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-2",
+   "timed_out": false,
+   "elapsed_s": 12.89,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-2",
+     "t0": 398755.90402325,
+     "elapsed_s": 12.89,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1607,
+      "completion_tokens": 983,
+      "total_tokens": 2590
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated the Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1607,
+    "completion_tokens": 983
+   },
+   "cost_usd": 0.00601392,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-3",
+   "timed_out": false,
+   "elapsed_s": 16.88,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-3",
+     "t0": 398768.849086625,
+     "elapsed_s": 16.88,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1607,
+      "completion_tokens": 1269,
+      "total_tokens": 2876
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid until to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1607,
+    "completion_tokens": 1269
+   },
+   "cost_usd": 0.00714648,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-4",
+   "timed_out": false,
+   "elapsed_s": 12.39,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-4",
+     "t0": 398785.77175325,
+     "elapsed_s": 12.39,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1607,
+      "completion_tokens": 869,
+      "total_tokens": 2476
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1607,
+    "completion_tokens": 869
+   },
+   "cost_usd": 0.00556248,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-5",
+   "timed_out": false,
+   "elapsed_s": 6.89,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-5",
+     "t0": 398798.210640625,
+     "elapsed_s": 6.88,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1607,
+      "completion_tokens": 484,
+      "total_tokens": 2091
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated the Valid Until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1607,
+    "completion_tokens": 484
+   },
+   "cost_usd": 0.00403788,
+   "cost_note": null
+  },
+  {
+   "label": "B-deepseek-6",
+   "timed_out": false,
+   "elapsed_s": 8.51,
+   "dispatches": [
+    {
+     "kind": "structured",
+     "provider_model": [
+      "deepseek",
+      "deepseek-v4-pro"
+     ],
+     "exclude_provider_model": null,
+     "prompt_chars": 2674,
+     "max_tokens": 2000,
+     "disable_reasoning": true,
+     "route_trace_id": "canvas_edit_plan:t1bench-B-deepseek-6",
+     "t0": 398805.149491916,
+     "elapsed_s": 8.51,
+     "result_none": false,
+     "result_type": "CanvasEditPlan",
+     "usage": {
+      "prompt_tokens": 1607,
+      "completion_tokens": 593,
+      "total_tokens": 2200
+     },
+     "model_echo": "deepseek-v4-pro",
+     "pin_served_by": "requested",
+     "wants_edit": true,
+     "edit_mode": "patch",
+     "ops_count": 1,
+     "op_classification": {
+      "ops": [
+       {
+        "index": 0,
+        "field": null,
+        "cell": null,
+        "find": "Valid until: 2026-11-30",
+        "replace": "Valid until: 2026-12-31",
+        "find_len": 23,
+        "targets_requested_change": true,
+        "match": "matched"
+       }
+      ],
+      "failed_ops": 0,
+      "failed": [],
+      "apply_clean": true,
+      "extra_ops_touching_other_text": 0
+     },
+     "reply_head": "Updated Valid until date to 2026-12-31."
+    }
+   ],
+   "plan_returned": true,
+   "contract_violation": null,
+   "wants_edit": true,
+   "apply_failed_ops": 0,
+   "apply_clean": true,
+   "final_matches_intended": true,
+   "validator_grounded": true,
+   "validator_refusals": [],
+   "result": "effective_edit",
+   "tokens": {
+    "prompt_tokens": 1607,
+    "completion_tokens": 593
+   },
+   "cost_usd": 0.00446952,
+   "cost_note": null
+  }
+ ],
+ "arm_B_summary": {
+  "attempts": 6,
+  "effective_edits": 6,
+  "refusals": 0,
+  "unavailable": 0,
+  "ineffective_or_invalid": 0,
+  "results": [
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit",
+   "effective_edit"
+  ],
+  "latency_s": [
+   17.41,
+   12.89,
+   16.88,
+   12.39,
+   6.89,
+   8.51
+  ],
+  "latency_mean_s": 12.49,
+  "cost_usd_total": 0.0338976,
+  "failed_op_whys": [],
+  "pin_mismatches": [],
+  "first_plan_classifications": [
+   {
+    "ops": [
+     {
+      "index": 0,
+      "field": null,
+      "cell": null,
+      "find": "Valid until: 2026-11-30",
+      "replace": "Valid until: 2026-12-31",
+      "find_len": 23,
+      "targets_requested_change": true,
+      "match": "matched"
+     }
+    ],
+    "failed_ops": 0,
+    "failed": [],
+    "apply_clean": true,
+    "extra_ops_touching_other_text": 0
+   }
+  ]
+ }
+}

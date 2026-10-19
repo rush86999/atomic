@@ -66,7 +66,7 @@ Evidence lives in `journey_matrix/`. Registry + runner:
 
 | ID | Journey | What must actually work |
 |----|---------|--------------------------|
-| J1 | Fresh setup | Install via quickstart, start, sign in, create workspace; required configuration is **effective** in the running server (not merely present) |
+| J1 | Fresh setup | Install via quickstart, start, sign in, create workspace; required configuration is **effective** in the running server (not merely present); the first-run onboarding wizard **completes and persists** (an ordinary "Start Automating" click; reload/sign-in does not reopen it) |
 | J2 | Model setup | Add one BYOK provider or local inference through the product; a real reply comes back; tool planning selects a tool for a tool-shaped ask |
 | J3 | Source connection | Connect/ingest one source through the product; the authorized workspace can retrieve it; **another workspace cannot** |
 | J4 | Research | A fresh request produces source-bound findings; uncertainty is preserved when sources don't answer; results survive reload |
@@ -84,7 +84,33 @@ source** (upload or file ingest), **one business-record connector**, and
 is not proof that its user workflow works. Extend the same contract to
 the advertised connector set only after the first wave holds.
 
-## Current status (2026-10-12, round 10 — J2 verdict split: the first-reply scope blocker is closed; the unsupported tool claim is the blocker)
+## Current status (2026-10-17, Phase C — J1.onboarding-completion verified; setup gate green in release scope)
+
+**J1.onboarding-completion — VERIFIED on `cca1fb13d` (reproduce-first, Phase C).**
+The 2026-10-12 finding (defect 6 below) does **not** reproduce on the current lineage.
+On a frozen clean worktree checkout (`cca1fb13d`, tree `4e8329d4…`), with a fresh
+product-created user and a fresh browser context (served frontend = `next dev` compiled
+from that checkout; served backend = scratch boot from the same checkout, health
+`git_commit cca1fb13d595`), ONE ordinary "Start Automating" click emitted exactly one
+authorized `POST /api/onboarding/update` (Bearer token; body `completed=true`,
+`step=completed`), answered 200, persisted server-side (`onboarding_completed=1`,
+`step='completed'` — also read back via the page's own session), and the wizard closed
+1.04 s after the click. A reload and a sign-out/sign-in did **not** reopen it. A labeled
+injected-500 scenario kept the failure visible, left the wizard open, did NOT falsely
+mark completion, and recovered on a second click. **No repair was required** on this
+lineage. Harness sha256 `43c1dc43…`; evidence
+`journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256
+`657943f3…`; 13/13 checks true, `first_failed_transition=null`). The historical failure
+and its trace are preserved (defect 6); the cause of that Oct-12 observation remains
+unestablished on this lineage.
+
+**Gates (recomputed after the flip):** `--check --release` → **rc=0** (no failing
+journeys in release scope J1–J3); `--check --strict --release` → **rc=1** (UNTESTED: J1
+`quickstart-install`, J2 `tool-planning` + `model-native-tool-calling`); `--check`
+(all journeys) → **rc=0**. Row-level statuses, qualifications and evidence bindings:
+the readiness matrix (`docs/acceptance/READINESS_MATRIX_2026-10-17.md`, rev 3).
+
+## Previous status (2026-10-12, round 10 — J2 verdict split: the first-reply scope blocker is closed; the unsupported tool claim is the blocker; superseded by the Phase C section above)
 
 **Two pristine runs, bound to their candidates** (git-archive code export + allowlisted env +
 per-world scratch SQLite/LanceDB/BYOK + product-created users; the JSONs are imported with
@@ -366,6 +392,14 @@ are unexecuted.
    through the product (round-9 chain, byok_keys.json) — the break is at completion only.
    One transient observation retained: a failed Ollama probe renders "not detected" with no
    re-probe (attempt `111951`).
+   *SUPERSEDED 2026-10-17 (Phase C, reproduce-first)* — does NOT reproduce on `cca1fb13d`:
+   one ordinary click persisted (`onboarding_completed=1`, `step='completed'`), the wizard
+   closed 1.04 s after the click, and reload/sign-out/sign-in did not reopen it; a labeled
+   injected-500 scenario stayed visibly failed with no false completion and recovered on a
+   second click; **no repair required**. Evidence
+   `journey_matrix/browser_onboarding_completion_20261017_093641_af322b.json` (sha256
+   `657943f3…`; harness sha256 `43c1dc43…`). The original observation above and its trace
+   are preserved; its cause remains unestablished on the current lineage.
 7. **Settings→local-models default quality makes a normal configuration ineligible**
    (OPEN — retained product-default evidence; assess AFTER scope propagation): the
    capabilities UI defaults `quality_score=0.5` while every ranking floor is ≥ 85/100, so a

@@ -1,0 +1,15 @@
+user: jprobe_exp_1792248280@example.com
+== register ==
+{"access_token":"<redacted-scratch-jwt>
+== me ==
+{'id': '27cc1e0b-25bd-45a5-9aad-9e94bb4fe56c', 'email': 'jprobe_exp_1792248280@example.com', 'tenant_id': None, 'workspace_id': '5f095aad-e96e-4289-a8d3-8707ee51484b'}
+== providers before (U2) ==
+ollama -> {'has_api_keys': False, 'has_tenant_key': False, 'status': 'inactive'}
+== store key as U2 (Settings->AI shape: ?key_name=default) ==
+{"success":true,"data":{"key_id":"tenant_f557aac5-44ad-4bb9-aa69-5ddde6322aa7_ollama_default_production","message":"API key stored successfully for ollama in F5's Workspace"},"error":null,"message":null,"timestamp":"2026
+== providers after (U2) ==
+ollama -> {'has_api_keys': True, 'has_tenant_key': True, 'status': 'active'}
+== chat as U2 (expect: reproduces run-2 no-provider OR a real answer) ==
+{"success":true,"message":"Hello! I'm ATOM, your AI-powered business automation assistant at F5 Probe <jprobe_exp_1792248280@example.com>. How can I assist you today?","session_id":"session_exp_f5_1792248280","intent":"agent_request","confidence":0.2,"suggested_actions":[],"requires_confirmation":false,"next_steps":["Ask me to connect more services","Explore automation opportunities","Check your dashboard for insights"],"timestamp":"2026-10-17T10:44:49.100761","metadata":{"persistence":{"status":"persisted"}},"memory_context":"RELEVANT MEMORY (auto-retrieved background from ingested data — NOT from this conversation; may be incomplete or stale. When the user refers to something said in thi
+== done ==
+EMAIL=jprobe_exp_1792248280@example.com PASS=<scratch-user-password>

@@ -1,0 +1,938 @@
+{
+ "journey": "phase-d-fresh-install-complete-loop",
+ "phase": "D-pristine-install-run3",
+ "run": 3,
+ "started_at": "2026-10-17T15:34:37+00:00",
+ "harness": {
+  "file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/scripts/orchestration_acceptance/browser_phase_d_loop_complete_r3.py",
+  "sha256": "ab03174a79a761d1e1b1a07f376fb5c5e6fe37d12b23360b4a75f94ded4f7d33",
+  "carries": "browser_phase_d_quickstart_loop.py (Phase C machinery)"
+ },
+ "frozen_candidate": "68729ebe4425c689832f012c3d5da23f3effc491",
+ "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine",
+ "effective_config": {
+  "atom_local_only": false,
+  "opencode_base_url": "https://opencode.ai/zen/go/v1",
+  "opencode_api_key_env": "present (OPENCODE_API_KEY in backend/.env; value never recorded)",
+  "provider_under_test": "opencode-go",
+  "byok_store_paths": [
+   "wizard Card B: key_name '<provider> (onboarding)' (F4 shape)",
+   "Settings->AI: key_name=default (resolver-compatible)"
+  ],
+  "note": "run 1/run 2 evidence carries local-only=true; run 3 flips per owner directive 2026-10-17 'use opencode go keys or deepseek keys for testing byok'. F5: local-only roulette starves the planning leg (see INSTALL_FINDINGS F5)"
+ },
+ "go_key_loaded": true,
+ "context": "F1..F3 install findings; F4 product defect (wizard key_name mismatch) reproduced for Ollama in run 2 and re-tested here for a CLOUD provider; F5 product defect (agent/planning legs starve under ATOM_LOCAL_ONLY=true; evidence logs_phase_d/f5_repro.log + f5_sentinel_trace_excerpt.txt).",
+ "versions": {
+  "pyarrow": "25.0.1",
+  "numpy": "1.26.4",
+  "lancedb": "0.25.3",
+  "playwright": "1.58.0"
+ },
+ "backend_health_identity": {
+  "pid": 13809,
+  "started_at": "2026-10-17T15:34:36.532562+00:00",
+  "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+  "git_commit": "68729ebe4425",
+  "source_id": "68729ebe4425-dirty.1d0d74f00f4d",
+  "instance_id": "68729ebe4425-dirty.1d0d74f00f4d.13809.1792251278",
+  "revision": "68729ebe4425c689832f012c3d5da23f3effc491",
+  "dirty": true,
+  "dirty_digest": "1d0d74f00f4d",
+  "dirty_paths": [],
+  "untracked_paths": [
+   "backend/scripts/orchestration_acceptance/browser_phase_d_loop_complete.py",
+   "backend/scripts/orchestration_acceptance/browser_phase_d_loop_complete_r3.py",
+   "backend/scripts/orchestration_acceptance/browser_phase_d_quickstart_loop.py",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/FREEZE.md",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/INSTALL_FINDINGS.md",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/browser_complete_loop_20261017_104117.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/browser_complete_loop_r3_20261017_113139.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/browser_quickstart_loop_20261017_101746.json",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_after_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_after_reload.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_chat_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_documents_uploaded.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_ready_before_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run2_admin_signed_in.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run2_after_reload.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run2_chat_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run2_documents_uploaded.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run2_settings_ollama.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run2_user_signed_in.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run3_admin_signed_in.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run3_after_reload.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run3_chat_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run3_documents_uploaded.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run3_settings_ocgo.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_run3_user_signed_in.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/phase_d_signed_in.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/run1_phase_d_after_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/run1_phase_d_after_reload.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/run1_phase_d_chat_answer.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/run1_phase_d_documents_uploaded.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/run1_phase_d_ready_before_click.png",
+   "backend/scripts/orchestration_acceptance/journey_matrix/phase_d_fresh_install/run1_phase_d_signed_in.png",
+   "logs_phase_d/isolation_applied.md"
+  ],
+  "captured_at": "2026-10-17T15:34:38.410704+00:00",
+  "port": 18100,
+  "error": null,
+  "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/atom_dev.db",
+  "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/data/byok_keys.json"
+ },
+ "backend_ownership": {
+  "tag": "attach",
+  "port": 18100,
+  "listener_pid": 12443,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+  "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18100 --reload",
+  "owned_by_worktree": true
+ },
+ "frontend_ownership": {
+  "tag": "attach",
+  "port": 18101,
+  "listener_pid": 96443,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+  "listener_cmd": "next-server (v16.2.2)",
+  "owned_by_worktree": true
+ },
+ "db_path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/atom_dev.db",
+ "db_path_inside_worktree": true,
+ "db_before": {
+  "found": true,
+  "id": "30b24f82-3cf5-4c19-b980-f5ae181272c5",
+  "completed": true,
+  "step": "completed",
+  "users_total": 7,
+  "workspaces_total": 7
+ },
+ "product_user": {
+  "registered": true,
+  "register_http": 200,
+  "email": "jprobe_d31a65291a@example.com",
+  "id": "ee5a6204-a040-4938-bbbd-80e742c8411c"
+ },
+ "admin_credentials": {
+  "email": "admin@example.com",
+  "password_file": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend/logs/bootstrap_admin_password.txt",
+  "password_present": true,
+  "password": "<redacted>"
+ },
+ "browser_version": "145.0.7632.6",
+ "admin_signin": {
+  "login": {
+   "url": "http://localhost:18101/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792251281}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792251282264_25dvz7cgj"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792251282264_25dvz7cgj"
+   }
+  },
+  "login_observed": true,
+  "login_200": true,
+  "overlay_present_after_login": false,
+  "onboarding_status": {
+   "status": 200,
+   "auth_header_present": true,
+   "body": {
+    "success": true,
+    "data": {
+     "onboarding_step": "completed",
+     "onboarding_completed": true
+    },
+    "timestamp": "2026-10-17T15:34:44.337455+00:00"
+   }
+  }
+ },
+ "session": {
+  "login": {
+   "url": "http://localhost:18101/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792251284}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_d31a65291a@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792251284962_2j7bu7rhx"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792251284962_2j7bu7rhx"
+   }
+  },
+  "login_200": true,
+  "frontend_ownership_login": {
+   "tag": "after_login",
+   "port": 18101,
+   "listener_pid": 96443,
+   "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+   "listener_cmd": "next-server (v16.2.2)",
+   "owned_by_worktree": true
+  },
+  "provider_before_wizard": {
+   "has_api_keys": false,
+   "has_tenant_key": false,
+   "status": "inactive"
+  },
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Journey!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "card_b_found": true,
+    "provider_selected": "opencode-go",
+    "save_clicked": true,
+    "save_result": "saved",
+    "advanced_to_ready": true,
+    "provider_options": [
+     "DeepSeek V3",
+     "OpenAI",
+     "Anthropic",
+     "Groq (Llama 3)",
+     "Google Gemini",
+     "Google Gemini Flash",
+     "Google Gemini 3.5 Flash",
+     "Google Gemini",
+     "Google Gemini Flash",
+     "Google Gemini 3.5 Flash",
+     "Lux Computer Use",
+     "Mistral AI",
+     "Zhipu GLM",
+     "Moonshot (Kimi)",
+     "Qwen (Alibaba)",
+     "DeepInfra",
+     "Tavily",
+     "Zhipu GLM 5",
+     "MiniMax M3",
+     "MiniMax",
+     "Anthropic Claude Opus 4.6",
+     "OpenAI GPT 5.3",
+     "Xiaomi",
+     "OpenRouter",
+     "xAI (Grok)",
+     "Cerebras",
+     "Fireworks AI",
+     "Hugging Face",
+     "NVIDIA NIM",
+     "Z.AI",
+     "OpenCode",
+     "OpenCode Go",
+     "Perplexity",
+     "Cohere",
+     "Deepgram",
+     "Bright Data"
+    ],
+    "password_input_found": true,
+    "save_button_found": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "wizard_store_responses": [
+   {
+    "t": 13.26,
+    "status": 200,
+    "url": "http://localhost:18100/api/ai/providers/opencode-go/keys",
+    "body_head": "{\"success\":true,\"data\":{\"key_id\":\"tenant_61dede61-50a7-4e57-a0f1-0e95927cf070_opencode-go_opencode-go (onboarding)_production\",\"message\":\"API key stored successfully for opencode-go in Journey's Workspace\"},\"error\":null,\"message\":null,\"timestamp\":\"2026-10-17T15:34:50.502693Z\"}"
+   }
+  ],
+  "wizard_stored_key_id": "tenant_61dede61-50a7-4e57-a0f1-0e95927cf070_opencode-go_opencode-go (onboarding)_production",
+  "provider_after_wizard": {
+   "has_api_keys": false,
+   "has_tenant_key": false,
+   "status": "inactive"
+  },
+  "wizard_key_left_provider_inactive": true,
+  "frontend_ownership_before_click": {
+   "tag": "before_click",
+   "port": 18101,
+   "listener_pid": 96443,
+   "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+   "listener_cmd": "next-server (v16.2.2)",
+   "owned_by_worktree": true
+  },
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 14.51,
+   "overlay_closed_at": 15.55,
+   "overlay_closed_seconds_after_click": 1.04,
+   "toasts_seen": [
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 14.54,
+     "method": "POST",
+     "url": "http://localhost:18100/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 14.55,
+     "status": 200,
+     "url": "http://localhost:18100/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T15:34:51.789470+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 14.54,
+      "method": "POST",
+      "url": "http://localhost:18100/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     }
+    ],
+    "responses": [
+     {
+      "t": 14.55,
+      "status": 200,
+      "url": "http://localhost:18100/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T15:34:51.789470+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:18101/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"client-success\",\"clientId\":1792251284527}",
+       "{\"event\":\"span-end\",\"startTime\":1792251284409.4,\"endTime\":1792251284589.2,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792251284527}",
+       "{\"event\":\"client-success\",\"clientId\":1792251284527}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10707:13)\\n    at http://localhost:18101/_next/static/chunks/%5Broot-of-the-server%5D__07yy\u2026(+1053)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"11:34:44.966\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"11:34:44.969\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792251284527}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"console\",\"consoleMethodStack\":\"    at console.warn (http://localhost:18101/_next/static/chunks/node_modules_next_dist_08w_b42._.js:1380:13)\\n    at GlobalChatWidget.useEffect.fetchPendingApprovals (http://localhost:18101/_next/static/chunks/%5Broot-of-the-\u2026(+219)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"11:34:45.061\",\"level\":\"WARN\",\"message\":\"[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown.\"}]}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true,\"/dashboard\":true,\"/chat\":true,\"/documents\":true,\"/api/satellite/key\":false,\"/settings/ai\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":1492341815228525}}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"112\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"114\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true,\"/chat\":true,\"/documents\":true,\"/api/satellite/key\":false,\"/settings/ai\":true}}",
+       "{\"type\":\"built\",\"hash\":\"116\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/settings/ai\":true,\"/dashboard\":true,\"/login\":true,\"/chat\":true,\"/documents\":true,\"/api/satellite/key\":false}}"
+      ]
+     },
+     {
+      "url": "ws://localhost:18100/ws?token=<jwt-redacted>",
+      "frames_sent": [],
+      "frames_received": []
+     },
+     {
+      "url": "ws://localhost:18100/ws?token=<jwt-redacted>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "post_click": {
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T15:35:21.955728+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "ee5a6204-a040-4938-bbbd-80e742c8411c",
+    "completed": true,
+    "step": "completed",
+    "users_total": 8,
+    "workspaces_total": 8
+   },
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792251284}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_d31a65291a@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792251284962_2j7bu7rhx"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792251284962_2j7bu7rhx"
+   }
+  },
+  "settings_model_config": {
+   "fresh_user_attempt": {
+    "settings_page_loaded": true,
+    "card_found": true,
+    "badge_before": "Not Configured",
+    "badge_after": "\u2713 Working",
+    "card_class_after": "provider-card configured",
+    "save_requests_since": [
+     {
+      "t": 56.84,
+      "method": "POST",
+      "url": "http://localhost:18101/api/ai/providers/opencode-go/keys?key_name=default",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"api_key\":\"<redacted-opencode-go-key>\"}"
+     }
+    ],
+    "save_responses_since": [
+     {
+      "t": 56.85,
+      "status": 200,
+      "url": "http://localhost:18101/api/ai/providers/opencode-go/keys?key_name=default",
+      "body_head": "{\"success\":true,\"data\":{\"key_id\":\"tenant_61dede61-50a7-4e57-a0f1-0e95927cf070_opencode-go_default_production\",\"message\":\"API key stored successfully for opencode-go in Journey's Workspace\"},\"error\":null,\"message\":null,\"timestamp\":\"2026-10-17T15:35:34.095615Z\"}"
+     }
+    ],
+    "key_name_default_in_save": true,
+    "provider_after": {
+     "has_api_keys": true,
+     "has_tenant_key": true,
+     "status": "active"
+    }
+   },
+   "final_readback": {
+    "has_api_keys": true,
+    "has_tenant_key": true,
+    "status": "active"
+   },
+   "configured_in": "fresh-user-context"
+  },
+  "upload": {
+   "file_input_found": true,
+   "success_text_seen": true,
+   "upload_requests": [
+    {
+     "t": 62.99,
+     "method": "POST",
+     "url": "http://localhost:18100/api/documents/upload",
+     "authorization_present": true,
+     "content_type": "multipart/form-data; boundary=----WebKitFormBoundaryKYi53JPga8szdajZ",
+     "post_data": null
+    }
+   ],
+   "upload_responses": [
+    {
+     "t": 63.07,
+     "status": 200,
+     "url": "http://localhost:18100/api/documents/upload",
+     "body_head": "{\"id\":\"doc_ee4153d4a4ff67b28359e186\",\"title\":\"phase_d_zephyr_notes.txt\",\"type\":\"text/plain\",\"metadata\":{\"source\":\"upload\",\"size\":221,\"title\":\"phase_d_zephyr_notes.txt\",\"filename\":\"phase_d_zephyr_notes.txt\",\"file_type\":\"txt\",\"ingested_at\":\"2026-10-17T11:35:40.245833\",\"doc_id\":\"doc_ee4153d4a4ff67b28359e186\",\"pg_document_id\":\"doc_ee4153d4a4ff67b28359e186\",\"source_type\":\"upload\",\"integration_id\":\"manual_upload\",\"author\":\"jprobe_d31a65291a@example.com\"},\"ingested_at\":\"2026-10-17T11:35:40.245833\",\"chu\u2026(+12)"
+    }
+   ],
+   "documents_list": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": [
+      {
+       "id": "doc_ee4153d4a4ff67b28359e186",
+       "title": "phase_d_zephyr_notes.txt",
+       "text_preview": "ATOM PHASE D FIXTURE \u2014 internal notes.\nProject Zephyr-9 launch planning.\nThe launch code for project Zephyr-9 is QUARTZ-77.\nOwner: R. Parikh. Team: acceptance.\nDecoy: the archive key for project Halcy",
+       "metadata": {
+        "source": "upload",
+        "size": 221,
+        "title": "phase_d_zephyr_notes.txt",
+        "filename": "phase_d_zephyr_notes.txt",
+        "file_type": "txt",
+        "ingested_at": "2026-10-17T11:35:40.245833",
+        "doc_id": "doc_ee4153d4a4ff67b28359e186",
+        "pg_document_id": "doc_ee4153d4a4ff67b28359e186",
+        "source_type": "upload",
+        "integration_id": "manual_upload",
+        "author": "jprobe_d31a65291a@example.com",
+        "source_content_hash": "ev4:ee4153d4a4ff67b28359e18665a669cab4afc0a6363572630cddc3155d3c5cd7"
+       },
+       "created_at": "2026-10-17T15:35:40.262490+00:00"
+      }
+     ],
+     "timestamp": "2026-10-17T15:35:41.254495+00:00",
+     "metadata": {
+      "total": 1,
+      "limit": 100,
+      "offset": 0
+     }
+    }
+   },
+   "fixture_in_list": true
+  },
+  "chat": {
+   "input_found": true,
+   "attempts": [
+    {
+     "prompt": "Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.",
+     "sent_at": 67.15,
+     "last_history_status": 200,
+     "session_id": "session_1792251284962_2j7bu7rhx",
+     "history_msgs_count": 2,
+     "answer_text": "The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message.",
+     "dom_text": "The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message.\n\nReasoning Process (1 steps)",
+     "non_answer_reason": "unusable output",
+     "history_contains_fact": false,
+     "waited_seconds": 38.8
+    },
+    {
+     "prompt": "Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.",
+     "sent_at": 105.93,
+     "last_history_status": 200,
+     "session_id": "session_1792251284962_2j7bu7rhx",
+     "history_msgs_count": 2,
+     "answer_text": "The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message.",
+     "dom_text": "Reasoning Process (2 steps)",
+     "non_answer_reason": "unusable output",
+     "history_contains_fact": false,
+     "waited_seconds": 14.3
+    }
+   ],
+   "retried": true,
+   "final_answer_text": "The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message.",
+   "history_msgs_count": 2,
+   "assistant_text_dom": "Reasoning Process (2 steps)",
+   "answer_contains_fact": false,
+   "history_contains_fact": false,
+   "non_answer_reason": "unusable output",
+   "message_requests": [
+    {
+     "t": 67.18,
+     "method": "POST",
+     "url": "http://localhost:18100/api/chat/message",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"message\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\",\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"user_id\":\"ee5a6204-a040-4938-bbbd-80e742c8411c\",\"request_id\":\"28e36798-3d77-435a-b957-5c42d6fc2a39\",\"context\":{\"current_page\":\"/chat\",\"agent_id\":null,\"conversation_history\":[],\"attachments\":[]}}"
+    },
+    {
+     "t": 105.96,
+     "method": "POST",
+     "url": "http://localhost:18100/api/chat/message",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"message\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\",\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"user_id\":\"ee5a6204-a040-4938-bbbd-80e742c8411c\",\"request_id\":\"9323dde3-5728-4b17-b192-979992d0c23a\",\"context\":{\"current_page\":\"/chat\",\"agent_id\":null,\"conversation_history\":[{\"role\":\"user\",\"content\":\"Search my uploaded documents for t\u2026(+329)"
+    }
+   ],
+   "message_responses": [
+    {
+     "t": 89.64,
+     "status": 200,
+     "url": "http://localhost:18100/api/chat/message",
+     "body_head": "{\"success\":true,\"message\":\"The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message.\",\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"intent\":\"search_request\",\"confidence\":0.8,\"suggested_actions\":[\"Open Search UI for detailed results\",\"Save this search for later\",\"Set up alert for similar content\"],\"requires_confirmation\":false,\"next_steps\":[\"Refine your search with more s\u2026(+5006)"
+    }
+   ],
+   "no_llm_provider_seen": false,
+   "answer_says_provider_needed": false,
+   "usage_calls_window_start": "2026-10-17T15:35:14",
+   "usage_calls_total_filtered": 3,
+   "usage_calls_recent": [
+    {
+     "timestamp": "2026-10-17T15:36:07.047330Z",
+     "provider": "opencode-go",
+     "model": "kimi-k2.5",
+     "success": false,
+     "latency_ms": 170.65119743347168,
+     "input_tokens": 0,
+     "output_tokens": 0,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": "Error code: 400 - {'error': {'type': 'server_error', 'message': 'Upstream request failed: Model is unavailable.'}}"
+    },
+    {
+     "timestamp": "2026-10-17T15:36:06.357540Z",
+     "provider": "opencode-go",
+     "model": "glm-5.3-flash",
+     "success": true,
+     "latency_ms": 1480.031967163086,
+     "input_tokens": 1603,
+     "output_tokens": 46,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": null
+    },
+    {
+     "timestamp": "2026-10-17T15:36:04.839555Z",
+     "provider": "opencode-go",
+     "model": "minimax-m3",
+     "success": true,
+     "latency_ms": 8483.527183532715,
+     "input_tokens": 1788,
+     "output_tokens": 795,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": null
+    }
+   ],
+   "provider_used_opencode_go": true,
+   "ws_tail": [
+    {
+     "url": "ws://localhost:18100/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:35:44.514993\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)",
+      "{\"type\":\"chat_heartbeat\",\"data\":{\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"elapsed_ms\":10001}}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"minimax-m3\"}},\"action_input\":{\"model\":\"minimax-m3\"},\"observation\":\"<think>\\nThe user is asking me to search their uploaded documents for the launch code for projec\u2026(+513)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":4,\"type\":\"thought\",\"thought\":\"The user is asking me to search their uploaded documents for the launch code for project Zephyr-9. The live tool results show that the grep search returned 0 matches. I need to report this honestly.\\n\\nHowever, l\u2026(+2986)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:36:06.840086\"}",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"d74c2993-f86a-49ce-bbc9-789a63361f59\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:36:23.278868\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_inp\u2026(+600)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Please search my uploaded\u2026(+605)",
+      "{\"type\":\"chat_heartbeat\",\"data\":{\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"execution_id\":\"d74c2993-f86a-49ce-bbc9-789a63361f59\",\"elapsed_ms\":10001}}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18100/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:35:44.514993\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)",
+      "{\"type\":\"chat_heartbeat\",\"data\":{\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"elapsed_ms\":10001}}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"minimax-m3\"}},\"action_input\":{\"model\":\"minimax-m3\"},\"observation\":\"<think>\\nThe user is asking me to search their uploaded documents for the launch code for projec\u2026(+513)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":4,\"type\":\"thought\",\"thought\":\"The user is asking me to search their uploaded documents for the launch code for project Zephyr-9. The live tool results show that the grep search returned 0 matches. I need to report this honestly.\\n\\nHowever, l\u2026(+2986)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:36:06.840086\"}",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"d74c2993-f86a-49ce-bbc9-789a63361f59\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:36:23.278868\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_inp\u2026(+600)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Please search my uploaded\u2026(+605)",
+      "{\"type\":\"chat_heartbeat\",\"data\":{\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"execution_id\":\"d74c2993-f86a-49ce-bbc9-789a63361f59\",\"elapsed_ms\":10001}}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18100/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:35:44.514993\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"service\u2026(+574)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Search my uploaded documents for the l\u2026(+579)",
+      "{\"type\":\"chat_heartbeat\",\"data\":{\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"elapsed_ms\":10001}}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"minimax-m3\"}},\"action_input\":{\"model\":\"minimax-m3\"},\"observation\":\"<think>\\nThe user is asking me to search their uploaded documents for the launch code for projec\u2026(+513)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":4,\"type\":\"thought\",\"thought\":\"The user is asking me to search their uploaded documents for the launch code for project Zephyr-9. The live tool results show that the grep search returned 0 matches. I need to report this honestly.\\n\\nHowever, l\u2026(+2986)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"e0a7f602-5226-43e6-80cb-909d3bd35f5d\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:36:06.840086\"}",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"d74c2993-f86a-49ce-bbc9-789a63361f59\",\"session_id\":\"session_1792251284962_2j7bu7rhx\"},\"timestamp\":\"2026-10-17T11:36:23.278868\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_inp\u2026(+600)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"Please search my uploaded documents again for the launch code for project Zephyr-9 and tell me the code.\"}},\"action_input\":{\"query\":\"Please search my uploaded\u2026(+605)",
+      "{\"type\":\"chat_heartbeat\",\"data\":{\"session_id\":\"session_1792251284962_2j7bu7rhx\",\"execution_id\":\"d74c2993-f86a-49ce-bbc9-789a63361f59\",\"elapsed_ms\":10001}}"
+     ]
+    }
+   ],
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792251342}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_d31a65291a@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792251284962_2j7bu7rhx"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792251284962_2j7bu7rhx"
+   }
+  },
+  "reload": {
+   "chat_text_after_reload": "The answer model produced unusable output this turn, so no narrated answer is being delivered. Any completed file results are persisted and will be re-delivered on your next message.\n\nReasoning Process (1 steps)",
+   "fact_persists_after_reload": true,
+   "wizard_present_after_reload": false,
+   "wizard_present_after_dashboard_load": false,
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T15:36:55.714614+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "ee5a6204-a040-4938-bbbd-80e742c8411c",
+    "completed": true,
+    "step": "completed",
+    "users_total": 8,
+    "workspaces_total": 8
+   },
+   "status_api_completed": true,
+   "db_completed": true,
+   "frontend_ownership_end": {
+    "tag": "end",
+    "port": 18101,
+    "listener_pid": 96443,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/frontend-nextjs",
+    "listener_cmd": "next-server (v16.2.2)",
+    "owned_by_worktree": true
+   },
+   "backend_ownership_end": {
+    "tag": "end",
+    "port": 18100,
+    "listener_pid": 12443,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-d-pristine/backend",
+    "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18100 --reload",
+    "owned_by_worktree": true
+   },
+   "console_tail": [
+    {
+     "t": 129.43,
+     "type": "info",
+     "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+     "t": 129.46,
+     "type": "log",
+     "text": "[HMR] connected"
+    },
+    {
+     "t": 129.49,
+     "type": "warning",
+     "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+    },
+    {
+     "t": 129.49,
+     "type": "error",
+     "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+    },
+    {
+     "t": 129.5,
+     "type": "debug",
+     "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+    },
+    {
+     "t": 129.56,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+     "t": 129.56,
+     "type": "warning",
+     "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+    },
+    {
+     "t": 129.58,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 129.58,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 129.6,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 129.6,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+   ]
+  }
+ },
+ "console_tail": [
+  {
+   "t": 64.8,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 64.81,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 64.81,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 64.81,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 120.31,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 120.34,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 120.37,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 120.37,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 120.38,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 120.38,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 120.38,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 120.38,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 120.45,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 120.45,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 129.43,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 129.46,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 129.49,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18100/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 129.49,
+   "type": "error",
+   "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+  },
+  {
+   "t": 129.5,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 129.56,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 129.56,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 129.58,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 129.58,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 129.6,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 129.6,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ],
+ "page_errors": [],
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "admin-signin": true,
+  "product-user-registered": true,
+  "fresh-user-signin": true,
+  "wizard-present": true,
+  "wizard-api-key-posted": true,
+  "wizard-key-left-provider-inactive": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "settings-ai-configured-provider": true,
+  "settings-save-used-default-key-name": true,
+  "upload-succeeded": true,
+  "upload-durable": true,
+  "chat-answer-received": true,
+  "chat-no-no-llm-provider": true,
+  "answer-not-unusable-output": false,
+  "answer-uses-uploaded-source": false,
+  "answer-durable-in-history": false,
+  "answer-provider-opencode-go": true,
+  "reload-chat-persists": true,
+  "reload-no-wizard": true
+ },
+ "pass": false,
+ "finished_at": "2026-10-17T15:36:56+00:00"
+}

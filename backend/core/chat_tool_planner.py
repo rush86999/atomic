@@ -6533,6 +6533,64 @@ _RETRIEVAL_REFERENCE_RE = re.compile(
     re.IGNORECASE)
 
 
+def _record_r4_source_counter(
+    *, plan: Any, prov: Optional[Dict[str, Any]],
+    recs: Any, read_status: str, scan_action: str,
+) -> str:
+    """ONE attributable source-counter event pair (R4 diagnostic world).
+
+    Emits exactly one read_invoked + one read_completed line to
+    $ATOM_DATA_DIR/r4_source_invocations.jsonl when ATOM_R4_DIAG=1
+    with an explicit, existing scratch dir and a non-null plan execution
+    identity. Returns "written" or the invalidation reason:
+    "skipped-disabled" (not the diagnostic world), "invalid-dir"
+    (missing/invalid scratch config - nothing written anywhere, never a
+    cwd fallback), "invalid-identity" (missing plan execution identity -
+    no null-keyed event, never attributable). Invocation and completion
+    stay distinct events; the mapping is documented on the record
+    (plan_execution_id keys the authorizing planner execution,
+    content_hash keys the served copy's identity).
+    """
+    if os.getenv("ATOM_R4_DIAG") != "1":
+        return "skipped-disabled"
+    _dir = os.environ.get("ATOM_DATA_DIR")
+    if not (_dir and os.path.isdir(str(_dir))):
+        logger.warning(
+            "[r4-counter] invalidated - missing/invalid ATOM_DATA_DIR "
+            "(%r); no counter event written", _dir)
+        return "invalid-dir"
+    _pid = getattr(plan, "id", None) or getattr(
+        plan, "execution_id", None)
+    if not _pid:
+        logger.warning(
+            "[r4-counter] invalidated - missing plan execution identity; "
+            "no counter event written (null-keyed events are never "
+            "attributable)")
+        return "invalid-identity"
+    import json as _r4json
+    import time as _r4time
+    _base = {
+        "plan_execution_id": _pid,
+        "content_hash": (prov or {}).get("content_hash"),
+    }
+    with open(os.path.join(
+            str(_dir), "r4_source_invocations.jsonl"), "a") as rf:
+        rf.write(_r4json.dumps({**_base, "event": "read_invoked",
+                                "read_status": read_status,
+                                "rows": len(recs) if recs else 0,
+                                "at": _r4time.time()},
+                               default=str) + chr(10))
+    if scan_action:
+        with open(os.path.join(
+                str(_dir), "r4_source_invocations.jsonl"), "a") as rf:
+            rf.write(_r4json.dumps({**_base, "event": "read_completed",
+                                    "scan_action": scan_action,
+                                    "rows": len(recs) if recs else 0,
+                                    "at": _r4time.time()},
+                                   default=str) + chr(10))
+    return "written"
+
+
 async def _datasets_named_file_block(
     user_id: Optional[str], query: str, context: Optional[Dict[str, Any]],
     plan: Any = None,
@@ -7385,6 +7443,18 @@ async def _datasets_named_file_block(
     # a record with zero rows and the attempt was stamped `new_read` — which
     # rendered as a confident absence for a source nobody had read. The scan's
     # per-source verdict is the observation that can actually tell them apart.
+    # R4 SCRATCH SOURCE COUNTER (env-gated; only the diagnostic world
+    # sets ATOM_R4_DIAG=1): ONE attributable source-executor event per
+    # read ATTEMPT (read_invoked) and ONE per read COMPLETION
+    # (read_completed with verdict + row count). Invocation and completion
+    # stay distinct: recovery must add zero invocations, while an explicit
+    # refresh remains legitimate new work with its own identities +
+    # timestamps. Mapping: plan_execution_id keys the event to the
+    # planner execution that authorized the read; content_hash keys it to
+    # the served copy's identity (the original read's version). ONE
+    # canonical explicit scratch dir (no cwd fallback); missing config or
+    # missing execution identity invalidates the diagnostic (no
+    # null-keyed event, never written elsewhere).
     if _read_status == "failed":
         _scan_action = "read_failed"
     elif bool(recs) or _scanned_ok:
@@ -7393,6 +7463,9 @@ async def _datasets_named_file_block(
         _scan_action = "unverified"
     else:
         _scan_action = "read_failed"
+    _record_r4_source_counter(
+        plan=plan, prov=prov, recs=recs,
+        read_status=_read_status, scan_action=_scan_action)
     _scan_revision = (
         f"{prov.get('content_hash') or '?'}:"
         f"{prov.get('ingested_at') or '?'}"
@@ -8044,6 +8117,49 @@ async def _documents_vfs_block(
                 )
             )
             if not matches:
+                # INGESTED-DOCUMENTS FALLBACK (Phase E, 2026-10-17): manual
+                # uploads live in the workspace's ingested-documents store
+                # (LanceDB + IngestedDocument rows), NOT in the knowledge VFS
+                # tree this grep scans. A source-ask that greps to zero
+                # matches must consult the product's own hybrid document
+                # search (the J4-proven lane) before concluding nothing
+                # exists — observed: uploaded doc durably present, grep 0
+                # matches, answer "couldn't find any matching lines".
+                try:
+                    _hybrid_res = await action_registry.execute_action(
+                        "documents.search",
+                        {"query": query, "limit": 10},
+                        {"user_id": user_id,
+                         "workspace_id": (context or {}).get(
+                             "workspace_id")})
+                    _hybrid_hits = list(
+                        (_hybrid_res or {}).get("results") or [])[:10]
+                    if _hybrid_hits:
+                        _stamp_documents_receipt(
+                            plan, action="search", query=query,
+                            executed=True, match_count=len(_hybrid_hits),
+                            paths=[str(h.get("id") or "")
+                                   for h in _hybrid_hits],
+                            workspace_id=(context or {}).get("workspace_id"))
+                        _lines = []
+                        for _h in _hybrid_hits:
+                            _title = str(_h.get("title")
+                                         or _h.get("id") or "")
+                            _body = str(_h.get("content")
+                                        or _h.get("preview") or "").strip()
+                            _src = str(_h.get("source") or "documents")
+                            _lines.append(
+                                f"- [{_src}] {_title}: {_body[:1200]}")
+                        return _with_grounding(
+                            "LIVE TOOL RESULTS (documents.search, query="
+                            f"'{query}') — hybrid search over the workspace's "
+                            f"ingested documents ({len(_hybrid_hits)} "
+                            "result(s)); these are the uploaded/ingested "
+                            "documents, distinct from the VFS conversation "
+                            "tree:\n" + "\n".join(_lines))
+                except Exception as _hy_err:  # noqa: BLE001 — additive lane
+                    logger.debug(
+                        f"documents hybrid-search fallback skipped: {_hy_err}")
                 # DOCUMENT RESOLUTION (owner J4 directive): the grep
                 # pattern is the user's phrasing — a document that uses
                 # different words can still contain the answer. List the
@@ -8983,6 +9099,37 @@ def _calc_lessons_fingerprint(
         return _hl.sha256(joined.encode()).hexdigest()[:12]
     except Exception:  # noqa: BLE001 — fingerprint is additive
         return ""
+
+
+def exec_canvas_context(canvas: Any) -> Optional[Dict[str, Any]]:
+    """The ``canvas`` mapping tool executors receive in their context.
+
+    Canvas content is SHAPE-VARIANT: the store resolves a STRING for
+    document canvases and a MAPPING for structured ones (the shape
+    ``chat_orchestrator._resolve_canvas_ctx`` returns). Mapping content
+    spreads its keys so executors (the intelligent query rewrite, history
+    entry text) see the canvas's fields; string content has no fields to
+    spread and contributes none — it already reaches the model through
+    the dedicated canvas context block.
+
+    The chat path's previous inline guard tested the WRONG object —
+    ``isinstance(canvas_context, dict)``, always true at that site — so a
+    string content was ``**``-unpacked: ``TypeError: 'str' object is not
+    a mapping`` on every planned lookup of a string-content canvas turn.
+    The lookup never dispatched, its retrieve operation settled
+    ``search_failed``, and the turn's envelope resolved
+    ``turn_failed_no_result`` although the answer (a canvas comparison)
+    was delivered correctly (live J6 draft campaign 2026-10-15, T2).
+    Returns None for a missing/non-mapping canvas so the caller can omit
+    the key entirely.
+    """
+    if not isinstance(canvas, dict):
+        return None
+    out: Dict[str, Any] = {"title": canvas.get("title")}
+    content = canvas.get("content")
+    if isinstance(content, dict):
+        out.update(content)
+    return out
 
 
 async def execute_tool_plan(

@@ -1,0 +1,1001 @@
+{
+ "journey": "phase-e-unified-candidate-loop",
+ "phase": "E",
+ "mode": "cloud",
+ "started_at": "2026-10-17T22:38:32+00:00",
+ "harness": {
+  "file": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/browser_phase_e_loop.py",
+  "sha256": "b1098cab08ff3c2f2644e7c210b783242a69a9ee12d9219cb46cc13b2a76f79d",
+  "carries": "browser_phase_d_quickstart_loop.py machinery"
+ },
+ "frozen_candidate": "e207494af4c7",
+ "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate",
+ "effective_config": {
+  "atom_local_only": false,
+  "provider_under_test": "opencode-go",
+  "opencode_api_key_env": "absent (cloud world: the wizard-stored key must activate the provider)",
+  "byok_store": "wizard Card B, canonical key_name=default + label"
+ },
+ "go_key_loaded": true,
+ "versions": {
+  "pyarrow": "25.0.1",
+  "numpy": "1.26.4",
+  "lancedb": "0.25.3",
+  "playwright": "1.58.0",
+  "cryptography": "48.0.1"
+ },
+ "backend_health_identity": {
+  "pid": 52026,
+  "started_at": "2026-10-17T22:38:21.346761+00:00",
+  "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend",
+  "git_commit": "e207494af4c7",
+  "source_id": "e207494af4c7-dirty.41212787130f",
+  "instance_id": "e207494af4c7-dirty.41212787130f.52026.1792276709",
+  "revision": "e207494af4c7de5f4b2ef85618c7eced64c18162",
+  "dirty": true,
+  "dirty_digest": "41212787130f",
+  "dirty_paths": [],
+  "untracked_paths": [
+   "evidence/phase_e_cloud/browser_phase_e_cloud_20261017_164154.json",
+   "evidence/phase_e_cloud/browser_phase_e_cloud_20261017_183521.json",
+   "evidence/phase_e_cloud/phase_d_after_click.png",
+   "evidence/phase_e_cloud/phase_d_ready_before_click.png",
+   "evidence/phase_e_cloud/phase_e_admin_signed_in.png",
+   "evidence/phase_e_cloud/phase_e_after_reload.png",
+   "evidence/phase_e_cloud/phase_e_chat_answer.png",
+   "evidence/phase_e_cloud/phase_e_documents_uploaded.png",
+   "evidence/phase_e_cloud/phase_e_user_signed_in.png",
+   "evidence/phase_e_local/browser_phase_e_local_20261017_171616.json",
+   "evidence/phase_e_local/browser_phase_e_local_20261017_171821.json",
+   "evidence/phase_e_local/browser_phase_e_local_20261017_175758.json",
+   "evidence/phase_e_local/phase_d_after_click.png",
+   "evidence/phase_e_local/phase_d_ready_before_click.png",
+   "evidence/phase_e_local/phase_e_admin_signed_in.png",
+   "evidence/phase_e_local/phase_e_after_reload.png",
+   "evidence/phase_e_local/phase_e_chat_answer.png",
+   "evidence/phase_e_local/phase_e_documents_uploaded.png",
+   "evidence/phase_e_local/phase_e_user_signed_in.png"
+  ],
+  "captured_at": "2026-10-17T22:38:29.170594+00:00",
+  "port": 18300,
+  "error": null,
+  "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/atom_dev.db",
+  "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/data/byok_keys.json"
+ },
+ "backend_ownership": {
+  "tag": "attach",
+  "port": 18300,
+  "listener_pid": 52026,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend",
+  "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18300 --log-level info",
+  "owned_by_worktree": true
+ },
+ "frontend_ownership": {
+  "tag": "attach",
+  "port": 18301,
+  "listener_pid": 38826,
+  "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/frontend-nextjs",
+  "listener_cmd": "next-server (v16.2.2)",
+  "owned_by_worktree": true
+ },
+ "db_path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend/atom_dev.db",
+ "db_path_inside_worktree": true,
+ "db_before": {
+  "found": true,
+  "id": "a17d8916-baee-4bd3-885a-e55cb94565b6",
+  "completed": false,
+  "step": "welcome",
+  "users_total": 1,
+  "workspaces_total": 1
+ },
+ "product_user": {
+  "registered": true,
+  "register_http": 200,
+  "email": "jprobe_8e0200ca94@example.com",
+  "id": "bd6677c1-57bb-4a84-8092-0c2ea0e24b6f"
+ },
+ "admin_credentials": {
+  "email": "admin@example.com",
+  "password_present": true,
+  "password": "<redacted>"
+ },
+ "browser_version": "145.0.7632.6",
+ "admin_signin": {
+  "login": {
+   "url": "http://localhost:18301/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792276715}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "admin@example.com",
+     "atom_user_role": "workspace_admin",
+     "atom_chat_session_id": "session_1792276715756_1m0v8cqbl"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792276715756_1m0v8cqbl"
+   }
+  },
+  "login_200": true
+ },
+ "session": {
+  "login": {
+   "url": "http://localhost:18301/dashboard",
+   "signed_in": true,
+   "auth_cookie": true,
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792276718}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_8e0200ca94@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792276718751_abcarh013"
+    },
+    "dismiss_key": null,
+    "chat_session": "session_1792276718751_abcarh013"
+   }
+  },
+  "login_200": true,
+  "provider_before_wizard": {
+   "has_api_keys": false,
+   "has_tenant_key": false,
+   "status": "inactive"
+  },
+  "wizard": {
+   "overlay_discovered": {
+    "found": true,
+    "kind": "role_dialog"
+   },
+   "overlay_text_head": "Welcome to Atom\n\nYour AI-powered automation workspace\n\n1\nWelcome\n2\nProfile\n3\nConnect\n4\nReady\nHello, Journey!\n\nAtom is here to help you automate your work with the power of AI Agents.\n\nNext",
+   "connect": {
+    "card_b_found": true,
+    "provider_selected": "opencode-go",
+    "save_clicked": true,
+    "save_result": "saved",
+    "advanced_to_ready": true,
+    "password_input_found": true,
+    "save_button_found": true
+   },
+   "overlay_text_at_ready": "Welcome to Atom\n\nYour AI-powered automation workspace\n\nWelcome\nProfile\nConnect\n4\nReady\nYou're Ready!\n\nYour workspace is ready. You can start by exploring templates or chatting with Atom to build a workflow.\n\nBack\nStart Automating"
+  },
+  "wizard_store_posts": [
+   {
+    "t": 11.93,
+    "method": "POST",
+    "url": "http://localhost:18300/api/ai/providers/opencode-go/keys",
+    "authorization_present": true,
+    "content_type": "application/json",
+    "post_data": "{\"api_key\":\"<redacted-opencode-go-key>\",\"key_name\":\"default\",\"label\":\"opencode-go (onboarding)\",\"environment\":\"production\"}"
+   }
+  ],
+  "wizard_store_responses": [
+   {
+    "t": 11.95,
+    "status": 200,
+    "url": "http://localhost:18300/api/ai/providers/opencode-go/keys",
+    "body_head": "{\"success\":true,\"data\":{\"key_id\":\"tenant_3b97bc99-b733-4253-94b5-e9c1b0111429_opencode-go_default_production\",\"message\":\"API key stored successfully for opencode-go in Journey's Workspace\"},\"error\":null,\"message\":null,\"timestamp\":\"2026-10-17T22:38:44.375636Z\"}"
+   }
+  ],
+  "wizard_store_status_200": true,
+  "wizard_payload_canonical": true,
+  "provider_after_wizard": {
+   "has_api_keys": true,
+   "has_tenant_key": true,
+   "status": "active"
+  },
+  "wizard_activated_provider": true,
+  "store_post_count_before_chat": 1,
+  "completion": {
+   "start_button_found": true,
+   "start_button_enabled": true,
+   "click_t": 13.0,
+   "overlay_closed_at": 14.03,
+   "overlay_closed_seconds_after_click": 1.03,
+   "toasts_seen": [
+    "You're all set"
+   ],
+   "overlay_still_open": false,
+   "update_requests_after_click": [
+    {
+     "t": 13.02,
+     "method": "POST",
+     "url": "http://localhost:18300/api/onboarding/update",
+     "authorization_present": true,
+     "content_type": "application/json",
+     "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+    }
+   ],
+   "update_responses_after_click": [
+    {
+     "t": 13.03,
+     "status": 200,
+     "url": "http://localhost:18300/api/onboarding/update",
+     "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T22:38:45.456850+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+    }
+   ],
+   "post_click_capture": {
+    "console": [],
+    "page_errors": [],
+    "requests": [
+     {
+      "t": 13.02,
+      "method": "POST",
+      "url": "http://localhost:18300/api/onboarding/update",
+      "authorization_present": true,
+      "content_type": "application/json",
+      "post_data": "{\"completed\":true,\"step\":\"completed\"}"
+     }
+    ],
+    "responses": [
+     {
+      "t": 13.03,
+      "status": 200,
+      "url": "http://localhost:18300/api/onboarding/update",
+      "body_head": "{\"success\":true,\"data\":{\"onboarding_step\":\"completed\",\"onboarding_completed\":true},\"timestamp\":\"2026-10-17T22:38:45.456850+00:00\",\"message\":\"Onboarding status updated successfully\"}"
+     }
+    ],
+    "request_failures": [],
+    "websockets": [
+     {
+      "url": "ws://localhost:18301/_next/webpack-hmr",
+      "frames_sent": [
+       "{\"event\":\"browser-logs\",\"entries\":[],\"router\":\"pages\"}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages__app_07xvfw~._.js\",\"headers\":null}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_login_07xvfw~._.js\",\"headers\":null}",
+       "{\"event\":\"client-success\",\"clientId\":1792276718319}",
+       "{\"event\":\"span-end\",\"startTime\":1792276718143.1,\"endTime\":1792276718356.6,\"spanName\":\"navigation-to-hydration\",\"attributes\":{\"pathname\":\"/login\",\"query\":\"\"}}",
+       "{\"event\":\"client-success\",\"clientId\":1792276718319}",
+       "{\"event\":\"client-success\",\"clientId\":1792276718319}",
+       "{\"event\":\"client-success\",\"clientId\":1792276718319}",
+       "{\"type\":\"turbopack-subscribe\",\"path\":\"static/chunks/pages_dashboard_07xvfw~._.js\"}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"any-logged-error\",\"method\":\"error\",\"consoleErrorStack\":\"    at push.console.error (http://localhost:18301/_next/static/chunks/%5Broot-of-the-server%5D__07yysmq._.js:10716:13)\\n    at http://localhost:18301/_next/static/chunks/%5Broot-of-the-server%5D__07yy\u2026(+1053)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"18:38:38.754\",\"level\":\"ERROR\",\"message\":\"[API Error] {\\\"code\\\":\\\"ERR_CANCELED\\\",\\\"message\\\":\\\"canceled\\\",\\\"url\\\":\\\"/api/maturity/proposals?status_filter=pending_approval&limit=10\\\"}\"},{\"timestamp\":\"18:38:38.757\",\"level\":\"DEBUG\",\"message\":\"[useWebSock\u2026(+57)",
+       "{\"event\":\"client-success\",\"clientId\":1792276718319}",
+       "{\"event\":\"browser-logs\",\"entries\":[{\"kind\":\"console\",\"consoleMethodStack\":\"    at console.warn (http://localhost:18301/_next/static/chunks/node_modules_next_dist_08w_b42._.js:1380:13)\\n    at GlobalChatWidget.useEffect.fetchPendingApprovals (http://localhost:18301/_next/static/chunks/%5Broot-of-the-\u2026(+219)",
+       "{\"event\":\"client-file-logs\",\"logs\":[{\"timestamp\":\"18:38:38.815\",\"level\":\"WARN\",\"message\":\"[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown.\"}]}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"ping\"}",
+       "{\"event\":\"client-success\",\"clientId\":1792276718319}"
+      ],
+      "frames_received": [
+       "{\"type\":\"isrManifest\",\"data\":{\"/login\":true,\"/dashboard\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"turbopack-connected\",\"data\":{\"sessionId\":195617872536327}}",
+       "{\"type\":\"sync\",\"errors\":[],\"warnings\":[],\"hash\":\"\",\"versionInfo\":{\"staleness\":\"stale-minor\",\"expected\":\"16.4.2\",\"installed\":\"16.2.2\"},\"debug\":{},\"devIndicator\":{\"disabledUntil\":0},\"devToolsConfig\":{}}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"148\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"150\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/dashboard\":true,\"/login\":true,\"/chat\":true,\"/documents\":true}}",
+       "{\"type\":\"built\",\"hash\":\"152\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"built\",\"hash\":\"154\",\"errors\":[],\"warnings\":[]}",
+       "{\"type\":\"building\"}",
+       "{\"type\":\"isrManifest\",\"data\":{\"/documents\":true,\"/dashboard\":true,\"/login\":true,\"/chat\":true}}",
+       "{\"type\":\"built\",\"hash\":\"156\",\"errors\":[],\"warnings\":[]}"
+      ]
+     },
+     {
+      "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+      "frames_sent": [
+       "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+      ],
+      "frames_received": []
+     }
+    ]
+   }
+  },
+  "post_click": {
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T22:39:15.636831+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "bd6677c1-57bb-4a84-8092-0c2ea0e24b6f",
+    "completed": true,
+    "step": "completed",
+    "users_total": 2,
+    "workspaces_total": 2
+   },
+   "storage": {
+    "localStorage": {
+     "nextauth.message": "{\"event\":\"session\",\"data\":{\"trigger\":\"getSession\"},\"timestamp\":1792276718}",
+     "auth_token": "<len 225>",
+     "token": "<len 225>",
+     "user_email": "jprobe_8e0200ca94@example.com",
+     "atom_user_role": "member",
+     "atom_chat_session_id": "session_1792276718751_abcarh013"
+    },
+    "dismiss_key": "1",
+    "chat_session": "session_1792276718751_abcarh013"
+   }
+  },
+  "upload": {
+   "file_input_found": true,
+   "success_text_seen": true,
+   "upload_responses": [
+    {
+     "t": 47.44,
+     "status": 200,
+     "url": "http://localhost:18300/api/documents/upload",
+     "body_head": "{\"id\":\"doc_ee4153d4a4ff67b28359e186\",\"title\":\"phase_e_zephyr_notes.txt\",\"type\":\"text/plain\",\"metadata\":{\"source\":\"upload\",\"size\":221,\"title\":\"phase_e_zephyr_notes.txt\",\"filename\":\"phase_e_zephyr_notes.txt\",\"file_type\":\"txt\",\"ingested_at\":\"2026-10-17T18:39:19.804183\",\"doc_id\":\"doc_ee4153d4a4ff67b28359e186\",\"pg_document_id\":\"doc_ee4153d4a4ff67b28359e186\",\"source_type\":\"upload\",\"integration_id\":\"manual_upload\",\"author\":\"jprobe_8e0200ca94@example.com\"},\"ingested_at\":\"2026-10-17T18:39:19.804183\",\"chu\u2026(+12)"
+    }
+   ],
+   "documents_list": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": [
+      {
+       "id": "doc_ee4153d4a4ff67b28359e186",
+       "title": "phase_e_zephyr_notes.txt",
+       "text_preview": "ATOM PHASE D FIXTURE \u2014 internal notes.\nProject Zephyr-9 launch planning.\nThe launch code for project Zephyr-9 is QUARTZ-77.\nOwner: R. Parikh. Team: acceptance.\nDecoy: the archive key for project Halcy",
+       "metadata": {
+        "source": "upload",
+        "size": 221,
+        "title": "phase_e_zephyr_notes.txt",
+        "filename": "phase_e_zephyr_notes.txt",
+        "file_type": "txt",
+        "ingested_at": "2026-10-17T18:39:19.804183",
+        "doc_id": "doc_ee4153d4a4ff67b28359e186",
+        "pg_document_id": "doc_ee4153d4a4ff67b28359e186",
+        "source_type": "upload",
+        "integration_id": "manual_upload",
+        "author": "jprobe_8e0200ca94@example.com",
+        "source_content_hash": "ev4:ee4153d4a4ff67b28359e18665a669cab4afc0a6363572630cddc3155d3c5cd7"
+       },
+       "created_at": "2026-10-17T22:39:19.820842+00:00"
+      }
+     ],
+     "timestamp": "2026-10-17T22:39:20.814548+00:00",
+     "metadata": {
+      "total": 1,
+      "limit": 100,
+      "offset": 0
+     }
+    }
+   },
+   "fixture_in_list": true
+  },
+  "chat": {
+   "input_found": true,
+   "attempts": [
+    {
+     "prompt": "Search my uploaded documents for the launch code for project Zephyr-9 and tell me the code.",
+     "sent_at": 51.53,
+     "last_history_status": 200,
+     "session_id": "session_1792276718751_abcarh013",
+     "history_msgs_count": 2,
+     "answer_text": "The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\n\n- [ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis result comes from the document '[ingested] phase_e_zephyr_notes.txt' and its contents within.",
+     "dom_text": "The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\n\n[ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis result comes from the document '[ingested] phase_e_zephyr_notes.txt' and its contents within.\n\nReasoning Process (3 steps)",
+     "non_answer_reason": null,
+     "history_contains_fact": true,
+     "waited_seconds": 46.9
+    }
+   ],
+   "retried": false,
+   "first_attempt_clean": true,
+   "final_answer_text": "The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\n\n- [ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis result comes from the document '[ingested] phase_e_zephyr_notes.txt' and its contents within.",
+   "history_msgs_count": 2,
+   "assistant_text_dom": "The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\n\n[ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis result comes from the document '[ingested] phase_e_zephyr_notes.txt' and its contents within.\n\nReasoning Process (3 steps)",
+   "answer_contains_fact": true,
+   "history_contains_fact": true,
+   "non_answer_reason": null,
+   "message_responses": [
+    {
+     "t": 81.94,
+     "status": 200,
+     "url": "http://localhost:18300/api/chat/message",
+     "body_head": "{\"success\":true,\"message\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\\n\\n- [ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\\n\\nThis result comes from the document '[ingested] phase_e_zephyr_notes.txt' and its contents within.\",\"session_id\":\"session_1792276718751_abcarh013\",\"intent\":\"search_request\",\"confidence\":0.8,\"suggested_actions\":[\"Open Search UI for detailed results\",\"Save\u2026(+2066)"
+    }
+   ],
+   "no_llm_provider_seen": false,
+   "answer_says_provider_needed": false,
+   "usage_calls_recent": [
+    {
+     "timestamp": "2026-10-17T22:39:45.775798Z",
+     "provider": "opencode-go",
+     "model": "glm-5.3-flash",
+     "success": true,
+     "latency_ms": 4214.288949966431,
+     "input_tokens": 1096,
+     "output_tokens": 381,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": null
+    },
+    {
+     "timestamp": "2026-10-17T22:39:41.543273Z",
+     "provider": "opencode-go",
+     "model": "glm-5.3-flash",
+     "success": true,
+     "latency_ms": 6425.823926925659,
+     "input_tokens": 3296,
+     "output_tokens": 797,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": null
+    },
+    {
+     "timestamp": "2026-10-17T22:39:34.594758Z",
+     "provider": "opencode-go",
+     "model": "glm-5.3-flash",
+     "success": true,
+     "latency_ms": 9969.285011291504,
+     "input_tokens": 658,
+     "output_tokens": 1487,
+     "fallback": false,
+     "fallback_provider": null,
+     "error": null
+    }
+   ],
+   "provider_used_under_test": true,
+   "ws_tail": [
+    {
+     "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"session_id\":\"session_1792276718751_abcarh013\"},\"timestamp\":\"2026-10-17T18:39:24.089443\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"launch code Zephyr-9\"}},\"action_input\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"launch code Zephyr-9\"},\"observ\u2026(+372)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"launch code Zephyr-9\"}},\"action_input\":{\"query\":\"launch code Zephyr-9\"},\"observation\":\"- [ingested] phase_e_zephyr_notes.txt: ATOM PHASE D FIXTURE \u2014 internal \u2026(+439)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" harness\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" ran\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" hybrid\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" over\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" with\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" query\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" '\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'.\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Here\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'s\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" what\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" was\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" [\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\":\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" for\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" project\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" is\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" QU\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ART\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"77\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"This\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" result\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" comes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" from\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" '[\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" and\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" its\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" contents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" within\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"content\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\\n\\n- [ingested] phase_e_zephyr_\u2026(+182)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephy\u2026(+516)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"session_id\":\"session_1792276718751_abcarh013\"},\"timestamp\":\"2026-10-17T18:39:54.320809\"}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"session_id\":\"session_1792276718751_abcarh013\"},\"timestamp\":\"2026-10-17T18:39:24.089443\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"launch code Zephyr-9\"}},\"action_input\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"launch code Zephyr-9\"},\"observ\u2026(+372)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"launch code Zephyr-9\"}},\"action_input\":{\"query\":\"launch code Zephyr-9\"},\"observation\":\"- [ingested] phase_e_zephyr_notes.txt: ATOM PHASE D FIXTURE \u2014 internal \u2026(+439)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" harness\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" ran\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" hybrid\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" over\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" with\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" query\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" '\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'.\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Here\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'s\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" what\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" was\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" [\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\":\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" for\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" project\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" is\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" QU\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ART\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"77\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"This\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" result\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" comes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" from\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" '[\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" and\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" its\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" contents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" within\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"content\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\\n\\n- [ingested] phase_e_zephyr_\u2026(+182)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephy\u2026(+516)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"session_id\":\"session_1792276718751_abcarh013\"},\"timestamp\":\"2026-10-17T18:39:54.320809\"}"
+     ]
+    },
+    {
+     "url": "ws://localhost:18300/ws?token=<jwt-redacted>",
+     "frames_sent": [
+      "{\"type\":\"subscribe\",\"channel\":\"workspace:default\"}"
+     ],
+     "frames_received": [
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"running\",\"agent_id\":\"chat\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"session_id\":\"session_1792276718751_abcarh013\"},\"timestamp\":\"2026-10-17T18:39:24.089443\"}",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":1,\"type\":\"thought\",\"thought\":\"\",\"action\":{\"tool\":\"tool_planner\",\"params\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"launch code Zephyr-9\"}},\"action_input\":{\"service\":\"documents\",\"intent\":\"search\",\"query\":\"launch code Zephyr-9\"},\"observ\u2026(+372)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":2,\"type\":\"observation\",\"thought\":\"\",\"action\":{\"tool\":\"documents\",\"params\":{\"query\":\"launch code Zephyr-9\"}},\"action_input\":{\"query\":\"launch code Zephyr-9\"},\"observation\":\"- [ingested] phase_e_zephyr_notes.txt: ATOM PHASE D FIXTURE \u2014 internal \u2026(+439)",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" harness\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" ran\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" a\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" hybrid\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" search\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" over\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" your\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" documents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" with\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" query\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" '\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'.\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Here\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'s\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" what\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" was\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" found\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\":\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" [\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\":\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" The\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" launch\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" code\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" for\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" project\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"9\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" is\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" QU\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ART\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"Z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"-\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"77\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".\\n\\n\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"This\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" result\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" comes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" from\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" the\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" document\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" '[\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ing\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ested\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"]\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" phase\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_e\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_z\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"ephy\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"r\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"_notes\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".txt\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\"'\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" and\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" its\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" contents\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\" within\"}}",
+      "{\"type\":\"chat_token\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"delta\":\".\"}}",
+      "{\"type\":\"chat_token_done\",\"data\":{\"session_id\":\"session_1792276718751_abcarh013\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"content\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\\n\\n- [ingested] phase_e_zephyr_\u2026(+182)",
+      "{\"type\":\"agent_step_update\",\"data\":{\"step\":{\"step_number\":3,\"type\":\"final_answer\",\"thought\":\"\",\"action\":{\"tool\":\"llm\",\"params\":{\"model\":\"llama3.1:8b\"}},\"action_input\":{\"model\":\"llama3.1:8b\"},\"observation\":\"The harness ran a hybrid search over your ingested documents with the query 'launch code Zephy\u2026(+516)",
+      "{\"type\":\"agent_status_change\",\"data\":{\"status\":\"success\",\"agent_id\":\"chat\",\"execution_id\":\"c5f5d969-0cbe-49ae-8a39-b5545d3b4e99\",\"session_id\":\"session_1792276718751_abcarh013\"},\"timestamp\":\"2026-10-17T18:39:54.320809\"}"
+     ]
+    }
+   ]
+  },
+  "reload": {
+   "chat_text_after_reload": "The harness ran a hybrid search over your ingested documents with the query 'launch code Zephyr-9'. Here's what was found:\n\n[ingested] phase_e_zephyr_notes.txt: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThis result comes from the document '[ingested] phase_e_zephyr_notes.txt' and its contents within.",
+   "fact_persists_after_reload": true,
+   "wizard_present_after_reload": false,
+   "wizard_present_after_dashboard_load": false,
+   "status_api": {
+    "status": 200,
+    "auth_header_present": true,
+    "body": {
+     "success": true,
+     "data": {
+      "onboarding_step": "completed",
+      "onboarding_completed": true
+     },
+     "timestamp": "2026-10-17T22:40:29.239202+00:00"
+    }
+   },
+   "db": {
+    "found": true,
+    "id": "bd6677c1-57bb-4a84-8092-0c2ea0e24b6f",
+    "completed": true,
+    "step": "completed",
+    "users_total": 2,
+    "workspaces_total": 2
+   },
+   "status_api_completed": true,
+   "db_completed": true,
+   "frontend_ownership_end": {
+    "tag": "end",
+    "port": 18301,
+    "listener_pid": 38826,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/frontend-nextjs",
+    "listener_cmd": "next-server (v16.2.2)",
+    "owned_by_worktree": true
+   },
+   "backend_ownership_end": {
+    "tag": "end",
+    "port": 18300,
+    "listener_pid": 52026,
+    "listener_cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/phase-e-candidate/backend",
+    "listener_cmd": "/usr/local/Cellar/python@3.11/3.11.16/Frameworks/Python.framework/Versions/3.11/Resources/Python.app/Contents/MacOS/Python -m uvicorn main_api_app:app --host 0.0.0.0 --port 18300 --log-level info",
+    "owned_by_worktree": true
+   },
+   "console_tail": [
+    {
+     "t": 107.76,
+     "type": "info",
+     "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+    },
+    {
+     "t": 107.79,
+     "type": "log",
+     "text": "[HMR] connected"
+    },
+    {
+     "t": 107.83,
+     "type": "warning",
+     "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+    },
+    {
+     "t": 107.83,
+     "type": "error",
+     "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+    },
+    {
+     "t": 107.83,
+     "type": "debug",
+     "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+    },
+    {
+     "t": 107.89,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+    },
+    {
+     "t": 107.89,
+     "type": "warning",
+     "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+    },
+    {
+     "t": 107.92,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 107.92,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 107.94,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    },
+    {
+     "t": 107.94,
+     "type": "error",
+     "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+   ]
+  }
+ },
+ "console_tail": [
+  {
+   "t": 49.2,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 49.2,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 49.2,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 49.2,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 98.6,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 98.66,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 98.7,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 98.7,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 98.7,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 98.71,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 98.71,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 98.71,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 98.79,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 98.79,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 107.76,
+   "type": "info",
+   "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold"
+  },
+  {
+   "t": 107.79,
+   "type": "log",
+   "text": "[HMR] connected"
+  },
+  {
+   "t": 107.83,
+   "type": "warning",
+   "text": "WebSocket connection to 'ws://localhost:18300/ws?token=<jwt-redacted>' failed: WebSocket is closed before the connection is established."
+  },
+  {
+   "t": 107.83,
+   "type": "error",
+   "text": "[API Error] {code: ERR_CANCELED, status: undefined, message: canceled, url: /api/maturity/proposals?status_filter=pending_approval&limit=10}"
+  },
+  {
+   "t": 107.83,
+   "type": "debug",
+   "text": "[useWebSocket] stale socket closed (gen 1, current 3) \u2014 ignoring"
+  },
+  {
+   "t": 107.89,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  },
+  {
+   "t": 107.89,
+   "type": "warning",
+   "text": "[ChatWidget] Pending approvals unauthorized (HTTP 403) \u2014 token may be missing/expired; queue treated as unknown."
+  },
+  {
+   "t": 107.92,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 107.92,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 107.94,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "t": 107.94,
+   "type": "error",
+   "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ],
+ "page_errors": [],
+ "assertions": {
+  "candidate-identity-served": true,
+  "backend-owned-by-worktree": true,
+  "frontend-owned-by-worktree": true,
+  "fresh-isolated-data": true,
+  "admin-signin": true,
+  "product-user-registered": true,
+  "fresh-user-signin": true,
+  "wizard-present": true,
+  "wizard-store-200": true,
+  "wizard-store-canonical-payload": true,
+  "wizard-activates-provider": true,
+  "no-settings-resave-needed": true,
+  "completion-request-emitted": true,
+  "completion-persisted": true,
+  "completion-overlay-closed": true,
+  "upload-succeeded": true,
+  "upload-durable": true,
+  "chat-answer-received": true,
+  "chat-no-no-llm-provider": true,
+  "answer-not-unusable-output": true,
+  "answer-uses-uploaded-source": true,
+  "answer-durable-in-history": true,
+  "answer-provider-attributed": true,
+  "reload-chat-persists": true,
+  "reload-no-wizard": true
+ },
+ "pass": true,
+ "finished_at": "2026-10-17T22:40:29+00:00"
+}

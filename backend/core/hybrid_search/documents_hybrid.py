@@ -189,9 +189,15 @@ def _vector_leg_enabled() -> bool:
 class DocumentsHybridSearch:
     """Hybrid document search service (documents leg)."""
 
-    def __init__(self, db: Any = None, lancedb: Any = None):
+    def __init__(self, db: Any = None, lancedb: Any = None,
+                 workspace_id: Optional[str] = None):
         self._db = db
         self._lancedb = lancedb
+        # WORKSPACE SCOPE (2026-10-17): uploads write to the caller's
+        # per-workspace LanceDB store; the vector leg must read THAT store or
+        # every uploaded document is invisible to chat (observed: upload to
+        # workspace <uuid>, search on the base atom_memory store, 0 hits).
+        self._workspace_id = workspace_id
 
     # -- public API -----------------------------------------------------------
 
@@ -446,6 +452,7 @@ class DocumentsHybridSearch:
             return search_documents_lexical(
                 db, query, limit=limit * _VECTOR_LIMIT_MULTIPLIER,
                 since=since, source=source, author=author, raise_on_error=True,
+                workspace_id=self._workspace_id,
             )
 
     async def _vector_leg(self, query: str, limit: int, source: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -461,7 +468,7 @@ class DocumentsHybridSearch:
         if lancedb is None:
             from core.lancedb_handler import get_lancedb_handler
 
-            lancedb = get_lancedb_handler("default")
+            lancedb = get_lancedb_handler(self._workspace_id or "default")
         if lancedb is None:
             raise RuntimeError("LanceDB handler unavailable for the vector leg")
         # to_thread: LanceDBHandler.search embeds via sync embed_text, which
@@ -474,6 +481,10 @@ class DocumentsHybridSearch:
                 "id": str(r.get("id") or ""),
                 "score": float(r.get("_distance", 1.0)),
                 "metadata": r.get("metadata") or {},
+                # Bounded body text for the tool lane: the chat renders the
+                # top hit's content so the reply can answer from the document
+                # (previews truncate before the fact in long files).
+                "text": str(r.get("text") or "")[:4000],
             }
             for r in rows
             if r.get("id")
@@ -532,6 +543,14 @@ class DocumentsHybridSearch:
                     "legs": [],
                 },
             )
+            # Bounded body text for LEXICAL hits (the vector lane already
+            # carries text[:4000]): the 200-char preview hides a small
+            # document's later fields and the chat then truthfully reports a
+            # present value as absent (composed-job finding 2026-10-17 —
+            # "Approved valid until: 2026-12-31" at char 232 of a 270-char
+            # upload; the reply said it could not find the date).
+            if hit.get("text"):
+                entry.setdefault("content", str(hit.get("text"))[:4000])
             entry["rrf"] += 1.0 / (RRF_K + rank)
             entry["legs"].append("lexical")
 
@@ -650,6 +669,7 @@ class DocumentsHybridSearch:
                     "id": vid,
                     "title": title,
                     "preview": preview,
+                    "content": str(hit.get("text") or "")[:4000],
                     "modified": None,
                     "bridged": False,
                     "rrf": 1.0 / (RRF_K + rank),
@@ -679,6 +699,8 @@ class DocumentsHybridSearch:
             entry["rrf"] += 1.0 / (RRF_K + rank)
             if "vector" not in entry["legs"]:
                 entry["legs"].append("vector")
+            if hit.get("text"):
+                entry.setdefault("content", str(hit.get("text"))[:4000])
 
         fused = sorted(scores.values(), key=lambda e: (-e["rrf"], len(e["legs"])))
         return fused, unbridged
@@ -690,6 +712,7 @@ class DocumentsHybridSearch:
                 "id": e["id"],
                 "title": e["title"],
                 "preview": e["preview"],
+                "content": e.get("content"),
                 "score": round(e["rrf"], 6),
                 "modified": e["modified"],
                 "bridged": e["bridged"],

@@ -31,7 +31,7 @@ from enum import Enum
 from html import unescape
 from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from core import log_redaction
 from core.evidence_grounding import CANVAS_ARTIFACT_GROUNDING_RULE
@@ -54,6 +54,46 @@ logger = logging.getLogger(__name__)
 
 # The current canvas content rides in the prompt; bound it so a huge sheet
 # can't blow the structured-call budget.
+# COMPACT EDIT INSTRUCTIONS (measured, 2026-10-14): the verbose 10.8k
+# instruction set around a ~330-char canvas made the accepted 8B profile
+# fail every structured attempt inside the leg bound (0/3;
+# diagnostic_benchmark_20261014_194812.json). A compact PROSE rule set
+# still failed shape validation (1/3; same file). The stable form is a
+# CONCRETE SINGLE-SHAPE CONTRACT — the literal CanvasEditPlan JSON the
+# model must return — which measured 3/3 at 3.7–6.6s idle and 3/3 under
+# concurrent load, full canvas preserved, in the production lane
+# (diagnostic_benchmark_20261014_195019.json / _195755.json) and
+# independently in the W3 A/B (prompt_ab_20261014_195814.json: compact
+# 3/3 vs heavyweight 0/3, identical payload). The reply example now
+# names the change (the T1 run's plan.reply was empty, so the user-
+# facing answer fell back to the generic line); re-measured 3/3 at
+# 2.2–4.8s (diagnostic_benchmark_20261014_211300.json). The compact
+# set carries the edit-safety contract; it REPLACES ONLY the verbose
+# explanations — evidence, teaching, and user constraints travel
+# unchanged (they are never "scaffolding").
+_COMPACT_EDITOR_SYSTEM = (
+    "You return only the CanvasEditPlan JSON object: "
+    '{"wants_edit": bool, "edit_mode": "patch", '
+    '"ops": [{"find": "<exact current text>", '
+    '"replace": "<new text>", '
+    '"origin": "<user_supplied|source_reference|calculation|unresolved>"}], '
+    '"reply": "<one sentence naming what '
+    'changed, with the new value>"}. '
+    'State each op\'s "origin": "user_supplied" when the replacement '
+    'value comes from the request; "source_reference" when it must come '
+    'from records or systems; "unresolved" when unavailable. '
+    "Rules: ops.find MUST copy the current canvas text verbatim "
+    "(first occurrence); add \"field\": \"<field name>\" to an op "
+    "when the canvas has named fields. Change ONLY the authorized "
+    "target — everything the ops do not touch is preserved "
+    "byte-for-byte. Do not invent missing facts: if the request "
+    "needs a value that appears nowhere, set wants_edit=false and "
+    "name what is missing. To restore an earlier version return "
+    '{"wants_edit": true, "edit_mode": "restore", '
+    '"restore_audit_id": "<exact id from RECENT VERSIONS>"}. '
+    "No markdown fences."
+)
+
 _MAX_CONTENT_CHARS = 6000
 
 # Total edit-plan prompt budget (chars ≈ tokens/4). Learning sections make
@@ -79,6 +119,7 @@ class CanvasPatchOp(BaseModel):
     cell: Optional[str] = None
     find: str = ""
     replace: str = ""
+    origin: Optional[str] = None  # user_supplied | source_reference | calculation | unresolved
 
 
 class CanvasEditPlan(BaseModel):
@@ -105,6 +146,52 @@ class CanvasEditPlan(BaseModel):
     updated_content_json: Optional[str] = None
     title: Optional[str] = None
     reply: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_model_output_shapes(cls, data: Any) -> Any:
+        """Accept the output shapes llama-class models demonstrably
+        produce for this schema (isolated diagnostic 2026-10-14,
+        diagnostic_benchmark_20261014_140958.json: THREE identical
+        attempts, 276 tokens each — a schema-valid plan the wrapper
+        rejected twice over):
+
+        1. the TOOL-CALL ENVELOPE ECHO: {"name": "CanvasEditPlan",
+           "parameters": {...}} as plain content — the request teaches
+           the model a tool; the model answers by restating the
+           envelope instead of emitting a native tool_call;
+        2. FUNCTION-SCHEMA OPS: each op wrapped as {"title": ...,
+           "properties": {find/replace/...}} — the same echo at the op
+           level.
+
+        Both are deterministic output SHAPES of a valid plan; unwrapping
+        them changes nothing about authorization, the contract checks,
+        or the apply fence — those run after this."""
+        if not isinstance(data, dict):
+            return data
+        if "wants_edit" not in data and isinstance(
+                data.get("parameters"), dict):
+            inner = data["parameters"]
+            if isinstance(inner, dict):
+                data = inner
+        ops = data.get("ops")
+        if isinstance(ops, str) and ops.strip():
+            # OBSERVED SHAPE 3 (reproduction round 19, native
+            # tool-calls): the ops array arrives JSON-ENCODED as a
+            # string — "[{\"find\": ...}]".
+            data["ops"] = _repair_json(ops)
+        ops = data.get("ops")
+        if isinstance(ops, list):
+            unwrapped = []
+            for op in ops:
+                if (isinstance(op, dict) and "find" not in op
+                        and isinstance(op.get("properties"), dict)):
+                    props = op["properties"]
+                    op = {**{k: v for k, v in op.items()
+                             if k != "properties"}, **props}
+                unwrapped.append(op)
+            data["ops"] = unwrapped
+        return data
 
 
 def _plan_shape(plan: "CanvasEditPlan") -> str:
@@ -279,6 +366,46 @@ def _small_edit_shape(message: str, prompt_len: int) -> bool:
     return len(msg) <= 220
 
 
+
+def _log_plan_stage(execution_id: Optional[str], stage: str,
+                    outcome: str, *, attempts: int = 1,
+                    contract: str = "-", detail: str = "") -> None:
+    """POSITIVE stage evidence (verifier steps 1-2): one parseable line
+    per planning stage terminal. plan_validated downstream requires
+    outcome=edit|action AND contract=valid — a timeout, a missing event,
+    or a parse failure is never 'validated'."""
+    logger.info(
+        "[plan-stage] eid=%s stage=%s outcome=%s attempts=%d "
+        "contract=%s detail=%s",
+        execution_id or "-", stage, outcome, attempts, contract,
+        str(detail)[:160])
+
+
+def _capture_plan_debug(event: str, **fields: Any) -> None:
+    """Env-gated planning capture (ATOM_PLAN_CAPTURE_DIR): append one JSON
+    line per event to plan_capture.jsonl. Read-only observer — never
+    raises, never alters planning."""
+    import os as _os
+
+    _dir = (_os.getenv("ATOM_PLAN_CAPTURE_DIR") or "").strip()
+    if not _dir:
+        return
+    try:
+        import time as _time
+        from pathlib import Path as _Path
+
+        target = _Path(_dir)
+        target.mkdir(parents=True, exist_ok=True)
+        record: Dict[str, Any] = {
+            "ts": _time.strftime("%Y-%m-%dT%H:%M:%S"), "event": event}
+        record.update(fields)
+        with (target / "plan_capture.jsonl").open(
+                "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, default=str) + "\n")
+    except Exception:  # noqa: BLE001 — capture is strictly additive
+        pass
+
+
 async def _plan_structured(
     llm_service: Any,
     *,
@@ -288,6 +415,8 @@ async def _plan_structured(
     message: str = "",
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    stage: str = "canvas_edit_plan",
 ) -> Any:
     """Structured canvas-planning call routed by BPC (no model pin).
 
@@ -348,6 +477,8 @@ async def _plan_structured(
         response_model=response_model,
         workspace_id=workspace_id,
         tenant_id=tenant_id,
+        execution_id=execution_id,
+        stage=stage,
         system_instruction=system_instruction,
         call_kwargs=_pin or None,
         log_label="canvas edit planning",
@@ -540,8 +671,14 @@ _REPLACE_FALLBACK_SUFFIX = (
 )
 
 
-def _serialize_content(content: Any) -> str:
-    """Current canvas content as prompt-safe text, bounded."""
+def _serialize_content(content: Any, max_chars: Optional[int] = _MAX_CONTENT_CHARS) -> str:
+    """Current canvas content as prompt-safe text.
+
+    ``max_chars`` bounds the text ONLY when the caller accepts
+    truncation; the edit-plan prompt passes None — the canvas is
+    authoritative and its full size goes into the budget accounting
+    (verifier work order: never silently truncate content needed to
+    construct the requested patch)."""
     if isinstance(content, str):
         text = content
     else:
@@ -549,8 +686,8 @@ def _serialize_content(content: Any) -> str:
             text = json.dumps(content, indent=2, default=str)
         except Exception:
             text = str(content)
-    if len(text) > _MAX_CONTENT_CHARS:
-        text = text[:_MAX_CONTENT_CHARS] + "\n…(truncated)"
+    if max_chars is not None and len(text) > max_chars:
+        text = text[:max_chars] + "\n…(truncated)"
     return text
 
 
@@ -1106,7 +1243,7 @@ def build_canvas_evidence_comparison(
         if decision_source_ids is not None
         else designated_source_ids(objective_text, source_observations or [])
     )
-    return build_source_comparison(
+    comparison = build_source_comparison(
         observations,
         requested_entities=requested_entities,
         requested_fields=requested_fields,
@@ -1114,6 +1251,18 @@ def build_canvas_evidence_comparison(
         decision_source_ids=decision_ids,
         authorized_actions=authorized_actions or [],
     )
+    # THE COMPARED ARTIFACT (verifier review defect 2, 84143bdd8):
+    # build_source_comparison's shape carries no top-level source, so
+    # the outcome builder's compared-revision ref never settled from a
+    # real producer — the canvas identity rode only per-observation
+    # sources. The authoritative revision is THIS comparison's own
+    # fact; name it at top level.
+    comparison["source"] = {
+        "source_id": canvas_source_id,
+        "source_type": "artifact",
+        "version": canvas_source_id,
+    }
+    return comparison
 
 
 def _footer_start(body: str, after: int = 0) -> Optional[int]:
@@ -2951,7 +3100,11 @@ async def fetch_fresh_data_section(
         return FreshDataResult("", False, True)
 
     try:
-        from core.chat_tool_planner import execute_tool_plan, plan_tool_use
+        from core.chat_tool_planner import (
+            exec_canvas_context,
+            execute_tool_plan,
+            plan_tool_use,
+        )
 
         # REUSE: an earlier leg on this turn already planned AND executed
         # — reformat its block instead of hitting providers a second
@@ -3172,11 +3325,13 @@ async def fetch_fresh_data_section(
                     # the job required the workbook).
                     **({"request_scope": request_scope}
                        if isinstance(request_scope, dict) else {}),
-                    **({"canvas": {
-                        "title": canvas.get("title"),
-                        **((canvas.get("content") or {})
-                           if isinstance(canvas.get("content"), dict) else {}),
-                    }} if canvas else {}),
+                    # THE SHARED CANVAS SHAPE (exec_canvas_context, in
+                    # chat_tool_planner): one construction for both
+                    # dispatch sites, so a string-content canvas can
+                    # never be ``**``-unpacked by a mistyped guard here
+                    # again (the chat path's 2026-10-15 T2 crash).
+                    **({"canvas": exec_canvas_context(canvas)}
+                       if canvas else {}),
                 },
             )
             result_meta = getattr(plan, "_result_meta", None) or {}
@@ -3425,6 +3580,148 @@ def _quoted_value(message: str) -> str:
                   message or "", re.IGNORECASE)
     return m.group(1).strip().strip("'\"") if m else ""
 
+def _build_edit_plan_prompt(
+    *, message: str, history: List[Dict[str, Any]],
+    canvas: Dict[str, Any], fresh_data: Optional[str],
+    corrections: Optional[List[Dict[str, Any]]],
+    versions: Optional[List[Dict[str, Any]]],
+    job_findings: Optional[Dict[str, Any]],
+    lessons: Optional[List[Dict[str, Any]]],
+    similar_corrections: Optional[List[Dict[str, Any]]],
+    correction_patterns: Optional[List[Dict[str, Any]]],
+    provenance: Optional[Dict[str, Any]],
+    user_identity: Optional[Dict[str, Any]],
+    playbooks: Optional[List[Dict[str, Any]]],
+    compact: bool = False,
+) -> tuple[str, List[Dict[str, Any]]]:
+    """The edit-plan prompt, EXPLICITLY assembled (verifier work order
+    W1): returns the prompt plus a section manifest — section name,
+    size, included/omitted, truncated — so tests and the stage log can
+    see exactly what reached the model.
+
+    Contract:
+      - the canvas content is AUTHORITATIVE: it is serialized in full
+        (no silent truncation) and counted FIRST in the budget;
+      - every rendered section is budget-accounted, including identity
+        and playbooks (both used to ride outside the accounting);
+      - job findings ARE interpolated (they were budgeted but never
+        inserted — durable job evidence disappeared before planning);
+      - compact=True swaps ONLY the instruction set for the compact
+        edit-safety contract — evidence, teaching, and user constraints
+        travel unchanged (compact is a prompt-shape choice, never an
+        authorization or an evidence-omission permit).
+    """
+    from core.canvas_app_schema import app_prompt_section
+
+    canvas_text = _serialize_content(canvas.get("content"), max_chars=None)
+    canvas_truncated = False  # the artifact is never head-trimmed
+    app_section = app_prompt_section(
+        canvas.get("canvas_type"), canvas.get("content"))
+    content_section = f"Current canvas content:\n{canvas_text}\n\n"
+    history_section = (
+        f"Recent conversation:\n{_history_transcript(history, message)}\n\n"
+        "Return the edit plan."
+    )
+    identity_section = _identity_section(user_identity)
+    playbooks_section = _playbooks_section(playbooks)
+
+    rendered: Dict[str, str] = {  # canonical layout order; priority order
+        "scope": _request_scope_section(message, history, fresh_data),
+        "corrections": _corrections_section(corrections),
+        "versions": _versions_section(versions, canvas.get("content")),
+        # Evidence outranks the learning channels: it is the data THIS
+        # edit is about; lessons/corrections are advisory style guidance.
+        "fresh": fresh_data or "",
+        # Job findings outrank lessons (they are the verified record of
+        # THIS canvas's investigation) but sit beside evidence: applied
+        # findings must respect fresh_data when both speak.
+        "findings": _job_findings_section(job_findings),
+        "lessons": _lessons_section(lessons),
+        "cross": _similar_lessons_section(similar_corrections,
+                                          correction_patterns),
+        # Origin context ranks LAST — useful for grounding questions,
+        # never at the cost of the live artifact or the learning signal.
+        "origin": _provenance_section(provenance),
+        # Identity and playbooks are budget-accounted like every other
+        # section (verifier finding: they rode outside the accounting).
+        "identity": identity_section,
+        "playbooks": playbooks_section,
+    }
+
+    instructions = _COMPACT_EDITOR_SYSTEM if compact else _EDITOR_SYSTEM
+    manifest: List[Dict[str, Any]] = [
+        {"section": "instructions", "size": len(instructions),
+         "included": True, "truncated": False, "compact": compact},
+        {"section": "app", "size": len(app_section),
+         "included": True, "truncated": False},
+        {"section": "canvas", "size": len(canvas_text),
+         "included": True, "truncated": canvas_truncated},
+        {"section": "history", "size": len(history_section),
+         "included": True, "truncated": False},
+    ]
+
+    # Core (instructions + app + canvas + history) is charged up front;
+    # every other section — identity and playbooks included — is charged
+    # in the priority loop below, exactly once.
+    budget = _MAX_EDIT_PROMPT_CHARS - len(
+        instructions + app_section + content_section + history_section
+    )
+    included: Dict[str, str] = {}
+    trimmed_any = False
+    for name, section in rendered.items():
+        size = len(section)
+        if not section:
+            manifest.append({"section": name, "size": 0,
+                             "included": False, "truncated": False,
+                             "empty": True})
+            continue
+        if size <= budget:
+            included[name] = section
+            budget -= size
+            manifest.append({"section": name, "size": size,
+                             "included": True, "truncated": False})
+        elif budget > 800:  # keep only when a usable head fits
+            # Reserve the marker's own length so the kept head + marker
+            # still land inside the budget.
+            head = max(0, budget - 60)
+            included[name] = (
+                section[:head]
+                + "\n…(trimmed to fit the model's context budget)\n\n"
+            )
+            trimmed_any = True
+            budget = 0
+            manifest.append({"section": name, "size": size,
+                             "included": True, "truncated": True})
+        else:
+            trimmed_any = True
+            manifest.append({"section": name, "size": size,
+                             "included": False, "truncated": False,
+                             "omitted_for_budget": True})
+
+    prompt = (
+        # TASK SIGNAL FIRST (live 2026-09-23): front-load the user's
+        # message so the model reads "this is an edit for X" before the
+        # editing rules.
+        f"USER REQUEST (analyze this against the current canvas below and "
+        f"produce a CanvasEditPlan):\n{message}\n\n"
+        f"{instructions}\n\n"
+        f"{included.get('scope', '')}"
+        f"{included.get('fresh', '')}"
+        f"{included.get('findings', '')}"
+        f"{included.get('corrections', '')}"
+        f"{included.get('versions', '')}"
+        f"{included.get('lessons', '')}"
+        f"{included.get('cross', '')}"
+        f"{included.get('origin', '')}"
+        f"{included.get('identity', '')}"
+        f"{included.get('playbooks', '')}"
+        f"{app_section}\n"
+        f"{content_section}"
+        f"{history_section}"
+    )
+    return prompt, manifest
+
+
 async def plan_canvas_edit(
     message: str,
     history: List[Dict[str, Any]],
@@ -3433,6 +3730,8 @@ async def plan_canvas_edit(
     corrections: Optional[List[Dict[str, Any]]] = None,
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
+    compact: Optional[bool] = None,
     versions: Optional[List[Dict[str, Any]]] = None,
     lessons: Optional[List[Dict[str, Any]]] = None,
     similar_corrections: Optional[List[Dict[str, Any]]] = None,
@@ -3472,93 +3771,56 @@ async def plan_canvas_edit(
     if llm_service is None or not canvas.get("canvas_id"):
         return None
 
-    from core.canvas_app_schema import app_prompt_section
-
-    # Prompt budget: the core (system + app + current content + history)
-    # always stays; learning sections are included in priority order and
-    # the lowest-priority ones trim first when the budget is tight —
-    # recalled context must never crowd out the live artifact, and the
-    # whole prompt must fit the serving model's context window.
-    app_section = app_prompt_section(canvas.get("canvas_type"), canvas.get("content"))
-    content_section = (
-        f"Current canvas content:\n{_serialize_content(canvas.get('content'))}\n\n"
+    # PROMPT ASSEMBLY IS EXPLICIT (verifier work order W1/W2): the
+    # helper returns the prompt plus a section manifest, fixes the
+    # findings interpolation, budgets identity/playbooks, and never
+    # silently truncates the canvas. COMPACT is a prompt-SHAPE choice
+    # for small-edit-shaped requests — it swaps only the instruction
+    # set; evidence, teaching, and user constraints travel unchanged,
+    # and it is NOT an authorization (the authorization gates upstream
+    # and the apply fence downstream are untouched).
+    prompt, prompt_manifest = _build_edit_plan_prompt(
+        message=message,
+        history=history,
+        canvas=canvas,
+        fresh_data=fresh_data,
+        corrections=corrections,
+        versions=versions,
+        job_findings=job_findings,
+        lessons=lessons,
+        similar_corrections=similar_corrections,
+        correction_patterns=correction_patterns,
+        provenance=provenance,
+        user_identity=user_identity,
+        playbooks=playbooks,
+        # compact=None = auto: small-edit-shaped requests take the
+        # compact instruction set (a prompt-SHAPE choice — never an
+        # authorization or an evidence-omission permit). Callers may
+        # force either assembly explicitly (the heavyweight-content
+        # pins do).
+        compact=(
+            _small_edit_shape(
+                message,
+                len(str(canvas.get("content") or "")) + len(message or "")
+                + 4000)
+            if compact is None else compact),
     )
-    history_section = (
-        f"Recent conversation:\n{_history_transcript(history, message)}\n\n"
-        "Return the edit plan."
-    )
-    # Live evidence when the edit hinges on data the editor cannot see —
-    # fetched by the caller (orchestrator context assembly) via
-    # fetch_fresh_data_section and handed in; never gathered here, so this
-    # function stays a single structured LLM call.
-    rendered = {  # canonical layout order; priority = same order
-        "scope": _request_scope_section(message, history, fresh_data),
-        "corrections": _corrections_section(corrections),
-        "versions": _versions_section(versions, canvas.get("content")),
-        # Evidence outranks the learning channels: it is the data THIS edit
-        # is about; lessons/corrections are advisory style guidance.
-        "fresh": fresh_data or "",
-        # Job findings outrank lessons (they are the verified record of
-        # THIS canvas's investigation) but sit beside evidence: applied
-        # findings must respect fresh_data when both speak.
-        "findings": _job_findings_section(job_findings),
-        "lessons": _lessons_section(lessons),
-        "cross": _similar_lessons_section(similar_corrections, correction_patterns),
-        # Origin context ranks LAST — useful for grounding questions, never
-        # at the cost of the live artifact or the learning signal.
-        "origin": _provenance_section(provenance),
-    }
-    budget = _MAX_EDIT_PROMPT_CHARS - len(
-        _EDITOR_SYSTEM + app_section + content_section + history_section
-    )
-    included: Dict[str, str] = {}
-    trimmed_any = False
-    for name, section in rendered.items():
-        if not section:
-            continue
-        if len(section) <= budget:
-            included[name] = section
-            budget -= len(section)
-        elif budget > 800:  # keep only when a usable head fits
-            # Reserve the marker's own length so the kept head + marker
-            # still land inside the budget.
-            head = max(0, budget - 60)
-            included[name] = (
-                section[:head]
-                + "\n…(trimmed to fit the model's context budget)\n\n"
-            )
-            trimmed_any = True
-            budget = 0
-        else:
-            trimmed_any = True
-    if trimmed_any:
-        logger.info(
-            f"canvas edit prompt trimmed to {_MAX_EDIT_PROMPT_CHARS} chars — "
-            f"lowest-priority learning sections reduced first"
-        )
-    prompt = (
-        # TASK SIGNAL FIRST (live 2026-09-23): the 7k-char instruction set
-        # + optional context sections diluted the edit signal enough that
-        # flash-tier models returned wants_edit=False for clear rebuild
-        # requests — the canvas and request sat at the BOTTOM after all
-        # the instructions. Front-load the user's message so the model
-        # reads "this is an edit for X" before the editing rules.
-        f"USER REQUEST (analyze this against the current canvas below and "
-        f"produce a CanvasEditPlan):\n{message}\n\n"
-        f"{_EDITOR_SYSTEM}\n\n"
-        f"{_identity_section(user_identity)}"
-        f"{_playbooks_section(playbooks)}"
-        f"{included.get('scope', '')}"
-        f"{included.get('fresh', '')}"
-        f"{included.get('corrections', '')}"
-        f"{included.get('versions', '')}"
-        f"{included.get('lessons', '')}"
-        f"{included.get('cross', '')}"
-        f"{included.get('origin', '')}"
-        f"{app_section}\n"
-        f"{content_section}"
-        f"{history_section}"
-    )
+    logger.info(
+        "[plan-prompt] eid=%s sections=%s",
+        execution_id or "-",
+        json.dumps([{k: m.get(k) for k in
+                     ("section", "size", "included", "truncated")}
+                    for m in prompt_manifest], default=str)[:800])
+    _capture_plan_debug(
+        "edit_plan_prompt", eid=execution_id, attempt=1, message=message,
+        history_len=len(list(history or [])),
+        canvas_id=canvas.get("canvas_id"),
+        canvas_content=canvas.get("content"), fresh_data=fresh_data,
+        user_identity=user_identity, provenance=provenance,
+        corrections_len=len(list(corrections or [])),
+        versions_len=len(list(versions or [])),
+        lessons_len=len(list(lessons or [])),
+        prompt=prompt, manifest=prompt_manifest)
 
     try:
         from core.llm import pinned_planning as _pp
@@ -3574,8 +3836,17 @@ async def plan_canvas_edit(
         message=message,
         workspace_id=workspace_id,
         tenant_id=tenant_id,
+        execution_id=execution_id,
+        stage="canvas_edit_plan",
     )
+    _capture_plan_debug(
+        "edit_plan_result", eid=execution_id, attempt=1,
+        plan=(plan.model_dump()
+              if plan is not None and hasattr(plan, "model_dump")
+              else repr(plan)))
     if plan is None:
+        _log_plan_stage(execution_id, "canvas_edit_plan", "unavailable",
+                        detail="structured call returned None")
         # The structured call failed outright (all providers/timeout) — a
         # planning INFRASTRUCTURE failure, not "not an edit". Raise so the
         # caller answers honestly instead of routing an edit request into
@@ -3629,6 +3900,10 @@ async def plan_canvas_edit(
                 else CanvasPlanOutcome.SERVED_DECLINE)
         except Exception:  # noqa: BLE001 — diagnostic only
             pass
+        _log_plan_stage(
+            execution_id, "canvas_edit_plan", "declined", contract=(
+                "violation" if plan_contract_violation(plan) else "valid"),
+            detail="served decline")
         logger.info(
             "canvas edit: plan DECLINED | wants_edit=%s ops=%d "
             "replacement=%s restore=%s contract_violation=%s",
@@ -3688,9 +3963,15 @@ async def plan_canvas_edit(
         # behaviour, and honest.
         violation = plan_contract_violation(plan)
         if violation is None:
+            _log_plan_stage(execution_id, "canvas_edit_plan", "edit",
+                            contract="valid",
+                            detail="schema+scope valid on attempt 1")
             return plan
         logger.info(
             "canvas edit: SCHEMA-BOUNDARY contract violation: %s", violation)
+        _log_plan_stage(execution_id, "canvas_edit_plan", "repair",
+                        attempts=2, contract="violation",
+                        detail=f"attempt 1 invalid: {violation}")
         replan = await _plan_structured(
             llm_service,
             prompt=f"{prompt}\n\n{_INCONSISTENT_PLAN_SUFFIX}",
@@ -3698,6 +3979,8 @@ async def plan_canvas_edit(
             system_instruction="You return only the requested JSON object.",
             workspace_id=workspace_id,
             tenant_id=tenant_id,
+            execution_id=execution_id,
+            stage="canvas_edit_plan_repair",
         )
         # CAPTURE (2026-09-28): both answers, so a failure is attributable
         # without re-running. A model answering correctly is a routing fact and
@@ -3717,16 +4000,25 @@ async def plan_canvas_edit(
                 "canvas edit: consistency repair ALSO violated the contract "
                 "(%s) -- treating the turn as not-an-edit",
                 plan_contract_violation(replan))
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="violation",
+                            detail="repair also violated")
             return replan
         if not replan.wants_edit:
             logger.info(
                 "canvas edit: consistency repair returned a consistent "
                 "decline -- treating the turn as not-an-edit")
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="valid",
+                            detail="repair resolved to a decline")
             return replan
         if not (replan.ops or (replan.updated_content_json or "").strip()):
             logger.info(
                 "canvas edit: consistency repair claimed an edit but produced "
                 "nothing to apply -- treating the turn as not-an-edit")
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="valid",
+                            detail="repair produced nothing applicable")
             return replan
         # FENCE (2026-09-28, F02): the repair may resolve the contradiction, not
         # widen the edit. Reproduced here: a body-scoped request, a
@@ -3738,6 +4030,9 @@ async def plan_canvas_edit(
                 "canvas edit: consistency repair REJECTED — %s. The turn stays "
                 "a decline; the user is asked to name the exact text instead.",
                 _widened)
+            _log_plan_stage(execution_id, "canvas_edit_plan", "declined",
+                            attempts=2, contract="violation",
+                            detail=f"repair out of scope: {_widened}")
             # `None`, not `replan`: the plan is applicable-looking but out of
             # scope, and returning it would hand the orchestrator an edit the
             # user never asked for. `None` is the module's existing "no usable
@@ -3793,6 +4088,13 @@ async def plan_canvas_edit(
             workspace_id=workspace_id,
             tenant_id=tenant_id,
         )
+        _capture_plan_debug(
+            "edit_plan_result", eid=execution_id, attempt=2,
+            reask_reason=reask_reason, prompt_chars=len(
+                f"{prompt}\n\n{_REPLACE_FALLBACK_SUFFIX}"),
+            plan=(replan.model_dump()
+                  if replan is not None and hasattr(replan, "model_dump")
+                  else repr(replan)))
         if replan is None:
             # First call proved this IS an edit; the re-ask dying is an
             # infrastructure failure — same honest-failure treatment.
@@ -3833,6 +4135,11 @@ async def plan_canvas_edit(
         raw_plan = await _raw_json_replace_plan(
             llm_service, f"{prompt}\n\n{_REPLACE_FALLBACK_SUFFIX}", {}
         )
+        _capture_plan_debug(
+            "edit_plan_result", eid=execution_id, attempt=3, kind="raw_json",
+            plan=(raw_plan.model_dump()
+                  if raw_plan is not None and hasattr(raw_plan, "model_dump")
+                  else repr(raw_plan)))
         # The raw leg is the SAME bounded repair, so the same fence applies to
         # it: being reached through a different parser changes nothing about
         # what the answer is allowed to say.
@@ -3844,8 +4151,18 @@ async def plan_canvas_edit(
             return None
         if raw_plan is not None and (raw_plan.updated_content_json or "").strip():
             logger.info("canvas edit replace plan recovered via raw-JSON fallback")
+            _log_plan_stage(execution_id, "canvas_edit_plan", "edit",
+                            attempts=3, contract="valid",
+                            detail="recovered via raw-JSON fallback")
             return raw_plan
+        _log_plan_stage(execution_id, "canvas_edit_plan", "unavailable",
+                        attempts=3, detail="replace fallbacks exhausted")
         return None
+    _log_plan_stage(execution_id, "canvas_edit_plan", "edit",
+                    contract="valid",
+                    detail=(f"prompt_chars={len(prompt or '')} "
+                            "ops_match_current_content=true" if plan.ops
+                            else f"prompt_chars={len(prompt or '')}"))
     return plan
 
 
@@ -4364,6 +4681,25 @@ def _verify_intended_change(plan: Any, readback_content: Any,
             "scope": "field" if isinstance(readback_content, dict) else "document"}
 
 
+def _factual_change_refusal_reason(refusals: List[Dict[str, Any]]) -> str:
+    """The bounded apply reason for a factual-change refusal, carrying what
+    the user must supply so the reply can ask for it specifically.
+
+    unsupported/stale/unauthorized → ``invented_value:<value>|<target>``
+    an open requirement in the record → ``unresolved_requirement:<named>``
+    Both are verified pre-write refusals (nothing reached the store)."""
+    first = refusals[0] if refusals else {}
+    reason = str(first.get("reason") or "")
+    if reason == "unresolved_requirement":
+        named = " ".join(str(first.get("named_requirement") or "").split())
+        return f"unresolved_requirement:{named[:160]}" if named \
+            else "unresolved_requirement"
+    value = " ".join(str(first.get("value") or "").split())[:60]
+    target = " ".join(str(first.get("target") or "").split())[:60]
+    detail = "|".join(part for part in (value, target) if part)
+    return f"invented_value:{detail}" if detail else "invented_value"
+
+
 async def apply_canvas_edit(
     plan: CanvasEditPlan,
     user_id: str,
@@ -4377,6 +4713,8 @@ async def apply_canvas_edit(
     pending_review: bool = False,
     evidence_contract: Optional[Dict[str, Any]] = None,
     require_evidence_postconditions: bool = False,
+    calculations: Optional[List[Dict[str, Any]]] = None,
+    resume_preservation: Optional[Dict[str, Any]] = None,
 ):
     """Persist the planned edit through the general canvas CRUD layer
     (CanvasAudit append + WS broadcast). Patch ops are re-applied
@@ -4650,15 +4988,70 @@ async def apply_canvas_edit(
 
     new_content: Any = None
     reason: Optional[str] = None
+    factual_provenance: List[Dict[str, Any]] = []
 
     if plan.ops:
         new_content, failed = _apply_patch_ops(current, plan.ops)
+        # DOMAIN-INDEPENDENT FACTUAL-CHANGE VALIDATION (apply boundary).
+        # Every factual change an op makes must be grounded by the accepted
+        # record: the user's explicit instruction, a ready+authorized
+        # evidence-contract action, a verified observation bound to the
+        # requested subject/field, or a recorded calculation. Canvas
+        # presence alone is not support — an unrelated value elsewhere in
+        # the artifact never grounds assigning it to another subject or
+        # field. The validator carries no business vocabulary; subjects,
+        # fields, values, sources, and authorization all arrive as data.
+        # With no request message and no contract there is no record to
+        # validate against (a direct programmatic apply) and the caller
+        # owns authorization.
+        if request_message or evidence_contract:
+            from core.factual_change_validation import (
+                validate_factual_changes as _validate_factual,
+            )
+            # THE ACCEPTED ASSIGNMENTS (corrected work order): the
+            # request's own recorded assignments are the authority for
+            # user-supplied values.
+            from core.turn_decision import extract_request_assignments
+            accepted = extract_request_assignments(request_message or "")
+            verdict = _validate_factual(
+                ops=list(plan.ops or []),
+                current_text=_serialize_content(current, max_chars=None),
+                request_message=request_message or "",
+                evidence_contract=evidence_contract,
+                calculations=calculations,
+                accepted_assignments=accepted,
+                content=current,
+                artifact_id=canvas_id,
+                expected_revision=expected_prior_audit_id,
+            )
+            if verdict.get("refusals"):
+                reason = _factual_change_refusal_reason(verdict["refusals"])
+                logger.warning(
+                    "canvas edit: factual-change validation refused %d "
+                    "change(s) — first: %s (%s)",
+                    len(verdict["refusals"]),
+                    verdict["refusals"][0].get("detail")
+                    or verdict["refusals"][0].get("named_requirement"),
+                    verdict["refusals"][0].get("reason"))
+                return _out(None, reason)
+            if verdict.get("provenance"):
+                # The grounding classes ride the result so the durable
+                # outcome can state them truthfully (user-supplied is not
+                # independently verified; a calculation is not a source
+                # observation).
+                factual_provenance = verdict["provenance"]
         if failed:
             # The plan validated in plan_canvas_edit; a mismatch here means
             # the content moved between the two steps — refuse rather than
             # write a partial edit on top of a state nobody saw.
             logger.warning("canvas edit: patch ops no longer match — refusing partial write")
             return _out(None, "ops_no_longer_match")
+        # (The net-new labeled-line value gate that lived here is
+        # retired: the factual-change validator above extracts the new
+        # labeled field — alphabetic or numeric — in EVERY edit mode and
+        # refuses it with the named requirement unless the accepted
+        # request assignment, bound evidence, or a calculation grounds
+        # it. One mechanism, no regex workaround.)
     else:
         parsed, decode_reason = _decode_replace_content(plan, current)
         if parsed is None:
@@ -4690,6 +5083,45 @@ async def apply_canvas_edit(
     if scope_reason:
         return _out(None, scope_reason)
 
+    # DOMAIN-INDEPENDENT FACTUAL-CHANGE VALIDATION — REPLACE MODE (the same
+    # validator and contract as patch ops; only the extraction differs).
+    # Added values, tracked-value changes, and labeled field changes must be
+    # grounded by the accepted record; reordering/reformatting existing
+    # values is not an insertion. With no record there is nothing to
+    # validate against (a direct programmatic apply) and the caller owns
+    # authorization.
+    if request_message or evidence_contract:
+        from core.factual_change_validation import (
+            validate_factual_changes as _validate_factual,
+        )
+        # THE REQUEST'S OWN ASSIGNMENTS (same table as the patch path):
+        # replace-mode extraction differs, the authority does not.
+        from core.turn_decision import extract_request_assignments
+        accepted = extract_request_assignments(request_message or "")
+        verdict = _validate_factual(
+            current_text=_serialize_content(current, max_chars=None),
+            new_text_for_replace=_serialize_content(new_content,
+                                                    max_chars=None),
+            request_message=request_message or "",
+            evidence_contract=evidence_contract,
+            calculations=calculations,
+            accepted_assignments=accepted,
+            content=current,
+            artifact_id=canvas_id,
+            expected_revision=expected_prior_audit_id,
+        )
+        if verdict.get("refusals"):
+            logger.warning(
+                "canvas edit: factual-change validation refused replace-"
+                "mode change — %s (%s)",
+                verdict["refusals"][0].get("detail")
+                or verdict["refusals"][0].get("named_requirement"),
+                verdict["refusals"][0].get("reason"))
+            return _out(
+                None, _factual_change_refusal_reason(verdict["refusals"]))
+        if verdict.get("provenance"):
+            factual_provenance = verdict["provenance"]
+
     missing_ready_actions = [
         action
         for action in ready_actions
@@ -4714,6 +5146,49 @@ async def apply_canvas_edit(
     # the audit trail free of non-edits.
     if new_content == current:
         return _out(None, "no_change")
+
+    # RESUME PRESERVATION, BEFORE PERSISTENCE (owner caveat 2026-10-16):
+    # post-write restoration is recovery, not prevention — a violated
+    # mutation would create an invalid intermediate revision and extra
+    # audit rows. When a resumed requirement rides the plan, the
+    # PROPOSED artifact must already preserve the draft: the intended
+    # value exactly once, every pre-existing line unchanged and in
+    # order. Violation refuses BEFORE the store write — a verified zero
+    # effect, no restore, no audit noise. (The post-write readback and
+    # the revision-guarded restore remain as exceptional recovery for
+    # what cannot be seen pre-write: concurrent writes, store
+    # normalization.)
+    if resume_preservation:
+        _rp_value = str(resume_preservation.get("value") or "")
+        _rp_pre = str(resume_preservation.get("pre_content") or "")
+        _rp_violations: list = []
+        if _rp_value and _rp_value not in new_content:
+            _rp_violations.append(
+                "the intended value is not present in the proposed "
+                "content")
+        if _rp_value and new_content.count(_rp_value) != 1:
+            _rp_violations.append(
+                f"the intended value appears "
+                f"{new_content.count(_rp_value)} times in the proposed "
+                "content (expected exactly once)")
+        if _rp_pre.strip() and resume_preservation.get(
+                "intent") == "add":
+            _rp_pre_lines = _rp_pre.splitlines()
+            _rp_iter = iter(new_content.splitlines())
+            if not all(
+                any(_line == _pre_line for _line in _rp_iter)
+                for _pre_line in _rp_pre_lines
+            ):
+                _rp_violations.append(
+                    "pre-existing content was altered (the change was "
+                    "not addition-only)")
+        if _rp_violations:
+            logger.warning(
+                "canvas edit refused BEFORE the write for %s: resume "
+                "preservation violated — %s",
+                canvas_id, "; ".join(_rp_violations))
+            return _out(None, "resume_preservation_violation: "
+                        + "; ".join(_rp_violations)[:300])
 
     # Dead-link gate: a URL the edit introduces that confirmably 404s never
     # reaches the canvas (and from there, a customer's inbox). Fail-open —
@@ -4877,7 +5352,14 @@ async def apply_canvas_edit(
         # OK. `write_recorded` preserves the distinction for reconciliation.
         result["success"] = False
         result["write_recorded"] = True
+        if factual_provenance:
+            result["factual_change_provenance"] = factual_provenance
         return _out(result, "postcondition_readback_failed")
+    if factual_provenance:
+        # The grounding classes the validator reported: user-supplied is
+        # not independently verified; a calculation is not a source
+        # observation. The durable outcome can state them truthfully.
+        result["factual_change_provenance"] = factual_provenance
     return _out(result, None)
 
 
@@ -5013,6 +5495,12 @@ VERIFIED_PRE_WRITE_REFUSALS = (
     "store_rejected",
     "dead_link",
     "postcondition_missing",
+    "invented_value",
+    "unresolved_requirement",
+    # RESUME PRESERVATION (owner caveat 2026-10-16): the refusal happens
+    # BEFORE the store write, so "nothing was changed" is a verified
+    # statement — prevention, not restoration.
+    "resume_preservation_violation",
     "scope_",
     "footer_",
 )
@@ -5090,6 +5578,33 @@ def describe_apply_failure(
             "unchanged rather than put a broken link in it. If you know the "
             "correct address, paste it and I'll add it; otherwise I can "
             "search the site again."
+        )
+    if reason and reason.startswith("invented_value"):
+        # The factual-change validator refused BEFORE any write: the new
+        # value is grounded nowhere in the instruction or the accepted
+        # record. Name what it was so the user can supply it or correct it
+        # — never a generic "try rephrasing", and never a doubt claim.
+        detail = reason.split(":", 1)[1].strip() if ":" in reason else ""
+        value, _, target = detail.partition("|")
+        what = f" ({value} for {target})" if value and target else (
+            f" ({detail})" if detail else "")
+        return (
+            "I didn't write that change: the new value"
+            f"{what} isn't supported by anything you told me or by the "
+            "accepted evidence, so I left the draft unchanged rather than "
+            "put an unbacked value in it. Tell me the value to use (or the "
+            "source it should come from) and I'll apply it."
+        )
+    if reason and reason.startswith("unresolved_requirement"):
+        # The accepted record itself names what is still awaited (a stale
+        # revision, missing evidence): ask for exactly that instead of
+        # manufacturing support or retrying blindly.
+        named = reason.split(":", 1)[1].strip() if ":" in reason else ""
+        ask = f" I still need: {named}." if named else ""
+        return (
+            "I didn't make that change because the record says it is still "
+            f"awaiting evidence.{ask} Give me that and I'll apply it — the "
+            "draft is unchanged."
         )
     if reason and reason.startswith("store_rejected"):
         # Only reachable when the store reported the append was never attempted
@@ -5179,6 +5694,20 @@ def describe_apply_failure(
             "the line should be reworded, name the new wording with the "
             "item still in it; if it should be removed outright, say "
             f"'remove {_dropped}'."
+        )
+    if reason and reason.startswith("resume_preservation_violation"):
+        # RESUME PRESERVATION, VERIFIED PRE-WRITE (owner caveat
+        # 2026-10-16): the proposed artifact failed the preservation
+        # check (value multiplicity, addition-only) — refused before
+        # the store write, so "nothing was changed" is verified, and
+        # the plan's specific defect is named for the user.
+        detail = reason.split(":", 1)[1].strip() if ":" in reason else ""
+        return (
+            "I refused that change before saving anything: applying it "
+            "would have corrupted your existing draft"
+            + (f" — {detail}" if detail else "")
+            + ". Nothing was changed; the draft is exactly as it was. "
+            "Tell me the value to use and I'll apply it cleanly."
         )
     if not _verified_zero_effect_refusal(reason):
         # DEFAULT DIRECTION IS UNCERTAIN. Every branch above either decided
@@ -5292,6 +5821,7 @@ async def plan_canvas_action(
     fresh_data: Optional[str] = None,
     workspace_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    execution_id: Optional[str] = None,
 ) -> Optional[CanvasActionPlan]:
     """Decide whether this turn asks to DO something with the canvas (send
     email). ``fresh_data`` is the caller-gathered live evidence section
@@ -5325,7 +5855,13 @@ async def plan_canvas_action(
         system_instruction="You return only the requested JSON object — raw JSON, no markdown fences.",
         workspace_id=workspace_id,
         tenant_id=tenant_id,
+        execution_id=execution_id,
+        stage="canvas_action_plan",
     )
+    _log_plan_stage(execution_id, "canvas_action_plan",
+                    "action" if plan is not None and plan.wants_action
+                    else ("declined" if plan is not None else "unavailable"),
+                    contract="valid" if plan is not None else "-")
     if plan is None:
         # Deterministic fallback: the structured (Instructor/tool-mode) path
         # is unreliable for action-shaped schemas — the schema class name

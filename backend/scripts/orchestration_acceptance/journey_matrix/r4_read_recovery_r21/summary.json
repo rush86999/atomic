@@ -1,0 +1,66 @@
+{
+ "campaign": "2026-10-16 R4 \u2014 recovered read delivery after an interrupted retrieved-not-delivered attempt",
+ "subject": "0708c21ae (the integrated main HEAD; the env-gated R4 scratch latch + source counter are part of the diagnostic harness)",
+ "diagnostic_only": true,
+ "barrier": "state-triggered, not timed: the world runs with ATOM_R4_DIAG=1; after the workbook-read result transaction commits (status=retrieved persisted + storage receipt), the server writes r4_checkpoint.json (execution/result identities) and BLOCKS delivery while r4_delivery_block exists. The driver independently reads the committed result from the DB, then SIGKILLs the process while the latch is closed. If delivery wins the race, the attempt is diagnostic-invalid.",
+ "attempts": [
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_124030_31d83e.json",
+   "result": "DIAGNOSTIC-INVALID \u2014 the boundary was never reached: the checkpoint never appeared in 240s.",
+   "inspected_durable_state": {
+    "chat_messages": "user ask present; ONE assistant row: 'I could not resolve that document against the catalogued files \u2014 nothing was read. Named file was not resolved in the indexed catalog.' (model=deterministic, provider=structured)",
+    "pending_file_task": {
+     "mention": "prices in consolidated price list 2019.md",
+     "attempts": 0,
+     "status": "pending"
+    },
+    "goal_runs": "1 run; NO retrieve operation recorded (the read never dispatched)",
+    "latch": "never reached (the lane exited before the result transaction)"
+   },
+   "first_missing_transition": "INITIAL READ COMPLETED \u2014 NOT MET. The read never dispatched: the file-mention extractor produced a garbled mention ('prices in consolidated price list 2019.md' \u2014 captured from the phrase, not the filename), which scored no match against the ingested catalog ('Consolidated Price List 2019.md', workspace b7e8caae\u2026), so the planner returned the NOT FOUND block and the lane exited pre-read.",
+   "verdict": "harness/product boundary identified with actual records; the repair belongs to the mention-extraction boundary (detect_file_task_mentions / score_file_match), BEFORE any recovery-relevant work. Recovery machinery was never exercised."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_140138_1cc11c.json",
+   "subject": "0708c21ae + catalog-barrier and receipt-poll driver iterations",
+   "result": "TRANSITION 1 PROVEN WITH ACTUAL RECORDS: the workbook read dispatched, ran, and its payload is DURABLY COMMITTED in goal_runs task_lifecycle.operations[retrieve].execution - status=applied, invoked=True, outcome=read_succeeded, execution.findings carrying per-item payload with source attribution ('FZ16 - 88,410.25 - Consolidated Price List 2019.xlsx!Prices!row8', content_hash, source_version). The turn then DELIVERED the rendered prices with cell-level attribution ('FZ16 - 88,410.25 (Prices sheet, row 8, cell B8)').",
+   "diagnosis": "WHERE THE RESULT SURVIVES: goal_runs findings - NOT agent_executions.metadata_json (the receipt-poll watched the wrong table, which is why the barrier expired twice). Delivery and read commit happen within ONE turn for this read shape: there is no natural retrieved-not-delivered intermediate - the interrupted boundary must be entered by killing at the goal_runs findings commit (bounded driver fix), or the delivery latch must cover this lane.",
+   "next_bounded_step": "point the barrier poll at goal_runs findings (retrieve op with outcome=read_succeeded + non-empty findings for this conversation), SIGKILL at that proven commit, then the recovery turn must render from execution.findings - establishing whether the recovery transition works or is the next repair."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_152957_20040b.json",
+   "subject": "027d8d061 (latch moved into the producing lane: _datasets_named_file_block)",
+   "result": "THE LATCH ARMED IN THE CORRECT LANE (checkpoint seen at 25.4s, delivery blocked, no assistant delivery). The planner-lane workbook read SUCCEEDED (counter: read_invoked + read_completed, storage_read receipt with full coverage: 4/4 targets found with values and cell attribution). BUT the DURABLE lifecycle retrieve op recorded outcome=read_failed, findings=0, source_version=None: the successful read's findings (which the reply rendered with cell-level attribution) were NEVER settled into the lifecycle operation. The driver's independent verification correctly refused (source_version None vs checkpoint content_hash).",
+   "first_missing_transition": "THE FINDINGS SETTLEMENT: the planner-lane read renders and delivers from the plan's in-memory structured record, but the durable lifecycle op never receives the execution facts (findings + source attribution + content_hash/source_version). Recovery after restart cannot render from goal_runs because the findings were never committed there.",
+   "repair_path": "reuse the existing record_read_outcome mechanism (the same settlement the research-continuation lane uses) to settle the planner-lane read's execution facts into the lifecycle retrieve op at read completion; the recovery turn then renders from the durably committed findings."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_165531_ceb794.json",
+   "subject": "853226d79 lineage + the R4 counter instrumentation (env-gated)",
+   "result": "THE KILL-AT-COMPLETION BARRIER WORKS: read_completed_seen=true at 12.4s, SIGKILL landed at the proven retrieved-not-delivered boundary (no assistant delivery persisted), and the findings ARE durably committed in goal_runs (retrieve op: applied/invoked=True/read_succeeded, findings_count=3, source_version committed). BUT THE RECOVERY TURN FAILED: it re-searched knowledge and workspace knowledge instead of rendering the stored findings ('I couldn't find a match for machine prices to the previous conversation and workspace knowledge'), and dispatched a NEW source invocation. The recovery turn does not consult the durable findings at all.",
+   "transition_table": {
+    "initial_read_completed": "MET \u2014 source invocation + committed findings in goal_runs (read_succeeded, findings_count 3, source_version committed)",
+    "stopped_before_delivery": "MET \u2014 SIGKILL at read_completed; no assistant row",
+    "recovery_selected_stored_result": "NOT MET \u2014 the recovery turn re-searched; the durable findings were never consulted",
+    "reply_delivered": "FAILED \u2014 the reply was a search clarification, not the stored facts",
+    "repeated_recovery": "FAILED \u2014 the idempotency turn re-searched again (a third source invocation)"
+   },
+   "first_missing_transition": "RECOVERY SELECTION: nothing in the recovery turn consults the durable findings committed at read completion. The interrupted attempt's payload is durable and inspectable; no code path consumes it.",
+   "next": "build the recovery selection: the recovery turn renders from the durable findings (goal_runs retrieve op execution.findings) \u2014 the owner's bounded repair, then re-run this diagnostic for the full transition table."
+  },
+  {
+   "evidence": "/tmp/r4_read_recovery_evidence/r4_read_recovery_20261016_171723_0be13e.json",
+   "subject": "027d8d061 lineage (the session-id recovery fix)",
+   "result": "THE RECOVERY TURN RE-RENDERED THE STORED RESULT: 'From the saved copy of Consolidated Price List 2019.xlsx (saved 2026-10-16): Checked 3 items - 3 with values...' - the correct prices with cell-level attribution. The kill-at-completion barrier held (read_completed_seen, SIGKILL, no delivery). BUT the attributable counter recorded ONE new source invocation during the recovery turn - the reply leg's planner dispatch raced a fresh file read in the background. The reply itself came from the re-render lane, but the fresh dispatch violates the owner's 'no fresh source invocation' gate at the counter level.",
+   "transition_table": {
+    "initial_read_completed": "MET (counter + durable findings)",
+    "stopped_before_delivery": "MET (SIGKILL at read_completed; no assistant row)",
+    "recovery_selected_stored_result": "PARTIAL - the reply WAS the re-render of the stored result (correct facts), but a background planner dispatch fired one fresh read invocation",
+    "reply_delivered": "MET with the attribution caveat (facts correct, cell-level)",
+    "repeated_recovery": "RE-RENDERED again (explicit re-show - user asked; acceptable per the owner's explicit-vs-automatic distinction)"
+   },
+   "residual_repair": "GATE THE PLANNER DISPATCH: when the durable fallback resolves a recovery, the reply leg must not dispatch a fresh file read (cancel the tool-plan dispatch or suppress the file-scoped reader for show-shaped asks with a recovered result). Bounded: the durable fallback already knows the recovery is pending; the dispatch gate is one flag."
+  }
+ ],
+ "next": "repair the mention-extraction boundary (bounded: the mention must capture the filename, not the phrase), re-run the same diagnostic, then proceed to the recovery transitions. The latch and source counter are in place and never armed."
+}

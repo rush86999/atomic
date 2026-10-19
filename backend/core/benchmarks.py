@@ -130,6 +130,9 @@ MODEL_QUALITY_SCORES = {
     # Served via https://opencode.ai/zen/v1 — tested+verified open coding models
     "deepseek-v4-pro": 96,
     "deepseek-v4-flash": 88,
+    "deepseek-v4.1-flash": 88,  # current-gen flash successor (2026-10 catalog);
+    # same-tier anchor as v4-flash so it clears the SIMPLE/MODERATE floors
+    # and can compete in the BPC pool for opencode-go deployments
     "kimi-k2.7-code": 97,
     "kimi-k3": 94,
 

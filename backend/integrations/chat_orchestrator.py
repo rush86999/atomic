@@ -9,6 +9,7 @@ This module provides a unified chat interface that connects all ATOM capabilitie
 - Cross-platform workflow execution
 """
 import asyncio
+import contextlib
 import time
 from core.turn_learning import get_turn_learning
 from core import log_redaction
@@ -433,6 +434,643 @@ def _canvas_leg_cap(deadline: "TurnDeadline") -> float:
 #: is still thinking at the deadline has already lost.
 _REPLY_LEG_MIN_SECONDS = float(
     os.getenv("ATOM_REPLY_LEG_MIN_SECONDS", "40") or 40)
+
+#: REQUIREMENT-FIRST WAIT (owner directive 2026-10-15, item 4): when the
+#: accepted request names the value's SOURCE by reference ("use the exact
+#: number from our records") and supplies no value, the source lookup gets
+#: this bounded window; if it does not settle, the requirement is declared
+#: UNRESOLVED and the lane ASKS for the value — the specific missing-value
+#: clarification — instead of spending the rest of the turn on planning
+#: the plan cannot ground either (the referenced value grounds nowhere, so
+#: any op it emits is refused). Narrow on purpose: only reference-valued
+#: requests take this window; every other evidence-required edit keeps the
+#: existing generous planner bound.
+_REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS = float(
+    os.getenv("ATOM_REFERENCE_REQUIREMENT_WAIT_SECONDS", "30") or 30)
+
+
+def _unresolved_requirement_message(references: List[str],
+                                    item: Optional[str] = None) -> str:
+    """The SPECIFIC missing-value ask for a reference-valued requirement.
+
+    Names the reference the request already gave and asks for the value —
+    the "ask specifically for the missing value" contract (owner directive
+    2026-10-15, item 4). Deterministic; never a generic timeout sentence,
+    never a fabricated value. When the item is known, the ask TEACHES the
+    accepted input form (owner directive 2026-10-16, item 3): the user
+    should not have to discover the syntax."""
+    named = ", ".join(repr(str(r)[:80]) for r in (references or [])[:2]
+                      if str(r).strip())
+    example = ""
+    if str(item or "").strip():
+        example = (
+            f" For example, write: The {str(item).strip()} is "
+            "'your value'.")
+    if named:
+        return (
+            "I couldn't make that canvas change because the value it needs "
+            f"— {named} — could not be retrieved this turn, so nothing was "
+            "changed. Give me the exact value and I'll apply it." + example)
+    return (
+        "I couldn't make that canvas change because the value it needs "
+        "could not be retrieved this turn, so nothing was changed. Give me "
+        "the exact value and I'll apply it." + example)
+
+
+#: NEXT_ACTION on the durable open-work entry the decline stamps. Intake
+#: consumes exactly this action — no prose matching, no new memory system:
+#: the requirement association lives in the task lifecycle's own
+#: unresolved-question ledger (task_revision.unresolved, kind
+#: missing_evidence, structured inputs), which already survives restarts.
+_AWAITING_VALUE_NEXT_ACTION = "resume_edit_on_user_value"
+
+#: TTL on an awaiting-value requirement. Beyond it the record is stale
+#: history, not a live question (the user moved on days ago).
+_AWAITING_VALUE_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _requirement_item_from_request(goal_text: str) -> str:
+    """The subject+field an awaiting-value question names, from the
+    request's own accepted additions — never invented."""
+    try:
+        from core.turn_decision import extract_request_assignments
+
+        parsed = extract_request_assignments(str(goal_text or ""))
+        for add in parsed.get("unresolved_additions") or []:
+            label = str((add or {}).get("label")
+                        or (add or {}).get("target") or "").strip()
+            if label:
+                return label[:80]
+        for a in parsed.get("assignments") or []:
+            target = str((a or {}).get("target") or "").strip()
+            if target:
+                return target[:80]
+    except Exception:  # noqa: BLE001 — the item is advisory
+        pass
+    return "the requested change"
+
+
+def _stamp_awaiting_value_requirement(
+    tenant_id: Any, workspace_id: Any, run_id: Optional[str], *,
+    canvas_id: Optional[str], goal_text: str,
+    references: List[str], operation_id: Optional[str],
+) -> Optional[str]:
+    """Persist the open requirement on the task lifecycle's OWN ledger.
+
+    R3 (owner milestone 2026-10-16): the delivered clarification must
+    leave a STRUCTURED association — artifact, requirement, original
+    request, authorization — that survives a restart. The carrier is the
+    existing record_unresolved transition (kind missing_evidence,
+    structured inputs, round-54 contract: workers dispatch from inputs,
+    never from prose). Best-effort: a lifecycle write failure never
+    breaks the delivered clarification."""
+    if not run_id:
+        return None
+    try:
+        lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
+        if lifecycle is None:
+            return None
+        # DEDUP (review round 2, finding 2): a run already carrying an
+        # OPEN awaiting-value question for the SAME canvas and item must
+        # not accumulate a second one — every decline would otherwise
+        # grow the ledger and the multi-requirement ask would nag on
+        # requirements that are really the same one.
+        try:
+            existing = lifecycle.get_task(run_id) or {}
+            for q in (existing.get("task_revision") or {}).get(
+                    "unresolved") or []:
+                if not isinstance(q, dict) \
+                        or q.get("status") != "open" \
+                        or q.get("next_action") != _AWAITING_VALUE_NEXT_ACTION:
+                    continue
+                q_inputs = q.get("inputs") if isinstance(
+                    q.get("inputs"), dict) else {}
+                same_canvas = str(q_inputs.get("canvas_id") or "") == \
+                    str(canvas_id or "")
+                same_item = _requirement_item_from_request(goal_text) == \
+                    str(q.get("item") or "")
+                if same_canvas and same_item:
+                    logger.info(
+                        "[requirement-resume] an open awaiting-value "
+                        "question already covers this canvas+item — not "
+                        "stamping again (question=%s)",
+                        q.get("question_id"))
+                    return q.get("question_id")
+        except Exception:  # noqa: BLE001 — dedup is best-effort
+            pass
+        question = {
+            "kind": "missing_evidence",
+            "item": _requirement_item_from_request(goal_text),
+            "question": (
+                "Awaiting the exact value — the user was asked to provide "
+                "it after the lookup could not retrieve "
+                + ", ".join(repr(str(r)[:60]) for r in (references or [])[:2])
+                + "."),
+            "next_action": _AWAITING_VALUE_NEXT_ACTION,
+            "inputs": {
+                "canvas_id": str(canvas_id or ""),
+                "goal_text": str(goal_text or "")[:4000],
+                "references": [str(r) for r in (references or [])[:2]],
+                "operation_id": str(operation_id or ""),
+                "authorized_actions": ["edit"],
+            },
+        }
+        revision = lifecycle.apply_transition(run_id, {
+            "kind": "record_unresolved",
+            "questions": [question],
+            "requested_change": (
+                "the delivered clarification retained the requirement; "
+                "awaiting the user's value"),
+            "source_operation": str(operation_id or "") or None,
+        })
+        qid = None
+        for q in (revision or {}).get("unresolved") or []:
+            if q.get("next_action") == _AWAITING_VALUE_NEXT_ACTION \
+                    and q.get("status") == "open":
+                qid = q.get("question_id")
+        logger.info(
+            "[requirement-resume] stamped the awaiting-value question "
+            "(run=%s question=%s)", run_id, qid)
+        return qid
+    except Exception as exc:  # noqa: BLE001 — never fail a delivered ask
+        logger.warning(
+            "[requirement-resume] could not stamp the awaiting-value "
+            "question (run=%s): %r", run_id, exc)
+        return None
+
+
+def _open_awaiting_value_requirements(
+    tenant_id: Any, workspace_id: Any, session_id: Optional[str],
+    canvas_id: Optional[str],
+) -> List[Dict[str, Any]]:
+    """ALL of the conversation's OPEN awaiting-value requirements.
+
+    Reads the durable task lifecycle (survives restarts). A question is
+    returned only when its recorded canvas matches the canvas this turn
+    is about — a requirement for one artifact must never hijack a turn
+    about another. A MALFORMED or over-TTL timestamp NEVER resumes: an
+    expiry check that cannot be evaluated must not silently authorize
+    binding (bounded correction 2026-10-16, item 3)."""
+    if not session_id:
+        return []
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+
+        lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
+        if lifecycle is None:
+            return []
+        record = lifecycle.find_active_task(str(session_id))
+        if not record:
+            return []
+        found: List[Dict[str, Any]] = []
+        for q in (record.get("task_revision") or {}).get("unresolved") or []:
+            if not isinstance(q, dict):
+                continue
+            if q.get("status") != "open" \
+                    or q.get("next_action") != _AWAITING_VALUE_NEXT_ACTION:
+                continue
+            opened = str(q.get("opened_at") or "").strip()
+            try:
+                if not opened:
+                    raise ValueError("missing opened_at")
+                age = (_dt.now(_tz.utc)
+                       - _dt.fromisoformat(opened)).total_seconds()
+                if age > _AWAITING_VALUE_TTL_SECONDS:
+                    continue
+            except Exception:
+                # Expired or MALFORMED — never resume on a stamp we
+                # cannot evaluate; the question stays for the audit
+                # trail but cannot bind.
+                logger.warning(
+                    "[requirement-resume] skipping an awaiting-value "
+                    "question with an unusable timestamp (%r)",
+                    opened[:40])
+                continue
+            inputs = q.get("inputs") if isinstance(
+                q.get("inputs"), dict) else {}
+            if str(inputs.get("canvas_id") or "") != str(canvas_id or ""):
+                continue
+            found.append({
+                "run_id": record.get("run_id") or record.get("id"),
+                "question_id": q.get("question_id"),
+                "item": str(q.get("item") or "the requested change"),
+                "inputs": inputs,
+            })
+        return found
+    except Exception as exc:  # noqa: BLE001 — never hijack on a read error
+        logger.debug("[requirement-resume] lookup failed: %r", exc)
+        return []
+
+
+#: THE SIX-CLASS REPLY INTERPRETATION (owner instruction 2026-10-16,
+#: accepted-interpretation migration): an open awaiting-value question
+#: makes the next message a PROSPECTIVE answer, and the reply is
+#: classified into answer | question | cancel | selection |
+#: new_instruction | unresolved. UNRECOGNIZED TEXT IS `unresolved` — it
+#: NEVER becomes an answer by default, and no stripping regex rewrites
+#: what the user wrote: an `answer` is RECOGNIZED only when the message
+#: carries an EXACT value span referencing the original message — a
+#: requirement-anchored frame ("The VAT number is 47-11": the frame's
+#: subject names the requirement's item), a digit-bearing message
+#: ("03-4567-8912", "12,500"), or a quoted span ("Acme, Inc"). The span
+#: text is used exactly as it appears in the message.
+_RESUME_CANCEL_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:"
+    r"cancel(?:\s+(?:that|this|it|everything|all\s+of\s+it))?|"
+    r"stop|abort|forget\sit|nevermind|never\smind|dismiss|"
+    r"scratch\sthat|don'?t\sbother|do\snot\sbother|"
+    r"leave\sit|leave\sthat|nope|nah"
+    r")\s*(?:please)?\s*[.!]?\s*$", re.IGNORECASE)
+#: A message of ONLY politeness/meta tokens carries no value: the normal
+#: flows own it (binding "please" or "thanks" as a value is a garbage
+#: write).
+_RESUME_META_ONLY_RE = re.compile(
+    r"^\s*(?:please|thanks|thank\syou|ok|okay|sure|alright|hello|hi)\s*"
+    r"[.!]?\s*$", re.IGNORECASE)
+_RESUME_QUESTION_RE = re.compile(
+    r"^\s*(?:what|where|when|who|whom|whose|why|how|which|is|are|was|"
+    r"were|do|does|did|can|could|will|would|shall|should|may|might|"
+    r"has|have|had)\b[^?]*\?", re.IGNORECASE)
+#: The REQUIREMENT-ANCHORED ANSWER FRAME: "<subject naming the item>
+#: is/are/: <value>". The subject must reference the requirement's own
+#: item (word-window match), so "Love is Blind" — whose subject names
+#: nothing the requirement asked about — is NOT read as a value.
+_RESUME_FRAME_RE = re.compile(
+    r"^\s*(?:the\s+)?(?P<subject>[a-z0-9'\s\-]{2,80}?)"
+    r"\s*(?:\b(?:is|are)\b|\s*:)\s*(?P<value>.+)$",
+    re.IGNORECASE | re.DOTALL)
+_RESUME_SELECT_NUMBER_RE = re.compile(
+    r"^\s*(?:option\s+)?([0-9])\s*[.!]?$", re.IGNORECASE)
+
+_RESUME_STOPWORDS = frozenset(("the", "a", "an", "my", "our", "of"))
+_RESUME_WORD_RE = re.compile(r"[a-z0-9\-']+")
+
+
+def _item_word_set(item: str) -> set:
+    """The requirement item's own significant words (stop-words and
+    one-letter tokens dropped)."""
+    return {
+        w for w in _RESUME_WORD_RE.findall(str(item or "").lower())
+        if len(w) >= 2 and w not in _RESUME_STOPWORDS}
+
+
+def _names_item_window(text: str, item: str) -> bool:
+    """Whether `text` references the requirement's item: a >=2-word
+    contiguous window of the item's own words appears in the text."""
+    words = [
+        w.strip(".,;:!?\"'").lower().removesuffix("'s")
+        for w in str(item or "").split()
+        if w.strip(".,;:!?\"'").lower().removesuffix("'s")
+        not in ("the", "a", "an")]
+    if not words:
+        return False
+    low = f" {str(text or '').lower()} "
+    # A single DISTINCTIVE item word (>=5 chars, e.g. 'client' from
+    # "the client's name") anchors the frame; short words are too
+    # generic to anchor alone.
+    for w in words:
+        if len(w) >= 5 and f" {w} " in low:
+            return True
+    for width in range(len(words), 1, -1):
+        for start in range(len(words) - width + 1):
+            window = " " + " ".join(words[start:start + width]) + " "
+            if window in low:
+                return True
+    return False
+
+
+def _digit_segments(message: str) -> List[Tuple[int, int]]:
+    """The digit-bearing coordination segments of a message, as EXACT
+    (start, end) spans in the original text. A comma adjacent to digits
+    stays inside a segment ("12,500" is one value); a comma followed by
+    whitespace, a semicolon, a newline, or spaced 'or' separates
+    segments ONLY when BOTH sides carry a digit ("8912, or 8913" is
+    ambiguous; "Acme, Inc" is not digit-bearing at all)."""
+    text = str(message or "")
+    if not any(ch.isdigit() for ch in text):
+        return []
+    pieces: List[Tuple[int, int]] = []
+    cursor = 0
+    sep_re = re.compile(r"\n+|;\s*|\s+or\s+", re.IGNORECASE)
+    while cursor <= len(text):
+        m = sep_re.search(text, cursor)
+        end = m.start() if m else len(text)
+        if "," in text[cursor:end]:
+            cm = re.search(r",(?=\s)", text[cursor:end])
+            left = text[cursor:cursor + cm.start()] if cm else ""
+            right = text[cursor + cm.end():end] if cm else ""
+            if cm and any(ch.isdigit() for ch in left) and any(
+                    ch.isdigit() for ch in right):
+                pieces.append((cursor, cursor + cm.start()))
+                cursor = cursor + cm.end()
+                continue
+        pieces.append((cursor, end))
+        if m is None:
+            break
+        cursor = m.end()
+    trimmed_spans: List[Tuple[int, int]] = []
+    for (s, e) in pieces:
+        while e > s and text[e - 1] in ",;":
+            e -= 1
+        if any(ch.isdigit() for ch in text[s:e].strip()):
+            trimmed_spans.append((s, e))
+    return trimmed_spans
+
+
+def _recognized_answer_spans(
+        message: str, item: str) -> Optional[List[Tuple[int, int]]]:
+    """The EXACT value spans in the message for a requirement whose item
+    is `item` — under the NARROW SUPPLY SYNTAX (owner instruction
+    2026-10-16: distinguish SUPPLYING a value from MENTIONING quoted
+    text or numbers; constrain every branch to the narrow syntax and
+    clarify everything else):
+
+      0. BARE DIGIT REPLY FIRST (never frame-parsed): the whole message
+         is digits and separators — '47:11' is a value, never a frame.
+         Coordination -> multiple spans -> one clarification.
+      1. REQUIREMENT-ANCHORED FRAME — the frame's subject references the
+         requirement's own item, and the tail is BARE digit (coordination
+         inside the tail -> segment split -> ambiguity) or the tail's
+         EXPLICITLY QUOTED values (one -> bind; several -> ambiguity).
+         Any other anchored tail is `unresolved`.
+      2. GENERIC FRAME with a BARE digit tail ONLY ('It is 03-4567-8912.'
+         -> the tail span). A generic frame NEVER binds quoted values —
+         quoting in an unanchored frame is a mention, not a supply.
+
+    Anything else — prose mentioning numbers, quoted text in a sentence
+    that does not anchor the requirement — returns None (`unresolved`):
+    broader natural-language answers belong in the structured
+    interpretation mechanism. Every span is validated against the
+    message bounds; the text is preserved exactly as written."""
+    text = str(message or "")
+    trimmed = text.strip()
+    if not trimmed:
+        return None
+    lead = text.index(trimmed[0])
+
+    # 0. BARE DIGIT REPLY FIRST — a message that is entirely digits and
+    #    separators is a VALUE first and must never be frame-parsed
+    #    (review round 7, finding 3: '47:11' truncated to '11').
+    if _BARE_DIGIT_RE.match(trimmed.rstrip(" .!?")):
+        segments = _digit_segments(text)
+        if len(segments) > 1:
+            return segments
+        candidate = trimmed.rstrip(" .!?")
+        start = text.find(candidate, lead)
+        if start >= 0:
+            return [(start, start + len(candidate))]
+        return None
+
+    # Frame interpretation (anchored and generic share the frame regex;
+    # only the TAIL RULES differ).
+    fm = _RESUME_FRAME_RE.match(trimmed)
+    if not fm:
+        # PROSE-DRESSED COORDINATION AMBIGUITY (owner item 4): several
+        # digit-bearing segments ask which one — never a silent pick,
+        # and never a write. ("I will check our records in 2026" has a
+        # SINGLE segment: a mention, unresolved.)
+        segments = _digit_segments(text)
+        if len(segments) > 1:
+            return segments
+        return None
+    tail = fm.group("value").strip().rstrip(" .!?")
+    if not tail:
+        return None
+    tail_start = text.find(tail, lead)
+    if tail_start < 0:
+        return None
+
+    def _digit_tail_spans() -> Optional[List[Tuple[int, int]]]:
+        if not _BARE_DIGIT_RE.match(tail):
+            return None
+        tsegs = _digit_segments(tail)
+        if len(tsegs) > 1:
+            # Coordination inside the tail: several candidates — one
+            # clarification, zero writes (review round 7, finding 1).
+            return [(tail_start + s, tail_start + e) for (s, e) in tsegs]
+        return [(tail_start, tail_start + len(tail))]
+
+    def _quoted_tail_spans() -> List[Tuple[int, int]]:
+        # ALL quoted runs in the tail (review round 7, finding 4):
+        # several explicitly quoted candidates are the ambiguity shape,
+        # never a silent first-pick.
+        spans: List[Tuple[int, int]] = []
+        for qm in re.finditer(
+                r'"([^"\n]{1,200})"|\'([^\'\n]{1,200})\'', tail):
+            gi = 1 if qm.group(1) is not None else 2
+            spans.append((tail_start + qm.start(gi),
+                          tail_start + qm.end(gi)))
+        return spans
+
+    anchored = _names_item_window(fm.group("subject"), item)
+    if anchored:
+        # 1. ANCHORED: bare-digit tail (coordination -> ambiguity) or
+        #    the quoted values (one -> bind; several -> ambiguity).
+        digit_spans = _digit_tail_spans()
+        if digit_spans is not None:
+            return digit_spans
+        qspans = _quoted_tail_spans()
+        if qspans:
+            return qspans
+        return None
+    # 2. GENERIC FRAME: a quoted tail is a MENTION, not a supply
+    #    (review round 7, finding 2 — 'It is "pending"' resolves to
+    #    unresolved); only the bare-digit tail binds.
+    digit_spans = _digit_tail_spans()
+    if digit_spans is not None:
+        return digit_spans
+    segments = _digit_segments(text)
+    if len(segments) > 1:
+        return segments
+    return None
+
+
+
+
+
+
+#: A BARE digit value: digits plus value separators, NO letters. The
+#: coordination word 'or' between digit runs is allowed (it signals
+#: ambiguity, handled by the segment split).
+_BARE_DIGIT_RE = re.compile(
+    r"^[0-9][0-9 ,.\-/():]*(?:\s+or\s+[0-9][0-9 ,.\-/():]*)*$")
+
+
+def _classify_resume_reply(
+        message: str, requirement: Optional[Dict[str, Any]],
+        items: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """The six-class classification of a reply to an open requirement:
+    answer (with exact spans) | question | cancel | selection |
+    new_instruction | unresolved. UNRECOGNIZED TEXT IS `unresolved` —
+    never an answer by default (owner instruction item 2). With several
+    requirements open, the selection echo is checked against EACH
+    item — naming any one of them is a selection."""
+    text = str(message or "").strip()
+    if not text:
+        return {"class": "unresolved"}
+    if _RESUME_CANCEL_RE.match(text):
+        return {"class": "cancel"}
+    if _RESUME_META_ONLY_RE.match(text):
+        return {"class": "question"}
+    if _RESUME_QUESTION_RE.match(text) or text.endswith("?"):
+        return {"class": "question"}
+    if _RESUME_SELECT_NUMBER_RE.match(text):
+        return {"class": "selection"}
+    _item = str((requirement or {}).get("item") or "")
+    _items = items if items else ([_item] if _item else [])
+    if _item:
+        # ANSWER RECOGNITION FIRST (review round 5, positive pin): a
+        # reply with a recognized value span is an ANSWER even when it
+        # echoes the item's words ("The client is Acme, Inc" — a
+        # superset echo with an anchored frame).
+        spans = _recognized_answer_spans(message, _item)
+        if spans is not None:
+            return {
+                "class": "answer",
+                "spans": spans,
+                "ambiguous": len(spans) != 1,
+            }
+    if _items and not any(ch.isdigit() for ch in text):
+        cand_words = {
+            w for w in _RESUME_WORD_RE.findall(text.lower())
+            if len(w) >= 2 and w not in _RESUME_STOPWORDS}
+        if cand_words and any(
+                (item_words := _item_word_set(it)) and (
+                    cand_words <= item_words
+                    or item_words <= cand_words)
+                for it in _items):
+            # The reply ECHOES a requirement's item and carries no
+            # recognized value — naming the requirement, not answering
+            # it.
+            return {"class": "selection"}
+    return {"class": "unresolved"}
+
+
+
+def _compound_cancel(message: str) -> bool:
+    """A reply whose FIRST coordination segment cancels closes the
+    requirement: 'Cancel that. Actually use 03-4567-8912' is a
+    cancellation of the pending edit (the value after it has no open
+    requirement to bind to). Review round 2, finding 4."""
+    text = str(message or "").strip()
+    if not text:
+        return False
+    first = re.split(r"\n+|[.;]\s+|\s+or\s+", text, maxsplit=1,
+                     flags=re.IGNORECASE)[0]
+    return bool(_RESUME_CANCEL_RE.match(first.strip()))
+
+
+def _ambiguous_value_message(item: str, candidates: List[str]) -> str:
+    shown = " or ".join(f"'{str(c)[:60]}'" for c in candidates[:3])
+    return (
+        f"Which value should I use for {item} — {shown}? "
+        "Nothing was changed yet; tell me which one and I'll apply it.")
+
+
+def _multiple_requirements_message(items: List[str]) -> str:
+    numbered = "; ".join(
+        f"{i + 1}) {str(it)[:80]}" for i, it in enumerate(items[:3]))
+    return (
+        "I have more than one open question here. Which one does your "
+        f"value answer — reply with the number, or name it: {numbered}. "
+        "Nothing was changed yet.")
+
+
+def _selection_only_message(item: str) -> str:
+    return (
+        f"{item} — got it. What value should I use? For example, write: "
+        f"The {str(item).strip()} is 'your value'. "
+        "Nothing was changed yet; give me the value and I'll apply it.")
+
+
+def _value_after_selection(
+        message: str, question: Dict[str, Any]) -> List[Tuple[int, int]]:
+    """The EXACT value spans in a reply that ALSO selected a requirement.
+    Selection echoes — spans whose words are just the item's own words
+    (either direction of containment: 'The VAT number' echoes 'client's
+    VAT number') — are removed; bare option numbers are removed. An
+    empty result means the reply was SELECTION-ONLY: it never carries a
+    value (review round 3, blocker)."""
+    item_words = _item_word_set(question.get("item"))
+    out: List[Tuple[int, int]] = []
+    for (s, e) in (_recognized_answer_spans(
+            message, question.get("item") or "") or []):
+        c = str(message)[s:e]
+        cand_words = {
+            w for w in _RESUME_WORD_RE.findall(c.lower())
+            if len(w) >= 2 and w not in _RESUME_STOPWORDS}
+        if cand_words and (cand_words <= item_words
+                           or (item_words and item_words <= cand_words)):
+            continue
+        if re.match(r"^(?:option\s+)?[0-9]$", c, re.IGNORECASE):
+            continue
+        if (s, e) not in out:
+            out.append((s, e))
+    return out
+
+
+def _remembered_selection(
+        session: Optional[Dict[str, Any]],
+        open_reqs: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """A selection remembered on the session (the user answered the
+    which-one ask with a bare selection and the value is expected
+    next). Returns the matching still-open question and CONSUMES the
+    memory; a lost or stale memory selects nothing — the ask repeats
+    (safe direction)."""
+    if not isinstance(session, dict):
+        return None
+    remembered = session.get("resume_selected_question")
+    if not isinstance(remembered, dict):
+        return None
+    qid = str(remembered.get("question_id") or "")
+    for q in open_reqs:
+        if str(q.get("question_id") or "") == qid:
+            session.pop("resume_selected_question", None)
+            return q
+    session.pop("resume_selected_question", None)
+    return None
+
+
+def _select_requirement(
+        message: str, open_reqs: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Deterministic selection when several requirements are open
+    (review round 2, finding 2): an explicit option number picks that
+    question; naming an item picks it — matched by a ≥2-word contiguous
+    window of the item's own words, so 'the VAT number is 47-11' binds
+    the 'client's VAT number' requirement. Anything else selects
+    NOTHING — the ask is repeated, never a silent guess."""
+    text = str(message or "").strip()
+    m = re.match(r"^(?:option\s+)?([0-9])\s*[.!]?$", text, re.IGNORECASE)
+    if m:
+        idx = int(m.group(1)) - 1
+        return open_reqs[idx] if 0 <= idx < len(open_reqs) else None
+    low = f" {text.lower()} "
+
+    def _names_item(item: str) -> bool:
+        words = [
+            w.strip(".,;:!?\"'").lower()
+            for w in str(item or "").split()
+            if w.strip(".,;:!?\"'").lower() not in ("the", "a", "an")]
+        if len(words) < 2:
+            return f" {words[0]} " in low if words else False
+        for width in range(len(words), 1, -1):
+            for start in range(len(words) - width + 1):
+                window = " " + " ".join(words[start:start + width]) + " "
+                if window in low:
+                    return True
+        return False
+
+    hits = [q for q in open_reqs if _names_item(q.get("item"))]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _resume_cancelled_message(item: str) -> str:
+    return (
+        f"Cancelled — I won't make the change to {item}. Nothing was "
+        "changed, and the draft is exactly as it was.")
 
 
 def _pre_reply_leg_timeout(deadline, want: float) -> float:
@@ -875,7 +1513,9 @@ _INABILITY_RE = re.compile(
 # finalization (REJECT, not strip), error-turn classification, stream
 # fragment cleanup. Patterns describe protocol SHAPES, never provider names.
 from core.response_validation import (  # noqa: E402
+    ResponseValidation,
     is_malformed_output as _is_malformed_output,
+    normalize_final_text as _normalize_final_text,
     strip_protocol_fragments as _strip_protocol_tags,
     validate_response_payload as _validate_response_payload,
 )
@@ -2311,6 +2951,34 @@ def _user_grounded_edit_directive(message: str) -> bool:
     return bool(_USER_EDIT_DIRECTIVE_RE.search(t))
 
 
+def _self_contained_edit_turn(
+    message: str,
+    canvas_ctx: Optional[Dict[str, Any]],
+    decision: Optional[Dict[str, Any]],
+) -> bool:
+    """True when the accepted decision requires NO live evidence AND the
+    message is edit-shaped with a canvas open.
+
+    That shape is a self-contained edit: the edit lane owns the turn, and
+    the speculative tool plan is unnecessary research that would also
+    hold the shared model-attempt reservation the edit plan needs (the
+    2026-10-14 T1 diagnostic: 'All structured candidates SKIPPED before
+    dispatch' at 0.4s). The decision is the authority — a missing
+    decision (routing off) or a required-evidence request returns False
+    and keeps today's behavior.
+    """
+    if not canvas_ctx or not isinstance(decision, dict):
+        return False
+    try:
+        from core.turn_decision import turn_evidence_required
+
+        return bool(
+            turn_evidence_required(decision) is False
+            and _canvas_edit_shaped(message, {"canvas": canvas_ctx}))
+    except Exception:  # noqa: BLE001 — gate is additive
+        return False
+
+
 def _canvas_edit_shaped(
     message: str, context: Optional[Dict[str, Any]] = None
 ) -> bool:
@@ -2372,6 +3040,48 @@ def _canvas_edit_shaped(
     )
 
 
+def _planner_returned_none_message(message: str) -> str:
+    """No-apply wording when no APPLICABLE plan was produced.
+
+    Distinct from `planner_declined`: the planner did read the request as an
+    edit but its ops did not match, and the bounded repairs failed. When the
+    request itself carried an assignment ("update X to Y"), the user already
+    did the naming — sending them back to restate exact canvas text puts a
+    system-side precision failure on the user and re-asks for a value they
+    already gave (owner work order 2026-10-15, item 4; measured: the 8B
+    planner appended an empty-find extra op to a correct match and the
+    bounded re-ask repeated it). Explain the mismatch, leave the draft
+    untouched, do not re-ask.
+    """
+    try:
+        from core.turn_decision import extract_request_assignments
+
+        assignments = (extract_request_assignments(message or "")
+                       .get("assignments") or [])
+    except Exception:  # noqa: BLE001 — wording only
+        assignments = []
+    if assignments:
+        named = "; ".join(
+            f"{a.get('target')} = {str(a.get('value'))[:40]}"
+            for a in assignments[:2]
+            if isinstance(a, dict) and a.get("target") and a.get("value"))
+        return (
+            "I didn't apply that canvas change, so nothing was changed. "
+            "Your request already names the value to set"
+            + (f" ({named})" if named else "")
+            + " — the failure is on my side: I couldn't match it to the "
+            "exact text on this canvas, and I won't substitute a different "
+            "edit for it. The draft is untouched."
+        )
+    return (
+        "I didn't apply that canvas change, so nothing was changed. I "
+        "couldn't match your request to exact text on this canvas, and I "
+        "won't substitute a different edit for it. Naming the exact text "
+        "to change (for example 'change \"Quote validity: 15 days\" to "
+        "\"30 days\"') gets it applied."
+    )
+
+
 # CANVAS DEIXIS (round 34, Milestone A live finding): a research message
 # may reference the open canvas without any edit verb — "Don't change the
 # draft yet", "check the other machinery", "verify the pricing on this
@@ -2403,6 +3113,42 @@ def _canvas_referencing_message(message: str) -> bool:
     than an edit verb. Only meaningful when a canvas is actually attached —
     callers gate on that themselves."""
     return bool(_CANVAS_DEIXIS_RE.search(message or ""))
+
+
+# COMPARISON-SHAPED REQUESTS (owner directive 2026-10-15, item 3): the
+# verb set that marks a "tell me whether these agree" ask. Deliberately
+# narrow (compare/consistency/match family); a retrieval ask ("what are
+# the prices...") never matches.
+_CANVAS_COMPARISON_RE = re.compile(
+    r"\b(?:compare|comparison|consistent|consistency|matches?|matching|"
+    r"reconcile|identical|the same)\b", re.IGNORECASE)
+
+
+def _canvas_internal_comparison(message: str, shared_tool_state: Any) -> bool:
+    """Whether the request is a comparison OF the attached artifact's own
+    content — satisfied by the artifact's authoritative content, so no
+    external read obligation exists (owner directive 2026-10-15, item 3).
+
+    Guards (all required, conservative):
+      - the accepted request records NO live-evidence requirement
+        (``evidence_required`` explicitly False — a named source makes it
+        True and keeps the lookup);
+      - the message is comparison-shaped;
+      - the message references the attached artifact (canvas deixis).
+    Everything else — retrieval asks, row-range asks, source-referencing
+    comparisons — keeps the existing read path.
+    """
+    try:
+        if not isinstance(shared_tool_state, dict):
+            return False
+        if shared_tool_state.get("evidence_required") is not False:
+            return False
+        msg = str(message or "")
+        if not _CANVAS_COMPARISON_RE.search(msg):
+            return False
+        return bool(_canvas_referencing_message(msg))
+    except Exception:  # noqa: BLE001 — the gate never blocks the turn
+        return False
 
 
 _TABLE_CELL_RE = re.compile(r"<t[dh][^>]*>(.*?)</t[dh]>", re.IGNORECASE | re.DOTALL)
@@ -2920,13 +3666,24 @@ def _search_execution_receipt(
     }
 
 
-def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
+def _planner_receipt_rows(plan: Any,
+                          block: Optional[str] = None) -> List[Dict[str, Any]]:
     """Attributable tool_outcome rows for the planner lane's execution
     (pristine-J2 false-search finding, 2026-10-12): a search the tool
     planner dispatched must settle the turn's durable outcome with the
     SAME attributable rows the file lane writes — a turn with zero
     executed lookups can never read as served. Facts come from the plan's
-    stamped execution meta, never from returned prose."""
+    stamped execution meta, never from returned prose.
+
+    ``block`` is the block the dispatch RETURNED (when the caller has
+    it): the same dispatch fact the settle arm reads
+    (``_search_execution_receipt`` counts returned text as dispatch
+    evidence). Without it, a text-only execution — e.g. a memory search
+    over an empty store — computed dispatched=False and its row read
+    ``not_executed`` for a lookup that HAD run (live J6 T2 2026-10-15:
+    the settle recorded invoked=true while the companion row said
+    not_executed). Callers without the block keep the previous
+    behavior."""
     meta = getattr(plan, "_result_meta", None) or {}
     if not isinstance(meta, dict):
         meta = {}
@@ -2984,7 +3741,7 @@ def _planner_receipt_rows(plan: Any) -> List[Dict[str, Any]]:
         # of 02ec1c57e: a failed or empty-shaped response must not look
         # executed and verified; executed / evidence / satisfaction are
         # distinct facts).
-        receipt = _search_execution_receipt(plan, None)
+        receipt = _search_execution_receipt(plan, block)
         invoked = bool(receipt["dispatched"])
         rc = receipt.get("receipt") or {}
         evidence_items = (
@@ -4711,6 +5468,10 @@ _UNMET_OBLIGATION_TOKENS: Tuple[Tuple[str, str], ...] = (
     ("ambiguous", "multiple_bases"),
     ("search_returned_no_receipt", "no_source_returned_in_scope"),
     ("search_succeeded_empty", "no_source_returned_in_scope"),
+    # A canvas-scoped read that completed over its explicit scope with
+    # zero matches (owner directive 2026-10-15, item 1) — a bounded
+    # absence, named as such when it leaves work open.
+    ("read_succeeded_empty", "no_source_returned_in_scope"),
     ("read_returned_no_receipt", "read_without_receipt"),
 )
 
@@ -4952,6 +5713,433 @@ def _receipts_carry_verified_complete_search(receipts) -> bool:
     return False
 
 
+def record_canvas_context_source(
+    session: Any,
+    execution_id: Any,
+    canvas_context: Any,
+    *,
+    no_live_evidence: bool,
+) -> None:
+    """Record the ATTACHED ARTIFACT as this execution's context source.
+
+    Owner R4 attribution + the 2026-10-15 J6 T2 evidence: a turn whose
+    ACCEPTED request requires no live evidence (presentation-only /
+    self-contained — the decision's own record) is answered FROM the
+    attached artifact, so the durable outcome must be able to say what
+    the answer was assembled from. The artifact rides the SAME
+    execution-keyed carrier the memory-context assembler publishes
+    (``_retrieval_source_observations_{eid}``) and the outcome builder
+    settles as ``context_source`` refs. Gated to the no-live-evidence
+    shape (evidence-required turns keep their lookup receipts as the
+    recorded basis); never replaces the assembler's own observations;
+    a no-op without a session/execution or without artifact content."""
+    try:
+        if not no_live_evidence or not isinstance(session, dict)                 or not execution_id:
+            return
+        canvas = canvas_context if isinstance(canvas_context, dict) else {}
+        if canvas.get("content") is None:
+            return
+        key = f"_retrieval_source_observations_{execution_id}"
+        if session.get(key):
+            return  # the assembler's observations are already the basis
+        session[key] = [{
+            "source_id": str(
+                canvas.get("canvas_id") or canvas.get("id") or ""),
+            "source_type": "artifact",
+            "service": "canvas",
+            "title": str(canvas.get("title") or "")[:200],
+        }]
+    except Exception:  # noqa: BLE001 — attribution is additive
+        pass
+
+
+# ---------------------------------------------------------------------------
+# CONTEXT-BACKED FULFILLMENT (F-C2 repair, 2026-10-17)
+#
+# The request required live evidence naming a source; THIS execution's
+# verified context retrieval supplied a source matching that requirement.
+# The matcher uses STABLE IDENTITY and AUTHENTICATED SCOPE only — the
+# observation's source identity (kind) and the workspace the retrieval ran
+# under — never filename substring overlap, reply wording, or "some context
+# exists". The fulfillment verdict (fields the retrieved excerpt supplied)
+# is computed from the assembler's per-observation record.
+# ---------------------------------------------------------------------------
+_KIND_FAMILIES: Dict[str, set] = {
+    # observation source → the request-noun families it can satisfy
+    "documents": {
+        "document", "documents", "doc", "docs", "file", "files",
+        "folder", "folders", "drive", "drives", "pdf", "pdfs",
+        "knowledge base", "knowledgebase", "upload", "uploads",
+        # the document-store nouns the decision layer already treats as
+        # consultable sources (_SOURCE_NOUN_RE): workbooks/sheets land in
+        # the same ingested store.
+        "workbook", "workbooks", "spreadsheet", "spreadsheets",
+        "sheet", "sheets",
+    },
+    "communications": {
+        "email", "emails", "e-mail", "mail", "mails", "inbox",
+        "thread", "threads", "dm", "dms", "chat", "chats",
+        "message", "messages", "text", "texts", "calendar",
+        "ticket", "tickets", "note", "notes", "memo", "memos",
+        "letter", "letters", "comment", "comments", "post", "posts",
+    },
+}
+
+# Comparison coverage statuses that are NOT a completed comparison. ONE
+# definition shared by the outcome builder and the fulfillment matcher
+# (the builder's comparison_covered set, promoted to a constant so the
+# two consumers can never drift).
+_COMPARISON_UNCOVERED_STATUSES = {
+    "unverified", "evidence_missing", "unresolved",
+    "partially_comparable", "field_missing",
+}
+
+_FILENAME_TOKEN_RE = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._\-]*\.(?:txt|md|pdf|docx?|xlsx?|csv|tsv|json)",
+    re.IGNORECASE)
+
+
+def _normalize_source_name(value: Any) -> str:
+    text = re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+    return text[4:] if text.startswith("the ") else text
+
+
+def _mentions_to_filename_candidates(mentions: Any) -> List[str]:
+    """Filename-shaped candidates inside detected file mentions.
+
+    Stable identity only: the mention text may wrap the name in prose
+    ("draft quotation with the approved_records_q2026_114.txt" → the
+    token). Mentions without a filename token contribute their normalized
+    tail as a candidate; whether the catalog holds it decides resolution.
+    """
+    out: List[str] = []
+    for m in (mentions or []):
+        text = str(m or "")
+        tokens = _FILENAME_TOKEN_RE.findall(text)
+        if not tokens:
+            tail = " ".join(text.split()[-3:])
+            tokens = [tail] if len(tail) >= 3 else []
+        for t in tokens:
+            norm = _normalize_source_name(t)
+            if norm and norm not in out:
+                out.append(norm)
+    return out[:4]
+
+
+def _resolve_requirement_identity(
+    names: List[str], workspace_id: Any,
+) -> Dict[str, Any]:
+    """Resolve named sources to CATALOG identity (exact-normalized only).
+
+    resolved  → exactly one catalog document matches the name;
+    ambiguous → several match (the request must clarify; never completes);
+    unresolved→ none match (never completes);
+    kind_only → no specific name was given (the source KIND is the only
+                identity available).
+    """
+    if not names:
+        return {"state": "kind_only", "candidates": []}
+    try:
+        from core.database import get_db_session
+        from core.models import IngestedDocument
+
+        with get_db_session() as db:
+            q = db.query(IngestedDocument)
+            if workspace_id:
+                q = q.filter(IngestedDocument.workspace_id == workspace_id)
+            rows = q.all()
+    except Exception:  # noqa: BLE001 — resolution failure never completes
+        return {"state": "unresolved", "names": list(names)[:4],
+                "note": "catalog lookup failed"}
+    norm = {_normalize_source_name(n) for n in names if str(n or "").strip()}
+    hits: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        fn = _normalize_source_name(getattr(r, "file_name", None))
+        ti = _normalize_source_name(getattr(r, "title", None))
+        if (fn and fn in norm) or (ti and ti in norm):
+            hits[str(getattr(r, "id", ""))] = {
+                "file_id": str(getattr(r, "id", "")),
+                # title-only catalog rows must still carry a matchable
+                # identity (reviewer F6)
+                "file_name": (getattr(r, "file_name", None)
+                              or getattr(r, "title", None)),
+            }
+    candidates = list(hits.values())
+    if len(candidates) == 1:
+        return {"state": "resolved", **candidates[0]}
+    if len(candidates) > 1:
+        return {"state": "ambiguous", "candidates": candidates[:4]}
+    return {"state": "unresolved", "names": sorted(norm)[:4]}
+
+def _comparison_carrier_complete(carrier: Any) -> bool:
+    """Whether a recorded comparison carrier covers every compared field.
+
+    Mirrors the outcome builder's coverage rule through the shared status
+    set — a comparison with any uncovered/absent field is NOT a result.
+    The recorded outcomes must agree with the recorded count (reviewer
+    F8: an understated outcome_count cannot certify a short ledger).
+    """
+    if not isinstance(carrier, dict):
+        return False
+    coverage = carrier.get("coverage") or {}
+    outcomes = [o for o in (coverage.get("outcomes") or [])
+                if isinstance(o, dict)]
+    total = int(coverage.get("outcome_count") or 0)
+    if not outcomes or total != len(outcomes):
+        return False
+    covered = sum(
+        1 for o in outcomes
+        if str(o.get("status") or "unresolved")
+        not in _COMPARISON_UNCOVERED_STATUSES
+        and not ({"field_missing", "evidence_missing"}
+                 & {str(reason) for reason in (o.get("reasons") or [])})
+    )
+    return covered == total
+
+
+def _observation_kind_family(obs: Dict[str, Any]) -> Optional[str]:
+    src = str((obs or {}).get("source") or "").strip().lower()
+    if src in ("ingested", "vector"):
+        return "documents"
+    if src in ("communication", "communications", "comms"):
+        return "communications"
+    return None
+
+
+def _observation_satisfies_kind(obs: Dict[str, Any],
+                                kinds: List[str]) -> bool:
+    family = _observation_kind_family(obs)
+    if family is None:
+        return False
+    allowed = _KIND_FAMILIES.get(family) or set()
+    return any(str(k).strip().lower() in allowed for k in kinds if k)
+
+
+def _stash_evidence_requirement(
+    session: Any,
+    execution_id: Any,
+    decision: Any,
+    message: Any,
+    evidence_required: Any,
+    workspace_id: Any = None,
+    canvas_attached: bool = False,
+) -> Optional[Dict[str, Any]]:
+    """Record the accepted request's evidence requirement for THIS execution.
+
+    F-C2 (2026-10-17; extracted so the production stash is directly
+    testable): source kinds, file reference, deterministic typed-field
+    requests, subject identities, the RESOLVED named-source identity
+    (catalog, exact normalized name), and whether an artifact was attached
+    (both-inputs-available). Execution-keyed: another turn's requirement
+    can never donate. Returns the recorded requirement (or None).
+    """
+    if (not isinstance(session, dict) or not execution_id
+            or not isinstance(decision, dict)):
+        return None
+    refs = decision.get("references") or {}
+    fields: List[str] = []
+    try:
+        from core.workbook_read_artifact import extract_field_requests
+
+        fields = list(dict.fromkeys(
+            extract_field_requests([str(message or "")])))[:6]
+    except Exception:  # noqa: BLE001 — fields additive
+        fields = []
+    subjects: List[str] = []
+    try:
+        from core.memory_context_assembler import subjects_for_message
+
+        subjects = subjects_for_message(str(message or ""), fields)
+    except Exception:  # noqa: BLE001 — subjects additive
+        subjects = []
+    identity: Dict[str, Any] = {"state": "kind_only", "candidates": []}
+    file_ref = refs.get("file") if isinstance(refs.get("file"), dict) else None
+    try:
+        from core.agent_file_context import detect_file_mentions
+
+        mentions = detect_file_mentions(str(message or "")) or []
+    except Exception:  # noqa: BLE001
+        mentions = []
+    if file_ref and (file_ref.get("file_name") or file_ref.get("name")
+                     or file_ref.get("resource_id")):
+        identity = _resolve_requirement_identity(
+            [str(file_ref.get("file_name") or file_ref.get("name") or "")],
+            workspace_id)
+        if (identity.get("state") == "unresolved"
+                and file_ref.get("resource_id")):
+            identity = {
+                "state": "resolved",
+                "file_id": str(file_ref.get("resource_id")),
+                "file_name": (file_ref.get("file_name")
+                              or file_ref.get("name")),
+            }
+    elif mentions:
+        identity = _resolve_requirement_identity(
+            _mentions_to_filename_candidates(mentions), workspace_id)
+    requirement = {
+        "required": evidence_required is True,
+        "sources": [
+            str(s).strip().lower()
+            for s in (refs.get("sources") or [])
+            if str(s or "").strip()][:4],
+        "file": file_ref,
+        "fields": fields,
+        "subjects": subjects,
+        "identity": identity,
+        "artifact_attached": bool(canvas_attached),
+    }
+    session[f"_evidence_requirement_{execution_id}"] = requirement
+    return requirement
+
+
+def _context_backed_fulfillment(
+    session: Any,
+    execution_id: Any,
+    workspace_id: Any = None,
+) -> Optional[Dict[str, Any]]:
+    """Resolve the context-backed fulfillment verdict for THIS execution.
+
+    Evidence discipline (owner F-C2 gap repairs, 2026-10-17):
+
+    * identity — a NAMED source must resolve to catalog identity (exact
+      normalized name) and the observation must carry THAT identity; a name
+      matching several documents is ambiguous and never completes; a name
+      matching none is unresolved and never completes. Kind-only requests
+      (no name given) match by source family + authenticated scope.
+    * fulfillment — per requested field, an ASSOCIATION recorded by the
+      assembler (anchor → value → span, subject-tied when the request
+      names a subject). Unrelated values cannot fill unknown fields and
+      fragments never combine (per-observation records).
+    * comparison — when the turn carried an attached artifact AND required
+      a source, availability of both inputs does not establish that the
+      comparison was performed: completion additionally requires the
+      recorded comparison carrier for THIS execution with complete
+      coverage.
+
+    Returns None when the shape does not apply. Verdict states:
+    ``completed`` / ``partial`` (named gaps) / ``unsupplied`` /
+    ``retrieval_only`` / ``ambiguous`` / ``unresolved``.
+    """
+    if not isinstance(session, dict) or not execution_id:
+        return None
+    req = session.get(f"_evidence_requirement_{execution_id}")
+    if not isinstance(req, dict) or req.get("required") is not True:
+        return None
+    obs = session.get(f"_retrieval_source_observations_{execution_id}")
+    if not isinstance(obs, list) or not obs:
+        return None
+    kinds = [str(k) for k in (req.get("sources") or []) if str(k or "").strip()]
+    if not kinds:
+        return None
+    identity = req.get("identity") if isinstance(
+        req.get("identity"), dict) else {"state": "kind_only"}
+    id_state = str(identity.get("state") or "kind_only")
+    if id_state == "ambiguous":
+        return {"state": "ambiguous",
+                "candidates": identity.get("candidates") or []}
+    if id_state == "unresolved":
+        return {"state": "unresolved", "names": identity.get("names") or []}
+    try:
+        _turn_ws = workspace_id or resolve_user_workspace(
+            session.get("user_id") if isinstance(session, dict) else None)
+    except Exception:  # noqa: BLE001
+        _turn_ws = workspace_id or None
+    _id_name = (_normalize_source_name(identity.get("file_name"))
+                if id_state == "resolved" else "")
+    matching: List[Dict[str, Any]] = []
+    for o in obs:
+        if not isinstance(o, dict):
+            continue
+        o_ws = o.get("workspace_id")
+        if _turn_ws:
+            if str(o_ws or "") != str(_turn_ws):
+                continue  # scope mismatch / unscoped — never promotes
+        elif o_ws:
+            continue  # a stamped workspace the turn cannot authenticate
+        if id_state == "resolved":
+            if not _id_name:
+                continue
+            o_name = _normalize_source_name(
+                o.get("file_name") or o.get("title"))
+            if o_name != _id_name:
+                continue  # a different named document never donates
+        elif not _observation_satisfies_kind(o, kinds):
+            continue
+        matching.append(o)
+    if not matching:
+        return None
+    fields = [str(f) for f in (req.get("fields") or []) if f][:6]
+    if not fields:
+        # the retrieval proves the source was available, nothing more
+        return {"state": "retrieval_only", "sources": len(matching)}
+    subjects = [str(s) for s in (req.get("subjects") or []) if s][:4]
+    subjects_low = {s.casefold() for s in subjects}
+    # PER-OBSERVATION COMPLETION (reviewer F3): ONE matching source must
+    # supply EVERY requested field — fields spread across different
+    # documents never add up to a supplied finding.
+    best_obs: Optional[Dict[str, Any]] = None
+    best_row: Dict[str, Any] = {}
+    for o in matching:
+        assoc_map = o.get("field_associations")
+        if not isinstance(assoc_map, dict):
+            continue
+        row: Dict[str, Any] = {}
+        for f in fields:
+            a = assoc_map.get(f)
+            if not isinstance(a, dict) or not a.get("value"):
+                continue
+            if subjects_low and str(a.get("subject") or "").casefold() \
+                    not in subjects_low:
+                continue  # not tied to a REQUESTED subject
+            row[f] = a
+        if best_obs is None or len(row) > len(best_row):
+            best_obs, best_row = o, row
+    supplied = sorted(best_row.keys())
+    missing = [f for f in fields if f not in supplied]
+    matched_ids = ([{"source": best_obs.get("source"),
+                     "file_name": best_obs.get("file_name"),
+                     "content_hash": best_obs.get("content_hash")}]
+                   if best_obs is not None and supplied else [])
+    if not missing:
+        if req.get("artifact_attached"):
+            carrier = session.get(f"_objective_evidence_{execution_id}")
+            if not _comparison_carrier_complete(carrier):
+                # both inputs available ≠ the comparison was performed
+                return {"state": "partial", "supplied_fields": supplied,
+                        "missing_comparison": True, "matched": matched_ids}
+        return {"state": "completed", "supplied_fields": supplied,
+                "matched": matched_ids}
+    if supplied:
+        return {"state": "partial", "supplied_fields": supplied,
+                "missing_fields": missing, "matched": matched_ids}
+    return {"state": "unsupplied", "missing_fields": missing}
+
+
+def _recorded_context_fulfillment(
+    response: Any,
+    execution_id: Any,
+) -> Optional[Dict[str, Any]]:
+    """The durable builder's CONSUMPTION of the resolver's single decision.
+
+    Never re-derives a completion predicate: it requires the recorded
+    outcome to be ``completed``, to bind THIS execution, to carry a
+    recorded delivery, and to name the context-fulfillment basis that was
+    completed. Anything else returns None.
+    """
+    rec = (response or {}).get("_recorded_outcome")
+    if not isinstance(rec, dict):
+        return None
+    if rec.get("state") != "completed" or rec.get("delivered") is not True:
+        return None
+    ids = {str(e) for e in (rec.get("execution_ids") or []) if e}
+    if not execution_id or str(execution_id) not in ids:
+        return None
+    cf = rec.get("context_fulfillment")
+    if not isinstance(cf, dict) or cf.get("state") != "completed":
+        return None
+    return cf
+
+
 def _fallback_turn_outcome(
     session: Any,
     execution_id: Any,
@@ -4961,6 +6149,7 @@ def _fallback_turn_outcome(
     canvas_was_read: bool = False,
     noop_receipt: bool = False,
     extra_execution_ids: Any = None,
+    presentation_only_turn: bool = False,
 ) -> Dict[str, Any]:
     """Resolve the turn's outcome from DURABLE, IDENTITY-BOUND records.
 
@@ -5127,10 +6316,56 @@ def _fallback_turn_outcome(
                             "unverified", "evidence_missing", "unresolved",
                             "partially_comparable", "field_missing")
                         for o in _outs):
+                    validated = True
+        # EDIT-DECLINE CARRIER (verifier round 19, F3): the lane
+        # declined with a NAMED reason and delivered the honest reply —
+        # partial (delivered clarification; the requested edit did not
+        # happen and must not be certified). Never completed: the
+        # decline is not the requested change.
+        _decline_named = False
+        _decline = (session or {}).get("canvas_edit_decline") \
+            if isinstance(session, dict) else None
+        if (isinstance(_decline, dict)
+                and str(_decline.get("execution_id") or "")
+                == str(execution_id or "")):
+            _decline_named = True
+            if not validated:
+                work_turn = True
+                validated = True
+        if not validated and isinstance(session, dict) and execution_id:
+            _cmp = session.get(f"_objective_evidence_{execution_id}")
+            if isinstance(_cmp, dict):
+                _cov = _cmp.get("coverage") or {}
+                _outs = [o for o in (_cov.get("outcomes") or [])
+                         if isinstance(o, dict)]
+                if _outs and all(
+                        str(o.get("status") or "") not in (
+                            "unverified", "evidence_missing", "unresolved",
+                            "partially_comparable", "field_missing")
+                        for o in _outs):
                     # SAME covered-set the outcome builder uses — a
                     # partially-covered comparison is not a delivered
                     # result.
                     validated = True
+        # PRESENTATION DELIVERY (owner directive 2026-10-15, the J6 T2
+        # outcome defect): a turn whose ACCEPTED request is
+        # presentation-only — the decision grants a presentation and
+        # names no live source, no file, no edit (turn_decision
+        # ``turn_presentation_only``) — and which READ the attached
+        # artifact this turn (``canvas_was_read``: the durable canvas
+        # revision was in this turn's context and the reply presented
+        # it) delivered the requested result: the presentation itself,
+        # over the artifact revision the read resolved. This validates
+        # the TURN's delivery, never the reply's wording — narration
+        # agreement stays with the fabrication layer — and a recorded
+        # failure or an open obligation still resolves failed/partial
+        # first (the state map below). Prior shape (every recorded J6
+        # run): a delivered, correct canvas comparison resolved
+        # success=false / outcome_unconfirmed because no recorded
+        # delivery fact existed for a presentation.
+        if (not validated and presentation_only_turn
+                and canvas_was_read):
+            validated = True
         # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the memory-context
         # assembler publishes the source identities it actually
         # retrieved from — these become attributable evidence refs for
@@ -5195,6 +6430,79 @@ def _fallback_turn_outcome(
                 if _ops_carry_values(_linked):
                     validated = True
                     break
+
+        # CONTEXT-BACKED FULFILLMENT (F-C2 repair, 2026-10-17): the request
+        # required live evidence (a named source) and THIS execution's
+        # verified context retrieval supplied a source matching the
+        # requirement — kind-compatible AND under the turn's authenticated
+        # workspace. Retrieval alone proves the source was AVAILABLE to
+        # narration; completion additionally needs the requested fields to
+        # have been supplied by the retrieved excerpt (recorded by the
+        # assembler). A partial supply names the missing fields and stays
+        # partial; a retrieval without the requested finding never
+        # certifies completion. The verdict is computed ONCE here and
+        # carried on the outcome (`context_fulfillment`) for the durable
+        # builder to consume — never re-derived there.
+        context_fulfillment: Optional[Dict[str, Any]] = None
+        try:
+            context_fulfillment = _context_backed_fulfillment(
+                session, execution_id, workspace_id)
+        except Exception:  # noqa: BLE001 — additive; never blocks the turn
+            context_fulfillment = None
+        if context_fulfillment and not validated:
+            _cf_state = str(context_fulfillment.get("state") or "")
+            if _cf_state == "completed":
+                validated = True
+            elif _cf_state == "partial":
+                # Delivered answer with a named gap: the supplied fields
+                # are usable work; the missing ones stay obligations.
+                validated = True
+                if context_fulfillment.get("missing_comparison"):
+                    open_work.append(
+                        "the comparison itself was not recorded this "
+                        "turn — only its inputs were available")
+                _cf_missing = [
+                    str(f) for f in (
+                        context_fulfillment.get("missing_fields") or [])][:3]
+                if _cf_missing:
+                    open_work.append(
+                        "the requested " + ", ".join(_cf_missing)
+                        + " — not present in the retrieved source "
+                          "excerpt this turn")
+            elif _cf_state == "ambiguous":
+                # UNSUPPORTED ASSOCIATION -> PARTIAL WITH THE SPECIFIC
+                # EXPLANATION (owner rule 2026-10-17: "unsupported
+                # associations remain partial with a specific
+                # explanation"; the delivered answer is kept and the
+                # unresolved reference is named as the open work).
+                validated = True
+                _cf_names = [
+                    str(c.get("file_name") or c.get("file_id") or "")
+                    for c in (context_fulfillment.get("candidates") or [])
+                    if isinstance(c, dict)][:3]
+                _cf_names = [n for n in _cf_names if n]
+                open_work.append(
+                    "which source you mean"
+                    + (" — the reference matches " + ", ".join(_cf_names)
+                       if _cf_names else ""))
+            elif _cf_state == "unresolved":
+                validated = True
+                _cf_names = [str(n) for n in (
+                    context_fulfillment.get("names") or [])][:3]
+                open_work.append(
+                    "no ingested document matches "
+                    + (", ".join(_cf_names) if _cf_names
+                       else "the named source"))
+            elif _cf_state == "unsupplied":
+                validated = True
+                _cf_missing = [
+                    str(f) for f in (
+                        context_fulfillment.get("missing_fields") or [])][:3]
+                if _cf_missing:
+                    open_work.append(
+                        "the requested " + ", ".join(_cf_missing)
+                        + " — no supported association in the retrieved "
+                          "source excerpt this turn")
 
         # 4. RELEVANT OPEN OBLIGATIONS — actions, owner decisions, and
         #    exhausted questions are all unfinished requested work.
@@ -5355,8 +6663,15 @@ def _fallback_turn_outcome(
         if record is not None and not work_turn:
             work_turn = True
 
-        # Map to the state.
-        if recorded_failure:
+        # Map to the state. THE EDIT-DECLINE CARRIER (F3) maps BEFORE
+        # the generic branches: a named decline with a delivered reply
+        # is PARTIAL — the honest answer was delivered; the requested
+        # edit did not happen and is never certified complete. Without
+        # a delivered reply it stays with the generic mapping below.
+        if _decline_named and validated and not open_work:
+            state["state"] = "partial"
+            state["open_work"] = [state.get("unmet_obligation")]
+        elif recorded_failure:
             state["state"] = "failed"
         elif _pending_calc_delivery and not _ops_carry_values(this_ops):
             # The clarification named the missing input — a delivered
@@ -5394,6 +6709,10 @@ def _fallback_turn_outcome(
         if continuation_id:
             state["continuation_id"] = continuation_id
         state["delivered"] = bool(validated)
+        if context_fulfillment:
+            # the single computed verdict rides the outcome for the durable
+            # builder + evidence refs (never re-derived downstream)
+            state["context_fulfillment"] = context_fulfillment
         # UNMET OBLIGATION (owner work order 2026-10-10): an unconfirmed
         # turn names WHERE it stopped, derived from the records above —
         # never invented. A completed/partial/failed token already
@@ -6809,12 +8128,16 @@ class ChatOrchestrator:
                 or 0
             )
             comparison_covered = sum(
-                status not in {
-                    "unverified", "evidence_missing", "unresolved",
-                    "partially_comparable",
-                }
+                status not in _COMPARISON_UNCOVERED_STATUSES
                 for status in comparison_statuses
             )
+            # field_missing JOINS the exclusion set (verifier review
+            # defect 1, 84143bdd8): the comparison ledger below already
+            # counts a missing source field as NOT known — the covered
+            # count must agree, and the fallback resolver's validated
+            # branch excludes it. A comparison whose source field was
+            # never found is not a delivered result on ANY lane; the
+            # two resolvers now state one contract.
             comparison_complete = bool(
                 comparison_total and comparison_covered == comparison_total
             )
@@ -6920,6 +8243,11 @@ class ChatOrchestrator:
                             "evidence_missing",
                             "unresolved",
                             "partially_comparable",
+                            # SAME covered-set as comparison_covered and
+                            # the fallback's validated branch (re-review
+                            # finding: the criterion rows were the last
+                            # place field_missing still read as met).
+                            "field_missing",
                         }
                     ),
                     "verifier": "source_comparison",
@@ -7030,6 +8358,21 @@ class ChatOrchestrator:
             for ref in comparison_evidence_refs:
                 if ref not in evidence_refs:
                     evidence_refs.append(ref)
+            # CANVAS MUTATION EVIDENCE (review defect 3 consumer, from
+            # the edit lane's own records): a verified, readback-matched
+            # write settles a canvas_mutation ref — the audit row id and
+            # operation linkage from canvas_edit, never the reply.
+            if (canvas_edit.get("updated") is True
+                    and mutation.get("readback_matched") is True
+                    and canvas_edit.get("audit_id")):
+                evidence_refs.append({
+                    "kind": "canvas_mutation",
+                    "canvas_id": canvas_edit.get("canvas_id"),
+                    "audit_id": canvas_edit.get("audit_id"),
+                    "operation_id": canvas_edit.get("operation_id"),
+                    "execution_id": canvas_edit.get("execution_id")
+                    or execution_id,
+                })
             tool_outcomes = []
             if (result or comparison) and (
                 mentions or task.get("mention") or comparison
@@ -7159,7 +8502,31 @@ class ChatOrchestrator:
                 tool_outcomes = list(tool_outcomes) + _calc_evidence
             # CONTEXT-ASSEMBLY ATTRIBUTION (owner R4): the assembler's
             # retrieval observations become attributable evidence refs —
-            # retrieved observations, not verified answer support.
+            # retrieved observations, not verified answer support. The
+            # F-C2 fulfillment verdict (computed ONCE by the resolver)
+            # rides the same entry; the raw excerpt is NOT embedded —
+            # refs carry identity + the supplied-field coverage.
+            _cf_record = _recorded_context_fulfillment(response, execution_id)
+            if _cf_record:
+                # F-C2 basis as a CRITERION (contract-normalized, so it
+                # survives settlement; the registered verifier re-states
+                # the recorded shape). Refs name the MATCHED source(s),
+                # not the whole carrier.
+                _cf_matched = [
+                    m for m in (_cf_record.get("matched") or [])
+                    if isinstance(m, dict)] or _context_sources
+                criterion_results.append({
+                    "criterion": "context_source_fulfillment",
+                    "met": True,
+                    "verifier": "context_source_fulfillment",
+                    "evidence_refs": [
+                        {k: v for k, v in
+                         {"kind": "context_source", **s}.items()
+                         if k in ("kind", "source", "file_name",
+                                  "content_hash")}
+                        for s in _cf_matched
+                    ],
+                })
             if _context_sources:
                 tool_outcomes.append({
                     "tool": "context_assembly",
@@ -7169,9 +8536,12 @@ class ChatOrchestrator:
                         f"into context"),
                     "required": False,
                     "evidence_refs": [
-                        {"kind": "context_source", **s}
+                        {k: v for k, v in
+                         {"kind": "context_source", **s}.items()
+                         if k != "excerpt"}
                         for s in _context_sources
                     ],
+                    **({"fulfillment": _cf_record} if _cf_record else {}),
                 })
             objective_met = None
             if status in {"failed", "cancelled"} or response.get("success") is False:
@@ -7197,6 +8567,13 @@ class ChatOrchestrator:
                     session.get(f"_planner_tool_receipts_{execution_id}")
                     if isinstance(session, dict) else None)
             ):
+                objective_met = True
+            elif _cf_record:
+                # CONTEXT-BACKED FULFILLMENT (F-C2 repair, 2026-10-17):
+                # CONSUME the resolver's single decided verdict — recorded
+                # outcome completed, THIS execution bound, delivered, with
+                # the context-fulfillment basis completed. The builder
+                # never re-derives a completion predicate.
                 objective_met = True
             elif (
                 # CALCULATION COMPLETION (owner R3): a succeeded
@@ -7241,6 +8618,8 @@ class ChatOrchestrator:
                     ([{"kind": "source_comparison"}] if comparison else
                      [{"kind": "source_scoped_retrieval"}] if mentions else [])
                     + ([{"kind": "mutation"}] if canvas_edit else [])
+                    + ([{"kind": "context_source_fulfillment"}]
+                       if _cf_record else [])
                 ),
                 criterion_results=criterion_results,
                 requested={
@@ -8239,7 +9618,10 @@ class ChatOrchestrator:
             _pfr = session.get("_pending_file_result")
             if not isinstance(_pfr, dict) or not _pfr.get("rendered"):
                 try:
-                    _pfr = self._load_pending_file_result(session_id)
+                    _pfr = self._load_pending_file_result(
+                        session_id, message=message,
+                        workspace_id=_turn_scope.get("workspace_id"),
+                        tenant_id=_turn_scope.get("tenant_id"))
                 except Exception:  # noqa: BLE001 — best-effort
                     _pfr = None
             # NOTE: the reply leg's evidence-bound narration guard reads the
@@ -8733,7 +10115,15 @@ class ChatOrchestrator:
                                     context or {}, session_id=session_id,
                                     request_id=str(
                                         (context or {}).get("request_id")
-                                        or "")))
+                                        or ""),
+                                    # The REQUEST-scoped service (_scope_llm
+                                    # above), never self.llm_service: the
+                                    # public route serves every user through
+                                    # ONE default-scoped orchestrator, so
+                                    # constructor scope is not authenticated
+                                    # request scope (verifier correction
+                                    # 2026-10-16).
+                                    llm_service=_scope_llm))
                         except Exception as _interp_err:  # noqa: BLE001
                             _td_interpretation = None
                             logger.debug(
@@ -8880,6 +10270,40 @@ class ChatOrchestrator:
                         and not locals().get("_teaching_cue_turn"))
             except Exception:  # noqa: BLE001 — shape gate only
                 _ask_direct = False
+            # R4 EARLY RECOVERY CHECK (2026-10-16): one request-local
+            # decision BEFORE any planner-independent retrieval. When the
+            # turn is recovery-shaped with a resolved durable payload, the
+            # ask/direct lanes are suppressed here so no new read runs;
+            # the late pre-planner block reuses this same decision (no
+            # second load) and delivers/clarifies.
+            _r4_early_decision = {"decided": False}
+            try:
+                _e_dec, _e_pay, _e_cands = self._decide_file_recovery(
+                    message, session_id, _turn_scope,
+                    session, history, _canvas_ctx)
+                _r4_early_decision = {
+                    "decided": True,
+                    "decision": str(_e_dec or "normal_work"),
+                    "payload": _e_pay,
+                    "candidates": list(_e_cands or []),
+                }
+                if _r4_early_decision["decision"] in (
+                        "deliver_stored_result",
+                        "clarify_result_selection"):
+                    try:
+                        _ask_direct = False
+                    except Exception:
+                        pass
+                    try:
+                        _pending_file_task = None
+                    except Exception:
+                        pass
+                    logger.info(
+                        "[r4-recovery] early decision %s - retrieval "
+                        "suppressed, late block will serve",
+                        _r4_early_decision["decision"])
+            except Exception:  # noqa: BLE001
+                _r4_early_decision = {"decided": False}
             if (
                 _ask_direct
                 and not _pending_file_task
@@ -11171,6 +12595,85 @@ class ChatOrchestrator:
                                 session.get(FILE_TASK_SESSION_KEY),
                                 _direct_identity,
                             )
+                            # R4 SCRATCH LATCH (env-gated via
+                            # ATOM_R4_LATCH; diagnostic world only) - placed
+                            # AFTER the settlement commits (findings, source
+                            # identity, outcome are in the lifecycle
+                            # operation) and BEFORE delivery. The checkpoint
+                            # carries the FULL identity chain. On expiry the
+                            # stored result is withheld and the expiry is
+                            # recorded loudly - never a silent fall-through
+                            # to delivery.
+                            # ONE canonical explicit scratch directory
+                            # (no cwd fallback). Missing/invalid config
+                            # invalidates the diagnostic without writing
+                            # into repo or dev-data paths. The checkpoint is
+                            # published AFTER the persistence transaction
+                            # commits; delivery blocks on the awaited latch;
+                            # expiry withholds and loudly invalidates.
+                            # The boundary is the SHARED
+                            # r4_delivery_latch helper (the direct lane's
+                            # inline copy is what shipped the _r4json2
+                            # alias bug): it publishes the checkpoint
+                            # AFTER the persistence transaction commits,
+                            # blocks on the awaited latch, and on expiry
+                            # records the invalid diagnostic explicitly
+                            # and withholds the stored result - never a
+                            # silent fall-through to delivery.
+                            _r4_latch_dir_ok = bool(
+                                os.environ.get("ATOM_DATA_DIR")
+                                and os.path.isdir(
+                                    str(os.environ.get("ATOM_DATA_DIR"))))
+                            try:
+                                from core.research_continuation import (
+                                    r4_delivery_latch,
+                                )
+                                await r4_delivery_latch(
+                                    "direct_complete",
+                                    {
+                                        "lane": "direct_complete",
+                                        "execution_id": execution_id,
+                                        "session_id": session_id,
+                                        "workspace_id": (
+                                            (context or {}).get(
+                                                "workspace_id")),
+                                        "run_id": _tl_begin[0],
+                                        "operation_id": _tl_begin[1],
+                                        "status": "retrieved_delivery_blocked",
+                                        "result_identity": _direct_identity,
+                                        "findings_count": len(
+                                            _tl_execution.get("findings")
+                                            or []) if isinstance(
+                                            _tl_execution, dict) else 0,
+                                        "source_version": (
+                                            _tl_execution or {}).get(
+                                                "source_version"),
+                                        "task_state": {
+                                            k: str(v)[:120] for k, v in
+                                            (session.get(
+                                                FILE_TASK_SESSION_KEY)
+                                             or {}).items() if k in (
+                                                "status", "original_message",
+                                                "attempt",
+                                                "confirmed_mention")
+                                        },
+                                        "latched_at": time.time(),
+                                    },
+                                    enabled=bool(
+                                        os.getenv("ATOM_R4_LATCH") == "1"
+                                        and _r4_latch_dir_ok),
+                                    expired_record={
+                                        "lane": "direct_complete",
+                                        "execution_id": execution_id,
+                                    },
+                                    on_expiry=lambda: session.pop(
+                                        "_pending_file_result", None),
+                                )
+                            except Exception as _r4_latch_err: \
+                                    # noqa: BLE001 - diagnostic only
+                                logger.warning(
+                                    "[r4-latch][direct] diagnostic latch "
+                                    "failed: %r", _r4_latch_err)
                         else:
                             session[FILE_TASK_SESSION_KEY] = merge_pending_task(
                                 session.get(FILE_TASK_SESSION_KEY),
@@ -11570,6 +13073,310 @@ class ChatOrchestrator:
                             except Exception:  # noqa: BLE001
                                 pass
 
+                # SELF-CONTAINED EDIT: NO SPECULATIVE RESEARCH (owner work
+                # order, 2026-10-14). When the accepted decision requires
+                # NO live evidence and the message is edit-shaped, the
+                # edit lane owns the turn — and the pre-started tool plan
+                # is unnecessary research that ALSO holds the shared
+                # model-attempt reservation the edit plan needs (the T1
+                # diagnostic: 'All structured candidates SKIPPED before
+                # dispatch' at 0.4s — the edit plan never dispatched).
+                # Skip the pre-start for exactly that shape; every other
+                # turn keeps today's behavior (decision absent → start).
+                _skip_plan_for_self_contained_edit = (
+                    _self_contained_edit_turn(
+                        message, _canvas_ctx, _td_decision))
+                # RECOVERY DECISION (R4 2026-10-16): one request-local
+                # decision with three outcomes, derived BEFORE planner
+                # task creation. Explicit refresh stays new retrieval;
+                # genuine R3 answers stay with R3 (narrow syntax, never
+                # digits alone); unrelated stays normal work; ambiguous
+                # asks which. Reuses the early pre-retrieval decision when
+                # present to avoid a second durable load.
+                _recovery_decision = "normal_work"
+                _recovery_payload = None
+                _recovery_candidates = []
+                try:
+                    _early = locals().get("_r4_early_decision")
+                    if isinstance(_early, dict) and _early.get("decided"):
+                        _recovery_decision = str(
+                            _early.get("decision") or "normal_work")
+                        _recovery_payload = _early.get("payload")
+                        _recovery_candidates = list(
+                            _early.get("candidates") or [])
+                    else:
+                        _dec, _pay, _cands = self._decide_file_recovery(
+                            message, session_id, _turn_scope,
+                            session, history, _canvas_ctx)
+                        _recovery_decision = str(_dec or "normal_work")
+                        _recovery_payload = _pay
+                        _recovery_candidates = list(_cands or [])
+                except Exception:  # noqa: BLE001
+                    _recovery_decision = "normal_work"
+                    _recovery_payload = None
+                    _recovery_candidates = []
+                if _recovery_decision == "deliver_stored_result":
+                    logger.info(
+                        "[r4-recovery] delivering the stored result "
+                        "directly - zero planner dispatch, zero source "
+                        "calls")
+                elif _recovery_decision == "clarify_result_selection":
+                    # CLARIFICATION: the ambiguity marker carries the
+                    # candidate identities - the ask names each with
+                    # filename plus useful context (objective snippet,
+                    # findings count, version), preserves identities for
+                    # the next reply, asks one specific question, and
+                    # returns with zero source calls and zero artifact
+                    # writes.
+                    _amb_parts = []
+                    for c in (_recovery_candidates or [])[:3]:
+                        _fn = str(c.get("file_name") or "the file")
+                        _obj = str(c.get("objective_text") or "")[:60]
+                        _fc = c.get("findings_count", 0)
+                        _sv = str(c.get("source_version") or "")[:8]
+                        _bit = _fn
+                        if _obj:
+                            _bit += f" ({_obj})"
+                        _bit += f" [{_fc} values"
+                        if _sv:
+                            _bit += f", v{_sv}"
+                        _bit += "]"
+                        _amb_parts.append(_bit)
+                    _amb_names = "; ".join(_amb_parts) or "the stored results"
+                    _amb_message = (
+                        "More than one previously retrieved result is open "
+                        f"here - {_amb_names}. Which one should I show? "
+                        "Reply with the file name (or the first few words "
+                        "of its request) and I'll serve it. Nothing was "
+                        "changed yet.")
+                    _amb_response = {
+                        "success": True,
+                        "message": _amb_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "search",
+                        "confidence": 0.9,
+                        "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
+                        "data": {"canvas_edit": {
+                            "canvas_id": (
+                                (_canvas_ctx or {}).get("canvas_id")),
+                            "updated": False, "no_apply": True,
+                            "reason": "multiple_durable_results",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "candidates": _recovery_candidates,
+                        }},
+                        "model": "deterministic",
+                        "provider": "structured",
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "suggested_actions": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _amb_response,
+                        {"primary_intent": "search", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id,
+                        "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success",
+                        _amb_response.get("message", ""),
+                        session=session, message=message,
+                        response=_amb_response, deadline=_deadline)
+                    logger.info(
+                        "[r4-recovery] multiple durable results - "
+                        "clarification delivered, zero writes (%d)",
+                        len(_recovery_candidates))
+                    if _tool_plan_task is not None \
+                            and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _amb_response
+
+                # RECOVERY DELIVERY (R4 2026-10-16): a fully selected
+                # stored result is served through the EXISTING delivery
+                # path - zero planner dispatch, zero source calls, no
+                # reply-model planner to rediscover what to do. The
+                # recovery turn's execution stays separate from the
+                # original read's execution; no fake retrieve operation is
+                # created and the original read is never relabeled as
+                # recovery-time execution. Idempotency: same-request retry
+                # replays via the transport key; repeated automatic scans
+                # never reach this branch (non-recovery-shaped stays
+                # normal); a new explicit display request receives an
+                # intentional reply with its own execution/delivery
+                # identities; refresh performs a new authorized read.
+                if _recovery_decision == "deliver_stored_result" \
+                        and _recovery_payload:
+                    _r4_identity = _recovery_payload.get("identity") or {}
+                    _r4_file = str(_r4_identity.get("file_name")
+                                   or "the file")
+                    _r4_rendered = str(
+                        _recovery_payload.get("rendered") or "")
+                    _r4_message = (
+                        f"From the previously retrieved results for "
+                        f"{_r4_file} (recovered after the restart - "
+                        f"nothing was re-read):\n{_r4_rendered}")
+                    # Derive the outcome from the request, coverage and
+                    # remaining obligations (never a hardcoded partial):
+                    # complete when no open obligations remain and every
+                    # covered item matched; otherwise partial. Persistence
+                    # or execution failure never becomes a success claim
+                    # (the loader returns None for missing/unreadable, so
+                    # this branch only runs on a readable payload).
+                    _r4_cov = dict(_recovery_payload.get("coverage") or {})
+                    _r4_open_obs = list(
+                        _recovery_payload.get("open_obligations") or [])
+                    if _r4_cov:
+                        _r4_matched = sum(
+                            1 for _v in _r4_cov.values()
+                            if _v == "matched")
+                        _r4_cov_complete = (
+                            _r4_matched == len(_r4_cov) and not _r4_open_obs)
+                    else:
+                        _r4_cov_complete = not _r4_open_obs
+                    _r4_outcome = (
+                        "completed" if _r4_cov_complete else "partial")
+                    _r4_terminal = (
+                        "success" if _r4_cov_complete else "partial")
+                    _r4_response = {
+                        "success": True,
+                        "message": _r4_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "search",
+                        "confidence": 0.9,
+                        "outcome": _r4_outcome,
+                        "_recorded_outcome": {
+                            "state": (
+                                "completed" if _r4_cov_complete
+                                else "partial"),
+                            "work_turn": True, "noop": False,
+                            "declined": False},
+                        "data": {
+                            "file_result": {
+                                "status": "delivered",
+                                "recovered_from_durable": True,
+                                "file_name": _r4_file,
+                                "source_version": _r4_identity.get(
+                                    "source_version"),
+                                "requested_fields": list(
+                                    _recovery_payload.get(
+                                        "requested_fields") or []),
+                                "coverage": dict(_r4_cov),
+                                "findings_count": len(
+                                    _recovery_payload.get("findings") or []),
+                                "zero_source_calls": True,
+                            },
+                            "task_run_id": _recovery_payload.get("run_id"),
+                            "task_operation": {
+                                "run_id": _recovery_payload.get("run_id"),
+                                "operation_id": _recovery_payload.get(
+                                    "recovery_operation_id"),
+                            },
+                            "workspace_id": (
+                                _turn_scope.get("workspace_id")
+                                if isinstance(_turn_scope, dict) else None),
+                            "tenant_id": (
+                                _turn_scope.get("tenant_id")
+                                if isinstance(_turn_scope, dict) else None),
+                            "deterministic_delivery": True,
+                        },
+                        "model": "deterministic",
+                        "provider": "structured",
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "suggested_actions": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    # Persist the selected source-result reference through
+                    # the existing delivery mechanism. The session carrier
+                    # stages it for _update_session; the delivery LEDGER has
+                    # ONE owner - the route-layer persistence
+                    # (_record_lifecycle_delivery), which binds the actual
+                    # persisted message identity plus the selected
+                    # source-operation reference. This handler records
+                    # nothing itself: a placeholder entry here would fork a
+                    # second ledger record for the same execution+bytes.
+                    # Keep the recovery execution separate from the original
+                    # read's execution; never create a fake retrieve
+                    # operation.
+                    try:
+                        _r4_stored = dict(_recovery_payload)
+                        _r4_stored["status"] = "delivered"
+                        try:
+                            import time as _r4_time
+                            _r4_stored["delivered_at"] = _r4_time.time()
+                        except Exception:
+                            pass
+                        _r4_stored["delivery_execution_id"] = _execution_id
+                        _r4_stored["execution_id"] = _execution_id
+                        session["_pending_file_result"] = _r4_stored
+                    except Exception as _r4_persist_err:  # noqa: BLE001
+                        logger.warning(
+                            "[r4-recovery] recovery persistence failed: %r",
+                            _r4_persist_err)
+                        # Persistence failure never becomes a success
+                        # claim: surface it honestly instead of
+                        # delivering as if durable.
+                        _r4_fail_response = {
+                            "success": False,
+                            "message": (
+                                "The previously retrieved result could not "
+                                "be restored durably, so nothing was "
+                                "delivered as complete. You can ask me to "
+                                "show it again or to re-run the read."),
+                            "session_id": session_id,
+                            "execution_id": _execution_id,
+                            "intent": "search",
+                            "confidence": 0.9,
+                            "outcome": "unconfirmed",
+                            "error_code": "recovery_persistence_failed",
+                            "model": "deterministic",
+                            "provider": "structured",
+                            "requires_confirmation": False,
+                            "next_steps": [],
+                            "suggested_actions": [],
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                        self._update_session(
+                            session, message, _r4_fail_response,
+                            {"primary_intent": "search",
+                             "confidence": 0.9})
+                        await self._emit_agent_status(
+                            session_id, _trace_agent_id, _execution_id,
+                            "failed")
+                        self._finish_chat_execution(
+                            _execution_id, "failed",
+                            str(_r4_fail_response.get("message") or ""),
+                            session=session, message=message,
+                            response=_r4_fail_response,
+                            deadline=_deadline)
+                        if _tool_plan_task is not None \
+                                and not _tool_plan_task.done():
+                            _tool_plan_task.cancel()
+                        return _r4_fail_response
+                    self._update_session(
+                        session, message, _r4_response,
+                        {"primary_intent": "search", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id,
+                        "success")
+                    self._finish_chat_execution(
+                        _execution_id, _r4_terminal, _r4_message,
+                        session=session, message=message,
+                        response=_r4_response, deadline=_deadline,
+                        pending_task=session.get("_pending_file_task"),
+                        authorized_actions=["read"],
+                        allow_persisted_evidence=True)
+                    logger.info(
+                        "[r4-recovery] delivered the stored result "
+                        "(zero source calls, idempotent)")
+                    return _r4_response
+
                 if _clarify_turn:
                     # STRUCTURAL clarify guarantee: no plan task exists to
                     # await, so no speculative lookup can execute behind a
@@ -11583,6 +13390,11 @@ class ChatOrchestrator:
                         _request_reference.clarify_reason,
                         message[:110], _request_reference.candidates[:2],
                     )
+                elif _skip_plan_for_self_contained_edit:
+                    logger.info(
+                        "[tool-plan] pre-start skipped — the accepted "
+                        "request requires no live evidence and the edit "
+                        "lane owns this turn (self-contained edit)")
                 else:
                     _tool_plan_task = asyncio.create_task(
                         _planned_with_provenance())
@@ -11661,6 +13473,393 @@ class ChatOrchestrator:
             if isinstance(_ask_task_local, dict) and isinstance(
                     _ask_task_local.get("request_scope"), dict):
                 _edit_request_scope = _ask_task_local["request_scope"]
+            # RESUME THE RECORDED REQUIREMENT (R3, owner milestone
+            # 2026-10-16; bounded correction 2026-10-16): a delivered
+            # clarification left an awaiting-value question on the task
+            # lifecycle's durable ledger (it survives restarts). The
+            # user's next message is classified FIRST — cancellation,
+            # question, or answer — and only an ANSWER with exactly one
+            # verbatim value binds; several candidates are ambiguous, and
+            # several OPEN requirements are asked apart. The association
+            # is the lifecycle's structured record (inputs), never prose.
+            _resume_req: Optional[Dict[str, Any]] = None
+            _resume_effective_message: Optional[str] = None
+            _selection_candidates: Optional[List[str]] = None
+            _resume_open: List[Dict[str, Any]] = []
+            if _canvas_ctx and not _canvas_action_bypassed:
+                try:
+                    _resume_open = _open_awaiting_value_requirements(
+                        getattr(self, "tenant_id", None),
+                        (context or {}).get("workspace_id"),
+                        session_id, (_canvas_ctx or {}).get("canvas_id"))
+                except Exception:  # noqa: BLE001 — additive
+                    _resume_open = []
+            if _resume_open:
+                # FRESH EDIT DIRECTIVE (review round 2, finding 1): a
+                # message that is ITSELF an edit-shaped instruction on
+                # this canvas is NEW WORK — the normal flow owns it and
+                # the requirement stays open. The pending value must
+                # never hijack a fresh directive (that both garbled the
+                # write and falsely settled the requirement). Shape alone
+                # decides here: a value answer is never edit-shaped,
+                # while a directive's grant is the lane's own gate to
+                # evaluate (edit_authorization may rightly answer
+                # needs_grant for a standalone directive).
+                _fresh_directive = False
+                if _canvas_ctx:
+                    try:
+                        _fresh_directive = bool(_canvas_edit_shaped(
+                            message, {"canvas": _canvas_ctx}))
+                    except Exception:  # noqa: BLE001 — fail toward binding
+                        _fresh_directive = False
+                if _fresh_directive:
+                    logger.info(
+                        "[requirement-resume] the reply is itself an "
+                        "edit-shaped instruction — normal flow owns it; "
+                        "the requirement stays open")
+                    _resume_open = []
+            if _resume_open:
+                # THE SIX-CLASS CLASSIFICATION (accepted-interpretation
+                # migration): classify against the FIRST open
+                # requirement's item; unrecognized replies are
+                # `unresolved` — the normal flows own the turn and the
+                # requirement stays open. An answer carries EXACT value
+                # spans into the original message.
+                _reply = _classify_resume_reply(
+                    message, _resume_open[0],
+                    items=[_q.get("item") for _q in _resume_open])
+                _reply_class = _reply.get("class")
+                if _reply_class == "cancel" or _compound_cancel(message):
+                    # CANCELLATION: close the open requirement(s) —
+                    # never an edit attempt, never left dangling. A
+                    # compound message whose FIRST segment cancels
+                    # ('Cancel that. Actually use …') is a cancellation:
+                    # the value after it has no open requirement left.
+                    _first_item = str(_resume_open[0].get(
+                        "item") or "the requested change")
+                    try:
+                        _tl_cancel = _task_lifecycle_for(
+                            getattr(self, "tenant_id", None),
+                            (context or {}).get("workspace_id"))
+                        if _tl_cancel is not None:
+                            for _q in _resume_open:
+                                if not _q.get("run_id"):
+                                    continue
+                                _tl_cancel.apply_transition(
+                                    _q["run_id"], {
+                                        "kind": "record_unresolved",
+                                        "resolutions": [{
+                                            "question_id":
+                                                _q.get("question_id"),
+                                            "resolution": (
+                                                "cancelled by the user; "
+                                                "nothing was changed"),
+                                        }],
+                                        "requested_change": (
+                                            "the user cancelled the "
+                                            "awaiting requirement"),
+                                    })
+                    except Exception as _cancel_err:  # noqa: BLE001
+                        logger.warning(
+                            "[requirement-resume] cancel settlement "
+                            "failed: %r", _cancel_err)
+                    _cancel_message = _resume_cancelled_message(_first_item)
+                    _cancel_response = {
+                        "success": True,
+                        "message": _cancel_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "canvas_edit",
+                        "confidence": 0.9,
+                        "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
+                        "data": {"canvas_edit": {
+                            "canvas_id": (_canvas_ctx or {}).get("canvas_id"),
+                            "updated": False, "no_apply": True,
+                            "reason": "cancelled_by_user",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "requirement_question_ids": [
+                                _q.get("question_id") for _q in _resume_open],
+                        }},
+                        "suggested_actions": [],
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _cancel_response,
+                        {"primary_intent": "canvas_edit", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id, "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success", _cancel_message,
+                        session=session, message=message,
+                        response=_cancel_response, deadline=_deadline)
+                    logger.info(
+                        "[requirement-resume] cancelled by the user — "
+                        "zero writes (questions=%d)", len(_resume_open))
+                    if _tool_plan_task is not None and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _cancel_response
+                if _reply_class in ("question", "unresolved"):
+                    # A question is NOT an answer, and UNRECOGNIZED TEXT
+                    # IS NOT AN ANSWER EITHER (accepted-interpretation
+                    # migration): the normal flows own the turn and the
+                    # requirement stays open. The user can restate the
+                    # value; nothing is guessed.
+                    logger.info(
+                        "[requirement-resume] the reply is %s — normal "
+                        "flow, requirement stays open", _reply_class)
+                    _resume_open = []
+                elif len(_resume_open) > 1:
+                    # SEVERAL open requirements: bind by EXPLICIT
+                    # selection only (option number or naming the item),
+                    # and a SELECTION-ONLY reply never writes — it asks
+                    # for the selected requirement's value and the
+                    # selection is remembered for the next reply
+                    # (review round 3, blocker). Anything ambiguous asks
+                    # again — never a silent guess.
+                    _selected = _select_requirement(message, _resume_open)
+                    if _selected is not None:
+                        _remainder = _value_after_selection(
+                            message, _selected)
+                        if not _remainder:
+                            # SELECTION-ONLY: remember + ask for the
+                            # value. Zero writes, question stays open.
+                            session["resume_selected_question"] = {
+                                "question_id": _selected.get("question_id"),
+                                "item": _selected.get("item"),
+                            }
+                            _sel_message = _selection_only_message(
+                                str(_selected.get("item")
+                                    or "the selected requirement"))
+                            _sel_response = {
+                                "success": True,
+                                "message": _sel_message,
+                                "session_id": session_id,
+                                "execution_id": _execution_id,
+                                "intent": "canvas_edit",
+                                "confidence": 0.9,
+                                "outcome": "partial",
+                                "_recorded_outcome": {
+                                    "state": "partial", "work_turn": True,
+                                    "noop": False, "declined": True},
+                                "data": {"canvas_edit": {
+                                    "canvas_id": (
+                                        (_canvas_ctx or {}).get("canvas_id")),
+                                    "updated": False, "no_apply": True,
+                                    "reason": "awaiting_selected_value",
+                                    "outcome": "refused",
+                                    "execution_id": _execution_id,
+                                    "requirement_question_id":
+                                        _selected.get("question_id"),
+                                }},
+                                "suggested_actions": [],
+                                "requires_confirmation": False,
+                                "next_steps": [],
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                            self._update_session(
+                                session, message, _sel_response,
+                                {"primary_intent": "canvas_edit",
+                                 "confidence": 0.9})
+                            await self._emit_agent_status(
+                                session_id, _trace_agent_id, _execution_id,
+                                "success")
+                            self._finish_chat_execution(
+                                _execution_id, "success", _sel_message,
+                                session=session, message=message,
+                                response=_sel_response, deadline=_deadline)
+                            logger.info(
+                                "[requirement-resume] selection-only "
+                                "reply — asked for the selected "
+                                "requirement's value, zero writes")
+                            if _tool_plan_task is not None \
+                                    and not _tool_plan_task.done():
+                                _tool_plan_task.cancel()
+                            return _sel_response
+                        _resume_req = _selected
+                        _selection_candidates = _remainder
+                    else:
+                        _remembered = _remembered_selection(
+                            session, _resume_open)
+                        if _remembered is not None:
+                            _resume_req = _remembered
+                        else:
+                            _multi_message = _multiple_requirements_message([
+                                _q.get("item") or "the requested change"
+                                for _q in _resume_open])
+                            _multi_response = {
+                                "success": True,
+                                "message": _multi_message,
+                                "session_id": session_id,
+                                "execution_id": _execution_id,
+                                "intent": "canvas_edit",
+                                "confidence": 0.9,
+                                "outcome": "partial",
+                                "_recorded_outcome": {
+                                    "state": "partial", "work_turn": True,
+                                    "noop": False, "declined": True},
+                                "data": {"canvas_edit": {
+                                    "canvas_id": (
+                                        (_canvas_ctx or {}).get("canvas_id")),
+                                    "updated": False, "no_apply": True,
+                                    "reason": "multiple_open_requirements",
+                                    "outcome": "refused",
+                                    "execution_id": _execution_id,
+                                    "requirement_question_ids": [
+                                        _q.get("question_id")
+                                        for _q in _resume_open],
+                                }},
+                                "suggested_actions": [],
+                                "requires_confirmation": False,
+                                "next_steps": [],
+                                "timestamp": datetime.now().isoformat(),
+                            }
+                            self._update_session(
+                                session, message, _multi_response,
+                                {"primary_intent": "canvas_edit",
+                                 "confidence": 0.9})
+                            await self._emit_agent_status(
+                                session_id, _trace_agent_id, _execution_id,
+                                "success")
+                            self._finish_chat_execution(
+                                _execution_id, "success", _multi_message,
+                                session=session, message=message,
+                                response=_multi_response, deadline=_deadline)
+                            logger.info(
+                                "[requirement-resume] several open "
+                                "requirements — asked which one, zero "
+                                "writes (%d)", len(_resume_open))
+                            if _tool_plan_task is not None \
+                                    and not _tool_plan_task.done():
+                                _tool_plan_task.cancel()
+                            return _multi_response
+                else:
+                    _resume_req = _resume_open[0]
+            if _resume_req is not None:
+                _rc_inputs = _resume_req.get("inputs") or {}
+                _rc_goal = str(_rc_inputs.get("goal_text") or "")
+                _rc_item = str(
+                    _resume_req.get("item") or "the requested change")
+                # THE ANSWER'S VALUE IS A SPAN INTO THE ORIGINAL MESSAGE
+                # (owner instruction item 3): bounds-validated, preserved
+                # exactly as the user wrote it — never a rewritten or
+                # stripped string.
+                if _reply_class == "answer":
+                    _rc_spans = [tuple(sp) for sp in (
+                        _reply.get("spans") or [])]
+                else:  # a selection that also carried the value
+                    _rc_spans = [tuple(sp) for sp in (
+                        _selection_candidates or [])]
+                _rc_spans = [
+                    (int(s), int(e)) for (s, e) in _rc_spans
+                    if 0 <= int(s) <= int(e) <= len(str(message or ""))
+                    and str(message)[int(s):int(e)].strip()]
+                if len(_rc_spans) > 1:
+                    _ambig_message = _ambiguous_value_message(
+                        _rc_item,
+                        [str(message)[s:e] for (s, e) in _rc_spans])
+                    _ambig_response = {
+                        "success": True,
+                        "message": _ambig_message,
+                        "session_id": session_id,
+                        "execution_id": _execution_id,
+                        "intent": "canvas_edit",
+                        "confidence": 0.9,
+                        # Delivered clarification ≠ edit completion: the
+                        # requirement stays OPEN, nothing is certified.
+                        "outcome": "partial",
+                        "_recorded_outcome": {
+                            "state": "partial", "work_turn": True,
+                            "noop": False, "declined": True},
+                        "data": {"canvas_edit": {
+                            "canvas_id": (_canvas_ctx or {}).get("canvas_id"),
+                            "updated": False, "no_apply": True,
+                            "reason": "ambiguous_value",
+                            "outcome": "refused",
+                            "execution_id": _execution_id,
+                            "requirement_question_id": _resume_req.get(
+                                "question_id"),
+                        }},
+                        "suggested_actions": [],
+                        "requires_confirmation": False,
+                        "next_steps": [],
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                    self._update_session(
+                        session, message, _ambig_response,
+                        {"primary_intent": "canvas_edit", "confidence": 0.9})
+                    await self._emit_agent_status(
+                        session_id, _trace_agent_id, _execution_id, "success")
+                    self._finish_chat_execution(
+                        _execution_id, "success", _ambig_message,
+                        session=session, message=message,
+                        response=_ambig_response, deadline=_deadline)
+                    logger.info(
+                        "[requirement-resume] ambiguous value — one "
+                        "clarification, zero writes (candidates=%d)",
+                        len(_rc_spans))
+                    if _tool_plan_task is not None and not _tool_plan_task.done():
+                        _tool_plan_task.cancel()
+                    return _ambig_response
+                if len(_rc_spans) == 1 and _rc_goal:
+                    _vs, _ve = _rc_spans[0]
+                    _rc_value_text = str(message)[_vs:_ve]
+                    # The EXPLICIT-ASSIGNMENT form the interpretation
+                    # contract already accepts ("Set X to Y") — the plan
+                    # must ground the value the user actually supplied,
+                    # not re-open the reference the user just answered.
+                    # The value is carried VERBATIM.
+                    _resume_effective_message = (
+                        f"{_rc_goal}\n\nSet {_rc_item} to "
+                        f"{_rc_value_text}.")
+                    # RESUME POSTCONDITION INPUTS (bounded correction
+                    # 2026-10-16, item 4): the lane verifies — beyond the
+                    # editor's own readback — that the requested change's
+                    # postconditions hold: intended value present with
+                    # multiplicity 1, pre-existing content preserved
+                    # (addition-only for an add request). On violation the
+                    # whole mutation is refused and restored.
+                    _rc_pre_content = (_canvas_ctx or {}).get("content")
+                    if isinstance(_rc_pre_content, dict):
+                        _rc_pre_content = _rc_pre_content.get("content")
+                    _resume_req["postcondition"] = {
+                        "value": _rc_value_text,
+                        "pre_content": str(_rc_pre_content or ""),
+                        "intent": (
+                            "add" if re.match(
+                                r"\s*(?:add|insert|append|include)\b",
+                                _rc_goal, re.IGNORECASE) else "replace"),
+                    }
+                    try:
+                        from tools.canvas_crud_tool import (
+                            list_canvas_versions as _lcv,
+                        )
+
+                        _versions = await _lcv(
+                            user_id, (_canvas_ctx or {}).get("canvas_id"))
+                        _vrows = (_versions or {}).get(
+                            "versions") if isinstance(
+                                _versions, dict) else _versions
+                        if isinstance(_vrows, list) and _vrows:
+                            _resume_req["postcondition"]["pre_audit_id"] = \
+                                str((_vrows[0] or {}).get("audit_id") or "")
+                    except Exception as _ver_err:  # noqa: BLE001
+                        logger.info(
+                            "[requirement-resume] pre-edit version capture "
+                            "unavailable: %r", _ver_err)
+                    logger.info(
+                        "[requirement-resume] binding the supplied value to "
+                        "the recorded requirement (question=%s)",
+                        _resume_req.get("question_id"))
+                elif not _rc_goal:
+                    # A requirement without its original request text
+                    # cannot resume safely — leave it for the normal flow.
+                    _resume_req = None
             # DETERMINISTIC EDIT AUTHORIZATION (owner work order
             # 2026-10-10, the live T1 routing defect): a canvas supplies
             # context and scope — it does not authorize editing. Resolve
@@ -11680,8 +13879,10 @@ class ChatOrchestrator:
                     )
 
                     _edit_probe = (
-                        _edit_retry["instruction"]
-                        if _edit_retry is not None else message)
+                        _resume_effective_message
+                        if _resume_effective_message is not None else (
+                            _edit_retry["instruction"]
+                            if _edit_retry is not None else message))
                     _edit_auth, _ = _edit_auth_fn(
                         _edit_probe, "", canvas_id=str(
                             (_canvas_ctx or {}).get("canvas_id") or ""))
@@ -11707,10 +13908,48 @@ class ChatOrchestrator:
                         "authorization could not be EVALUATED (%s); "
                         "read-only research access retained",
                         _edit_lane_auth_error)
+            # EVIDENCE REQUIREMENT (owner work order, 2026-10-14): the
+            # accepted turn decision records whether THIS request needs
+            # live evidence. The edit lane consumes it so a
+            # self-contained edit never pays the tool planner's latency.
+            # None = decision absent → the lane keeps its existing
+            # behavior (never treat an absent decision as "no evidence").
+            _evidence_required: Optional[bool] = None
+            if isinstance(_td_decision, dict):
+                try:
+                    from core.turn_decision import (
+                        turn_evidence_required as _ter_fn,
+                    )
+
+                    _evidence_required = _ter_fn(_td_decision)
+                except Exception:  # noqa: BLE001 — carry is additive
+                    _evidence_required = None
+            # F-C2 CONTEXT-BACKED FULFILLMENT (2026-10-17): stash the
+            # accepted request's evidence requirement — source kinds, file
+            # reference, typed fields, subjects, the RESOLVED named-source
+            # identity, and whether an artifact is attached — keyed by
+            # THIS execution. The outcome resolver matches it against this
+            # turn's retrieval observations (identity + authenticated
+            # scope) and the association-grade evidence those excerpts
+            # recorded. Execution-keyed: another/later turn's requirement
+            # can never donate.
+            try:
+                _stash_evidence_requirement(
+                    session, _execution_id, _td_decision, message,
+                    _evidence_required,
+                    workspace_id=(
+                        (context or {}).get("workspace_id")
+                        or resolve_user_workspace(
+                            locals().get("user_id")
+                            or (session or {}).get("user_id"))),
+                    canvas_attached=bool(locals().get("_canvas_ctx")))
+            except Exception:  # noqa: BLE001 — additive, never blocks
+                pass
             _shared_tool: Dict[str, Any] = {
                 "plan_task": _tool_plan_task,
                 "block": None,
                 "request_scope": _edit_request_scope,
+                "evidence_required": _evidence_required,
             }
             # SUBJECT ADMISSION carry-over: the admission facts recorded
             # on `_ask_task` (before this blackboard existed) ride the
@@ -11725,6 +13964,21 @@ class ChatOrchestrator:
                             _shared_tool[_adm_key] = _ask_task[_adm_key]
             except Exception:  # noqa: BLE001 — carry-over is additive
                 pass
+            if _resume_effective_message is not None:
+                # REQUIREMENT RESUME (R3): the value is EXPLICITLY
+                # supplied — no live lookup can add anything, and the
+                # reference-requirement window must not re-open for a
+                # requirement the user just answered. The postcondition
+                # inputs (value/pre-content/pre-audit id/intent) ride the
+                # blackboard so the apply path can verify preservation
+                # beyond the editor's own readback.
+                _shared_tool["evidence_required"] = False
+                _shared_tool["resume_requirement"] = {
+                    "question_id": _resume_req.get("question_id"),
+                    "run_id": _resume_req.get("run_id"),
+                    "item": _resume_req.get("item"),
+                    **(_resume_req.get("postcondition") or {}),
+                }
             _edit_leg_timed_out = False
             try:
                 if _canvas_ctx and not _canvas_action_bypassed and (
@@ -11761,9 +14015,14 @@ class ChatOrchestrator:
                     # FAILED-EDIT RETRY: the edit lane plans the ORIGINAL
                     # instruction — a bare "try again" carries no edit
                     # vocabulary and the classifier could only decline it.
+                    # REQUIREMENT RESUME (R3): the lane likewise plans the
+                    # recorded ORIGINAL request, now carrying the value the
+                    # user just supplied — the resume never re-asks.
                     _edit_message = (
-                        _edit_retry["instruction"]
-                        if _edit_retry is not None else message)
+                        _resume_effective_message
+                        if _resume_effective_message is not None else (
+                            _edit_retry["instruction"]
+                            if _edit_retry is not None else message))
                     _edit_task_reserved = _begin_task_edit(
                         getattr(self, "tenant_id", None),
                         (context or {}).get("workspace_id"),
@@ -11839,7 +14098,8 @@ class ChatOrchestrator:
                         # one logical operation per turn is also the
                         # correct idempotency key.
                         operation_id=_execution_id, \
-                        session=session) \
+                        session=session, \
+                        lane_budget_s=_canvas_leg_cap(_deadline)) \
                         if _edit_task_reserved["status"] in (
                             "reserved", "legacy") else None
                     # D1: a reservation is a CLAIM, and a claim with no verified
@@ -12049,6 +14309,353 @@ class ChatOrchestrator:
                             _edit_response["message"] = (
                                 f"{_edit_response.get('message') or ''}"
                                 f"\n\n{_chain_report_applied}").strip()
+                        # RESUME POSTCONDITION (bounded correction
+                        # 2026-10-16, item 4): the editor's readback
+                        # verifies the OPS applied — it cannot see that
+                        # the requested change PRESERVED the draft. For a
+                        # resumed add-one-field request the post-apply
+                        # content must carry the intended value exactly
+                        # once with the pre-existing content unchanged;
+                        # anything else refuses the WHOLE mutation
+                        # (restore the pre-edit version) — model
+                        # responsibility does not matter here.
+                        _resume_pc = _shared_tool.get(
+                            "resume_requirement") or {}
+                        _resume_post_ok: Optional[bool] = None
+                        _ce_data = ((_edit_response.get("data") or {}).get(
+                            "canvas_edit") or {})
+                        # EXCEPTIONAL RECOVERY (owner caveat 2026-10-16):
+                        # the editor's PRE-write check prevents
+                        # preservation violations it can see; this layer
+                        # catches what it cannot — a write that landed
+                        # but whose durable content diverged (store
+                        # normalization, concurrent writes). Reached when
+                        # the edit applied cleanly OR when the editor
+                        # recorded a write whose own readback failed.
+                        if _resume_pc and (
+                                (_edit_response.get("success", True)
+                                 and _ce_data.get("updated") is True)
+                                or (_ce_data.get("write_recorded") is True
+                                    and _ce_data.get(
+                                        "postcondition_verified") is False)):
+                            try:
+                                from tools.canvas_crud_tool import (
+                                    read_canvas as _rpost_read,
+                                    restore_canvas_version as _rpost_restore,
+                                )
+
+                                _rpost_rb = await _rpost_read(
+                                    user_id,
+                                    (_canvas_ctx or {}).get("canvas_id"))
+                                _rpost_new = (_rpost_rb or {}).get("content")
+                                if isinstance(_rpost_new, dict):
+                                    _rpost_new = _rpost_new.get("content")
+                                _rpost_new = str(_rpost_new or "")
+                                _rpost_pre = str(
+                                    _resume_pc.get("pre_content") or "")
+                                _rpost_value = str(
+                                    _resume_pc.get("value") or "")
+                                _violations: List[str] = []
+                                if _resume_pc.get("intent") == "add" \
+                                        and _rpost_pre.strip():
+                                    _multiplicity = _rpost_new.count(
+                                        _rpost_value)
+                                    if _multiplicity != 1:
+                                        _violations.append(
+                                            f"the intended value appears "
+                                            f"{_multiplicity} times "
+                                            "(expected exactly once)")
+                                    # ADDITION-ONLY: every pre-existing line
+                                    # must appear, UNCHANGED and IN ORDER,
+                                    # in the new content (insertions may
+                                    # sit between lines; byte containment
+                                    # would false-fail any mid-document
+                                    # insertion).
+                                    _pre_lines = _rpost_pre.splitlines()
+                                    _new_iter = iter(_rpost_new.splitlines())
+                                    _addition_only = all(
+                                        any(_line == _pre_line
+                                            for _line in _new_iter)
+                                        for _pre_line in _pre_lines)
+                                    if not _addition_only:
+                                        _violations.append(
+                                            "pre-existing content was "
+                                            "altered (the change was not "
+                                            "addition-only)")
+                                elif _rpost_value and _rpost_value \
+                                        not in _rpost_new:
+                                    _violations.append(
+                                        "the intended value is not present "
+                                        "on the canvas")
+                                if _violations:
+                                    _resume_post_ok = False
+                                    _restored_verified = False
+                                    _pre_audit = str(
+                                        _resume_pc.get("pre_audit_id") or "")
+                                    _race_guard = False
+                                    if _pre_audit:
+                                        try:
+                                            # RESTORE-RACE GUARD (review
+                                            # round 2, finding 3): the
+                                            # pre-edit version was
+                                            # captured before the whole
+                                            # plan+apply window. Restoring
+                                            # it blindly would also eat
+                                            # any CONCURRENT write that
+                                            # landed in that window. Our
+                                            # write must still be the
+                                            # version-list head; if the
+                                            # head moved, restoring is
+                                            # refused and the reply says
+                                            # so — never a silent revert
+                                            # of someone else's edit.
+                                            from tools.canvas_crud_tool \
+                                                import (
+                                                    list_canvas_versions
+                                                    as _rpost_list,
+                                                )
+                                            _head = ""
+                                            _vl = await _rpost_list(
+                                                user_id,
+                                                (_canvas_ctx or {}).get(
+                                                    "canvas_id"))
+                                            _vrows = (
+                                                (_vl or {}).get("versions")
+                                                if isinstance(_vl, dict)
+                                                else _vl)
+                                            if isinstance(_vrows, list) \
+                                                    and _vrows:
+                                                _head = str(
+                                                    (_vrows[0] or {}).get(
+                                                        "audit_id") or "")
+                                            _ours = str(
+                                                _ce_data.get("audit_id")
+                                                or "")
+                                            if _ours and _head \
+                                                    and _head != _ours:
+                                                _race_guard = True
+                                                _pre_audit = ""
+                                                logger.warning(
+                                                    "[requirement-resume] "
+                                                    "restore REFUSED — the "
+                                                    "canvas moved during "
+                                                    "verification (head=%s, "
+                                                    "ours=%s)", _head[:12],
+                                                    _ours[:12])
+                                        except Exception:
+                                            pass
+                                    if _pre_audit:
+                                        try:
+                                            _rs = await _rpost_restore(
+                                                user_id,
+                                                (_canvas_ctx or {}).get(
+                                                    "canvas_id"),
+                                                _pre_audit)
+                                            _restored_verified = bool(
+                                                (_rs or {}).get("success"))
+                                            if _restored_verified:
+                                                _rpost_rb2 = await \
+                                                    _rpost_read(
+                                                        user_id,
+                                                        (_canvas_ctx or {}
+                                                         ).get("canvas_id"))
+                                                _rpost_after = \
+                                                    (_rpost_rb2 or {}
+                                                     ).get("content")
+                                                if isinstance(
+                                                        _rpost_after, dict):
+                                                    _rpost_after = \
+                                                        _rpost_after.get(
+                                                            "content")
+                                                _restored_verified = (
+                                                    str(_rpost_after or "")
+                                                    == _rpost_pre)
+                                        except Exception as _r_err:  # noqa: BLE001
+                                            logger.warning(
+                                                "[requirement-resume] "
+                                                "postcondition restore "
+                                                "failed: %r", _r_err)
+                                    if _restored_verified:
+                                        _pc_message = (
+                                            "I refused that change before "
+                                            "accepting it: applying it "
+                                            "would have altered your "
+                                            "existing content, and the "
+                                            "draft is restored to exactly "
+                                            "its prior state. Nothing was "
+                                            "kept. ("
+                                            + "; ".join(_violations) + ")")
+                                    elif _race_guard:
+                                        _pc_message = (
+                                            "The attempted change did not "
+                                            "preserve your draft, and a "
+                                            "newer change landed on the "
+                                            "canvas while I was "
+                                            "verifying — I did NOT "
+                                            "restore automatically, so "
+                                            "your latest content is "
+                                            "untouched but my refused "
+                                            "edit is still in the "
+                                            "history. ("
+                                            + "; ".join(_violations) + ")")
+                                    else:
+                                        _pc_message = (
+                                            "The attempted change did not "
+                                            "preserve your draft, and I "
+                                            "could not restore the prior "
+                                            "version automatically — "
+                                            "please check the canvas "
+                                            "history before continuing. ("
+                                            + "; ".join(_violations) + ")")
+                                    _pc_response = {
+                                        "success": True,
+                                        "message": _pc_message,
+                                        "session_id": session_id,
+                                        "execution_id": _execution_id,
+                                        "intent": "canvas_edit",
+                                        "confidence": 0.9,
+                                        "outcome": "partial",
+                                        "_recorded_outcome": {
+                                            "state": "partial",
+                                            "work_turn": True,
+                                            "noop": False,
+                                            "declined": True},
+                                        "data": {"canvas_edit": {
+                                            "canvas_id": (
+                                                (_canvas_ctx or {}).get(
+                                                    "canvas_id")),
+                                            "updated": False,
+                                            "no_apply": True,
+                                            "reason":
+                                                "resume_postcondition_failed",
+                                            "outcome": "refused",
+                                            "execution_id": _execution_id,
+                                            "violations": _violations,
+                                            "restored": _restored_verified,
+                                            # Honest payload (review
+                                            # round 2, finding 6): when
+                                            # the restore did not happen
+                                            # the refused write is still
+                                            # physically on the canvas —
+                                            # downstream consumers must
+                                            # see that.
+                                            "mutation_present": (
+                                                not _restored_verified),
+                                            "restore_race_guard": (
+                                                bool(_race_guard)),
+                                            "requirement_question_id":
+                                                _resume_pc.get("question_id"),
+                                        }},
+                                        "suggested_actions": [],
+                                        "requires_confirmation": False,
+                                        "next_steps": [],
+                                        "timestamp": datetime.now()
+                                        .isoformat(),
+                                    }
+                                    # The question STAYS OPEN: the
+                                    # requirement is unfulfilled. The
+                                    # edit reservation still settles —
+                                    # honestly (the write was made and
+                                    # reverted; it did not stand).
+                                    try:
+                                        _finish_task_edit(
+                                            getattr(self, "tenant_id", None),
+                                            (context or {}).get("workspace_id"),
+                                            session, session_id, message,
+                                            _execution_id,
+                                            {**_ce_data, "updated": False},
+                                            success=False,
+                                            reserved=_edit_task_reserved,
+                                            canvas_ctx=_canvas_ctx)
+                                    except Exception as _ft_err:  # noqa: BLE001
+                                        logger.warning(
+                                            "[requirement-resume] edit "
+                                            "settlement after the refusal "
+                                            "failed: %r", _ft_err)
+                                    self._update_session(
+                                        session, message, _pc_response,
+                                        {"primary_intent": "canvas_edit",
+                                         "confidence": 0.9})
+                                    await self._emit_agent_status(
+                                        session_id, _trace_agent_id,
+                                        _execution_id, "success")
+                                    self._finish_chat_execution(
+                                        _execution_id, "success",
+                                        _pc_message, session=session,
+                                        message=message,
+                                        response=_pc_response,
+                                        deadline=_deadline)
+                                    logger.warning(
+                                        "[requirement-resume] postcondition "
+                                        "VIOLATION — mutation refused and "
+                                        "%s (violations=%s)",
+                                        "restored" if _restored_verified
+                                        else "NOT restored", _violations)
+                                    if _tool_plan_task is not None and \
+                                            not _tool_plan_task.done():
+                                        _tool_plan_task.cancel()
+                                    return _pc_response
+                                _resume_post_ok = True
+                            except Exception as _pc_err:  # noqa: BLE001
+                                # Unverified ≠ verified: the edit stands
+                                # but the requirement is NOT settled on it.
+                                _resume_post_ok = None
+                                logger.warning(
+                                    "[requirement-resume] postcondition "
+                                    "check unavailable: %r", _pc_err)
+                        # REQUIREMENT SETTLED (bounded correction item 5):
+                        # only VERIFIED fulfillment settles the question —
+                        # the response flag alone is insufficient, and an
+                        # UNAVAILABLE postcondition check withholds the
+                        # settle too (unverified is not verified). The
+                        # edit must have applied, the editor's own
+                        # readback must verify it, and (for a resumed
+                        # requirement) the preservation postcondition
+                        # must have PASSED.
+                        _edit_fulfilled = bool(
+                            _edit_response.get("success", True)
+                            and _ce_data.get("updated") is True
+                            and _ce_data.get("postcondition_verified")
+                            is True
+                            and (
+                                _resume_post_ok is True
+                                or (_resume_post_ok is None
+                                    and not _resume_pc)))
+                        if _resume_req is not None and _edit_fulfilled:
+                            # REQUIREMENT SETTLED (R3): the user's value
+                            # landed — resolve the open question on the
+                            # run that recorded it, so it never resurfaces.
+                            try:
+                                _tl_settle = _task_lifecycle_for(
+                                    getattr(self, "tenant_id", None),
+                                    (context or {}).get("workspace_id"))
+                                if _tl_settle is not None and _resume_req.get(
+                                        "run_id"):
+                                    _tl_settle.apply_transition(
+                                        _resume_req["run_id"], {
+                                            "kind": "record_unresolved",
+                                            "resolutions": [{
+                                                "question_id":
+                                                    _resume_req.get(
+                                                        "question_id"),
+                                                "resolution": (
+                                                    "the user supplied the "
+                                                    "value and the edit "
+                                                    "applied"),
+                                            }],
+                                            "requested_change": (
+                                                "the awaiting-value "
+                                                "requirement settled by "
+                                                "the resumed edit"),
+                                        })
+                                    logger.info(
+                                        "[requirement-resume] settled the "
+                                        "awaiting-value question (run=%s)",
+                                        _resume_req.get("run_id"))
+                            except Exception as _settle_err:  # noqa: BLE001
+                                logger.warning(
+                                    "[requirement-resume] could not settle "
+                                    "the question: %r", _settle_err)
                         # Persist the turn so follow-ups ("now make it shorter")
                         # have the request in session history, then return —
                         # skipping feature routing means edit requests can no
@@ -12293,6 +14900,25 @@ class ChatOrchestrator:
                         "that plans canvas edits could not be reached, so "
                         "nothing was changed and your authorization "
                         "stands. Please try again in a moment.")
+                    # THE REQUEST'S OWN NAMED REFERENCES (R3 live finding
+                    # run 091140): computed ONCE for the whole no-apply
+                    # composition — the specific ask and the resume stamp
+                    # apply whether the named-source lookup TIMED OUT
+                    # (canvas_requirement_unresolved) or SETTLED with
+                    # nothing that grounds it (the evidence declines).
+                    _lane_named_refs: List[str] = []
+                    try:
+                        from core.turn_decision import (
+                            extract_request_assignments as _era_comp,
+                        )
+
+                        _lane_named_refs = [
+                            str(s) for s in (
+                                _era_comp(message).get(
+                                    "source_references") or [])
+                            if str(s).strip()]
+                    except Exception:  # noqa: BLE001 — additive
+                        _lane_named_refs = []
                     if _no_apply_reason in (
                             "planner_timeout", "planner_unavailable",
                             "planner_error", "planner_returned_none"):
@@ -12423,24 +15049,35 @@ class ChatOrchestrator:
                         # targets did not match, and the bounded repairs either
                         # failed or were rejected for widening the edit past the
                         # fields the request named (F02). Saying it "declined"
-                        # would name a cause we did not observe; saying nothing
-                        # actionable would hide the one thing that does help.
-                        _no_apply_message = (
-                            "I didn't apply that canvas change, so nothing was "
-                            "changed. I couldn't match your request to exact "
-                            "text on this canvas, and I won't substitute a "
-                            "different edit for it. Naming the exact text to "
-                            "change (for example 'change \"Quote validity: 15 "
-                            "days\" to \"30 days\"') gets it applied."
-                        )
+                        # would name a cause we did not observe; the wording
+                        # helper keeps the one thing that does help — but only
+                        # when the user still NEEDS it (an assignment the user
+                        # already gave is not re-asked; owner item 4).
+                        _no_apply_message = _planner_returned_none_message(
+                            message or "")
                     elif _no_apply_reason in (
                         "evidence_declined", "evidence_unavailable"
                     ):
+                        # SPECIFIC MISSING-VALUE ASK (owner directive
+                        # 2026-10-15, item 4): when the accepted request
+                        # named the value's source by reference and the
+                        # lookup could not settle, the reply asks for THE
+                        # VALUE — never a generic "information wasn't
+                        # available" sentence, never a timeout.
+                        _unresolved_refs = [
+                            str(r) for r in (
+                                (_shared_tool.get(
+                                    "canvas_requirement_unresolved") or {})
+                                .get("references") or [])
+                            if str(r).strip()] or _lane_named_refs
                         _no_apply_message = (
-                            "I couldn't make that canvas change because the "
-                            "required information wasn't available, so nothing "
-                            "was changed."
-                        )
+                            _unresolved_requirement_message(
+                                _unresolved_refs,
+                                item=_requirement_item_from_request(message))
+                            if _unresolved_refs else (
+                                "I couldn't make that canvas change because "
+                                "the required information wasn't available, "
+                                "so nothing was changed."))
                     else:
                         _no_apply_message = (
                             "I couldn't complete the canvas edit, so nothing "
@@ -12525,8 +15162,69 @@ class ChatOrchestrator:
                         _shared_tool.get("canvas_edit_decline_noop"))
                     _noop_check = _shared_tool.get(
                         "canvas_decline_requirement_check")
+                    # REQUIREMENT-FIRST DECLINE = F3 PARTIAL (owner
+                    # directive 2026-10-15, item 4): the lane declined
+                    # with a NAMED reason — the value's named source could
+                    # not supply it — and delivered the SPECIFIC ask. The
+                    # honest reply was delivered; the requested edit did
+                    # not happen and must not be certified; this is the
+                    # same partial contract the apply-failure decline
+                    # carries (success true, outcome partial).
+                    # R3 LIVE FINDING (diagnostic run 091140): the lookup
+                    # has TWO unhappy endings — it times out (the flag
+                    # above) or it SETTLES with nothing that grounds the
+                    # named reference (the generic block decline). Both
+                    # are the SAME unresolved requirement: when the
+                    # accepted request itself names a source reference
+                    # and the edit declined on evidence grounds with the
+                    # requirement unfulfilled, the specific ask and the
+                    # resume stamp apply either way.
+                    _requirement_declined = bool(
+                        (isinstance(_shared_tool, dict)
+                         and _shared_tool.get(
+                             "canvas_requirement_unresolved"))
+                        or (_lane_named_refs
+                            and not _noop_satisfied
+                            and not _background_started
+                            and _no_apply_reason in (
+                                "evidence_unavailable",
+                                "evidence_declined",
+                                # The lookup SETTLED and the editor still
+                                # chose not to act — for a reference-valued
+                                # request that IS the unresolved requirement
+                                # (the editor never acts without the
+                                # grounded value).
+                                "planner_declined")))
+                    # CLARIFICATION DELIVERY ≠ EDIT COMPLETION (owner
+                    # repair 2026-10-16): a successfully delivered
+                    # clarification is a successful turn — the requested
+                    # edit did not happen and stays partial/open, but the
+                    # execution itself did not fail. The row status and
+                    # the agent-status event must carry this SAME
+                    # decision, or the route finalizer (which binds the
+                    # envelope to the execution record's own status)
+                    # rewrites the delivered clarification as a system
+                    # failure. Matches the response's success expression
+                    # exactly; an undelivered decline still records
+                    # failed.
+                    _delivered = bool(_noop_satisfied
+                                      or _requirement_declined)
+                    # THE SPECIFIC ASK OVERRIDES THE GENERIC WORDING
+                    # (bounded-correction extension, R3 run 091140): when
+                    # the accepted request itself named a source reference
+                    # and the edit declined unfulfilled on any of the
+                    # evidence grounds, the user gets the named-value ask
+                    # — never the generic coaching or block wording.
+                    if (_requirement_declined
+                            and not _noop_satisfied
+                            and not _background_started
+                            and _lane_named_refs):
+                        _no_apply_message = _unresolved_requirement_message(
+                            _lane_named_refs,
+                            item=_requirement_item_from_request(message))
                     response = {
-                        "success": bool(_noop_satisfied),
+                        "success": bool(_noop_satisfied
+                                        or _requirement_declined),
                         "message": _no_apply_message,
                         "session_id": session_id,
                         # D3: every outcome carries the execution it belongs to.
@@ -12537,15 +15235,20 @@ class ChatOrchestrator:
                         # agrees with the confirmation text.
                         "outcome": (
                             "completed" if _noop_satisfied
+                            else "partial" if _requirement_declined
                             else "unconfirmed"),
                         "error_code": (
-                            None if _noop_satisfied
+                            None if (_noop_satisfied or _requirement_declined)
                             else "outcome_unconfirmed"),
                         "_recorded_outcome": {
                             "state": ("completed" if _noop_satisfied
+                                      else "partial"
+                                      if _requirement_declined
                                       else "unconfirmed"),
                             "work_turn": True,
                             "noop": _noop_satisfied,
+                            **({"declined": True}
+                               if _requirement_declined else {}),
                         },
                         "data": {"canvas_edit": _canvas_edit_data},
                         "suggested_actions": [],
@@ -12553,17 +15256,39 @@ class ChatOrchestrator:
                         "next_steps": [],
                         "timestamp": datetime.now().isoformat(),
                     }
+                    if _requirement_declined:
+                        # REQUIREMENT RETENTION (R3, owner milestone
+                        # 2026-10-16): the delivered clarification leaves
+                        # the STRUCTURED association on the task
+                        # lifecycle's own unresolved ledger — artifact,
+                        # requirement, original request, authorization —
+                        # so the user's next answer resumes without
+                        # repeating the request, across restarts.
+                        _stamp_awaiting_value_requirement(
+                            getattr(self, "tenant_id", None),
+                            (context or {}).get("workspace_id"),
+                            (_edit_task_reserved or {}).get("run_id"),
+                            canvas_id=(_canvas_ctx or {}).get("canvas_id"),
+                            goal_text=message,
+                            references=[
+                                str(r) for r in ((_shared_tool.get(
+                                    "canvas_requirement_unresolved")
+                                    or {}).get("references") or [])]
+                            or _lane_named_refs,
+                            operation_id=(_edit_task_reserved or {}).get(
+                                "operation_id"),
+                        )
                     self._update_session(
                         session, message, response,
                         {"primary_intent": "canvas_edit", "confidence": 0.9},
                     )
                     await self._emit_agent_status(
                         session_id, _trace_agent_id, _execution_id,
-                        "success" if _noop_satisfied else "failed"
+                        "success" if _delivered else "failed"
                     )
                     self._finish_chat_execution(
                         _execution_id,
-                        "success" if _noop_satisfied else "failed",
+                        "success" if _delivered else "failed",
                         _no_apply_message,
                         session=session,
                         message=message,
@@ -13487,6 +16212,21 @@ class ChatOrchestrator:
                     _noop_receipt = bool(
                         isinstance(locals().get("_shared_tool"), dict)
                         and _shared_tool.get("canvas_edit_decline_noop"))
+                    # PRESENTATION-ONLY ACCEPTED REQUEST (owner directive
+                    # 2026-10-15): the decision for THIS turn classifies
+                    # the delivery of a presentation over the attached
+                    # artifact — the resolver consumes it so a delivered
+                    # presentation no longer resolves unconfirmed.
+                    _fb_presentation = False
+                    try:
+                        from core.turn_decision import (
+                            turn_presentation_only as _tpo_fn,
+                        )
+
+                        _fb_presentation = bool(
+                            _tpo_fn(locals().get("_td_decision")))
+                    except Exception:  # noqa: BLE001 — carry is additive
+                        _fb_presentation = False
                     # the calc lane runs on the reply leg's own inner
                     # execution id — carried on the blackboard so the
                     # identity-bound resolver matches its operations
@@ -13500,7 +16240,8 @@ class ChatOrchestrator:
                         canvas_was_read=_fb_read,
                         noop_receipt=_noop_receipt,
                         extra_execution_ids=(
-                            [_extra_exec] if _extra_exec else None))
+                            [_extra_exec] if _extra_exec else None),
+                        presentation_only_turn=_fb_presentation)
                 except Exception:  # noqa: BLE001 — additive
                     _fb_outcome = None
             if not _fb_from_gate and not (_fb_outcome or {}).get(
@@ -15528,6 +18269,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     )})
                 except Exception as canvas_ctx_err:
                     logger.debug(f"canvas context block skipped: {canvas_ctx_err}")
+                # CANVAS AS AN ATTRIBUTABLE CONTEXT SOURCE (owner R4
+                # attribution; the 2026-10-15 J6 T2 evidence): a turn
+                # whose ACCEPTED request requires no live evidence
+                # (presentation-only / self-contained — the decision's
+                # own record) is answered FROM the attached artifact,
+                # and the durable outcome must be able to say what the
+                # answer was assembled from. It rides the SAME carrier
+                # the memory-context assembler publishes (`context_source`
+                # refs for the outcome builder and the resolver); gated
+                # to this shape so evidence-required turns keep their
+                # lookup receipts as the recorded basis.
+                try:
+                    _no_live_evidence = bool(
+                        isinstance(shared_tool_state, dict)
+                        and shared_tool_state.get("evidence_required")
+                        is False)
+                    record_canvas_context_source(
+                        session, execution_id, canvas_context,
+                        no_live_evidence=_no_live_evidence)
+                except Exception:  # noqa: BLE001 — additive attribution
+                    pass
 
             # Typed canvas-evidence status (2026-09-22): ONE note per outcome,
             # worded by canvas_evidence_note — a withheld/rejected block is
@@ -16106,7 +18868,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             from core.hallucination_config import get_verify_panel_mode
 
             try:
-                from core.chat_tool_planner import execute_tool_plan, plan_tool_use
+                from core.chat_tool_planner import (
+                    exec_canvas_context,
+                    execute_tool_plan,
+                    plan_tool_use,
+                )
                 from core.verify_panel import verify_reply
 
                 if prefetched_tool_block and _evidence_rejected(
@@ -17075,11 +19841,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                             # session (2026-09-22).
                                             "known_mail_handles":
                                                 self._load_conversation_mail_handles(session_id)[0],
-                                            "canvas": {
-                                                "title": canvas_context.get("title"),
-                                                **((canvas_context.get("content") or {})
-                                                   if isinstance(canvas_context, dict) else {}),
-                                            } if isinstance(canvas_context, dict) else None,
+                                            "canvas": exec_canvas_context(canvas_context),
                                         },
                                         llm_service=self.llm_service,
                                     ),
@@ -17218,7 +19980,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             if isinstance(session, dict) and execution_id:
                                 session[
                                     f"_planner_tool_receipts_{execution_id}"
-                                ] = _planner_receipt_rows(_plan)
+                                ] = _planner_receipt_rows(
+                                    _plan, block=_live_block)
                                 session[
                                     f"_planner_receipt_facts_{execution_id}"
                                 ] = _planner_receipt_facts(_plan)
@@ -20799,8 +23562,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         from core.chat_tool_planner import (
                             _explicit_web_research_requested,
                         )
-                        _strip_protocol_tags(_full, captured=_reasoning_parts)
-                        _streamed = _full
+                        # F6: ASSIGN the converted text — the cleaned return
+                        # value used to be discarded here, so every consumer
+                        # (validation, broadcast, persistence, history) saw
+                        # raw protocol residue.
+                        _streamed = _strip_protocol_tags(
+                            _full, captured=_reasoning_parts)
                         # ROUTE THAT PRODUCED THIS STREAM, captured BEFORE any
                         # guard regeneration runs. The handler's last-used pair
                         # is overwritten by every later call, so reading it
@@ -21239,36 +24006,52 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 )
                             except Exception:
                                 pass
-                        _stream_done_content = ""
-                        if not _stream_residue_detected:
-                            _stream_done_validation = _validate_response_payload(
-                                _streamed,
-                                channel="final_text",
-                                content_type="text/plain",
-                            )
-                            if _stream_done_validation.valid:
-                                _stream_done_content = _streamed
+                        if _stream_residue_detected:
+                            # The live loop stopped on protocol residue before
+                            # the model finished: the assembled prefix is not a
+                            # final answer (and may be reasoning-only). Fall
+                            # through to the non-streaming leg — the existing
+                            # bounded recovery — instead of delivering a
+                            # truncated or reasoning-only text. If that leg
+                            # also fails, the final boundary delivers the
+                            # honest placeholder.
+                            _streamed = None
+                            _stream_done_content = ""
+                        else:
+                            _streamed, _stream_reject = _normalize_final_text(
+                                _streamed, content_type="text/plain")
+                            _stream_done_content = ""
+                            if _stream_reject:
+                                _streamed = None
                             else:
-                                _reconciled = await self._m3_reconcile_stream_done(
-                                    _streamed, canvas_context, session_id,
-                                    user_id, async_continuation_forked,
-                                    execution_id=execution_id,
+                                _stream_done_validation = _validate_response_payload(
+                                    _streamed,
+                                    channel="final_text",
+                                    content_type="text/plain",
                                 )
-                                if _reconciled is not None:
-                                    _stream_done_content = _reconciled
-                                elif (_m3_pending and _streamed
-                                        and os.getenv("CHAT_FINALIZATION_M3") == "1"):
-                                    try:
-                                        _end_check = await self._canvas_claim_correction(
-                                            _m3_pending, canvas_context,
-                                            session_id, user_id,
-                                            async_continuation_forked,
-                                            execution_id=execution_id,
-                                        )
-                                    except Exception:
-                                        _end_check = None
-                                    if _end_check == _m3_pending:
-                                        _stream_done_content = _streamed
+                                if _stream_done_validation.valid:
+                                    _stream_done_content = _streamed
+                                else:
+                                    _reconciled = await self._m3_reconcile_stream_done(
+                                        _streamed, canvas_context, session_id,
+                                        user_id, async_continuation_forked,
+                                        execution_id=execution_id,
+                                    )
+                                    if _reconciled is not None:
+                                        _stream_done_content = _reconciled
+                                    elif (_m3_pending and _streamed
+                                            and os.getenv("CHAT_FINALIZATION_M3") == "1"):
+                                        try:
+                                            _end_check = await self._canvas_claim_correction(
+                                                _m3_pending, canvas_context,
+                                                session_id, user_id,
+                                                async_continuation_forked,
+                                                execution_id=execution_id,
+                                            )
+                                        except Exception:
+                                            _end_check = None
+                                        if _end_check == _m3_pending:
+                                            _stream_done_content = _streamed
                         await _ws_manager.broadcast(f"user:{user_id}", {
                             "type": "chat_token_done",
                             "data": {
@@ -21278,29 +24061,39 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 "elapsed_s": round(_time.monotonic() - _t0, 1),
                             },
                         })
-                        logger.info(
-                            f"[stage-timing] reply STREAMED: "
-                            f"{_time.monotonic() - _t0:.1f}s to full text "
-                            f"({_s_prov}/{_s_model}, {len(_buf)} chunks)")
-                        # Report the route that ACTUALLY answered. The stream
-                        # generator can fall back to a different provider and
-                        # model internally; reporting the ranked pair made a
-                        # fallback turn look like it came from a provider that
-                        # rejects every completion (live 2026-09-16).
-                        _actual_provider = getattr(
-                            self.llm_service.handler,
-                            "_last_used_provider", None) or _s_prov
-                        _actual_model = getattr(
-                            self.llm_service.handler,
-                            "_last_used_model", None) or _s_model
-                        response_data = {
-                            "success": True,
-                            "content": _streamed,
-                            "model": _actual_model,
-                            "provider": _actual_provider,
-                            "requested_model": _s_model,
-                            "requested_provider": _s_prov,
-                        }
+                        if _streamed is None:
+                            # Residue/reject path: the non-streaming leg below
+                            # regenerates; the streamed content is not a final
+                            # answer.
+                            logger.info(
+                                f"[stage-timing] reply stream produced no "
+                                f"deliverable final text "
+                                f"({_s_prov}/{_s_model}, {len(_buf)} chunks) — "
+                                "non-streaming fallback")
+                        else:
+                            logger.info(
+                                f"[stage-timing] reply STREAMED: "
+                                f"{_time.monotonic() - _t0:.1f}s to full text "
+                                f"({_s_prov}/{_s_model}, {len(_buf)} chunks)")
+                            # Report the route that ACTUALLY answered. The stream
+                            # generator can fall back to a different provider and
+                            # model internally; reporting the ranked pair made a
+                            # fallback turn look like it came from a provider that
+                            # rejects every completion (live 2026-09-16).
+                            _actual_provider = getattr(
+                                self.llm_service.handler,
+                                "_last_used_provider", None) or _s_prov
+                            _actual_model = getattr(
+                                self.llm_service.handler,
+                                "_last_used_model", None) or _s_model
+                            response_data = {
+                                "success": True,
+                                "content": _streamed,
+                                "model": _actual_model,
+                                "provider": _actual_provider,
+                                "requested_model": _s_model,
+                                "requested_provider": _s_prov,
+                            }
                     else:
                         logger.warning("chat streaming produced no tokens — falling back")
                         _stream_zero_visible = True
@@ -21378,7 +24171,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # (if any) plus inline <think> blocks (captured by the strip
                     # call on the next line via the shared _reasoning_parts list).
                     _reasoning_parts: List[str] = []
-                    _strip_protocol_tags(response_data.get("content"), captured=_reasoning_parts)
+                    # F6: assign the NORMALIZED content before validation.
+                    # Complete reasoning wrappers are converted here (contents
+                    # captured for the reasoning drawer) so validation and
+                    # every later consumer — persistence, history, public
+                    # response — see the same final-answer text.
+                    response_data["content"] = _strip_protocol_tags(
+                        response_data.get("content"), captured=_reasoning_parts)
                     _turn_reasoning = (
                         (response_data or {}).get("reasoning")
                         or ("\n\n".join(p.strip() for p in _reasoning_parts if p and p.strip()).strip() or None)
@@ -21730,9 +24529,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         )
                     )
                     if _retry and _retry.get("success"):
-                        _rc = str(_retry.get("content") or "").strip()
-                        _rc = re.sub(r"<tool_call>.*?</tool_call>", "", _rc, flags=re.DOTALL)
-                        _rc = re.sub(r"</?(?:mm:)?think>|\]?<\]?minimax\[>?", "", _rc).strip()
+                        # F6: use the canonical converter — the inline
+                        # think-only regex missed the thinking/mm: variants,
+                        # leaving wrappers to trip later gates.
+                        _rc = _strip_protocol_tags(
+                            str(_retry.get("content") or "")).strip()
+                        _rc = re.sub(r"\]?<\]?minimax\[>?", "", _rc).strip()
                         if len(_rc) >= 20:
                             _content = _rc
                 if not _content:
@@ -22487,8 +25289,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         present_from_record,
                         validate_rendered_against_record,
                     )
-                    _narration_check = validate_rendered_against_record(
-                        _content, _turn_structured_record)
+                    # F6: the final-answer boundary applies to THIS branch
+                    # too — complete wrappers are converted and unpaired/
+                    # partial markers must not ship through the evidence
+                    # path (the deterministic render below stays the valid
+                    # delivery).
+                    _content, _record_reject = _normalize_final_text(_content)
+                    _narration_check = (
+                        {"ok": False, "violations": [_record_reject]}
+                        if _record_reject else
+                        validate_rendered_against_record(
+                            _content, _turn_structured_record))
                     if not _narration_check.get("ok"):
                         _repaired = None
                         _repair_check = None
@@ -22539,11 +25350,22 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             "delivered": "narration",
                         }
                 else:
-                    _final_validation = _validate_response_payload(
-                        _content,
-                        channel="final_text",
-                        content_type="text/markdown",
-                    )
+                    # F6: assign the normalized final content BEFORE
+                    # validation (one shared boundary with the streaming leg).
+                    # Complete reasoning wrappers are converted (contents
+                    # captured); unpaired/partial markers survive conversion
+                    # and are rejected below — never exposed as an apparent
+                    # answer.
+                    _content, _final_reject = _normalize_final_text(_content)
+                    if _final_reject:
+                        _final_validation = ResponseValidation(
+                            False, _final_reject, "final_text", "text/markdown")
+                    else:
+                        _final_validation = _validate_response_payload(
+                            _content,
+                            channel="final_text",
+                            content_type="text/markdown",
+                        )
                     if not _final_validation.valid:
                         _malformed_reason = _final_validation.reason
                         _content = (
@@ -23062,6 +25884,20 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 shared_tool_state["job_scope_items"] = list(scope_items)
         if not scope_items or not canvas_context:
             return None
+        # REQUEST-BOUND REQUIREMENT (owner directive 2026-10-15, item 3):
+        # a comparison of the attached artifact's OWN content is satisfied
+        # by the artifact's authoritative content — the accepted request
+        # records no live-evidence requirement, so NO external read
+        # obligation exists and no operation is begun here. A request that
+        # names a source keeps the full path, and so does every
+        # non-comparison ask (the row-range retrieval regression this
+        # branch exists for).
+        if _canvas_internal_comparison(message, shared_tool_state):
+            logger.info(
+                "[research-dispatch] canvas-internal comparison — the "
+                "artifact's authoritative content satisfies the request; "
+                "no external read requirement, dispatch skipped")
+            return None
         # THE REQUESTED-FIELD CONTRACT (owner correction 2026-10-11):
         # the request's own field asks through the EXISTING contract
         # derivation — never a local noun scan. An empty contract
@@ -23199,18 +26035,47 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         receipts: List[Dict[str, Any]] = []
         evidence_lines: List[str] = []
         _dispatch_error: Optional[str] = None
+        # SETTLEMENT FACTS (owner directive 2026-10-15, items 1-2): every
+        # scan's own outcome record — an ACTUAL error, an incomplete
+        # (deadline-farked) scan, the scope it covered, and whether a
+        # source identity receipt existed. Zero findings alone proves
+        # none of "failed" / "bounded absence" / "no receipt"; the settle
+        # below reads THESE.
+        _scan_meta: List[Dict[str, Any]] = []
 
         async def _scan(value: str, file_name: Optional[str] = None):
-            scan = await asyncio.wait_for(
-                asyncio.to_thread(
-                    _scan_fn, value, user_id, workspace_id,
-                    file_name=file_name, max_matches=6),
-                timeout=30)
-            receipt = (scan or {}).get("source_identity") or {}
+            try:
+                scan = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        _scan_fn, value, user_id, workspace_id,
+                        file_name=file_name, max_matches=6),
+                    timeout=30)
+            except Exception as _scan_exc:
+                # PRESERVED PER-SCAN ERROR (owner item 2): recorded on the
+                # meta BEFORE re-raising — a swallowed error must never
+                # read as a completed empty search.
+                _scan_meta.append({
+                    "value": str(value or ""),
+                    "file": str(file_name or ""),
+                    "error": f"{type(_scan_exc).__name__}: "
+                             f"{str(_scan_exc)[:120]}",
+                })
+                raise
+            scan = scan or {}
+            receipt = scan.get("source_identity") or {}
+            _scan_meta.append({
+                "value": str(value or ""),
+                "file": str(file_name or ""),
+                "error": str(scan.get("error") or "")[:160],
+                "incomplete": bool(scan.get("incomplete")),
+                "files_scanned": int(scan.get("files_scanned") or 0),
+                "total_matches": int(scan.get("total_matches") or 0),
+                "receipt": bool(receipt.get("content_hash")),
+            })
             if receipt.get("content_hash"):
                 receipts.append({"source_identity": dict(receipt),
                                  "targets": []})
-            return (scan or {}).get("matches") or []
+            return scan.get("matches") or []
 
         def _candidates_from(matches: List[Dict[str, Any]],
                              file_hint: Optional[str]):
@@ -23433,15 +26298,43 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             if f.get("source_version")}
         if len(_finding_versions) == 1 and _finding_versions:
             _read_version = next(iter(_finding_versions))
+        # SETTLEMENT CLASSIFICATION (owner directive 2026-10-15, item 1):
+        # an actual lookup/read ERROR is failed-with-its-reason; a search
+        # that completed over an EXPLICIT SCOPE with zero matches is a
+        # bounded absence (a delivered empty result, verified=None — never
+        # a fabricated one); anything else (no usable receipt, incomplete
+        # coverage) is unconfirmed/open work — never failed, never a
+        # completed absence. Zero findings alone proves none of these.
+        _scan_error_reasons = [
+            str(m.get("error") or "") for m in _scan_meta
+            if str(m.get("error") or "")]
+        # BOUNDED ABSENCE requires a COMPLETED, SCOPED search with ZERO
+        # matches: every scan ran without error and without truncation,
+        # covered a non-empty scope (files scanned or a source receipt),
+        # and found nothing. A junk match that failed to bind is NOT an
+        # established absence (the scope was not empty) — the read stays
+        # receipt-less/open instead.
+        _scans_are_scoped_complete = bool(_scan_meta) and all(
+            not m.get("error") and not m.get("incomplete")
+            and int(m.get("total_matches") or 0) == 0
+            and (int(m.get("files_scanned") or 0) > 0
+                 or bool(m.get("receipt")))
+            for m in _scan_meta)
+        _bounded_absence = (not findings and not _dispatch_error
+                            and not _scan_error_reasons
+                            and _scans_are_scoped_complete)
         execution = {
             "invoked": True,
             "outcome": ("read_succeeded" if findings and not
                         _dispatch_error else "read_failed"
-                        if _dispatch_error or any(
-                            v == "" for v in statuses.values())
+                        if (_dispatch_error or _scan_error_reasons)
+                        else "read_succeeded_empty"
+                        if _bounded_absence
                         else "read_returned_no_receipt"),
             "served_basis": "live",
-            "failure_stage": _dispatch_error,
+            "failure_stage": (
+                _dispatch_error
+                or (_scan_error_reasons[0] if _scan_error_reasons else None)),
             "items": statuses,
             "requested_fields": fields,
         }
@@ -24211,7 +27104,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         expected_prior_audit_id: Optional[str] = None,
         edit_plan_timeout: float = 30.0,
         session: Optional[Dict[str, Any]] = None,
+        lane_budget_s: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
+        # The lane's own start: the requirement-first bounded wait (owner
+        # directive 2026-10-15, item 4) sizes itself from the lane budget
+        # minus what this leg has already spent.
+        _lane_t0 = time.monotonic()
         # When the schema-capable edit-plan rung is pinned
         # (ATOM_ASYNC_EDIT_PLAN_MODEL), the plan needs its full latency —
         # the default 30 s starves a deepseek-v4-pro-class rung that needs
@@ -24219,6 +27117,32 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         _pin_spec = (os.getenv("ATOM_ASYNC_EDIT_PLAN_MODEL") or "").strip()
         if _pin_spec:
             edit_plan_timeout = max(edit_plan_timeout, 75.0)
+        # PAIRED STAGE MARKERS (verifier round 19, W-step 2): every
+        # pre-planning boundary logs [lane-stage-begin]/[lane-stage-end]
+        # with the execution id; cancellation inside any stage logs the
+        # ACTIVE stage name — a bounded leg is attributed to the exact
+        # prerequisite that consumed it.
+
+        @contextlib.contextmanager
+        def _stage_span(name: str):
+            logger.info("[lane-stage-begin] eid=%s stage=%s",
+                        execution_id or "-", name)
+            _t = time.monotonic()
+            try:
+                yield
+            except asyncio.CancelledError:
+                logger.warning(
+                    "[lane-stage-cancelled] eid=%s stage=%s waited=%.1fs",
+                    execution_id or "-", name, time.monotonic() - _t)
+                raise
+            finally:
+                logger.info("[lane-stage-end] eid=%s stage=%s elapsed=%.1fs",
+                            execution_id or "-", name,
+                            time.monotonic() - _t)
+
+        with _stage_span("canvas_refresh_heal"):
+            canvas = await self._refresh_canvas_from_store(user_id, canvas)
+            canvas = await self._heal_degenerate_canvas(user_id, canvas)
         """Canvas co-editor edit step: plan the edit via the canvas editor
         module, persist it through canvas_crud_tool, and return the chat
         response. Returns None when the turn is NOT a canvas edit (or
@@ -24234,9 +27158,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             describe_apply_failure,
             plan_canvas_edit,
         )
-
-        canvas = await self._refresh_canvas_from_store(user_id, canvas)
-        canvas = await self._heal_degenerate_canvas(user_id, canvas)
 
         # PDF canvases are byte-backed: their pages/forms/signatures change
         # only through the maturity-gated pdf_canvas tools — a text patch on
@@ -24259,23 +27180,62 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 },
             }
 
-        corrections = self._recent_canvas_corrections(user_id, canvas.get("canvas_id"))
-        versions = self._recent_canvas_versions(user_id, canvas.get("canvas_id"))
-        lessons = self._agent_lessons(agent_id, message)
+        with _stage_span("corrections_versions_lessons"):
+            corrections = self._recent_canvas_corrections(user_id, canvas.get("canvas_id"))
+            versions = self._recent_canvas_versions(user_id, canvas.get("canvas_id"))
+            lessons = self._agent_lessons(agent_id, message)
         # JOB FINDINGS (round 62, authorized drafting): the durable
         # research record for THIS canvas's job — verified findings with
         # sources, approved manual values, open business decisions and
         # freshness limits — so the edit applies what was verified,
         # preserves what the owner set, and annotates (never resolves)
         # the open choices.
-        job_findings = self._canvas_job_findings(
-            user_id, canvas, session, message, agent_id=agent_id)
-        similar_corrections, correction_patterns = await self._cross_canvas_learnings(
-            user_id, canvas, agent_id
-        )
-        user_identity = await self._sender_identity(user_id, canvas.get("canvas_type"))
-        playbooks = await asyncio.to_thread(
-            self._relevant_playbooks, user_id, message, canvas.get("canvas_type"))
+        with _stage_span("job_findings"):
+            job_findings = self._canvas_job_findings(
+                user_id, canvas, session, message, agent_id=agent_id)
+        # OPTIONAL-ENRICHMENT BUDGET (owner work order, 2026-10-14): the
+        # learning/history enrichment below is advisory — it must not
+        # starve the mandatory stages (authorization, authoritative
+        # canvas, relevant teaching, required evidence) inside the SAME
+        # lane budget. One shared cap derived from the caller's leg
+        # budget; a stage that exceeds it is skipped with its own
+        # marker, and no fresh budget is granted afterwards (the
+        # caller's outer bound is unchanged).
+        _optional_budget = max(
+            4.0, min(12.0, (lane_budget_s or 74.0) * 0.15))
+        _optional_left = {"s": _optional_budget}
+
+        async def _optional_bounded(stage: str, coro: Any) -> Any:
+            _t = max(0.5, _optional_left["s"])
+            _t0 = time.monotonic()
+            try:
+                return await asyncio.wait_for(coro, timeout=_t)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "[lane-stage-timeout] eid=%s stage=%s cap=%.1fs — "
+                    "proceeding without this optional enrichment",
+                    execution_id or "-", stage, _t)
+                return None
+            finally:
+                _optional_left["s"] -= (time.monotonic() - _t0)
+
+        with _stage_span("cross_canvas_learning"):
+            _cross_result = await _optional_bounded(
+                "cross_canvas_learning",
+                self._cross_canvas_learnings(user_id, canvas, agent_id))
+            if _cross_result is None:
+                similar_corrections, correction_patterns = None, None
+            else:
+                similar_corrections, correction_patterns = _cross_result
+        with _stage_span("identity_playbooks"):
+            user_identity = await _optional_bounded(
+                "identity",
+                self._sender_identity(user_id, canvas.get("canvas_type")))
+            playbooks = await _optional_bounded(
+                "playbooks",
+                asyncio.to_thread(
+                    self._relevant_playbooks, user_id, message,
+                    canvas.get("canvas_type")))
 
         # Live evidence when the edit hinges on data the editor cannot see
         # (a price "from the consolidated price list"). Same read-only tool
@@ -24300,8 +27260,18 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 step_number=_step_counter["n"],
                 step_type=step_type, action=action, observation=observation)
 
-        from core.chat_canvas_editor import fetch_fresh_data_section
+        from core.chat_canvas_editor import (
+            FreshDataResult,
+            fetch_fresh_data_section,
+        )
         _edit_requested = _canvas_edit_shaped(message, {"canvas": canvas})
+        # LANE-STAGE MARKER (verifier step 1): fresh-data work is a
+        # SEPARATE stage from edit planning — its model calls (the
+        # read-only tool planner) must never be counted as edit-plan
+        # attempts.
+        logger.info(
+            "[lane-stage] eid=%s stage=fresh_data edit_requested=%s",
+            execution_id or "-", _edit_requested)
         # IN-LANE AUTHORIZATION GATE (owner work order 2026-10-10,
         # defense at the boundary itself): edit-shape NOMINATION is not
         # permission. Before ANY fresh-data or planning work, the lane
@@ -24361,7 +27331,56 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 "could not be EVALUATED (%s) — read-only research "
                 "access retained", str(_lane_auth_err)[:160])
             return None
-        fresh = await fetch_fresh_data_section(
+        # ACCEPTED-REQUEST EVIDENCE REQUIREMENT (owner work order,
+        # 2026-10-14): the turn decision already records whether THIS
+        # request needs live evidence — a research action, named sources
+        # ("the workbook", "the email"), or a file reference. A
+        # SELF-CONTAINED edit (the replacement value is supplied in the
+        # instruction) carries none of those, and must not pay the
+        # general tool planner's latency before its own plan can run.
+        # Only an EXPLICIT False skips the lookup: a missing decision
+        # (routing off, other callers) keeps the existing behavior, and
+        # any required-evidence request keeps the full lookup path.
+        _evidence_required = None
+        if shared_tool_state is not None:
+            _evidence_required = shared_tool_state.get("evidence_required")
+        if _evidence_required is False:
+            logger.info(
+                "[lane-stage] eid=%s stage=fresh_data_skipped "
+                "reason=no_evidence_required_by_accepted_request",
+                execution_id or "-")
+            fresh = FreshDataResult("", False, True)
+        else:
+            # REQUIREMENT-FIRST WINDOW (owner directive 2026-10-15, item
+            # 4): a reference-valued requirement ("use the exact number
+            # from our records") is ALREADY NAMED by the accepted
+            # request — the value must come from the named source, so
+            # the lookup is genuine, but a lookup that cannot settle
+            # inside its bounded window leaves the requirement
+            # UNRESOLVED and the specific missing-value ask must ship
+            # instead of a budget timeout.
+            _requirement_refs: List[str] = []
+            try:
+                from core.turn_decision import (
+                    extract_request_assignments as _era_lane_fn,
+                )
+
+                _requirement_refs = [
+                    str(s) for s in (
+                        _era_lane_fn(message).get("source_references") or [])
+                    if str(s).strip()]
+            except Exception:  # noqa: BLE001 — the window is additive
+                _requirement_refs = []
+            _fd_wait: Optional[float] = None
+            if _requirement_refs:
+                _fd_wait = _REFERENCE_REQUIREMENT_PLAN_WAIT_SECONDS
+                if lane_budget_s:
+                    _lane_spent = time.monotonic() - _lane_t0
+                    _fd_wait = min(_fd_wait, max(
+                        5.0, lane_budget_s - _lane_spent - 3.0))
+            try:
+                with _stage_span("fresh_data_lookup"):
+                    _fd_call = fetch_fresh_data_section(
             message, history, self.llm_service, user_id,
             canvas_id=canvas.get("canvas_id"),
             step_recorder=_record_fresh_data_step,
@@ -24413,7 +27432,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 == "retrieved"
                 else None
             ),
-        )
+                    )
+                    fresh = (
+                        await asyncio.wait_for(_fd_call, timeout=_fd_wait)
+                        if _fd_wait else await _fd_call)
+            except asyncio.TimeoutError:
+                # REQUIREMENT-FIRST DECISION (owner directive 2026-10-15,
+                # item 4): the named source did not settle inside its
+                # bounded window, so the requirement stands UNRESOLVED.
+                # Decline with the SPECIFIC ask — never a silent budget
+                # timeout, never a fabricated value. The plan could not
+                # ground the referenced value either (it grounds
+                # nowhere), so planning it would only spend the turn.
+                logger.warning(
+                    "[canvas-edit] reference requirement unresolved — the "
+                    "source lookup did not settle in %.1fs; declining "
+                    "with the named ask", float(_fd_wait or 0.0))
+                fresh = FreshDataResult("", True, False)
+                if shared_tool_state is not None:
+                    shared_tool_state["canvas_requirement_unresolved"] = {
+                        "references": list(_requirement_refs[:2]),
+                    }
         if shared_tool_state is not None:
             if isinstance(fresh.evidence_contract, dict):
                 shared_tool_state["objective_evidence"] = (
@@ -24464,7 +27503,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         # the confirmed item→value table rides the fresh-data section so
         # the edit plan works from data, not history prose.
         if _edit_requested:
-            _outcome_section = self._outcome_values_section(session, session_id)
+            with _stage_span("outcome_values"):
+                _outcome_section = self._outcome_values_section(
+                    session, session_id)
             if _outcome_section:
                 fresh_data = f"{fresh_data}\n\n{_outcome_section}".strip()
         # VALUE-EDIT TBC PROBE (2026-10-03, reliability run A): an edit
@@ -24481,30 +27522,31 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             bool(_edit_requested),
             bool((shared_tool_state or {}).get("block")))
         if _edit_requested and not (shared_tool_state or {}).get("block"):
-            try:
-                # workspace_id=None: the catalog is a per-deployment
-                # derived cache; user_id scopes the probe (this leg has no
-                # request context in scope — NameError caught live).
-                _tbc_section = await self._tbc_items_catalog_probe(
-                    canvas, user_id, None, message=message)
-                if _tbc_section:
-                    fresh_data = (
-                        f"{fresh_data}\n\n{_tbc_section}".strip())
-                    # The decline message needs the probe's findings even
-                    # when the blackboard block stays empty (no tool plan
-                    # ran) — the probe IS this turn's lookup.
-                    if shared_tool_state is not None:
-                        shared_tool_state["tbc_probe"] = _tbc_section
+            with _stage_span("catalog_probe"):
+                try:
+                    # workspace_id=None: the catalog is a per-deployment
+                    # derived cache; user_id scopes the probe (this leg has no
+                    # request context in scope — NameError caught live).
+                    _tbc_section = await self._tbc_items_catalog_probe(
+                        canvas, user_id, None, message=message)
+                    if _tbc_section:
+                        fresh_data = (
+                            f"{fresh_data}\n\n{_tbc_section}".strip())
+                        # The decline message needs the probe's findings even
+                        # when the blackboard block stays empty (no tool plan
+                        # ran) — the probe IS this turn's lookup.
+                        if shared_tool_state is not None:
+                            shared_tool_state["tbc_probe"] = _tbc_section
+                            logger.info(
+                                "[tbc-probe] stashed %d chars on the turn "
+                                "blackboard", len(_tbc_section))
+                    else:
                         logger.info(
-                            "[tbc-probe] stashed %d chars on the turn "
-                            "blackboard", len(_tbc_section))
-                else:
-                    logger.info(
-                        "[tbc-probe] probe produced no section (no "
-                        "unpriced rows or empty body)")
-            except Exception as _tbc_err:  # noqa: BLE001 — probe is additive
-                logger.warning(
-                    "[tbc-probe] probe failed: %r", _tbc_err)
+                            "[tbc-probe] probe produced no section (no "
+                            "unpriced rows or empty body)")
+                except Exception as _tbc_err:  # noqa: BLE001 — probe additive
+                    logger.warning(
+                        "[tbc-probe] probe failed: %r", _tbc_err)
 
         # Overlap the ACTION planner with this edit plan. Both are independent
         # structured LLM calls over the same turn inputs (message, history,
@@ -24528,6 +27570,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # workspace-registered local provider.
                         workspace_id=resolve_user_workspace(user_id),
                         tenant_id=getattr(self, "tenant_id", None),
+                        execution_id=execution_id,
                     )
                 )
             except Exception as action_task_err:  # noqa: BLE001
@@ -24535,7 +27578,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     f"canvas action plan task not started: {action_task_err}")
 
         try:
-            plan = await asyncio.wait_for(
+            with _stage_span("edit_plan"):
+                plan = await asyncio.wait_for(
                 plan_canvas_edit(
                     message, history, canvas, self.llm_service,
                     # THE TURN'S OWN SCOPE (J6 draft finding, same as the
@@ -24545,6 +27589,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # the same registration served the reply lane.
                     workspace_id=resolve_user_workspace(user_id),
                     tenant_id=getattr(self, "tenant_id", None),
+                    execution_id=execution_id,
                     corrections=corrections,
                     versions=versions,
                     lessons=lessons,
@@ -24843,6 +27888,13 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             require_evidence_postconditions=bool(
                 fresh.needed or fresh.evidence_contract
             ),
+            # PRE-PERSISTENCE PRESERVATION (owner caveat 2026-10-16):
+            # a resumed requirement's value and pre-content ride into
+            # the editor so a preservation violation refuses BEFORE the
+            # store write — recovery stays exceptional.
+            resume_preservation=(
+                shared_tool_state.get("resume_requirement")
+                if isinstance(shared_tool_state, dict) else None),
         )
         # Tolerant unpack: tests (and any caller using the default
         # return_reason=False) may hand back the bare result instead of the
@@ -24870,6 +27922,10 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "updated": False,
                         "write_recorded": True,
                         "postcondition_verified": False,
+                        # The write's own audit id — the exceptional
+                        # recovery's restore-race guard compares the live
+                        # version head against THIS id.
+                        "audit_id": result.get("audit_id"),
                         "postcondition_error": result.get(
                             "postcondition_error"
                         ),
@@ -24950,19 +28006,50 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 f"({apply_reason}) — replying honestly instead of falling "
                 f"through to conversation"
             )
+            # DECLINE CARRIER (verifier round 19, F3): the recorded fact
+            # that the lane declined with a named reason — the outcome
+            # resolver classifies the turn from THIS record (partial:
+            # honest answer delivered, the edit did not happen).
+            if isinstance(session, dict):
+                session["canvas_edit_decline"] = {
+                    "execution_id": execution_id,
+                    "reason": apply_reason,
+                    "canvas_id": canvas.get("canvas_id"),
+                }
             return {
                 "success": True,
                 "message": describe_apply_failure(
                     apply_reason, canvas.get("canvas_type"), canvas
                 ),
                 "session_id": session_id,
+                # D3 (every outcome carries the execution it belongs to):
+                # WITHOUT this the route cannot bind the turn to its
+                # execution row, the finalizer falls to the unknown-status
+                # branch and ships success=false with NO error code and NO
+                # durable attribution (live 2026-10-15 diagnostic: a
+                # declined T1 lost its identity and its honest reply
+                # shipped as an anonymous failure). Same identity/outcome
+                # envelope as the sibling `_no_apply` response.
+                "execution_id": execution_id,
                 "intent": "canvas_edit",
                 "confidence": 0.9,
+                # F3 partial: the honest reply was delivered, the
+                # requested edit did not happen and must not be
+                # certified — a delivered clarification, never
+                # unconfirmed-by-construction.
+                "outcome": "partial",
+                "error_code": None,
+                "_recorded_outcome": {
+                    "state": "partial",
+                    "work_turn": True,
+                    "declined": True,
+                },
                 "data": {
                     "canvas_edit": {
                         "canvas_id": canvas.get("canvas_id"),
                         "updated": False,
                         "reason": apply_reason,
+                        "execution_id": execution_id,
                     },
                     **({"objective_evidence": fresh.evidence_contract}
                        if fresh.evidence_contract else {}),
@@ -25108,18 +28195,6 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "postcondition_verified": True,
                     **({"audit_id": result.get("audit_id")}
                        if result.get("audit_id") else {}),
-                    # MUTATION EVIDENCE (verifier step 3, edit lane): the
-                    # durable attribution rides the response — the audit
-                    # row id and THIS operation's linkage — so the
-                    # outcome builder settles refs from the execution's
-                    # own records, never from the reply.
-                    **({"evidence_refs": [{
-                        "kind": "canvas_mutation",
-                        "canvas_id": canvas.get("canvas_id"),
-                        "audit_id": result.get("audit_id"),
-                        "operation_id": operation_id,
-                        "execution_id": execution_id,
-                    }]} if result.get("audit_id") else {}),
                     "review_status": (
                         result.get("review_status")
                         or ("pending_review" if learning_mode else "accepted")
@@ -25131,10 +28206,27 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         "postcondition_error": result.get(
                             "postcondition_error"
                         ),
-                        "evidence_refs": result.get(
-                            "postcondition_evidence_refs"
-                        ) or [],
+                        # Observation ids are STRINGS from the evidence
+                        # contract — kept under their own name so the
+                        # mutation evidence_refs above (ref dicts) are
+                        # never clobbered or type-mixed (review defect
+                        # 3, 84143bdd8).
+                        **({"postcondition_observation_ids": list(
+                            result.get("postcondition_evidence_refs")
+                            or [])}
+                           if result.get("postcondition_evidence_refs")
+                           else {}),
                     } if fresh.evidence_contract else {}),
+                    # MUTATION EVIDENCE LAST (review defect 3): it wins
+                    # the evidence_refs key on every success path —
+                    # the outcome builder consumes THESE.
+                    **({"evidence_refs": [{
+                        "kind": "canvas_mutation",
+                        "canvas_id": canvas.get("canvas_id"),
+                        "audit_id": result.get("audit_id"),
+                        "operation_id": operation_id,
+                        "execution_id": execution_id,
+                    }]} if result.get("audit_id") else {}),
                     **({"learning_mode": True} if learning_mode else {}),
                     **({"matched_playbooks": matched_playbooks}
                        if matched_playbooks else {}),
@@ -25223,6 +28315,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # the edit lane).
                         workspace_id=resolve_user_workspace(user_id),
                         tenant_id=getattr(self, "tenant_id", None),
+                        execution_id=execution_id,
                     ),
                     timeout=25,
                 )
@@ -27746,13 +30839,806 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         except Exception:  # noqa: BLE001 — editor data is additive
             return ""
 
+    def _load_durable_file_result(
+        self, session_id: Optional[str],
+        *, workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        message: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """DURABLE-RESULT fallback for the recovery lane (R4 2026-10-16).
+
+        An interrupted turn with NO assistant row cannot recover through
+        the assistant-metadata carrier even when its findings exist
+        durably in goal_runs. Resolve the conversation's own successful
+        retrieve operation(s) and reconstruct the stored payload from
+        execution.findings.
+
+        Selection binding: the conversation's own runs only (workspace +
+        conversation bound) - never the globally newest run. When the
+        newest non-terminal run carries no eligible findings but an older
+        conversation-bound run does, the older eligible record is
+        selected (mirrors the canvas applicable-task policy: a newer
+        findings-less run never shadows an older eligible result).
+        MULTIPLE eligible retrieve results are NOT resolved here - the
+        caller delivers a clarification instead of a silent pick.
+        A missing or unreadable authorized result returns None (never a
+        successful recovery).
+        """
+        if not session_id or not message:
+            return None
+        try:
+            lifecycle = _task_lifecycle_for(tenant_id, workspace_id)
+            if lifecycle is None:
+                return None
+            # Conversation-bound runs, newest first. find_active_task
+            # returns the newest non-terminal run; when it carries no
+            # eligible findings a newer findings-less run would shadow an
+            # older eligible result, so scan the conversation's own runs
+            # in order and select the first with eligible findings.
+            try:
+                _runs = lifecycle.runs.list_runs(
+                    include_terminal=False, limit=200)
+            except Exception:
+                _runs = []
+            _conv_runs: list = []
+            for _r in _runs or []:
+                try:
+                    _params = (_r.get("parameters") or {})
+                    _lc = _params.get("task_lifecycle") or {}
+                    _cid = _lc.get("conversation_id")
+                except Exception:
+                    _cid = None
+                if _cid is None:
+                    try:
+                        _rec_probe = lifecycle.get_task(
+                            str(_r.get("id") or ""))
+                        _cid = (_rec_probe or {}).get("conversation_id")
+                    except Exception:
+                        _cid = None
+                if str(_cid or "") == str(session_id):
+                    _conv_runs.append(_r)
+            _records: list = []
+            if _conv_runs:
+                for _r in _conv_runs:
+                    try:
+                        _rec = lifecycle.get_task(str(_r.get("id") or ""))
+                    except Exception:
+                        _rec = None
+                    if _rec:
+                        _records.append(_rec)
+            else:
+                try:
+                    _active = lifecycle.find_active_task(str(session_id))
+                except Exception:
+                    _active = None
+                if _active:
+                    _records.append(_active)
+            if not _records:
+                return None
+            candidates: list = []
+            for _record in _records:
+                _run_id = _record.get("run_id") or _record.get("id")
+                _revision = _record.get("task_revision") or {}
+                _objective = str(_revision.get("objective_text") or "")
+                _requested_fields = list(
+                    _revision.get("requested_fields") or [])
+                _open_obligations = [
+                    q for q in (_revision.get("unresolved") or [])
+                    if isinstance(q, dict) and q.get("status") == "open"]
+                _deliveries = list(_record.get("deliveries") or [])
+                for op in _record.get("operations") or []:
+                    op = op or {}
+                    if str(op.get("operation_type") or "") != "retrieve":
+                        continue
+                    if str(op.get("status") or "") != "applied":
+                        continue
+                    ex = op.get("execution") or {}
+                    if str(ex.get("outcome") or "") != "read_succeeded":
+                        continue
+                    fnd = [f for f in (ex.get("findings") or [])
+                           if isinstance(f, dict)]
+                    if not fnd:
+                        continue
+                    _first = fnd[0] or {}
+                    _fname = str(
+                        _first.get("source_file_name")
+                        or _first.get("file_name")
+                        or (ex.get("source_identity") or {}).get("file_name")
+                        or _first.get("source") or "the file")
+                    candidates.append({
+                        "run_id": _run_id,
+                        "operation_id": op.get("operation_id"),
+                        "execution_id": op.get("execution_id"),
+                        "file_name": _fname,
+                        "source_version": str(
+                            ex.get("source_version") or ""),
+                        "findings": list(fnd),
+                        "requested_fields": list(_requested_fields),
+                        "objective_text": _objective,
+                        "coverage_items": dict(ex.get("items") or {}),
+                        "open_obligations": list(_open_obligations),
+                        "deliveries": list(_deliveries),
+                        "conversation_id": str(session_id),
+                        "workspace_id": str(workspace_id or ""),
+                    })
+                if candidates:
+                    break
+            if not candidates:
+                return None
+            if len(candidates) > 1:
+                # MULTIPLE plausible results: the caller delivers a
+                # clarification naming each - never a silent pick. Preserve
+                # distinct run/operation identities even when filenames are
+                # equal. Full per-candidate payloads ride along so a
+                # selecting follow-up can deliver without a second load.
+                return {
+                    "__ambiguous__": True,
+                    "candidates": [
+                        {"file_name": c["file_name"],
+                         "source_version": c["source_version"],
+                         "run_id": c["run_id"],
+                         "operation_id": c["operation_id"],
+                         "execution_id": c.get("execution_id"),
+                         "requested_fields": list(
+                             c.get("requested_fields") or []),
+                         "findings_count": len(c.get("findings") or []),
+                         "objective_text": str(
+                             c.get("objective_text") or "")[:160],
+                         "findings": list(c.get("findings") or []),
+                         "coverage_items": dict(
+                             c.get("coverage_items") or {}),
+                         "open_obligations": list(
+                             c.get("open_obligations") or []),
+                         "conversation_id": str(
+                             c.get("conversation_id") or ""),
+                         "workspace_id": str(
+                             c.get("workspace_id") or "")}
+                        for c in candidates],
+                }
+            chosen = candidates[0]
+            file_name = chosen["file_name"]
+            findings = list(chosen.get("findings") or [])
+            lines = []
+            for f in findings:
+                item = str(f.get("item") or "?")
+                raw = str(f.get("raw") or f.get("value") or "?")
+                parsed = f.get("parsed") if isinstance(
+                    f.get("parsed"), dict) else {}
+                basis = str(parsed.get("basis") or f.get("basis") or "")
+                currency = str(
+                    parsed.get("currency") or f.get("currency") or "")
+                unit = str(parsed.get("unit") or f.get("unit") or "")
+                _basis_bits = " ".join(
+                    b for b in [basis, currency, unit] if b)
+                _loc = str(f.get("source") or "")
+                _ver = str(f.get("content_hash")
+                           or chosen.get("source_version") or "")
+                _extra = "; ".join(
+                    b for b in [_basis_bits, _loc,
+                                (f"version {_ver[:16]}" if _ver else "")]
+                    if b)
+                if _extra:
+                    lines.append(f"- **{item}** - {raw} ({_extra})")
+                else:
+                    lines.append(f"- **{item}** - {raw}")
+            _coverage = dict(chosen.get("coverage_items") or {})
+            _cov_done = [k for k, v in _coverage.items() if v == "matched"]
+            _cov_open = [k for k, v in _coverage.items()
+                         if v not in ("matched",)]
+            _cov_line = ""
+            if _coverage:
+                _cov_line = (
+                    f"Coverage: {len(_cov_done)}/{len(_coverage)} "
+                    f"items matched"
+                    + (f" (open: {', '.join(_cov_open[:4])})"
+                       if _cov_open else ""))
+            rendered_body = "\n".join(lines)[:22000]
+            if _cov_line:
+                rendered_body = (
+                    f"{rendered_body}\n{_cov_line}" if rendered_body
+                    else _cov_line)
+            _ver_full = str(chosen.get("source_version") or "")
+            if _ver_full:
+                rendered_body = (
+                    f"{rendered_body}\nSource version: {_ver_full[:32]}"
+                    if rendered_body else
+                    f"Source version: {_ver_full[:32]}")
+            from core.workbook_read_artifact import (
+                TARGET_EXTRACTION_VERSION as _tev,
+            )
+            return {
+                "status": "retrieved",
+                "rendered": rendered_body,
+                "identity": {
+                    "file_name": file_name,
+                    "source_version": chosen["source_version"],
+                    "workspace_id": str(workspace_id or ""),
+                    "conversation_id": str(session_id),
+                },
+                "target_extraction_version": _tev,
+                "recovered_from_durable": True,
+                "recovery_operation_id": chosen.get("operation_id"),
+                "recovery_execution_id": chosen.get("execution_id"),
+                "run_id": chosen.get("run_id"),
+                "conversation_id": str(session_id),
+                "workspace_id": str(workspace_id or ""),
+                "original_request": str(chosen.get("objective_text") or ""),
+                "requested_fields": list(
+                    chosen.get("requested_fields") or []),
+                "coverage": dict(chosen.get("coverage_items") or {}),
+                "findings": findings,
+                "open_obligations": list(
+                    chosen.get("open_obligations") or []),
+                "source_identity": {
+                    "file_name": file_name,
+                    "source_version": chosen.get("source_version"),
+                },
+                "recorded_version": str(chosen.get("source_version") or ""),
+                "delivery_state": list(chosen.get("deliveries") or []),
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("[r4-recovery] durable load skipped: %r", exc)
+            return None
+
+    def _is_r3_owned_reply(
+        self, message: str, canvas_ctx: Optional[Dict[str, Any]],
+        session_id: Optional[str],
+        turn_scope: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Whether the narrow R3 supply syntax owns this reply.
+
+        R3 owns a reply ONLY when an open awaiting-value requirement
+        exists for THIS canvas and the message classifies as an answer
+        (exact value span), a selection, or a cancellation under the
+        accepted narrow contract (_classify_resume_reply). Digit presence
+        alone never establishes ownership: "Show the saved prices for
+        machine 381" is a result request, not an R3 answer. The lookup
+        uses the already resolved authenticated request scope (workspace
+        + tenant), never default-scoped behavior.
+        """
+        try:
+            _canvas_id = None
+            if isinstance(canvas_ctx, dict):
+                _canvas_id = canvas_ctx.get("canvas_id")
+            if not _canvas_id or not session_id:
+                return False
+            _ws = (turn_scope or {}).get("workspace_id") if isinstance(
+                turn_scope, dict) else None
+            _tn = (turn_scope or {}).get("tenant_id") if isinstance(
+                turn_scope, dict) else None
+            try:
+                _open = _open_awaiting_value_requirements(
+                    _tn if _tn is not None else getattr(
+                        self, "tenant_id", None),
+                    _ws,
+                    session_id, _canvas_id)
+            except Exception:
+                _open = []
+            if not _open:
+                return False
+            try:
+                _cls = _classify_resume_reply(
+                    message, _open[0],
+                    items=[_q.get("item") for _q in _open])
+            except Exception:
+                return False
+            return str(_cls.get("class") or "") in (
+                "answer", "selection", "cancel")
+        except Exception:
+            return False
+
+    def _is_recovery_shaped(
+        self, message: str, session: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Whether the message asks to show a previously retrieved result.
+
+        Narrow, recovery-anchored (not a generic intent): an approval
+        (is_filename_confirmation), a presentation follow-up
+        (_continuation_decision retrieval == "none"), or a show verb with
+        a recovery marker (earlier/previous/saved/stored/found/recovered/
+        again/last/before/restart, or an explicit that-result reference).
+        Result/status/clarification asks and work instructions are never
+        recovery-shaped: the normal flows own them. Unknown or unrelated
+        input returns False.
+        """
+        try:
+            import re as _re
+            from core.pending_file_task import is_filename_confirmation
+            t = str(message or "")
+            if not t.strip():
+                return False
+            try:
+                if bool(_RESULT_REFERENCE_ASK_RE.search(t)):
+                    return False
+                if bool(_STATUS_TABLE_ASK_RE.search(t)):
+                    return False
+                if bool(_CLARIFY_PREVIOUS_RE.search(t)):
+                    return False
+                if bool(_WORK_INSTRUCTION_RE.search(t)):
+                    return False
+            except Exception:
+                pass
+            try:
+                if is_filename_confirmation(t):
+                    return True
+            except Exception:
+                pass
+            try:
+                _cont = self._continuation_decision(t, session)
+                if isinstance(_cont, dict) and _cont.get(
+                        "retrieval") == "none":
+                    return True
+            except Exception:
+                pass
+            _verb = bool(_re.search(
+                r"\b(show|display|give|list|tell|what)\b", t,
+                _re.IGNORECASE))
+            _marker = bool(_re.search(
+                r"\b(earlier|previous|previously|saved|stored|found|"
+                r"recovered|again|last|before|restart)\b"
+                r"|\bthat\b.{0,30}\bresult\b"
+                r"|\bprice\b.{0,20}\blist\b.{0,20}\bresult\b",
+                t, _re.IGNORECASE))
+            if _verb and _marker:
+                return True
+            return False
+        except Exception:
+            return False
+
+    def _prior_clarify_candidates(
+        self, history: Optional[list],
+    ) -> list:
+        """The most recent clarification's preserved candidate identities.
+
+        The clarification handler stores the distinct run/operation/file
+        identities in the response data; _update_session persists them in
+        the turn history. A selecting follow-up resolves against these -
+        never a silent pick, never content-equality alone.
+        """
+        try:
+            for entry in reversed(list(history or [])[-6:]):
+                resp = (entry or {}).get("response") if isinstance(
+                    entry, dict) else None
+                data = (resp or {}).get("data") if isinstance(
+                    resp, dict) else None
+                cands = None
+                if isinstance(data, dict):
+                    ce = data.get("canvas_edit") if isinstance(
+                        data.get("canvas_edit"), dict) else None
+                    if isinstance(ce, dict) and isinstance(
+                            ce.get("candidates"), list):
+                        cands = ce.get("candidates")
+                    elif isinstance(data.get("candidates"), list):
+                        cands = data.get("candidates")
+                if cands:
+                    return list(cands)
+        except Exception:
+            pass
+        return []
+
+    def _select_clarify_candidate(
+        self, message: str, candidates: list,
+    ) -> Optional[Dict[str, Any]]:
+        """Which single clarified candidate the message selects, or None.
+
+        Ordinals ("1", "option 2", "first") select by position; otherwise
+        the message must name exactly one candidate's file (case-insensitive
+        substring, or the stored objective snippet). Ambiguous or empty
+        selections return None - the caller clarifies again.
+        """
+        try:
+            import re as _re
+            t = str(message or "").strip()
+            if not t or not candidates:
+                return None
+            # Ordinals first (the clarification numbers them).
+            m = _re.match(
+                r"^\s*(?:option\s+)?([1-3])\s*[.!?]*\s*$",
+                t, _re.IGNORECASE)
+            if m:
+                idx = int(m.group(1)) - 1
+                if 0 <= idx < len(candidates):
+                    return candidates[idx]
+                return None
+            low = t.lower()
+            if _re.search(r"\bfirst\b|\b1st\b", low):
+                return candidates[0] if len(candidates) >= 1 else None
+            if _re.search(r"\bsecond\b|\b2nd\b", low):
+                return candidates[1] if len(candidates) >= 2 else None
+            if _re.search(r"\bthird\b|\b3rd\b", low):
+                return candidates[2] if len(candidates) >= 3 else None
+            # File-name (or objective-snippet) match: exactly one.
+            hits = []
+            for c in candidates:
+                fn = str((c or {}).get("file_name") or "").lower()
+                obj = str((c or {}).get("objective_text") or "").lower()
+                if fn and fn != "the file" and fn in low:
+                    hits.append(c)
+                elif obj and len(obj) > 8 and obj[:40] in low:
+                    hits.append(c)
+            if len(hits) == 1:
+                return hits[0]
+            return None
+        except Exception:
+            return None
+
+    def _payload_from_candidate(
+        self, candidate: Dict[str, Any], session_id: Optional[str],
+        workspace_id: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Build a deliverable payload from one clarified candidate.
+
+        Uses the candidate's own findings/coverage/obligations with the
+        same rendering and identity contract as the single-result path -
+        no silent pick, no content-equality decision.
+        """
+        try:
+            c = candidate or {}
+            findings = list(c.get("findings") or [])
+            if not findings:
+                # The clarification marker carries IDENTITIES only (run +
+                # operation + name) - the reply history must not become a
+                # second evidence store. Resolve the SELECTED operation's
+                # own stored evidence from the durable record; the
+                # selection binds run+operation identity, never a guess
+                # from rendered history content.
+                try:
+                    _lc = _task_lifecycle_for(
+                        getattr(self, "tenant_id", None),
+                        (str(workspace_id) if workspace_id else None))
+                    _rec = None
+                    if _lc is not None and c.get("run_id"):
+                        _rec = _lc.get_task(str(c.get("run_id")))
+                    for _op in (_rec or {}).get("operations") or []:
+                        _op = _op or {}
+                        if str(_op.get("operation_id") or "") != str(
+                                c.get("operation_id") or ""):
+                            continue
+                        _ex = _op.get("execution") or {}
+                        if str(_ex.get("outcome") or "") != "read_succeeded":
+                            break
+                        findings = [
+                            f for f in (_ex.get("findings") or [])
+                            if isinstance(f, dict)]
+                        c = {**c,
+                             "coverage_items": dict(
+                                 _ex.get("items") or {}),
+                             "open_obligations": list(c.get(
+                                 "open_obligations") or []),
+                             "deliveries": list(
+                                 (_rec or {}).get("deliveries") or []),
+                             "execution_id": _op.get("execution_id"),
+                             "source_version": str(
+                                 _ex.get("source_version")
+                                 or c.get("source_version") or "")}
+                        break
+                except Exception:
+                    findings = []
+            if not findings:
+                return None
+            file_name = str(c.get("file_name") or "the file")
+            lines = []
+            for f in findings:
+                item = str(f.get("item") or "?")
+                raw = str(f.get("raw") or f.get("value") or "?")
+                parsed = f.get("parsed") if isinstance(
+                    f.get("parsed"), dict) else {}
+                basis = str(parsed.get("basis") or f.get("basis") or "")
+                currency = str(
+                    parsed.get("currency") or f.get("currency") or "")
+                unit = str(parsed.get("unit") or f.get("unit") or "")
+                _bits = " ".join(b for b in [basis, currency, unit] if b)
+                _loc = str(f.get("source") or "")
+                _ver = str(f.get("content_hash")
+                           or c.get("source_version") or "")
+                _extra = "; ".join(
+                    b for b in [_bits, _loc,
+                                (f"version {_ver[:16]}" if _ver else "")]
+                    if b)
+                lines.append(
+                    f"- **{item}** - {raw} ({_extra})" if _extra
+                    else f"- **{item}** - {raw}")
+            _cov = dict(c.get("coverage_items") or c.get("coverage") or {})
+            _cov_done = [k for k, v in _cov.items() if v == "matched"]
+            _cov_line = ""
+            if _cov:
+                _cov_line = (
+                    f"Coverage: {len(_cov_done)}/{len(_cov)} items matched")
+            body = "\n".join(lines)[:22000]
+            if _cov_line:
+                body = f"{body}\n{_cov_line}" if body else _cov_line
+            _vf = str(c.get("source_version") or "")
+            if _vf:
+                body = (f"{body}\nSource version: {_vf[:32]}"
+                        if body else f"Source version: {_vf[:32]}")
+            from core.workbook_read_artifact import (
+                TARGET_EXTRACTION_VERSION as _tev,
+            )
+            return {
+                "status": "retrieved",
+                "rendered": body,
+                "identity": {
+                    "file_name": file_name,
+                    "source_version": str(c.get("source_version") or ""),
+                    "workspace_id": str(workspace_id or ""),
+                    "conversation_id": str(session_id or ""),
+                },
+                "target_extraction_version": _tev,
+                "recovered_from_durable": True,
+                "recovery_operation_id": c.get("operation_id"),
+                "recovery_execution_id": c.get("execution_id"),
+                "run_id": c.get("run_id"),
+                "conversation_id": str(session_id or ""),
+                "workspace_id": str(workspace_id or ""),
+                "original_request": str(c.get("objective_text") or ""),
+                "requested_fields": list(
+                    c.get("requested_fields") or []),
+                "coverage": dict(_cov),
+                "findings": findings,
+                "open_obligations": list(
+                    c.get("open_obligations") or []),
+                "source_identity": {
+                    "file_name": file_name,
+                    "source_version": str(c.get("source_version") or ""),
+                },
+                "recorded_version": str(c.get("source_version") or ""),
+                "delivery_state": list(c.get("deliveries") or []),
+            }
+        except Exception:
+            return None
+
+    def _stored_covers_request(
+        self, payload: Dict[str, Any], message: str,
+    ) -> bool:
+        """Whether the stored result covers what the message asks for.
+
+        Compares the request's own target/source scope (via the existing
+        extract_targets + file-mention resolvers) against the stored
+        payload's findings/coverage/file identity. A request naming items
+        the saved result does not contain - or a different file - is NOT
+        covered: serving another target's evidence as fulfillment is a
+        wrong-target donation. A message naming no specific items stays
+        covered (generic "show me what you found" re-displays). Digit
+        presence alone never decides: a matching-target digit-bearing
+        request ("machine 381" with stored "No. 381") still delivers.
+        """
+        try:
+            msg = str(message or "")
+            try:
+                from core.agent_file_context import (
+                    detect_file_task_mentions,
+                )
+                mentions = detect_file_task_mentions(msg) or []
+            except Exception:
+                mentions = []
+            try:
+                from core.workbook_read_artifact import extract_targets
+                # File references carry their own identity (a year, a
+                # code): the target items are whatever the ask names
+                # OUTSIDE those references - otherwise "the price list
+                # of 2019" would license a phantom machine "2019".
+                import re as _re3
+                residue = msg
+                for _m in (mentions or []):
+                    residue = _re3.sub(
+                        _re3.escape(str(_m).strip()), " ", residue,
+                        flags=_re3.IGNORECASE)
+                req = [str(x) for x in (extract_targets(
+                    residue, [residue]) or []) if str(x).strip()]
+            except Exception:
+                return True
+            if mentions:
+                import re as _re2
+
+                def _sep(s: str) -> str:
+                    return _re2.sub(r"[^a-z0-9]", "", str(s).lower())
+
+                def _toks(s: str) -> list:
+                    return _re2.findall(r"[a-z0-9]+", str(s).lower())
+
+                stored_file = str(
+                    (payload.get("identity") or {}).get("file_name")
+                    or "")
+                if _sep(stored_file):
+                    stored_toks = set(_toks(stored_file))
+                    _generic = {
+                        "the", "of", "from", "show", "me", "saved",
+                        "prices", "price", "values", "results", "found",
+                        "earlier", "rows", "items", "them", "list",
+                        "sheet", "workbook", "file", "document", "tab",
+                    }
+                    for m in mentions:
+                        m_toks = _toks(m)
+                        # Digit-bearing tokens (years, model codes) are
+                        # the discriminators a paraphrase must carry:
+                        # "the price list of 2019" matches the 2019
+                        # stored list, "price list 2020" does not.
+                        digit_toks = [
+                            t for t in m_toks
+                            if any(ch.isdigit() for ch in t)]
+                        if digit_toks and not all(
+                                t in stored_toks for t in digit_toks):
+                            return False
+                        substantial = [
+                            t for t in m_toks
+                            if len(t) >= 3 and t not in _generic
+                            and not any(ch.isdigit() for ch in t)]
+                        if substantial and not any(
+                                t in stored_toks for t in substantial):
+                            # No digit pin, and every substantive word
+                            # the ask used is absent from the stored
+                            # file's name: a different source, not a
+                            # paraphrase of it.
+                            return False
+            if not req:
+                return True
+            stored: set = set()
+            try:
+                for f in (payload.get("findings") or []):
+                    if isinstance(f, dict) and f.get("item"):
+                        stored.add(str(f["item"]).lower())
+                for k in ((payload.get("coverage") or {}).keys()):
+                    stored.add(str(k).lower())
+            except Exception:
+                return True
+            if not stored:
+                return True
+            for r in req:
+                rl = r.lower()
+                if any(rl == s or rl in s or s in rl for s in stored):
+                    return True
+            return False
+        except Exception:
+            return True
+
+    def _decide_file_recovery(
+        self, message: str, session_id: Optional[str],
+        turn_scope: Optional[Dict[str, Any]],
+        session: Optional[Dict[str, Any]],
+        history: Optional[list],
+        canvas_ctx: Optional[Dict[str, Any]],
+    ) -> "tuple[str, Optional[Dict[str, Any]], list]":
+        """One request-local recovery decision (deliver/clarify/normal).
+
+        Local to the request (no mutable cross-turn flag). Carries the
+        selected payload or candidate identities with the decision.
+        Order: explicit refresh stays new retrieval; a genuine R3 answer
+        stays with R3; a non-recovery-shaped or extending request stays
+        normal work; a stored result that does not cover the requested
+        target/source stays normal work for a new retrieval (never donate
+        another target's evidence as fulfillment); otherwise a single
+        resolved payload delivers and multiple plausible results clarify.
+        Never classifies every message as recovery merely because stored
+        findings exist.
+        """
+        try:
+            from core.pending_file_task import (
+                is_retrieval_refresh_request,
+                request_extends_objective,
+            )
+        except Exception:
+            return ("normal_work", None, [])
+        t = str(message or "")
+        if not t.strip() or not session_id:
+            return ("normal_work", None, [])
+        # Explicit refresh/re-run stays new retrieval.
+        try:
+            if is_retrieval_refresh_request(t):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        # Genuine R3 answers stay with R3 (narrow syntax, not digits).
+        try:
+            if self._is_r3_owned_reply(
+                    t, canvas_ctx, session_id, turn_scope):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        # Selecting follow-up to a prior clarification: the history
+        # carries the preserved candidate identities; naming one file
+        # (or an ordinal) delivers it without a new read. Checked before
+        # the recovery-shape gate so "the first one" still resolves.
+        try:
+            _prior = self._prior_clarify_candidates(history)
+            if _prior:
+                _sel = self._select_clarify_candidate(t, _prior)
+                if isinstance(_sel, dict):
+                    # Resolve the selected run/op to a full payload via
+                    # the single durable load below (filtered, no silent
+                    # pick: exactly one named match).
+                    _ws0 = (turn_scope or {}).get(
+                        "workspace_id") if isinstance(
+                        turn_scope, dict) else None
+                    _tn0 = (turn_scope or {}).get(
+                        "tenant_id") if isinstance(
+                        turn_scope, dict) else None
+                    try:
+                        _open0 = self._load_durable_file_result(
+                            session_id, workspace_id=_ws0,
+                            tenant_id=_tn0, message=t)
+                    except Exception:
+                        _open0 = None
+                    if isinstance(_open0, dict) and _open0.get(
+                            "__ambiguous__"):
+                        _full = {
+                            str(c.get("run_id") or "") + "|"
+                            + str(c.get("operation_id") or ""): c
+                            for c in (_open0.get("candidates") or [])}
+                        _key = str(_sel.get("run_id") or "") + "|" + str(
+                            _sel.get("operation_id") or "")
+                        _hit = _full.get(_key)
+                        if isinstance(_hit, dict):
+                            _single = self._payload_from_candidate(
+                                _hit, session_id, _ws0)
+                            if isinstance(_single, dict):
+                                return ("deliver_stored_result",
+                                        _single, [])
+                    # Fall through to normal clarify handling when the
+                    # selection does not resolve to a durable record.
+                    pass
+        except Exception:
+            pass
+        # Recovery-shaped gate before any durable load interpretation.
+        try:
+            if not self._is_recovery_shaped(t, session):
+                return ("normal_work", None, [])
+        except Exception:
+            return ("normal_work", None, [])
+        # Single durable load (no independent reinterpretation elsewhere).
+        try:
+            _ws = (turn_scope or {}).get("workspace_id") if isinstance(
+                turn_scope, dict) else None
+            _tn = (turn_scope or {}).get("tenant_id") if isinstance(
+                turn_scope, dict) else None
+            _open = self._load_durable_file_result(
+                session_id, workspace_id=_ws, tenant_id=_tn, message=t)
+        except Exception:
+            return ("normal_work", None, [])
+        if not isinstance(_open, dict):
+            return ("normal_work", None, [])
+        if _open.get("__ambiguous__"):
+            return ("clarify_result_selection",
+                    None, list(_open.get("candidates") or []))
+        # Target/scope coverage: the stored result must cover what the
+        # message asks for. A request naming an uncovered target (or a
+        # different file) stays normal work for a new retrieval - never
+        # donate another target's evidence as fulfillment.
+        try:
+            if not self._stored_covers_request(_open, t):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        # Coverage gate: an extending follow-up (new source, changed
+        # requested information) stays normal work even when
+        # recovery-shaped.
+        try:
+            _pseudo = {
+                "original_message": str(_open.get("original_request") or ""),
+                "mention": str((_open.get("identity") or {}).get(
+                    "file_name") or ""),
+            }
+            if _pseudo["original_message"] and request_extends_objective(
+                    t, _pseudo):
+                return ("normal_work", None, [])
+        except Exception:
+            pass
+        return ("deliver_stored_result", _open, [])
+
     def _load_pending_file_result(
         self, session_id: Optional[str],
+        *, message: str = "",
+        workspace_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """The conversation's persisted structured file result (retrieved /
         delivered), from the newest assistant row that carries it — the
         same durable carrier as the task. Restart recovery for delivery
-        retry without re-reading."""
+        retry without re-reading.
+
+        No durable-findings fallback here: an interrupted turn
+        with no assistant row is owned exclusively by the R4 recovery
+        decision (_load_durable_file_result), so the stored result is
+        loaded and interpreted once, never independently in two branches."""
         if not session_id:
             return None
         try:

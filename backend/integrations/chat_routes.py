@@ -1601,6 +1601,17 @@ def _record_lifecycle_delivery(
                 or str(op.get("execution_id")) == str(execution_id)]
         except Exception:
             operations = []
+        # Recovery turns execute under a NEW execution id while serving a
+        # SELECTED original operation: the execution filter above then
+        # matches nothing, so union the response-carried selected
+        # source-operation reference (response.data.task_operation).
+        try:
+            _selected = (data.get("task_operation") or {}).get(
+                "operation_id")
+            if _selected and str(_selected) not in operations:
+                operations.append(str(_selected))
+        except Exception:
+            pass
         try:
             meta = json.loads(getattr(row, "metadata_json", None) or "{}")
         except Exception:
