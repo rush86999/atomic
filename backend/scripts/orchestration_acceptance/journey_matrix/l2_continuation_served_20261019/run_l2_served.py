@@ -53,6 +53,21 @@ CANDIDATE_SHA = "a6cd2c8baecc2976d3c8021861f804117d1aa036"
 PARENT_SHA = "ddab120c43333efdc219098cba35fdecd9a0988f"
 PRE_DECL = HERE / "PREDECLARED_CONFIG.md"
 
+# Declared credential/route (attempt runners override before main()).
+# Defaults are the pilot's OpenCode Go route; the field names are generic so
+# a declared successor can register a different OpenAI-compatible provider
+# through the same product path.
+CREDENTIAL_PROVIDER = "opencode-go"
+CREDENTIAL_VAULT_KEY = "opencode-go_default_production"
+CREDENTIAL_KEY_NAME = "default"
+CREDENTIAL_ENVIRONMENT = "production"
+CREDENTIAL_LABEL = "Authorized L2 acceptance route"
+CREDENTIAL_ROUTE = "https://opencode.ai/zen/go/v1"
+CREDENTIAL_STEP = "opencode_activation"
+MODEL_PROVIDER_LABEL = "opencode-go (only)"
+INTERPRETATION_MODE_LABEL = (
+    "real, unpinned (BPC-ranked fast/planning); actual origin/model recorded")
+
 FIXTURE_NAME = "approved_records_q2026_114.txt"
 FIXTURE_TEXT = (
     "APPROVED RECORDS \u2014 Quotation Q-2026-114\n"
@@ -442,15 +457,14 @@ def main() -> int:
             },
         },
         "model": {
-            "provider": "opencode-go (only)",
-            "cloud_route": "https://opencode.ai/zen/go/v1",
-            "interpretation": "real, unpinned (BPC-ranked fast/planning); "
-                              "actual origin/model recorded",
+            "provider": MODEL_PROVIDER_LABEL,
+            "cloud_route": CREDENTIAL_ROUTE,
+            "interpretation": INTERPRETATION_MODE_LABEL,
             "reply": "product-selected; actual route/model recorded; "
                      "no gate depends on it",
             "credentials": [{
-                "provider": "opencode-go", "key_name": "default",
-                "environment": "production",
+                "provider": CREDENTIAL_PROVIDER, "key_name": CREDENTIAL_KEY_NAME,
+                "environment": CREDENTIAL_ENVIRONMENT,
                 "source": "authorized operator/global vault entry",
                 "value_recorded": False,
                 "vault_copied_wholesale": False,
@@ -760,24 +774,25 @@ def main() -> int:
             "/Users/rushiparikh/projects/atom/backend/data/"
             "byok_encryption_key")
         vault_row = json.loads(
-            vault.read_text())["keys"]["opencode-go_default_production"]
-        assert vault_row.get("provider_id") == "opencode-go"
-        assert vault_row.get("key_name") == "default"
-        assert vault_row.get("environment") == "production"
+            vault.read_text())["keys"][CREDENTIAL_VAULT_KEY]
+        assert vault_row.get("provider_id") == CREDENTIAL_PROVIDER
+        assert vault_row.get("key_name") == CREDENTIAL_KEY_NAME
+        assert vault_row.get("environment") == CREDENTIAL_ENVIRONMENT
         assert vault_row.get("is_active", True) is True
         key = Fernet(enc.read_bytes().strip()).decrypt(
             vault_row["encrypted_key"].encode()).decode()
         assert key, "authorized credential unavailable"
         oact = httpx.post(
-            f"{BASE}/api/ai/providers/opencode-go/keys", headers=auth,
-            json={"api_key": key, "key_name": "default",
-                  "environment": "production",
-                  "label": "Authorized L2 acceptance route"},
+            f"{BASE}/api/ai/providers/{CREDENTIAL_PROVIDER}/keys",
+            headers=auth,
+            json={"api_key": key, "key_name": CREDENTIAL_KEY_NAME,
+                  "environment": CREDENTIAL_ENVIRONMENT,
+                  "label": CREDENTIAL_LABEL},
             timeout=60, trust_env=False)
-        result["steps"]["opencode_activation"] = {
+        result["steps"][CREDENTIAL_STEP] = {
             "store_http": oact.status_code,
             "credential_value_recorded": False,
-            "route": "https://opencode.ai/zen/go/v1",
+            "route": CREDENTIAL_ROUTE,
         }
         del key, vault_row
         if oact.status_code != 200:
@@ -793,8 +808,9 @@ def main() -> int:
             pj = {}
         state = next(
             (p for p in ((pj.get("data") or {}).get("providers") or [])
-             if (p.get("provider") or {}).get("id") == "opencode-go"), None)
-        result["steps"]["opencode_activation"]["active"] = bool(
+             if (p.get("provider") or {}).get("id") == CREDENTIAL_PROVIDER),
+            None)
+        result["steps"][CREDENTIAL_STEP]["active"] = bool(
             state and (state.get("status") == "active"
                        or state.get("is_active")
                        or state.get("has_api_key") or state.get("has_keys")))
