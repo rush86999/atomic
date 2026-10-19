@@ -90,9 +90,22 @@ reconciled by the evidence cited here.
   pilot limitation stands until the successor is integrated and
   re-verified there.
 - **L2 — continuation ask**: "does it still match the approved record?"
-  is answered correctly but not captured as an evidence requirement (the
-  source-noun vocabulary); the settlement stays non-certified. Fix belongs
-  in interpretation (structured chain preserved), not in a new noun regex.
+  is answered correctly, but the requirement is **not yet certified with a
+  resolved source identity** in the served product. The candidate repair
+  captures the obligation from the interpretation (`required=true`) and
+  the conversation's observed source, but the served attempt on
+  **2026-10-19** (candidate `a6cd2c8ba`, predeclared isolated
+  configuration; evidence
+  `journey_matrix/l2_continuation_served_20261019/`) **did NOT pass**:
+  the real interpreter proposed annotated source descriptions, and the
+  owner-approved composer preserved the identity as `unresolved`
+  (no substring donation). The reply was correct, zero-write and
+  partially settled (`success=true`, `outcome=partial`), but the
+  resolved-source/F-C2 certification target was not met. L2 remains open;
+  the next bounded question is a clean interpreter source-identity
+  proposal (exact filename or canonical kind), **not** tokenizer
+  expansion or a composer substring relaxation. Not deployed to the
+  pilot; the pilot limitation stands.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)

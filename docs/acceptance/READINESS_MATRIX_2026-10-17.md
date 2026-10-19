@@ -233,6 +233,40 @@ served mechanism on `6d662abff` + the declared configuration — NOT pilot
 deployment; the pilot (`8c593e57031e`) still carries the L3 limitation
 until integration + re-verification there; row 43's exclusions unchanged.
 
+**Rev 13 (2026-10-19, L2 continuation served attempt 1 — NOT PASSED, no
+promotion).** The continuation-reference repair was served on candidate
+**`a6cd2c8ba`** (parent `ddab120c4`, the L3 promotion commit) in the
+predeclared isolated configuration (pilot cloud route `zen/go/v1`, one
+authorized operator credential through the scratch product API, fastembed
+local embeddings, pilot-matching finalization/lifecycle flags, scratch
+stores; pilot `:8001` untouched). Fresh user; the approved-records fixture
+uploaded through `POST /api/documents/upload`; the draft created through
+the product in the original S7 state; then the ORIGINAL S3 comparison ask
+and the ORIGINAL S7 continuation, in one conversation. **S3 passed**
+(validated partial with `context_fulfillment.state=partial`,
+`supplied_fields=["expiration_date"]`, matched
+`approved_records_q2026_114.txt`, `missing_comparison=true`; zero writes;
+truthful comparison). **S7 did NOT pass**: the requirement was captured
+and execution-bound (`required=true`, `sources=["document"]`), and the
+prior S3 source was in the observed pool, but the real interpreter
+(`llm:glm-5.3-flash`) proposed annotated descriptions
+("approved_records_q2026_114.txt (the user's uploaded Approved Records
+document)", "draft quotation (source not yet named by the user)") rather
+than clean identities. The composer preserved `unresolved` (its
+owner-approved no-substring-donation contract), so the F-C2 verdict is
+`unresolved` and the settlement is `partial` with the honest
+no-ingested-document-matches basis — not the resolved-source
+certification target. The reply was correct, zero-write, draft unchanged,
+and response/persisted-row/fresh-history agreement held; those do not
+substitute for the missing identity. 19/22 predeclared gates passed; the
+first failure is `s7_requirement_captured`. **No promotion**; L2 remains
+open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (declaration, config,
+result, observation log, server log, README, summary, CHECKSUMS). Next
+bounded question: clean interpreter source-identity proposals (exact
+filename or canonical kind), not tokenizer expansion or composer substring
+relaxation.
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
