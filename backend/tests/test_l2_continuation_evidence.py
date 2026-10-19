@@ -503,6 +503,116 @@ class TestL2ReferenceResolution:
         assert (composed["references"]["continuation_evidence"]["state"]
                 == "resolved")
 
+    def test_missing_kind_proposal_is_never_dropped(self):
+        """Owner regression: `document` AND `email` proposed with only a
+        document observed — the email request must not disappear because
+        the document resolved."""
+        from core.turn_decision import (
+            apply_interpretation_references, build_turn_decision,
+        )
+
+        negative = _session_with(
+            observed_files=[PRIOR_FILE])
+        decision = build_turn_decision(S7_ASK, negative, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["document", "email"]),
+            negative)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", (
+            f"the missing email antecedent must block adoption; got "
+            f"{marker!r}")
+        assert marker["names"] == ["email"]
+        assert marker["no_antecedent"] == ["email"]
+        assert composed["references"].get("file") is None, (
+            "the document must not be adopted while email is missing")
+
+        # Positive twin: both observed -> two distinct files clarify.
+        both = {
+            PRIOR_OBS_KEY: _observed(PRIOR_FILE) + [{
+                "observation_id": "l2-prior-mail",
+                "source": "communication",
+                "file_name": "inbox_thread.txt",
+                "title": "inbox_thread.txt",
+                "workspace_id": "ws-1",
+                "content_hash": "",
+            }],
+        }
+        decision = build_turn_decision(S7_ASK, both, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["document", "email"]), both)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "ambiguous"
+        assert sorted(c["file_name"] for c in marker["candidates"]) == [
+            "approved_records_q2026_114.txt", "inbox_thread.txt"]
+
+    def test_punctuation_distinct_filenames_are_not_merged(self):
+        """Owner regression: `approved_records_AB-12.txt` and
+        `approved_records_AB12.txt` are DISTINCT identities — dedupe must
+        preserve separators, so the reference clarifies instead of
+        silently choosing one."""
+        from core.turn_decision import (
+            apply_interpretation_references, build_turn_decision,
+        )
+
+        negative = _session_with(observed_files=[
+            "approved_records_AB-12.txt", "approved_records_AB12.txt"])
+        decision = build_turn_decision(S7_ASK, negative, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["the approved record"]),
+            negative)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "ambiguous", (
+            f"distinct identities must clarify; got {marker!r}")
+        assert sorted(c["file_name"] for c in marker["candidates"]) == [
+            "approved_records_AB-12.txt", "approved_records_AB12.txt"]
+        assert composed["references"].get("file") is None
+
+        # Positive twin 1: only AB-12 observed -> resolved to it.
+        single = _session_with(observed_files=["approved_records_AB-12.txt"])
+        decision = build_turn_decision(S7_ASK, single, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["the approved record"]),
+            single)
+        assert composed["references"]["file"] == {
+            "file_name": "approved_records_AB-12.txt"}
+
+        # Positive twin 2: the exact full identity resolves directly.
+        exact = _session_with(observed_files=[
+            "approved_records_AB-12.txt", "approved_records_AB12.txt"])
+        decision = build_turn_decision(S7_ASK, exact, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(
+                ["approved_records_AB-12.txt"]), exact)
+        assert composed["references"]["file"] == {
+            "file_name": "approved_records_AB-12.txt"}
+
+    def test_single_letter_identifier_is_not_a_stopword(self):
+        """Owner regression: "A" acts as a source identifier — it is never
+        dropped as a stopword, so `approved record A` cannot resolve to
+        `approved_records_B.txt`."""
+        from core.turn_decision import (
+            apply_interpretation_references, build_turn_decision,
+        )
+
+        negative = _session_with(observed_files=["approved_records_B.txt"])
+        decision = build_turn_decision(S7_ASK, negative, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["approved record A"]),
+            negative)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", (
+            f"A must constrain the reference; got {marker!r}")
+        assert composed["references"].get("file") is None
+
+        # Positive twin: the A file observed -> resolved to it.
+        positive = _session_with(observed_files=["approved_records_A.txt"])
+        decision = build_turn_decision(S7_ASK, positive, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["approved record A"]),
+            positive)
+        assert composed["references"]["file"] == {
+            "file_name": "approved_records_A.txt"}
+
     def test_generic_kind_without_observed_evidence_is_not_adopted(self):
         """Owner regression: `document` describes a proposed lookup; with
         no observed evidence it cannot nominate an antecedent."""
@@ -744,6 +854,73 @@ class TestL2ContinuationChain:
         assert identity.get("state") == "unresolved", (
             f"the unmatched Gamma proposal must win; got {identity!r}")
         assert identity.get("names") == ["Gamma records"]
+        verdict, settled = _settlement_from_turn(
+            session, eid, session_out["workspace_id"])
+        assert verdict and verdict.get("state") == "unresolved"
+        assert settled.get("delivered") is True
+
+    def test_missing_kind_proposal_through_the_real_turn(
+            self, scoped_world, world_app):
+        """Owner regression through the real turn: document+email proposed
+        with only a document observed -> the requirement stays unresolved
+        with the missing email named; the document is never adopted."""
+        session_out = {}
+        out, session, ep = _drive_continuation_turn(
+            scoped_world, world_app,
+            interpretation=_resolved_interpretation(["document", "email"]),
+            observed_files=[PRIOR_FILE],
+            session_out=session_out)
+        eid, req = _turn_requirement(session, out)
+        identity = req.get("identity") or {}
+        assert req.get("required") is True
+        assert identity.get("state") == "unresolved", (
+            f"the missing email antecedent must block adoption; got "
+            f"{identity!r}")
+        assert identity.get("names") == ["email"]
+        verdict, settled = _settlement_from_turn(
+            session, eid, session_out["workspace_id"])
+        assert verdict and verdict.get("state") == "unresolved"
+        assert settled.get("delivered") is True
+
+    def test_punctuation_distinct_filenames_through_the_real_turn(
+            self, scoped_world, world_app):
+        """Owner regression through the real turn: AB-12 and AB12 are
+        distinct identities -> the requirement is ambiguous with both;
+        nothing is silently chosen."""
+        session_out = {}
+        out, session, ep = _drive_continuation_turn(
+            scoped_world, world_app,
+            interpretation=_resolved_interpretation(["the approved record"]),
+            observed_files=["approved_records_AB-12.txt",
+                            "approved_records_AB12.txt"],
+            session_out=session_out)
+        eid, req = _turn_requirement(session, out)
+        identity = req.get("identity") or {}
+        assert identity.get("state") == "ambiguous", identity
+        names = sorted(str(c.get("file_name") or "")
+                       for c in (identity.get("candidates") or []))
+        assert names == ["approved_records_AB-12.txt",
+                         "approved_records_AB12.txt"]
+        verdict, settled = _settlement_from_turn(
+            session, eid, session_out["workspace_id"])
+        assert verdict and verdict.get("state") == "ambiguous"
+        assert settled.get("delivered") is True
+
+    def test_single_letter_identifier_through_the_real_turn(
+            self, scoped_world, world_app):
+        """Owner regression through the real turn: `approved record A`
+        with only the B file observed -> unresolved; B is never
+        adopted."""
+        session_out = {}
+        out, session, ep = _drive_continuation_turn(
+            scoped_world, world_app,
+            interpretation=_resolved_interpretation(["approved record A"]),
+            observed_files=["approved_records_B.txt"],
+            session_out=session_out)
+        eid, req = _turn_requirement(session, out)
+        identity = req.get("identity") or {}
+        assert identity.get("state") == "unresolved", identity
+        assert "approved_records_B.txt" not in json.dumps(identity)
         verdict, settled = _settlement_from_turn(
             session, eid, session_out["workspace_id"])
         assert verdict and verdict.get("state") == "unresolved"

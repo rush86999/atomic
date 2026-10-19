@@ -18,10 +18,11 @@ settled `success=false` / `outcome=unconfirmed` / `error_code=outcome_unconfirme
   (main HEAD after the L3 promotion; the L3 candidate branch and all
   earlier evidence are untouched).
 - **Candidate:** branch `codex/l2-continuation-evidence` — first
-  candidate `d36d6ed1f` (superseded after owner review), first correction
-  `87a439c8c` (superseded by the second owner review), then this
-  **corrected successor** (identity-constraint + per-proposal aggregation
-  corrections + this evidence record; see `CHECKSUMS.sha256`).
+  candidate `d36d6ed1f` (superseded), first correction `87a439c8c`
+  (superseded), second correction `dae5d72c6` (superseded by the third
+  owner review), then this **final corrected successor**
+  (identity-constraint + dedupe-identity + `no_antecedent` corrections +
+  this evidence record; see `CHECKSUMS.sha256`).
 - **Status when frozen:** locally verified on scratch stores
   (parent-failing / successor-passing, boundary mutation-checked).
   **Served acceptance NOT run; no promotion.** Integration/deployment
@@ -159,6 +160,41 @@ both observed → **ambiguous (clarify)**; the same source proposed twice →
 resolved. The observed/requested split, ambiguity handling, floor-wins
 behavior and the settlement chain are unchanged.
 
+## Third owner-review correction (2026-10-18) — missing proposals, dedupe identity, single-letter identifiers
+
+Three further composition-boundary defects were reproduced against
+`dae5d72c6` through its real composer:
+
+| Proposal / observed state | `dae5d72c6` (defect) | corrected successor |
+|---|---|---|
+| `document` **and** `email` proposed; only a document observed | resolved to the document, **dropping email** | **unresolved** — the missing email antecedent is preserved (names `["email"]`) |
+| "the approved record"; `approved_records_AB-12.txt` **and** `approved_records_AB12.txt` observed | silently resolved to **AB12** (alnum dedupe merged the distinct identities) | **ambiguous** — both identities preserved |
+| `approved record A`; only `approved_records_B.txt` observed | resolved to **B** ("A" dropped as a stopword) | **unresolved** — "A" constrains |
+
+Bounded corrections (reference authority only):
+
+1. **`no_antecedent` never disappears in aggregation.** A requested kind
+   with no observed antecedent (e.g. `email` when only documents were
+   observed) now blocks adoption exactly like an unmatched named source;
+   the composition preserves the missing obligation (`names` carries the
+   missing proposals, `no_antecedent` records the kind class).
+2. **Dedupe by stable source identity.** The key is the kind plus the
+   COMPLETE filename (case-folded, whitespace-trimmed, separators
+   preserved) — never the alphanumeric-concatenated form, so
+   `approved_records_AB-12.txt` and `approved_records_AB12.txt` stay
+   distinct. An exact full-identity proposal resolves directly.
+3. **A word acting as a source identifier is never dropped as a
+   stopword.** Identifier-shaped tokens (a digit, or a single character
+   such as "A") always constrain and compare exactly; when the
+   grammatical role is uncertain the reference stays unresolved.
+
+Positive twins (all pinned): document+email both observed → clarify;
+only `AB-12` observed → resolved; the exact full name
+`approved_records_AB-12.txt` → resolved; `approved record A` with
+`approved_records_A.txt` observed → resolved. The unique-source S7 case,
+the observed/requested split, ambiguity handling, floor-wins and the
+settlement chain are unchanged.
+
 ## Controls
 
 Decision layer (`tests/test_l2_continuation_evidence.py::TestL2ReferenceResolution`):
@@ -169,6 +205,9 @@ Decision layer (`tests/test_l2_continuation_evidence.py::TestL2ReferenceResoluti
 | **Short-identifier negative** (381 never matches 6603) + positive twin (381 → 381 resolved) | PASS |
 | **Identifier-suffix negative** (AB12 never matches AB12S) + positive twin (AB12 → AB12 resolved) | PASS |
 | **Unmatched-proposal negative** (Alpha+Gamma, only Alpha → unresolved with Gamma named) + twins (both observed → clarify; same source twice → resolved) | PASS |
+| **Missing-kind negative** (document+email, only document → unresolved with email named) + twin (both observed → clarify) | PASS |
+| **Dedupe-identity negative** (AB-12 + AB12 both observed → ambiguous, never merged) + twins (only AB-12 → resolved; exact full name → resolved) | PASS |
+| **Single-letter identifier negative** (record A vs B → unresolved) + twin (record A vs A → resolved) | PASS |
 | **Ambiguity negative** (two candidates → both preserved, no selection) | PASS |
 | **Wrong-name negative** (no substring donation; unresolved, wrong file never adopted) | PASS |
 | **Generic-kind negative** (no observed evidence → decision unchanged) | PASS |
@@ -189,6 +228,9 @@ run real):
 | **Ambiguity negative through the real turn**: two matching sources → requirement identity `ambiguous`, settlement `partial` (validated) with the "which source" clarification; no file adopted | **FAIL** | **PASS** |
 | **Identifier-constraint negative/positive through the real turn**: 381 vs 6603 → identity `unresolved`; 381 vs 381 → identity `resolved` and certified | **FAIL** | **PASS** |
 | **Unmatched-proposal negative through the real turn**: Alpha resolved + Gamma unmatched → identity `unresolved` with Gamma named; Alpha never adopted | **FAIL** | **PASS** |
+| **Missing-kind negative through the real turn**: document resolved + email missing → identity `unresolved` with email named; the document never adopted | **FAIL** | **PASS** |
+| **Dedupe-identity negative through the real turn**: AB-12 + AB12 → identity `ambiguous` with both; nothing chosen | **FAIL** | **PASS** |
+| **Single-letter identifier negative through the real turn**: record A vs B → identity `unresolved`; B never adopted | **FAIL** | **PASS** |
 | **Wrong-name negative through the real turn**: only an unapproved file observed → identity `unresolved`, settlement `partial` (validated) with the honest non-match; the wrong file never adopted | **FAIL** | **PASS** |
 | Unresolved interpretation → unobligated (`unconfirmed`) | PASS | PASS |
 | Message-named source ask keeps the floor's capture and certifies | PASS | PASS |
@@ -212,6 +254,15 @@ Mutation controls (throwaway edits; restored + checksum-verified):
 - **I — resolved proposals suppress the unmatched one**: both
   unmatched-proposal regressions (decision + chain) fail
   (`logs/mutation_i_unmatched_dropped.log`).
+- **J — single-letter stopword dropped again**: both single-letter
+  regressions (decision + chain) fail
+  (`logs/mutation_j_letter_stopword.log`).
+- **K — alnum-concat dedupe restored**: both punctuation-identity
+  regressions (decision + chain) fail
+  (`logs/mutation_k_alnum_dedupe.log`).
+- **L — `no_antecedent` excluded from the missing set**: both
+  missing-kind regressions (decision + chain) fail
+  (`logs/mutation_l_no_antecedent_dropped.log`).
 
 ## Verification records
 
@@ -219,12 +270,12 @@ Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
 `DATABASE_URL`; the parent runs from a pristine `ddab120c4` worktree with
 the same test file copied in):
 
-- Successor L2 battery → **22 passed** (`logs/l2_successor.log`).
-- Parent L2 battery → **20 failed, 2 passed** — the 17 composer
-  capability tests (functions absent) and the 5 chain regressions
-  (capture + ambiguity + wrong-name + identifier + unmatched-proposal)
-  failing for the intended reasons; the two fail-closed controls pass
-  (`logs/l2_parent.log`).
+- Successor L2 battery → **28 passed** (`logs/l2_successor.log`).
+- Parent L2 battery → **26 failed, 2 passed** — the 20 composer
+  capability tests (functions absent) and the 8 chain regressions
+  (capture, ambiguity, wrong-name, identifier, unmatched-proposal,
+  missing-kind, dedupe-identity, single-letter) failing for the intended
+  reasons; the two fail-closed controls pass (`logs/l2_parent.log`).
 - Neighbors (turn-decision, F-C2, action-program, source-ask batteries,
   interpretation/continuation sets) → **277 passed, 2 failed** — the two
   pre-existing `TestEditPlanRungKnob` failures, identical on the

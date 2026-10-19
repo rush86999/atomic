@@ -366,9 +366,17 @@ _OBSERVED_FAMILY_KINDS = {
 }
 
 
-def _normalize_reference(text: Any) -> str:
-    """Lowercase alphanumerics only — the reference-matching form."""
-    return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
+def _source_identity_key(kind: Any, file_name: Any) -> tuple:
+    """Dedupe key by STABLE source identity: the kind plus the complete
+    filename (case-folded, whitespace-trimmed, separators preserved).
+
+    The previous alphanumeric-only key concatenated away separators, so
+    `approved_records_AB-12.txt` and `approved_records_AB12.txt` merged
+    before ambiguity detection and one was silently chosen (owner review
+    2026-10-18). Without a stable source ID, the full filename IS the
+    identity."""
+    return (str(kind or "").strip().lower(),
+            str(file_name or "").strip().casefold())
 
 
 #: Descriptive glue words that carry no identity constraint (articles,
@@ -395,9 +403,13 @@ _DESCRIPTIVE_EQUIVALENTS = {
 
 
 def _is_identifier_token(token: str) -> bool:
-    """A token carrying digits is an IDENTIFIER (order number, code,
-    version) — its characters are part of the identity."""
-    return any(ch.isdigit() for ch in token)
+    """A token acting as an IDENTIFIER: it carries digits (order number,
+    code, version) or is a single character ("A", "7") — its characters
+    are part of the identity. Identifier-shaped tokens are never dropped
+    as stopwords and always compare exactly (owner review 2026-10-18:
+    "A" was deleted by the stopword list and "approved record A" resolved
+    to a different file)."""
+    return len(token) == 1 or any(ch.isdigit() for ch in token)
 
 
 def _descriptive_canon(token: str) -> str:
@@ -407,11 +419,12 @@ def _descriptive_canon(token: str) -> str:
 def _reference_tokens(text: Any) -> List[str]:
     """Token-boundary tokens of a reference.
 
-    Every non-stopword token is preserved — including short names and
-    numeric/alphanumeric identifiers ("381", "AB12") — so identity
-    constraints are never discarded (owner review 2026-10-18)."""
+    Every token is preserved except pure glue words — and a word that
+    could act as a source identifier is NEVER dropped merely because it
+    also appears in the stopword list ("A"). When the grammatical role is
+    uncertain the token stays as a constraint (owner review 2026-10-18)."""
     return [t for t in re.findall(r"[a-z0-9]+", str(text or "").lower())
-            if t not in _REFERENCE_STOPWORDS]
+            if _is_identifier_token(t) or t not in _REFERENCE_STOPWORDS]
 
 
 def _token_matches(proposed: str, name_token: str) -> bool:
@@ -457,8 +470,8 @@ def session_observed_sources(
     out: List[Dict[str, Any]] = []
     seen = set()
     for entry in reversed(entries):
-        dedupe_key = (entry["kind"],
-                      _normalize_reference(entry["file_name"]))
+        dedupe_key = _source_identity_key(entry["kind"],
+                                          entry["file_name"])
         if dedupe_key in seen:
             continue
         seen.add(dedupe_key)
@@ -493,7 +506,7 @@ def session_requested_sources(
                  for k in (value.get("sources") or [])
                  if str(k or "").strip()]
         for kind in (kinds or [""]):
-            dedupe_key = (kind, _normalize_reference(name))
+            dedupe_key = _source_identity_key(kind, name)
             if dedupe_key in seen:
                 continue
             seen.add(dedupe_key)
@@ -514,11 +527,11 @@ def session_evidence_sources(
                 for e in session_observed_sources(session, limit)]
     requested = [dict(e, observed=False)
                  for e in session_requested_sources(session, limit)]
-    seen = {(e["kind"], _normalize_reference(e["file_name"]))
+    seen = {_source_identity_key(e["kind"], e["file_name"])
             for e in observed}
     combined = list(observed)
     for entry in requested:
-        key = (entry["kind"], _normalize_reference(entry["file_name"]))
+        key = _source_identity_key(entry["kind"], entry["file_name"])
         if key in seen:
             continue
         seen.add(key)
@@ -541,6 +554,14 @@ def _reference_candidates(
     text = str(proposed or "").strip()
     if not text:
         return []
+    # EXACT FULL IDENTITY first (owner review 2026-10-18): a proposal that
+    # IS a source's complete filename resolves to it directly — no token
+    # games, separators and identifiers preserved.
+    exact = [e for e in observed or []
+             if str(e.get("file_name") or "").strip().casefold()
+             == text.casefold()]
+    if exact:
+        return exact
     kind = normalize_source_kind(text)
     if kind:
         return [e for e in observed or []
@@ -642,8 +663,12 @@ def apply_interpretation_references(
         "origin": "interpretation",
         "proposed": proposed,
     }
+    missing_proposals = [r["proposal"] for r in resolutions
+                         if r["state"] in ("unresolved", "no_antecedent")]
     unresolved_proposals = [r["proposal"] for r in resolutions
                             if r["state"] == "unresolved"]
+    no_antecedent_proposals = [r["proposal"] for r in resolutions
+                               if r["state"] == "no_antecedent"]
     # Kinds: proposal kinds + the observed families (grounding for the
     # unresolved obligation's identity).
     kinds: List[str] = []
@@ -660,8 +685,8 @@ def apply_interpretation_references(
         out: List[Dict[str, Any]] = []
         seen = set()
         for entry in cands:
-            key = (entry.get("kind"),
-                   _normalize_reference(entry.get("file_name")))
+            key = _source_identity_key(entry.get("kind"),
+                                       entry.get("file_name"))
             if key in seen:
                 continue
             seen.add(key)
@@ -670,16 +695,21 @@ def apply_interpretation_references(
                         "execution_id": entry.get("execution_id")})
         return out
 
-    if unresolved_proposals:
-        # UNRESOLVED WINS: a requested source we could not match is never
-        # silently dropped because another proposal resolved.
+    if missing_proposals:
+        # A MISSING PROPOSAL NEVER DISAPPEARS (owner review 2026-10-18): an
+        # unmatched named source (`unresolved`) AND a requested kind with
+        # no observed antecedent (`no_antecedent`, e.g. `email` when only
+        # documents were observed) both block adoption — the composition
+        # preserves the missing obligation instead of silently resolving
+        # to whatever another proposal matched.
         if not kinds:
             return decision
         marker.update({
             "state": "unresolved",
             "resolved_kinds": kinds,
             "resolved_file": "",
-            "names": unresolved_proposals,
+            "names": missing_proposals,
+            "no_antecedent": no_antecedent_proposals,
         })
         new_refs = dict(refs)
         new_refs["sources"] = kinds
