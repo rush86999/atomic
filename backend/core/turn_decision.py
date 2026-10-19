@@ -371,20 +371,59 @@ def _normalize_reference(text: Any) -> str:
     return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
 
 
+#: Descriptive glue words that carry no identity constraint (articles,
+#: prepositions, possessives). Dropped from references; a source NAME is
+#: matched on its remaining tokens.
+_REFERENCE_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "and", "or", "for", "with", "in", "on", "at",
+    "to", "from", "by", "my", "our", "your", "their", "its", "this",
+    "that", "these", "those",
+})
+
+#: EXPLICITLY SUPPORTED descriptive equivalents (owner review 2026-10-18:
+#: "restrict any descriptive-word normalization to explicitly supported
+#: equivalents, such as record/records"). Nothing else is normalized —
+#: identifiers are compared exactly, never stemmed.
+_DESCRIPTIVE_EQUIVALENTS = {
+    "record": "record", "records": "record",
+    "document": "document", "documents": "document",
+    "file": "file", "files": "file",
+    "report": "report", "reports": "report",
+    "sheet": "sheet", "sheets": "sheet",
+    "note": "note", "notes": "note",
+}
+
+
+def _is_identifier_token(token: str) -> bool:
+    """A token carrying digits is an IDENTIFIER (order number, code,
+    version) — its characters are part of the identity."""
+    return any(ch.isdigit() for ch in token)
+
+
+def _descriptive_canon(token: str) -> str:
+    return _DESCRIPTIVE_EQUIVALENTS.get(token, token)
+
+
 def _reference_tokens(text: Any) -> List[str]:
-    """Token-boundary tokens of a reference (>= 4 chars)."""
-    return [t for t in re.findall(r"[a-z0-9]{4,}", str(text or "").lower())]
+    """Token-boundary tokens of a reference.
+
+    Every non-stopword token is preserved — including short names and
+    numeric/alphanumeric identifiers ("381", "AB12") — so identity
+    constraints are never discarded (owner review 2026-10-18)."""
+    return [t for t in re.findall(r"[a-z0-9]+", str(text or "").lower())
+            if t not in _REFERENCE_STOPWORDS]
 
 
 def _token_matches(proposed: str, name_token: str) -> bool:
-    """Boundary-preserving token equality with plural tolerance only.
+    """Boundary-preserving token comparison.
 
-    "approved" never matches "unapproved" (substring donation is the
-    defect this replaces); "record" matches "records" (a singular/plural
-    inflection of the SAME token)."""
-    a = proposed.rstrip("s")
-    b = name_token.rstrip("s")
-    return bool(a) and a == b
+    Identifiers (tokens carrying digits) compare EXACTLY — "ab12" never
+    matches "ab12s"; "381" never matches "6603". Descriptive words
+    compare through the explicit equivalence table only ("record" matches
+    "records"); no stemming, no plural stripping of arbitrary tokens."""
+    if _is_identifier_token(proposed) or _is_identifier_token(name_token):
+        return proposed == name_token
+    return _descriptive_canon(proposed) == _descriptive_canon(name_token)
 
 
 def session_observed_sources(
@@ -495,8 +534,8 @@ def _reference_candidates(
     """ALL observed sources a reference could mean — collected before any
     decision (zero / one / many). A canonical kind resolves to the
     observed sources of that family; a name resolves by boundary-
-    preserving token containment (every proposed token matches a distinct
-    name token, at least one of length >= 5)."""
+    preserving token containment: EVERY reference token (short names and
+    identifiers included) must match a distinct name token."""
     from core.action_program import normalize_source_kind
 
     text = str(proposed or "").strip()
@@ -507,7 +546,7 @@ def _reference_candidates(
         return [e for e in observed or []
                 if str(e.get("kind") or "") == kind]
     tokens = _reference_tokens(text)
-    if not tokens or not any(len(t) >= 5 for t in tokens):
+    if not tokens:
         return []
     matches: List[Dict[str, Any]] = []
     for entry in observed or []:
@@ -575,53 +614,108 @@ def apply_interpretation_references(
     observed = session_observed_sources(session)
     if not observed:
         return decision  # no observed evidence context: nothing to resolve
-    candidates: List[Dict[str, Any]] = []
-    seen = set()
+    from core.action_program import normalize_source_kind
+
+    # RESOLVE EACH PROPOSAL BEFORE AGGREGATING (owner review 2026-10-18):
+    # a union that drops an unmatched proposal whenever another proposal
+    # resolves silently discards a requested source. Per-proposal states:
+    #   resolved      — exactly one observed candidate
+    #   ambiguous     — several observed candidates
+    #   unresolved    — a NAME proposal with no candidate
+    #   no_antecedent — a generic-kind proposal with no candidate
+    resolutions: List[Dict[str, Any]] = []
     for proposal in proposed:
-        for entry in _reference_candidates(proposal, observed):
+        kind = normalize_source_kind(proposal)
+        candidates_for = _reference_candidates(proposal, observed)
+        if kind:
+            state = ("resolved" if len(candidates_for) == 1
+                     else "ambiguous" if len(candidates_for) > 1
+                     else "no_antecedent")
+        else:
+            state = ("resolved" if len(candidates_for) == 1
+                     else "ambiguous" if len(candidates_for) > 1
+                     else "unresolved")
+        resolutions.append({"proposal": proposal, "kind": kind,
+                            "state": state,
+                            "candidates": candidates_for})
+    marker: Dict[str, Any] = {
+        "origin": "interpretation",
+        "proposed": proposed,
+    }
+    unresolved_proposals = [r["proposal"] for r in resolutions
+                            if r["state"] == "unresolved"]
+    # Kinds: proposal kinds + the observed families (grounding for the
+    # unresolved obligation's identity).
+    kinds: List[str] = []
+    for r in resolutions:
+        kind = str(r.get("kind") or "")
+        if kind and kind not in kinds:
+            kinds.append(kind)
+    for entry in observed:
+        kind = str(entry.get("kind") or "")
+        if kind and kind not in kinds:
+            kinds.append(kind)
+
+    def _candidate_records(cands: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        seen = set()
+        for entry in cands:
             key = (entry.get("kind"),
                    _normalize_reference(entry.get("file_name")))
             if key in seen:
                 continue
             seen.add(key)
-            candidates.append(entry)
-    marker: Dict[str, Any] = {
-        "origin": "interpretation",
-        "proposed": proposed,
-    }
-    if len(candidates) == 1:
-        candidate = candidates[0]
-        kinds = [str(candidate.get("kind") or "document")]
-        file_name = str(candidate.get("file_name") or "")
+            out.append({"kind": entry.get("kind"),
+                        "file_name": entry.get("file_name"),
+                        "execution_id": entry.get("execution_id")})
+        return out
+
+    if unresolved_proposals:
+        # UNRESOLVED WINS: a requested source we could not match is never
+        # silently dropped because another proposal resolved.
+        if not kinds:
+            return decision
         marker.update({
-            "state": "resolved",
+            "state": "unresolved",
             "resolved_kinds": kinds,
-            "resolved_file": file_name,
-            "antecedents": [{"kind": candidate.get("kind"),
-                             "file_name": file_name,
-                             "execution_id": candidate.get("execution_id")}],
+            "resolved_file": "",
+            "names": unresolved_proposals,
         })
         new_refs = dict(refs)
         new_refs["sources"] = kinds
+        new_refs["continuation_evidence"] = marker
+        composed = dict(decision)
+        composed["references"] = new_refs
+        return composed
+    # No unresolved proposal: the distinct candidate files decide.
+    # Several distinct files (from ambiguous proposals or from several
+    # resolved proposals) must CLARIFY — the downstream contract carries
+    # one file, so nothing is collapsed to a first filename.
+    candidate_files = _candidate_records(
+        [c for r in resolutions for c in r["candidates"]])
+    if len(candidate_files) == 1:
+        candidate = candidate_files[0]
+        kinds_resolved = [str(candidate.get("kind") or "document")]
+        file_name = str(candidate.get("file_name") or "")
+        marker.update({
+            "state": "resolved",
+            "resolved_kinds": kinds_resolved,
+            "resolved_file": file_name,
+            "antecedents": [candidate],
+        })
+        new_refs = dict(refs)
+        new_refs["sources"] = kinds_resolved
         new_refs["file"] = {"file_name": file_name}
         new_refs["continuation_evidence"] = marker
         composed = dict(decision)
         composed["references"] = new_refs
         return composed
-    if len(candidates) > 1:
-        kinds: List[str] = []
-        for entry in candidates:
-            kind = str(entry.get("kind") or "")
-            if kind and kind not in kinds:
-                kinds.append(kind)
+    if len(candidate_files) > 1:
         marker.update({
             "state": "ambiguous",
             "resolved_kinds": kinds,
             "resolved_file": "",
-            "candidates": [
-                {"kind": e.get("kind"), "file_name": e.get("file_name"),
-                 "execution_id": e.get("execution_id")}
-                for e in candidates[:4]],
+            "candidates": candidate_files[:4],
         })
         new_refs = dict(refs)
         new_refs["sources"] = kinds or ["document"]
@@ -629,38 +723,9 @@ def apply_interpretation_references(
         composed = dict(decision)
         composed["references"] = new_refs
         return composed
-    # Zero candidates. An unresolved obligation is preserved only for a
-    # NAME proposal inside an observed evidence context (its kind is
-    # grounded in the observed families); generic-kind-only proposals
-    # never nominate an antecedent.
-    from core.action_program import normalize_source_kind
-
-    names = [p for p in proposed if not normalize_source_kind(p)]
-    if not names:
-        return decision
-    kinds = []
-    for proposal in proposed:
-        kind = normalize_source_kind(proposal)
-        if kind and kind not in kinds:
-            kinds.append(kind)
-    for entry in observed:
-        kind = str(entry.get("kind") or "")
-        if kind and kind not in kinds:
-            kinds.append(kind)
-    if not kinds:
-        return decision
-    marker.update({
-        "state": "unresolved",
-        "resolved_kinds": kinds,
-        "resolved_file": "",
-        "names": names,
-    })
-    new_refs = dict(refs)
-    new_refs["sources"] = kinds
-    new_refs["continuation_evidence"] = marker
-    composed = dict(decision)
-    composed["references"] = new_refs
-    return composed
+    # No candidates anywhere: generic-kind-only proposals never nominate
+    # an antecedent; the decision is unchanged.
+    return decision
 
 
 def build_turn_decision(

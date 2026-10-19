@@ -403,6 +403,106 @@ class TestL2ReferenceResolution:
         assert marker["names"] == ["the approved record"]
         assert "unapproved_records.txt" not in json.dumps(refs)
 
+    def test_short_identifier_constraint_is_preserved(self):
+        """Owner regression: a short numeric identifier ("381") is an
+        identity constraint — never discarded; it must not match a
+        different order number (6603)."""
+        from core.turn_decision import (
+            apply_interpretation_references, build_turn_decision,
+        )
+
+        negative = _session_with(
+            observed_files=["approved_records_6603.txt"])
+        decision = build_turn_decision(S7_ASK, negative, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["approved record 381"]),
+            negative)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", (
+            f"381 must not match 6603; got {marker!r}")
+        assert composed["references"].get("file") is None
+
+        positive = _session_with(
+            observed_files=["approved_records_381.txt"])
+        decision = build_turn_decision(S7_ASK, positive, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["approved record 381"]),
+            positive)
+        assert composed["references"]["file"] == {
+            "file_name": "approved_records_381.txt"}
+        assert (composed["references"]["continuation_evidence"]["state"]
+                == "resolved")
+
+    def test_identifier_suffix_is_not_stemmed(self):
+        """Owner regression: "AB12" is an identifier — its characters are
+        part of the identity; never stemmed to match "AB12S"."""
+        from core.turn_decision import (
+            apply_interpretation_references, build_turn_decision,
+        )
+
+        negative = _session_with(
+            observed_files=["approved_records_AB12S.txt"])
+        decision = build_turn_decision(S7_ASK, negative, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["approved record AB12"]),
+            negative)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", (
+            f"AB12 must not match AB12S; got {marker!r}")
+        assert composed["references"].get("file") is None
+
+        positive = _session_with(
+            observed_files=["approved_records_AB12.txt"])
+        decision = build_turn_decision(S7_ASK, positive, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(["approved record AB12"]),
+            positive)
+        assert composed["references"]["file"] == {
+            "file_name": "approved_records_AB12.txt"}
+
+    def test_unmatched_proposal_is_never_dropped(self):
+        """Owner regression: "Alpha and Gamma records" with only Alpha
+        observed — the unmatched Gamma proposal must be preserved
+        (unresolved), never silently dropped because Alpha resolved."""
+        from core.turn_decision import (
+            apply_interpretation_references, build_turn_decision,
+        )
+
+        negative = _session_with(observed_files=["alpha_records.txt"])
+        decision = build_turn_decision(S7_ASK, negative, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(
+                ["Alpha records", "Gamma records"]), negative)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "unresolved", (
+            f"the unmatched Gamma proposal must win; got {marker!r}")
+        assert marker["names"] == ["Gamma records"]
+        assert composed["references"].get("file") is None, (
+            "Alpha must not be adopted while Gamma is unmatched")
+
+        # Positive twin 1: BOTH observed -> two distinct files clarify.
+        both = _session_with(
+            observed_files=["alpha_records.txt", "gamma_records.txt"])
+        decision = build_turn_decision(S7_ASK, both, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(
+                ["Alpha records", "Gamma records"]), both)
+        marker = composed["references"]["continuation_evidence"]
+        assert marker["state"] == "ambiguous"
+        assert sorted(c["file_name"] for c in marker["candidates"]) == [
+            "alpha_records.txt", "gamma_records.txt"]
+
+        # Positive twin 2: the same source proposed twice -> resolved.
+        same = _session_with(observed_files=["alpha_records.txt"])
+        decision = build_turn_decision(S7_ASK, same, [])
+        composed = apply_interpretation_references(
+            decision, _resolved_interpretation(
+                ["Alpha records", "Alpha records"]), same)
+        assert composed["references"]["file"] == {
+            "file_name": "alpha_records.txt"}
+        assert (composed["references"]["continuation_evidence"]["state"]
+                == "resolved")
+
     def test_generic_kind_without_observed_evidence_is_not_adopted(self):
         """Owner regression: `document` describes a proposed lookup; with
         no observed evidence it cannot nominate an antecedent."""
@@ -587,6 +687,67 @@ class TestL2ContinuationChain:
 
         outcome = _turn_outcome(scoped_world)
         assert outcome.get("execution_id") == eid
+
+    def test_identifier_constraint_negative_and_positive(
+            self, scoped_world, world_app):
+        """Owner regression through the real turn: a short identifier
+        constraint is preserved — 381 never resolves to 6603; with the
+        381 file observed it resolves and certifies."""
+        session_out = {}
+        out, session, ep = _drive_continuation_turn(
+            scoped_world, world_app,
+            interpretation=_resolved_interpretation(["approved record 381"]),
+            observed_files=["approved_records_6603.txt"],
+            session_out=session_out)
+        eid, req = _turn_requirement(session, out)
+        identity = req.get("identity") or {}
+        assert req.get("required") is True
+        assert identity.get("state") == "unresolved", (
+            f"381 must not resolve to 6603; got {identity!r}")
+        assert "6603" not in json.dumps(identity)
+        verdict, settled = _settlement_from_turn(
+            session, eid, session_out["workspace_id"])
+        assert verdict and verdict.get("state") == "unresolved"
+        assert settled.get("delivered") is True
+
+        session_out2 = {}
+        out2, session2, ep2 = _drive_continuation_turn(
+            scoped_world, world_app,
+            interpretation=_resolved_interpretation(["approved record 381"]),
+            observed_files=["approved_records_381.txt"],
+            session_out=session_out2)
+        eid2, req2 = _turn_requirement(session2, out2)
+        identity2 = req2.get("identity") or {}
+        assert identity2.get("state") == "resolved", identity2
+        assert identity2.get("file_name") == "approved_records_381.txt"
+        verdict2, settled2 = _settlement_from_turn(
+            session2, eid2, session_out2["workspace_id"])
+        assert verdict2 and verdict2.get("state") in (
+            "completed", "partial", "unsupplied")
+        assert settled2.get("delivered") is True
+
+    def test_unmatched_proposal_never_resolves_to_the_matched_one(
+            self, scoped_world, world_app):
+        """Owner regression through the real turn: Alpha resolved and
+        Gamma unmatched — the requirement stays unresolved (Gamma named);
+        Alpha is never adopted as the single answer."""
+        session_out = {}
+        out, session, ep = _drive_continuation_turn(
+            scoped_world, world_app,
+            interpretation=_resolved_interpretation(
+                ["Alpha records", "Gamma records"]),
+            observed_files=["alpha_records.txt"],
+            session_out=session_out)
+        eid, req = _turn_requirement(session, out)
+        identity = req.get("identity") or {}
+        assert req.get("required") is True
+        assert identity.get("state") == "unresolved", (
+            f"the unmatched Gamma proposal must win; got {identity!r}")
+        assert identity.get("names") == ["Gamma records"]
+        verdict, settled = _settlement_from_turn(
+            session, eid, session_out["workspace_id"])
+        assert verdict and verdict.get("state") == "unresolved"
+        assert settled.get("delivered") is True
 
     def test_ambiguous_reference_never_selects_a_source(
             self, scoped_world, world_app, monkeypatch):

@@ -17,10 +17,11 @@ settled `success=false` / `outcome=unconfirmed` / `error_code=outcome_unconfirme
 - **Parent (immutable):** `ddab120c43333efdc219098cba35fdecd9a0988f`
   (main HEAD after the L3 promotion; the L3 candidate branch and all
   earlier evidence are untouched).
-- **Candidate:** branch `codex/l2-continuation-evidence` — the first
-  candidate `d36d6ed1f` (superseded after owner review), then this
-  **corrected successor** (repair correction + this evidence record; see
-  `CHECKSUMS.sha256`).
+- **Candidate:** branch `codex/l2-continuation-evidence` — first
+  candidate `d36d6ed1f` (superseded after owner review), first correction
+  `87a439c8c` (superseded by the second owner review), then this
+  **corrected successor** (identity-constraint + per-proposal aggregation
+  corrections + this evidence record; see `CHECKSUMS.sha256`).
 - **Status when frozen:** locally verified on scratch stores
   (parent-failing / successor-passing, boundary mutation-checked).
   **Served acceptance NOT run; no promotion.** Integration/deployment
@@ -125,6 +126,39 @@ else:
     preserve_unresolved_reference(reference)
 ```
 
+## Second owner-review correction (2026-10-18) — identity constraints + per-proposal aggregation
+
+Three more composition-boundary defects were reproduced against
+`87a439c8c` through its real composer:
+
+| Proposed reference | Observed source | `87a439c8c` (defect) | corrected successor |
+|---|---|---|---|
+| `approved record 381` | `approved_records_6603.txt` | resolved to **6603** (short token dropped by the length filter) | **unresolved** — the identifier constrains |
+| `approved record AB12` | `approved_records_AB12S.txt` | resolved to **AB12S** (`rstrip("s")` stemming) | **unresolved** — identifiers compare exactly |
+| Alpha **and** Gamma records | only Alpha observed | resolved to **Alpha** (the unmatched proposal dropped) | **unresolved** — Gamma preserved |
+
+Bounded corrections (only token identity and aggregation):
+
+1. **Preserve every identity constraint.** `_reference_tokens` keeps every
+   non-stopword token (short names and numeric/alphanumeric identifiers
+   included). `_token_matches` compares identifier tokens (any token
+   carrying a digit) EXACTLY; descriptive words compare through an
+   explicit equivalence table only (`record`/`records`, plus a small
+   documented set) — no stemming, no blanket plural stripping.
+2. **Resolve each proposal before aggregating.** Per-proposal states
+   (`resolved`/`ambiguous`/`unresolved`/`no_antecedent`); **unresolved
+   wins** (a requested source that cannot be matched is never dropped
+   because another proposal resolved); otherwise the distinct candidate
+   files decide — one → adopt, several → clarify (the downstream contract
+   carries one file; nothing collapses to a first filename), none → no
+   adoption.
+
+Positive twins (all pinned): `381` vs `approved_records_381.txt` →
+resolved; `AB12` vs `approved_records_AB12.txt` → resolved; Alpha+Gamma
+both observed → **ambiguous (clarify)**; the same source proposed twice →
+resolved. The observed/requested split, ambiguity handling, floor-wins
+behavior and the settlement chain are unchanged.
+
 ## Controls
 
 Decision layer (`tests/test_l2_continuation_evidence.py::TestL2ReferenceResolution`):
@@ -132,6 +166,9 @@ Decision layer (`tests/test_l2_continuation_evidence.py::TestL2ReferenceResoluti
 | Control | Result |
 |---|---|
 | Unique-source S7 positive (name → resolved identity, `turn_evidence_required` True) | PASS |
+| **Short-identifier negative** (381 never matches 6603) + positive twin (381 → 381 resolved) | PASS |
+| **Identifier-suffix negative** (AB12 never matches AB12S) + positive twin (AB12 → AB12 resolved) | PASS |
+| **Unmatched-proposal negative** (Alpha+Gamma, only Alpha → unresolved with Gamma named) + twins (both observed → clarify; same source twice → resolved) | PASS |
 | **Ambiguity negative** (two candidates → both preserved, no selection) | PASS |
 | **Wrong-name negative** (no substring donation; unresolved, wrong file never adopted) | PASS |
 | **Generic-kind negative** (no observed evidence → decision unchanged) | PASS |
@@ -150,6 +187,8 @@ run real):
 |---|---|---|
 | S7 positive: requirement captured (`required: true`, resolved identity) and the turn's own retrieval certifies it | **FAIL** (exact S7 shape `required: False, sources: []`) | **PASS** |
 | **Ambiguity negative through the real turn**: two matching sources → requirement identity `ambiguous`, settlement `partial` (validated) with the "which source" clarification; no file adopted | **FAIL** | **PASS** |
+| **Identifier-constraint negative/positive through the real turn**: 381 vs 6603 → identity `unresolved`; 381 vs 381 → identity `resolved` and certified | **FAIL** | **PASS** |
+| **Unmatched-proposal negative through the real turn**: Alpha resolved + Gamma unmatched → identity `unresolved` with Gamma named; Alpha never adopted | **FAIL** | **PASS** |
 | **Wrong-name negative through the real turn**: only an unapproved file observed → identity `unresolved`, settlement `partial` (validated) with the honest non-match; the wrong file never adopted | **FAIL** | **PASS** |
 | Unresolved interpretation → unobligated (`unconfirmed`) | PASS | PASS |
 | Message-named source ask keeps the floor's capture and certifies | PASS | PASS |
@@ -165,6 +204,14 @@ Mutation controls (throwaway edits; restored + checksum-verified):
 - **F — requirements admitted to the observed pool**: the
   requirement-not-evidence regression fails
   (`logs/mutation_f_requirement_as_evidence.log`).
+- **G — length filter restored** (short tokens dropped): the
+  short-identifier regression fails
+  (`logs/mutation_g_short_token_dropped.log`).
+- **H — blanket plural stripping restored**: the identifier-suffix
+  regression fails (`logs/mutation_h_identifier_stemmed.log`).
+- **I — resolved proposals suppress the unmatched one**: both
+  unmatched-proposal regressions (decision + chain) fail
+  (`logs/mutation_i_unmatched_dropped.log`).
 
 ## Verification records
 
@@ -172,11 +219,12 @@ Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
 `DATABASE_URL`; the parent runs from a pristine `ddab120c4` worktree with
 the same test file copied in):
 
-- Successor L2 battery → **17 passed** (`logs/l2_successor.log`).
-- Parent L2 battery → **15 failed, 2 passed** — the 12 composer
-  capability tests (functions absent) and the 3 chain regressions
-  (capture + ambiguity + wrong-name) failing for the intended reasons;
-  the two fail-closed controls pass (`logs/l2_parent.log`).
+- Successor L2 battery → **22 passed** (`logs/l2_successor.log`).
+- Parent L2 battery → **20 failed, 2 passed** — the 17 composer
+  capability tests (functions absent) and the 5 chain regressions
+  (capture + ambiguity + wrong-name + identifier + unmatched-proposal)
+  failing for the intended reasons; the two fail-closed controls pass
+  (`logs/l2_parent.log`).
 - Neighbors (turn-decision, F-C2, action-program, source-ask batteries,
   interpretation/continuation sets) → **277 passed, 2 failed** — the two
   pre-existing `TestEditPlanRungKnob` failures, identical on the
@@ -204,7 +252,8 @@ the same test file copied in):
 
 ## Exact next acceptance action
 
-Independent review of this corrected successor; then the sole acceptance
+Independent review of this corrected successor; **no served run is
+warranted yet** (owner direction). After review, the sole acceptance
 owner runs the ORIGINAL S7 continuation ask on a served build of the
 frozen successor under a predeclared configuration (uploaded
 approved-records fixture + draft canvas + the S3 comparison turn first,
