@@ -56,6 +56,8 @@ Layer map:
 import asyncio
 import json
 import re
+import threading
+import time
 import uuid
 from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -103,24 +105,76 @@ class _RecordingStructuredGeneration:
         self.validate = validate
         self.prompts: list[str] = []
         self.response_models: list = []
+        self.call_kwargs: list[dict] = []
         self.calls = 0
 
     async def generate_structured_response(
-        self, *, prompt, response_model, system_instruction, model,
-        task_type, temperature, **kwargs,
+        self, *, prompt, response_model, system_instruction, model=None,
+        task_type=None, temperature=None, disable_reasoning=None,
+        max_tokens=None, route_trace_id=None, allow_moa=None, **kwargs,
     ):
         self.prompts.append(prompt)
         self.response_models.append(response_model)
+        self.call_kwargs.append({
+            "model": model,
+            "task_type": task_type,
+            "temperature": temperature,
+            "disable_reasoning": disable_reasoning,
+            "max_tokens": max_tokens,
+            "route_trace_id": route_trace_id,
+            "allow_moa": allow_moa,
+            **kwargs,
+        })
         self.calls += 1
         if self.validate:
             return response_model(**self.payload)
         return dict(self.payload)
 
 
+class _SlowGeneration(_RecordingStructuredGeneration):
+    """A generation that outlives the patched wait_for deadline."""
+
+    def __init__(self, delay: float):
+        super().__init__({}, validate=False)
+        self.delay = delay
+
+    async def generate_structured_response(self, **kwargs):
+        self.calls += 1
+        await asyncio.sleep(self.delay)
+        return {}
+
+
+class _LateWorkerGeneration(_RecordingStructuredGeneration):
+    """Simulates the handler's synchronous worker finishing after the
+    awaiting task was cancelled: a thread sets a late result while the
+    coroutine is still sleeping (and gets cancelled by wait_for)."""
+
+    def __init__(self, delay: float = 0.05):
+        super().__init__({}, validate=False)
+        self.delay = delay
+        self.late_result = None
+        self.timer = None
+
+    async def generate_structured_response(self, **kwargs):
+        self.calls += 1
+
+        def _finish():
+            self.late_result = {
+                "sources": [PRIOR_FILE],
+                "actions": [],
+                "scope_change": "continue",
+            }
+
+        self.timer = threading.Timer(self.delay, _finish)
+        self.timer.daemon = True
+        self.timer.start()
+        await asyncio.sleep(10)
+
+
 def _run_producer_boundary(
     world_app, scoped_world, *, sources, message=S7_ASK,
     observed_files=None, requested=None, canvas=True,
-    scope_change=None, validate=True,
+    scope_change=None, validate=True, generation=None,
 ):
     """Real interpretation normalization -> real composer -> real stash.
 
@@ -158,7 +212,8 @@ def _run_producer_boundary(
             "continue" if observed_files else "replace"),
         "confidence": 0.9,
     }
-    generation = _RecordingStructuredGeneration(generated, validate=validate)
+    generation = generation or _RecordingStructuredGeneration(
+        generated, validate=validate)
     reset_interpretation_for_tests()
     interpretation = asyncio.run(interpret_turn_request(
         message, session, [], context=context, session_id="sess-l2",
@@ -912,6 +967,18 @@ class TestL2ProducerBoundary:
 
         generation = out["generation"]
         assert generation.calls == 1
+        from core.turn_decision import (
+            _INTERPRET_OUTPUT_BUDGET_TOKENS,
+        )
+
+        forwarded = generation.call_kwargs[0]
+        assert forwarded["task_type"] == "planning"
+        assert forwarded["temperature"] == 0.0
+        assert forwarded["disable_reasoning"] is True
+        assert forwarded["max_tokens"] == _INTERPRET_OUTPUT_BUDGET_TOKENS
+        assert forwarded["route_trace_id"] == "turn_interpretation:req-l2"
+        assert forwarded["allow_moa"] is False
+        assert forwarded["model"] is None
         prompt = generation.prompts[0]
         assert "SOURCE REFERENCES (structured JSON):" in prompt
         assert "PRIOR EVIDENCE SOURCES (this conversation)" not in prompt
@@ -1224,6 +1291,144 @@ class TestL2ProducerBoundary:
         assert req["required"] is False
         assert req["sources"] == []
         assert req["identity"]["state"] == "kind_only"
+
+
+class TestL2InterpretationPolicy:
+    """Execution-policy controls for the interpretation call.
+
+    The served attempt-2 diagnosis was completion-within-deadline, not
+    dispatch: the request needs a bounded, non-reasoning shape. These
+    controls pin the forwarded settings, the derivation of the output
+    budget, fail-closed timeout behavior, late-worker isolation, and the
+    MoA opt-out boundary.
+    """
+
+    def test_forwarded_settings_are_bounded_and_traced(
+            self, scoped_world, world_app):
+        from core.turn_decision import _INTERPRET_OUTPUT_BUDGET_TOKENS
+
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[PRIOR_FILE],
+            observed_files=[PRIOR_FILE])
+        forwarded = out["generation"].call_kwargs[0]
+        assert forwarded["task_type"] == "planning"
+        assert forwarded["temperature"] == 0.0
+        assert forwarded["disable_reasoning"] is True
+        assert forwarded["max_tokens"] == _INTERPRET_OUTPUT_BUDGET_TOKENS
+        assert forwarded["route_trace_id"] == "turn_interpretation:req-l2"
+        assert forwarded["allow_moa"] is False
+        assert forwarded["model"] is None
+
+    def test_output_budget_covers_representative_records(self):
+        from core.turn_decision import _INTERPRET_OUTPUT_BUDGET_TOKENS
+
+        def _estimate(text: str) -> int:
+            try:
+                import tiktoken
+
+                return len(tiktoken.get_encoding("cl100k_base").encode(text))
+            except Exception:  # noqa: BLE001 — conservative fallback
+                return (len(text) + 3) // 4
+
+        def _actions(n_subjects: int):
+            return [{
+                "kind": "research",
+                "subjects": ["s" * 200] * n_subjects,
+                "note": "n" * 200,
+                "authorization": "granted",
+            } for _ in range(3)]
+
+        attempt1 = {
+            "schema": "turn-interpretation-1",
+            "request_id": "req-0123456789abcdef",
+            "origin": "llm:glm-5.3-flash", "unresolved_reason": "",
+            "message": "x" * 500,
+            "actions": _actions(2), "subjects": [],
+            "sources": ATTEMPT1_ANNOTATED_SOURCES,
+            "requested_fields": ["expiration_date"],
+            "output_format": "", "constraints": [],
+            "scope_change": "continue", "confidence": 0.9,
+        }
+        multiple_long = {
+            "schema": "turn-interpretation-1",
+            "request_id": "req-0123456789abcdef",
+            "origin": "llm:glm-5.3-flash", "unresolved_reason": "",
+            "message": "x" * 500,
+            "actions": _actions(4),
+            "subjects": ["s" * 200] * 8,
+            "sources": ["approved_records_" + ("a" * 480) + ".txt"] + [
+                "source_" + str(i) + "_" + ("b" * 120) for i in range(7)],
+            "requested_fields": ["f" * 80] * 8,
+            "output_format": "markdown",
+            "constraints": ["c" * 200] * 8,
+            "scope_change": "continue", "confidence": 0.9,
+        }
+        largest = max(
+            _estimate(json.dumps(record, ensure_ascii=False))
+            for record in (attempt1, multiple_long))
+        assert largest * 1.5 <= _INTERPRET_OUTPUT_BUDGET_TOKENS, (
+            f"representative record estimate {largest} leaves less than "
+            f"1.5x headroom under the {_INTERPRET_OUTPUT_BUDGET_TOKENS}-"
+            "token budget")
+
+    def test_moa_gate_can_fire_but_interpretation_opts_out(
+            self, scoped_world, world_app):
+        from core.llm.byok_handler import BYOKHandler, QueryComplexity
+
+        # The gate is capable of firing on this call's shape ...
+        assert BYOKHandler._moa_eligible(
+            None, QueryComplexity.COMPLEX, "planning") is True
+        # ... and the interpretation call opts out explicitly.
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[PRIOR_FILE],
+            observed_files=[PRIOR_FILE])
+        assert out["generation"].call_kwargs[0]["allow_moa"] is False
+
+    def test_timeout_returns_unresolved_and_adopts_no_source(
+            self, scoped_world, world_app, monkeypatch):
+        from core.turn_decision import reset_interpretation_for_tests
+
+        monkeypatch.setattr("core.turn_decision._INTERPRET_TIMEOUT_S", 0.01)
+        slow = _SlowGeneration(delay=0.2)
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[PRIOR_FILE],
+            observed_files=[PRIOR_FILE], generation=slow)
+        interp = out["interpretation"]
+        assert interp["origin"] == "unresolved"
+        assert interp["unresolved_reason"] == "timeout"
+        assert interp["sources"] == []
+        assert "continuation_evidence" not in (
+            out["composed"]["references"] or {})
+        req = out["requirement"]
+        assert req["required"] is False
+        assert req["identity"]["state"] == "kind_only"
+        assert req["file"] is None
+        reset_interpretation_for_tests()
+
+    def test_late_worker_completion_cannot_mutate_returned_decision(
+            self, scoped_world, world_app, monkeypatch):
+        from core.turn_decision import reset_interpretation_for_tests
+
+        monkeypatch.setattr("core.turn_decision._INTERPRET_TIMEOUT_S", 0.01)
+        late = _LateWorkerGeneration(delay=0.05)
+        out = _run_producer_boundary(
+            world_app, scoped_world, sources=[PRIOR_FILE],
+            observed_files=[PRIOR_FILE], generation=late)
+        assert out["interpretation"]["origin"] == "unresolved"
+        assert out["interpretation"]["sources"] == []
+        # The synchronous worker finishes after the caller returned.
+        deadline = time.time() + 2.0
+        while late.late_result is None and time.time() < deadline:
+            time.sleep(0.01)
+        assert late.late_result is not None
+        # Nothing derived from the returned record changed.
+        assert out["interpretation"]["origin"] == "unresolved"
+        assert out["interpretation"]["sources"] == []
+        assert "continuation_evidence" not in (
+            out["composed"]["references"] or {})
+        assert out["requirement"]["required"] is False
+        assert out["requirement"]["identity"]["state"] == "kind_only"
+        reset_interpretation_for_tests()
 
 
 class TestL2ContinuationChain:

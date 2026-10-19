@@ -317,6 +317,45 @@ requests and deterministic-floor precedence remain supported; malformed
 sources fail closed through pydantic; long observed filenames copy
 exactly; canvas-only turns invent no external source.
 
+## Execution-policy correction (2026-10-19) — attempt-2 completion diagnosis
+
+The corrected attempt-2 assessment (archived with the served evidence)
+established: `dispatch_attempted=true`,
+`completed_within_deadline=false` — the interpreter dispatched and both
+calls exceeded the 12-second deadline. Provider latency is involved, but
+the application request settings also needed attention. Bounded
+correction on this candidate (no shared handler defaults changed):
+
+- Removed `model="fast"` (it does not select or pin a model; the explicit
+  `task_type="planning"` is what routes the call).
+- `disable_reasoning=True` — the handler translates it into the
+  transport's reasoning-disable switch; a reasoning-mandatory provider
+  keeps the existing bounded recovery (retry once without the switch,
+  memoize the pair) and a failure stays unresolved, never a guessed
+  interpretation.
+- `max_tokens=_INTERPRET_OUTPUT_BUDGET_TOKENS` (5,500), derived from
+  representative records: the attempt-1 S7 record ≈1,163 cl100k tokens;
+  a multiple-source/long-filename record (8 sources incl. a 512-char
+  filename, 8 subjects, 3 actions × 4 subjects, 8 fields, 8 constraints)
+  ≈3,385 tokens → ~1.6x headroom.
+- `route_trace_id=f"turn_interpretation:{request_id}"` for the served
+  stage record.
+- `allow_moa=False` per call: the MoA gate can consider a long
+  COMPLEX/ADVANCED prompt eligible; one small interpretation must not be
+  multiplied into samples plus an aggregator.
+- The 12-second deadline, BPC routing, authenticated scope and the
+  source-resolution contract are unchanged.
+
+Tests added: the real interpreter forwards the bounded settings and
+trace; the real client constructs the intended request over a mock
+transport (max_tokens + reasoning switch in the wire body, not just a
+forwarded kwarg); reasoning-mandatory 400 → bounded retry without the
+switch and success, or no result (never a false success); long
+filenames/multiple sources still validate; timeout yields an unresolved
+interpretation and adopts no source; a late synchronous worker cannot
+mutate the returned decision; the output budget covers representative
+records; the MoA eligibility/opt-out boundary.
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
@@ -326,6 +365,12 @@ the same test file copied in):
 - Successor L2 battery (post producer correction) → **41 passed**
   (`logs/l2_producer_correction.log`; the prior 28-test battery is
   preserved in `logs/l2_successor.log`).
+- Execution-policy successor (2026-10-19) → **51 passed** — the L2
+  battery plus the transport controls (`logs/l2_execution_policy.log`).
+  Neighbors including the reasoning-mandatory, task-type forwarding and
+  structured-dispatch suites → **338 passed, 2 failed** — the two
+  pre-existing `TestEditPlanRungKnob` failures, identical on the parent
+  (`logs/neighbors_execution_policy.log`).
 - Parent L2 battery (pre-correction 28-test set) → **26 failed, 2
   passed** — the 20 composer capability tests (functions absent) and the
   8 chain regressions (capture, ambiguity, wrong-name, identifier,

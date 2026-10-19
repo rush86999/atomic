@@ -1311,6 +1311,18 @@ def _scope_constraints(message: str) -> List[str]:
 # timed out at the wall). Still far under the turn's reply budget.
 _INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "12"))
 _INTERPRET_BREAKER_MAX = int(os.getenv("ATOM_TURN_INTERPRET_BREAKER", "3"))
+
+#: Structured-output budget for the turn interpretation. Derived from
+#: REPRESENTATIVE valid records, not a tiny arbitrary cap: the attempt-1
+#: S7 record (2 sources, 2 actions, 2 subjects, 1 field) is ~1,163
+#: cl100k tokens; a multiple-source/long-filename record (8 sources incl.
+#: a 512-char filename, 8 subjects, 3 actions with 4 subjects each,
+#: 8 requested fields, 8 constraints) is ~3,385 cl100k tokens. 5,500
+#: leaves ~1.6x headroom over the larger representative record. This is
+#: a ceiling, not a target; other structured callers keep the handler's
+#: 6,000 default. The latency lever for this call is disable_reasoning,
+#: not the cap.
+_INTERPRET_OUTPUT_BUDGET_TOKENS = 5500
 _interpret_failures = 0
 _interpret_breaker_until = 0.0
 _interpret_metrics: Dict[str, Any] = {
@@ -1570,9 +1582,22 @@ async def interpret_turn_request(
                     context if isinstance(context, dict) else {}),
                 response_model=_Interpretation,
                 system_instruction=_INTERPRET_SYSTEM,
-                model="fast",
                 task_type="planning",
                 temperature=0.0,
+                # Small planning call: skip hidden reasoning. The handler
+                # translates this into the transport's reasoning switch;
+                # reasoning-mandatory providers keep their existing
+                # bounded retry (drop the switch once) and a failure never
+                # becomes a guessed interpretation.
+                disable_reasoning=True,
+                max_tokens=_INTERPRET_OUTPUT_BUDGET_TOKENS,
+                route_trace_id=f"turn_interpretation:{request_id}",
+                # MoA would multiply one small interpretation into N
+                # samples + an aggregator when a long prompt is classified
+                # COMPLEX/ADVANCED and ATOM_MOA_ENABLED is on. This call
+                # opts out explicitly; the shared handler default is
+                # unchanged.
+                allow_moa=False,
             ),
             timeout=_INTERPRET_TIMEOUT_S,
         )
