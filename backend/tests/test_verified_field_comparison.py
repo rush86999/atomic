@@ -279,6 +279,33 @@ def test_wrong_subject_evidence_cannot_donate_a_value():
     assert not any("(match)" in line for line in title_lines), out["reply"]
 
 
+def test_unassessed_terms_keeps_broader_obligation_open():
+    source = [{
+        "source": "ingested",
+        "file_name": "approved_records_q2026_114.txt",
+        "content_hash": "hash-no-terms",
+        "field_associations": {
+            "expiration_date": {"value": "2026-12-31"},
+        },
+    }]
+    requirement = _requirement()
+    requirement["broader_comparison"] = True
+    out = verified_comparison_reply(
+        message="Compare the draft with the approved record. "
+                "Flag anything that differs.",
+        reply="Everything appears consistent for now.",
+        canvas=CANVAS, source_observations=source,
+        requirement=requirement)
+    assert out is not None
+    lowered = out["reply"].casefold()
+    assert out["request_complete"] is False, out
+    assert "payment terms" in lowered, out["reply"]
+    assert "no verified value" in lowered, out["reply"]
+    assert "broader comparison obligation: open" in lowered, out["reply"]
+    assert "all requested typed fields" not in lowered, out["reply"]
+    assert "everything appears consistent" not in lowered, out["reply"]
+
+
 def test_draft_only_question_is_not_replaced():
     """A typed-field question that is not a comparison must not be
     converted into a source limitation."""

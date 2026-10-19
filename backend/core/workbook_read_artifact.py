@@ -4696,10 +4696,14 @@ def verified_comparison_reply(
         return None
     draft_fields = {str(o.get("field") or "") for o in draft_observations}
     source_fields = {str(o.get("field") or "") for o in source_typed}
-    shared_fields = sorted(
-        (draft_fields & source_fields) & _VERIFIED_COMPARISON_FIELDS)
+    # REQUEST COVERAGE (owner correction 2026-10-19): a broader "flag any
+    # other differences" request must assess every typed field the
+    # ARTIFACT exposes, not only the fields both sides happened to
+    # associate. A field present only on the draft remains a named gap
+    # (the request stays partial), never silently outside the comparison.
+    broader_fields = sorted(draft_fields & _VERIFIED_COMPARISON_FIELDS)
     requested_fields = list(dict.fromkeys(
-        explicit_fields + (shared_fields if broader_requested else [])))
+        explicit_fields + (broader_fields if broader_requested else [])))
     if not requested_fields:
         return None
     entities: List[str] = []
