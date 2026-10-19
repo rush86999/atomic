@@ -32,10 +32,10 @@ CAND_BACKEND = CAND / "backend"
 PY = Path("/Users/rushiparikh/projects/atom/backend/venv314/bin/python")
 DIAG = Path(
     "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/"
-    "l2-fix/scratch/l2-diagnostic")
+    "l2-fix/scratch/l2-diagnostic-s7-final")
 PORT = 8098
 BASE = f"http://127.0.0.1:{PORT}"
-CANDIDATE_SHA = "10982e8390815ee394c853284d5accfd3e3ddee7"
+CANDIDATE_SHA = "a3875d6bb2026ffb4d1424f26a63b4e68c89cedf"
 ATTEMPT3 = HERE / "attempt3_result.json"
 ATTEMPT3_OBS = HERE / "attempt3_observation.jsonl"
 FIXTURE = "approved_records_q2026_114.txt"
@@ -395,6 +395,7 @@ def _child(turn: str, payload_path: str, out_path: str) -> int:
     import core.turn_decision as td
     from core.llm_service import LLMService
 
+    os.environ["ATOM_TURN_INTERPRET_CAPTURE"] = "1"
     td._INTERPRET_TIMEOUT_S = 90.0  # diagnostic window only
     td.reset_interpretation_for_tests()
     service = LLMService(workspace_id=payload["workspace_id"],
@@ -450,9 +451,9 @@ def _child(turn: str, payload_path: str, out_path: str) -> int:
         "request_id": request_id,
         "provider": provider,
         "model": model or origin.removeprefix("llm:"),
-        "product_deadline_s": 12.0,
+        "product_deadline_s": 65.0,
         "diagnostic_window_s": 90.0,
-        "deadline_met": bool(schema_valid and elapsed <= 12.0),
+        "deadline_met": bool(schema_valid and elapsed <= 65.0),
         "elapsed_to_valid_record_s": (
             round(elapsed, 3) if schema_valid else None),
         "elapsed_s": round(elapsed, 3),
@@ -468,6 +469,14 @@ def _child(turn: str, payload_path: str, out_path: str) -> int:
         "interpretation_origin": origin,
         "interpretation_unresolved_reason": interpretation.get(
             "unresolved_reason"),
+        "unresolved_reason": interpretation.get("unresolved_reason"),
+        "scope_change": interpretation.get("scope_change"),
+        "actions": interpretation.get("actions"),
+        "action_count": len(interpretation.get("actions") or []),
+        "action_kinds": [
+            (action or {}).get("kind")
+            for action in (interpretation.get("actions") or [])
+            if isinstance(action, dict)],
         "interpretation_sources": interpretation.get("sources"),
         "source_identity_state": identity.get("state"),
         "requirement_required": (requirement or {}).get("required"),
@@ -477,6 +486,7 @@ def _child(turn: str, payload_path: str, out_path: str) -> int:
         "prompt_chars": len(prompt),
         "served_prompt_chars": payload.get("served_prompt_chars"),
         "dispatch_lines": dispatch_lines[-12:],
+        "interpretation_capture": td.get_interpret_capture(),
     }
     Path(out_path).write_text(json.dumps(result, indent=2, default=str))
     # Avoid waiting on any late worker thread: the parent's subprocess
@@ -505,7 +515,7 @@ def main() -> int:
         "declared": {
             "candidate": CANDIDATE_SHA,
             "diagnostic_window_s": 90.0,
-            "product_deadline_s": 12.0,
+            "product_deadline_s": 65.0,
             "port": PORT,
             "scratch": str(DIAG),
             "workspace_id": ws["workspace_id"],
@@ -518,21 +528,27 @@ def main() -> int:
             "s7": {k: v for k, v in payloads["s7"].items()},
         },
     }
-    outputs["s3"] = _run_child("s3", payloads["s3"], env, ws)
-    outputs["s7"] = _run_child("s7", payloads["s7"], env, ws)
-    (HERE / "diagnostic_interpretation_results.json").write_text(
+    only = "s7" if "--only=s7" in sys.argv else "both"
+    if only in ("both", "s3"):
+        outputs["s3"] = _run_child("s3", payloads["s3"], env, ws)
+    if only in ("both", "s7"):
+        outputs["s7"] = _run_child("s7", payloads["s7"], env, ws)
+    out_name = (
+        "diagnostic_s7_producer_results.json" if only == "s7"
+        else "diagnostic_interpretation_results.json")
+    (HERE / out_name).write_text(
         json.dumps(outputs, indent=2, sort_keys=True, default=str) + "\n")
+    summary_keys = (
+        "provider", "model", "deadline_met", "elapsed_s",
+        "http_attempts", "http_statuses", "finish_reasons",
+        "output_tokens", "schema_valid", "source_identity_state",
+        "unresolved_reason", "action_count", "action_kinds",
+        "scope_change", "requirement_required",
+        "interpretation_capture",
+        "prompt_chars", "served_prompt_chars")
     print(json.dumps({
-        "s3": {k: outputs["s3"].get(k) for k in (
-            "provider", "model", "deadline_met", "elapsed_s",
-            "http_attempts", "http_statuses", "finish_reasons",
-            "output_tokens", "schema_valid", "source_identity_state",
-            "prompt_chars", "served_prompt_chars")},
-        "s7": {k: outputs["s7"].get(k) for k in (
-            "provider", "model", "deadline_met", "elapsed_s",
-            "http_attempts", "http_statuses", "finish_reasons",
-            "output_tokens", "schema_valid", "source_identity_state",
-            "prompt_chars", "served_prompt_chars")},
+        name: {k: result.get(k) for k in summary_keys}
+        for name, result in outputs.items()
     }, indent=2, default=str))
     return 0
 

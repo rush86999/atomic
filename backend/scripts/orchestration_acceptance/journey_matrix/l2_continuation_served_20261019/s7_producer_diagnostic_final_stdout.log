@@ -1,0 +1,100 @@
+{
+  "declared": {
+    "provider": null,
+    "model": null,
+    "deadline_met": null,
+    "elapsed_s": null,
+    "http_attempts": null,
+    "http_statuses": null,
+    "finish_reasons": null,
+    "output_tokens": null,
+    "schema_valid": null,
+    "source_identity_state": null,
+    "unresolved_reason": null,
+    "action_count": null,
+    "action_kinds": null,
+    "scope_change": null,
+    "requirement_required": null,
+    "interpretation_capture": null,
+    "prompt_chars": null,
+    "served_prompt_chars": null
+  },
+  "payloads": {
+    "provider": null,
+    "model": null,
+    "deadline_met": null,
+    "elapsed_s": null,
+    "http_attempts": null,
+    "http_statuses": null,
+    "finish_reasons": null,
+    "output_tokens": null,
+    "schema_valid": null,
+    "source_identity_state": null,
+    "unresolved_reason": null,
+    "action_count": null,
+    "action_kinds": null,
+    "scope_change": null,
+    "requirement_required": null,
+    "interpretation_capture": null,
+    "prompt_chars": null,
+    "served_prompt_chars": null
+  },
+  "s7": {
+    "provider": "opencode-go",
+    "model": "qwen3.8-flash",
+    "deadline_met": false,
+    "elapsed_s": 28.214,
+    "http_attempts": 1,
+    "http_statuses": [
+      200
+    ],
+    "finish_reasons": [
+      "stop"
+    ],
+    "output_tokens": [
+      1820
+    ],
+    "schema_valid": true,
+    "source_identity_state": "resolved",
+    "unresolved_reason": "",
+    "action_count": 2,
+    "action_kinds": [
+      "research",
+      "presentation"
+    ],
+    "scope_change": "continue",
+    "requirement_required": true,
+    "interpretation_capture": [
+      {
+        "request_id": "turn interpretation:l2-diag-s7-c011afdd11b1",
+        "phase": "pre_validation",
+        "scope_present": true,
+        "scope_raw": "continue",
+        "action_count": 2,
+        "action_kinds": [
+          "research",
+          "presentation"
+        ],
+        "has_missing_action_kind": false,
+        "has_invalid_action_kind": false,
+        "rejection_reason": ""
+      },
+      {
+        "request_id": "turn interpretation:l2-diag-s7-c011afdd11b1",
+        "phase": "post_validation",
+        "scope_present": true,
+        "scope_raw": "continue",
+        "action_count": 2,
+        "action_kinds": [
+          "research",
+          "presentation"
+        ],
+        "has_missing_action_kind": false,
+        "has_invalid_action_kind": false,
+        "rejection_reason": ""
+      }
+    ],
+    "prompt_chars": 3323,
+    "served_prompt_chars": 2435
+  }
+}
