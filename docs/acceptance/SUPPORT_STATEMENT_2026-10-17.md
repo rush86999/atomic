@@ -89,35 +89,30 @@ reconciled by the evidence cited here.
   Deployment to the pilot remains a separate integration step, and this
   pilot limitation stands until the successor is integrated and
   re-verified there.
-- **L2 — continuation ask**: "does it still match the approved record?"
-  is not yet certified end-to-end in the served product. Attempt 1 on
-  **`a6cd2c8ba`** captured the requirement (`required=true`) but the real
-  interpreter proposed annotated descriptions and the composer preserved
-  the identity `unresolved`. A scratch diagnostic on the actual S3/S7
-  payloads then measured the real bottleneck: the cheap
-  reasoning-mandatory `glm-5.3-flash` path rejected the reasoning switch
-  and never validated within 90 s (7 HTTP attempts, 4140/5500-token
-  outputs), while `qwen3.8-flash` produced a valid S7 record at ~58 s.
-  The diagnostic-selected successor **`491afa936`** pins the measured
-  compatible route (existing pinned-planning wrapper + unpinned
-  fallback), bounds the interpretation deadline at **65 s**, and adds a
-  typed-field verified-comparison narration guard. Served attempt 4:
-  **interpretation is fixed** — both calls completed valid (S3 25.8 s,
-  S7 35.2 s), producer output valid, source identity resolved; **S7
-  completed truthfully** (`success=true`, `outcome=completed`,
-  `context_fulfillment.completed`, matched
-  `approved_records_q2026_114.txt`, fresh-history agreement). **S3
-  failed on the turn's reply-leg clock**: the reply leg started at 27.6 s,
-  ran 36.4 s, and the turn hit the 68 s reply-leg cap; the POST returned
-  the honest budget error at **95.07 s** (S7 73.21 s), so no S3 reply
-  existed, the narration guard was not exercised, and the S3
-  requirement/observation carrier was absent. The live-DB guard was false
-  again, but the attempt's identities are only in scratch (live 0/0/0) —
-  unrelated pilot activity; the guard is not discarded. L2 remains open;
-  **no promotion**. The next repair is the S3 reply/planning leg's share
-  of the turn budget (or a faster reply route), not another
-  interpretation change. Evidence:
-  `journey_matrix/l2_continuation_served_20261019/` (attempts 1–4,
+- **L2 — continuation ask**: the **typed-field continuation/guard-order
+  claim is verified through the served API** on candidate
+  **`d0b707333`** (parent `0d6c52cf3`) in the same predeclared isolated
+  configuration. Interpretation completes on the measured
+  `opencode-go/qwen3.8-flash` route (S3 25.8 s / S7 35.2 s in the prior
+  attempt; attempt 5's turn POSTs completed at **S3 54.08 s / S7
+  59.72 s**, within the 95 s budget). The verified comparison now runs
+  **before** the grounding/absence/search-narration corrective chain:
+  the served log records the S3 deterministic replacement with no
+  corrective model call, the reply carries the verified `2026-12-31` and
+  no wrong approved date, and S7 resolves the requirement to
+  `approved_records_q2026_114.txt` (`doc_3abaf0d03badbc965b0f2770`) with
+  `context_fulfillment.completed`, `success=true`, `outcome=completed`,
+  truthful content, zero writes, unchanged draft, and explicit
+  response/persisted/fresh-history agreement. `live_db_unchanged` and
+  `pilot_untouched` are true. **Disclosed residual (not promoted):** the
+  S3 prose also says "Everything appears consistent for now" while the
+  draft Terms (Net 45) differ from the approved Net 30; the deterministic
+  scope line says other differences were not assessed, but the broader
+  "flag anything that differs" whole-document comparison remains open.
+  The promoted claim is therefore the typed-field continuation/guard-order
+  repair on `d0b707333` + configuration — not general interpretation
+  reliability, pilot deployment, or restart durability. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (attempts 1–5,
   diagnostic results, corrected assessment). Not deployed to the pilot.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3

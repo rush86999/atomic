@@ -348,6 +348,36 @@ budget (or a faster reply route). Evidence:
 `journey_matrix/l2_continuation_served_20261019/` (attempts 1–4,
 diagnostic results, corrected assessment, `CHECKSUMS_ATTEMPT4`).
 
+**Rev 17 (2026-10-19, L2 typed-field continuation/guard-order — SERVED
+VERIFICATION on `d0b707333`).** The guard-order successor (verified
+comparison built before the grounding/absence/search-narration corrective
+chain; complete typed-field coverage returns the deterministic comparison
+with no corrective model call; provider-failure/edit-shaped turns
+excluded; current-execution + resolved-file filtering; no search claim;
+65 s interpretation bound on the measured route; focused 78 passed,
+neighbors 561 passed + 2 pre-existing `TestEditPlanRungKnob`) was served
+on the same S3→S7 job/configuration (port 8100, scratch stores). All
+predeclared attempt-5 gates pass after correcting a latency-report bug
+(the preserved POST latencies are **S3 54.08 s / S7 59.72 s**, within the
+95 s budget): S3's log records `[verified-comparison] deterministic
+replacement BEFORE corrective guards`, no corrective model call, the
+verified `2026-12-31` reply with no wrong approved date, zero writes,
+draft unchanged, requirement captured and agreement true; S7 resolved the
+requirement to `approved_records_q2026_114.txt`
+(`doc_3abaf0d03badbc965b0f2770`), `context_fulfillment.completed`,
+`success=true`, `outcome=completed`, truthful content, zero writes,
+draft unchanged, fresh-history agreement; `live_db_unchanged=true`,
+`pilot_untouched=true`. **Promoted claim:** the typed-field
+continuation/guard-order repair on `d0b707333` + configuration — not
+general interpretation reliability, pilot deployment, or restart
+durability. **Disclosed residual (not promoted):** the S3 prose also says
+"Everything appears consistent for now" while the draft Terms (Net 45)
+differ from the approved Net 30; the deterministic scope line says other
+differences were not assessed, but the broader whole-document
+"flag anything that differs" comparison remains open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempts 1–5,
+diagnostic results, corrected assessment, `CHECKSUMS_ATTEMPT5`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
