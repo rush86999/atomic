@@ -1,0 +1,139 @@
+{
+  "attempt": 9,
+  "branch_results": {
+    "comparison_carrier_complete": false,
+    "execution_verified_complete_search": true,
+    "operation_carries_verified_complete_search": false,
+    "operation_has_values": false,
+    "planner_receipts": null
+  },
+  "candidate": "a3875d6bb",
+  "complete_search_receipts": [
+    {
+      "outcome": "status=ok match_count=1",
+      "tool": "documents.grep",
+      "verified": true
+    }
+  ],
+  "field_provenance": {
+    "accepted_constraints": [
+      "Do not change anything yet"
+    ],
+    "attempt9_comparison": {
+      "outcomes": [
+        {
+          "field": "expiration_date",
+          "status": "comparable_match"
+        },
+        {
+          "field": "payment_terms",
+          "status": "comparable_changed"
+        },
+        {
+          "field": "price",
+          "status": "numeric_match_incomparable"
+        }
+      ],
+      "request_complete": false,
+      "requested_fields": [
+        "expiration_date",
+        "payment_terms",
+        "price"
+      ]
+    },
+    "broader_by_accepted_constraints": false,
+    "canonical_fields_from_message": [
+      "expiration_date"
+    ],
+    "comparison_request_shaped_by_message": true,
+    "interpretation_requested_fields": [
+      "current Valid until date on the draft",
+      "approved record Valid until date",
+      "match status",
+      "differences"
+    ],
+    "repaired_broad_comparison": {
+      "outcomes": [
+        {
+          "field": "expiration_date",
+          "status": "comparable_match"
+        },
+        {
+          "field": "payment_terms",
+          "status": "comparable_changed"
+        },
+        {
+          "field": "price",
+          "status": "numeric_match_incomparable"
+        }
+      ],
+      "request_complete": false,
+      "requested_fields": [
+        "expiration_date",
+        "payment_terms",
+        "price"
+      ]
+    },
+    "repaired_narrow_comparison": {
+      "outcomes": [
+        {
+          "field": "expiration_date",
+          "status": "comparable_match"
+        }
+      ],
+      "request_complete": true,
+      "requested_fields": [
+        "expiration_date"
+      ]
+    },
+    "requirement_broader_comparison_attempt9": true,
+    "requirement_fields": [
+      "expiration_date"
+    ]
+  },
+  "first_successful_validation_branch": "execution_verified_complete_search",
+  "request": "What is the current Valid until date on the draft, and does it still match the approved record?",
+  "s3_execution_id": "9be6b444-41aa-4cfe-92cc-3cdb7c6bd85d",
+  "s7_execution_id": "68b506fb-4407-4fe7-b9b1-21c9bd121084",
+  "settlement_observed": {
+    "context_fulfillment": {
+      "matched": [
+        {
+          "content_hash": "",
+          "file_name": "approved_records_q2026_114.txt",
+          "source": "ingested"
+        }
+      ],
+      "missing_comparison": true,
+      "state": "partial",
+      "supplied_fields": [
+        "expiration_date"
+      ]
+    },
+    "resolver_state": {
+      "context_fulfillment": {
+        "matched": [
+          {
+            "content_hash": "",
+            "file_name": "approved_records_q2026_114.txt",
+            "source": "ingested"
+          }
+        ],
+        "missing_comparison": true,
+        "state": "partial",
+        "supplied_fields": [
+          "expiration_date"
+        ]
+      },
+      "delivered": true,
+      "execution_ids": [
+        "68b506fb-4407-4fe7-b9b1-21c9bd121084"
+      ],
+      "open_work": [],
+      "state": "completed",
+      "work_turn": true
+    }
+  },
+  "why_extra_fields_applied": "requirement.broader_comparison was set from the raw message's generic comparison shape ('does it still match'); verified_comparison_reply then ORed the same shape and expanded explicit_fields with every typed draft field. The accepted constraints carry no broad request, so the repaired contract keeps the S7 comparison to expiration_date.",
+  "why_search_receipt_suppressed_gaps": "The execution's documents.grep receipt is verified with coverage=complete and match_count=1, so validated=True before the context-fulfillment block. The old 'if context_fulfillment and not validated' skipped the partial missing_comparison gap; the resolver then mapped validated + empty open_work to completed."
+}
