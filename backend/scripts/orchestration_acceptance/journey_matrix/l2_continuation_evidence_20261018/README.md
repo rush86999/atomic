@@ -509,6 +509,56 @@ The review found three defects in the first version of this repair:
    log. Dict-seam validation now scans all actions (not only the first
    eight), and the unreachable `or "conversation"` synthesis was removed.
 
+## Settlement-obligation repair (2026-10-19) — post-attempt-9 provenance
+
+Attempt 9's S7 first successful validation branch was
+`execution_verified_complete_search` (`documents.grep`, verified,
+`coverage=complete`, `match_count=1`). That branch set `validated=True`
+before the context-fulfillment block; the old
+`if context_fulfillment and not validated` therefore skipped the
+`missing_comparison` gap, and the resolver mapped
+`validated + open_work=[]` to `completed`.
+
+Field provenance was separate: the S7 accepted requirement carried only
+`expiration_date`, but `broader_comparison` was set from the raw message's
+generic comparison shape (`"does it still match?"`), and
+`verified_comparison_reply` OR'ed the same shape and expanded to every
+typed draft field (`expiration_date`, `payment_terms`, `price`). The
+three-field comparison carrier was incomplete, so the request looked
+partial even though its accepted contract was date-only.
+
+Repairs:
+
+- Context-fulfillment gaps are processed independent of `validated`; a
+  verified search receipt proves execution, not obligation fulfillment.
+- `_stash_evidence_requirement` consumes the accepted interpretation's
+  constraints/requested fields through
+  `accepted_comparison_scope` (universal scope with explicit
+  narrowing/negation handled); degraded/unresolved interpretations fall
+  back to the message shape so a broad obligation is not silently lost.
+- `verified_comparison_reply` trusts the accepted requirement's
+  `broader_comparison`, not a second message-shape OR. A date-only S7
+  compares only `expiration_date`; S3's accepted "flag anything that
+  differs" stays broad and open.
+- Comparison carriers are bound to the request's fields
+  (`_comparison_carrier_covers_fields`); a price-only or malformed
+  carrier cannot satisfy a date request, and named partial gaps are
+  request-filtered.
+- The durable builder consumes the request-bound decision: a completed
+  search cannot certify a request-bound comparison with unmet criteria,
+  and the deterministic retrieval shortcut requires a completed recorded
+  outcome. `comparison_complete` now requires the carrier's own
+  `request_complete`/coverage verdict and the accepted fields, not merely
+  status membership.
+
+Evidence: the preserved attempt-9 scratch DB/observation log produced
+`diagnostic_s7_obligation_provenance.json` (first branch, field provenance,
+attempt-9 vs repaired narrow/broad coverage). The mutation control
+restoring `and not validated` resolves the search+gaps fixture to
+`completed` instead of `partial` and fails
+`test_complete_search_receipt_does_not_erase_comparison_gaps`
+(`logs/.../mutation_gap_suppression.log`).
+
 ## Verification records
 
 Commands from the candidate worktree's `backend/` (`TESTING=1` + scratch
@@ -525,11 +575,11 @@ the same test file copied in):
   pre-existing `TestEditPlanRungKnob` failures, identical on the parent
   (`logs/neighbors_execution_policy.log`).
 - Diagnostic/repair successor (2026-10-19, 10982e839 + this commit) →
-  **102 passed** across the interpretation, L2, transport, guard-order, scope/action-contract and
+  **151 passed** across the interpretation, L2, transport, guard-order, scope/action-contract, context-fulfillment and
   verified-field-comparison suites (`logs/l2_diagnostic_repair.log`).
   Neighbors (turn-decision, interpretation, source-ask, continuation,
   F-C2, reasoning-mandatory, task-type forwarding, structured dispatch,
-  workbook read/comparison) → **584 passed, 2 failed** — the same two
+  workbook read/comparison) → **598 passed, 2 failed** — the same two
   pre-existing `TestEditPlanRungKnob` failures
   (`logs/neighbors_diagnostic_repair.log`). The extended budget/fallback
   suite adds 2 pre-existing `test_turn_budget_rca_fixes` failures,

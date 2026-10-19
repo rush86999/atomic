@@ -4600,6 +4600,44 @@ def comparison_request_shaped(message: str) -> bool:
         str(message or ""), re.IGNORECASE))
 
 
+def accepted_comparison_scope(
+    accepted_request: Dict[str, Any], message: str = "",
+) -> bool:
+    """Whether the accepted request asks for a BROAD comparison.
+
+    The accepted interpretation's constraints/requested-fields are the
+    request contract. A broad comparison must ask for universal/other-field
+    coverage ("flag anything that differs", "all comparable fields"), not
+    merely contain comparison vocabulary ("does it still match?"). Explicit
+    narrowing/negation ("only", "just", "do not compare anything else")
+    wins over a universal word. This is a scope rule over the accepted
+    contract, not a raw-message domain phrase list.
+    """
+    if not isinstance(accepted_request, dict):
+        return False
+    candidates = []
+    for key in ("constraints", "requested_fields"):
+        values = accepted_request.get(key)
+        if isinstance(values, list):
+            candidates.extend(str(v) for v in values if str(v or "").strip())
+    _NARROWING = re.compile(
+        r"\b(?:do\s+not|don't|only|just|nothing\s+else|except)\b",
+        re.IGNORECASE)
+    _UNIVERSAL = re.compile(
+        r"\b(?:anything|everything|all|every|other|remaining|additional|"
+        r"any)\b", re.IGNORECASE)
+    if not (comparison_request_shaped(message)
+            or any(comparison_request_shaped(text)
+                   for text in candidates)):
+        return False
+    for text in candidates:
+        if _NARROWING.search(text):
+            continue
+        if _UNIVERSAL.search(text):
+            return True
+    return False
+
+
 def verified_comparison_reply(
     *,
     message: str,
@@ -4654,7 +4692,7 @@ def verified_comparison_reply(
     if not _compare_shaped:
         return None
     broader_requested = bool(
-        (requirement or {}).get("broader_comparison")) or _compare_shaped
+        (requirement or {}).get("broader_comparison"))
     body = _canvas_body_text(canvas.get("content"))
     entity = str(canvas.get("title") or canvas.get("name") or "draft")
     canvas_id = str(canvas.get("canvas_id") or canvas.get("id")

@@ -197,7 +197,8 @@ def _run_producer_boundary(
     requirement = _stash_evidence_requirement(
         session, execution_id, composed, message,
         turn_evidence_required(composed),
-        workspace_id=ws["workspace_id"], canvas_attached=bool(canvas))
+        workspace_id=ws["workspace_id"], canvas_attached=bool(canvas),
+        accepted_request=interpretation)
     return {
         "ws": ws,
         "session": session,

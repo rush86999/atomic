@@ -75,18 +75,43 @@ def _requirement(fields=("expiration_date",)):
             "artifact_attached": True}
 
 
-def test_equal_values_render_a_verified_match():
+def test_narrow_followup_does_not_expand_to_every_draft_field():
+    """S7's accepted contract is the date only. The message is
+    comparison-shaped ("does it still match?"), but that must not turn
+    the comparison into a broad request for terms/price."""
     out = verified_comparison_reply(
-        message="compare the draft with the approved record",
-        reply="The draft's Valid until date is 2026-12-31, which matches.",
+        message=(
+            "What is the current Valid until date on the draft, and does "
+            "it still match the approved record?"),
+        reply="The dates match.",
         canvas=CANVAS, source_observations=SOURCE_EQUAL,
         requirement=_requirement())
     assert out is not None
-    assert out["replaced"] is True, out
-    assert "2026-12-31 = approved_records_q2026_114.txt 2026-12-31" in (
-        out["reply"]), out["reply"]
-    assert "The draft's Valid until" not in out["reply"]
-    assert "(match)" in out["reply"]
+    coverage = out["comparison"]["coverage"]
+    assert coverage["requested_fields"] == ["expiration_date"], coverage
+    assert coverage["request_complete"] is True, coverage
+    assert len(coverage["outcomes"]) == 1, coverage
+    assert "payment terms" not in out["reply"].casefold()
+    assert out["broader_requested"] is False, out
+
+
+def test_explicitly_broad_followup_keeps_terms_price_open():
+    requirement = _requirement()
+    requirement["broader_comparison"] = True
+    out = verified_comparison_reply(
+        message=(
+            "Compare the draft with the approved record and flag anything "
+            "that differs."),
+        reply="Everything appears consistent for now.",
+        canvas=CANVAS, source_observations=SOURCE_EQUAL,
+        requirement=requirement)
+    assert out is not None
+    coverage = out["comparison"]["coverage"]
+    assert coverage["request_complete"] is False, coverage
+    assert {"payment_terms", "price"} <= {
+        str(o.get("field")) for o in coverage["outcomes"]}, coverage
+    assert "broader comparison obligation: open" in out["reply"].casefold()
+    assert "everything appears consistent" not in out["reply"].casefold()
 
 
 def test_different_values_render_a_verified_difference():
