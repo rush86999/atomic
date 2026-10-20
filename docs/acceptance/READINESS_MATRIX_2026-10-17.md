@@ -482,6 +482,77 @@ lineage. Evidence:
 `summary_attempt12.json`, `attempt12_result.json`, `attempt12_server.log`,
 DeepSeek dispatch probe, `CHECKSUMS_ATTEMPT12.sha256`).
 
+**Rev 22 (2026-10-19; corrected 2026-10-20, integrated L1+L2+L3
+candidate — composed served attempt 2 NOT PASSED; required document
+retrieval did not execute after tool-planning timeout; no promotion, no
+deployment).** Candidate `ddcc404dd` (`integration/l1-l2-l3`) merges L3
+`6d662abff` (contains L1 `aaa1169d7`) + L2 `c0cbea9f1` + main
+`e6308cb54` (merge base `bb8081b288`); the one code conflict (L3
+`_build_evidence_requirement` + L2 `accepted_request`) was resolved as a
+union (`_stash_evidence_requirement` forwards `accepted_request`); no
+product changes in attempts 1 or 2. Local: the 11-file focused run has
+only the pre-existing
+`fallback_honesty::test_satisfied_requirement_completes`; the wider
+focused run has no merge-specific failures. Attempt 1 (preserved,
+non-governing) failed on job design/harness issues only. Attempt 2 was
+predeclared (`PREDECLARED_CONFIG_ATTEMPT2.md`, sha256 `66e21151…`;
+runner `run_composed_served_attempt2.py`) and ran on a scratch
+world/port with the frozen candidate: **40/58 checks**; first failure
+`l3_documents_receipt_missing`. The verified blocker is a **control-flow
+gap, not a local merge bug and not a demonstrated provider-route
+conflict**: the accepted L3 turn compiled a `source_read` for documents
+(`mode="fresh_read"`, `sources=["documents"]`) after the interpretation
+chose `research`, but the separate 11,434-character tool-planning call
+hit `TimeoutError`; the server recorded `tool planning skipped:
+TimeoutError()` and `tool plan executed: None`. Required document
+retrieval was not executed after tool-planning timeout; the integrated
+workflow remains unverified. The answer content was correct
+(`QUARTZ-77`, no decoy `BASALT-13`) because `context_assembly` had
+retrieved one source, but there was no `documents.search` receipt and no
+settled status (`objective_met=null`). Provider/configuration
+differences are retained as observations, not as proof that one
+configuration is impossible: the L3 parent's proven interpretation route
+(default `qwen3.8-flash` via the pilot cloud route, Ollama reply)
+executed `documents.search`; the L2-verified DeepSeek pin resolved S7 in
+attempt 12. In attempt 2's two-document world S3 captured only the date
+(`broader_comparison=false`, `fields=["expiration_date"]`) with
+`context_fulfillment=partial`, and S7's interpretation hit the 65 s
+stage timeout (`reason=timeout`, turn 94.77 s vs the 95 s bound) leaving
+`outcome=unconfirmed`; these are separate findings. `ChatRequest`
+exposes no per-turn model/provider/interpretation selection
+(`core/atom_agent_endpoints.py`) and `ATOM_TURN_INTERPRET_PIN` is global
+(`core/turn_decision.py`); that is a configuration observation, not
+evidence that one configuration cannot serve the workflow, and no
+routing subsystem is justified before the control-flow gap is fixed.
+Harness notes: `edit_settled_completed` false was an extraction gap,
+corrected additively from the preserved durable row
+(`objective_met=true`/`mutation.readback_matched=true`, served receipt
+`outcome=completed`; regression
+`backend/tests/test_attempt2_edit_extraction.py`);
+`live_db_unchanged` false is not attributable to the scratch server:
+only the pilot holds `backend/data/atom.db`/WAL open read/write, the
+scratch server's declared database is
+`.../l1-l2-l3-composed-attempt2/atom.db`, and a read-only copy of the
+live DB+WAL has no application rows timestamped 21:50–21:59 (the live
+file mtime is not a row write; row-level attribution remains
+incomplete; live-data deployment stays held). Also green in attempt 2:
+L3 answer content (`QUARTZ-77`, no `BASALT-13`), draft creation, terms
+edit receipt/body/audit/field preservation, the identical re-ask
+structured no-op (`noop=true`/`already_satisfied`, `outcome=completed`,
+zero added writes, body unchanged), S3 date truthfulness/no false
+date/no global claim/zero writes, restart identity/zero-write, and
+durable edit/re-ask rows after restart. **No promotion; the integrated
+candidate was not deployed; the pilot (`8c593e57031e`) remains the
+served build.** Next: fix the control-flow gap (bound the optional
+planning call internally; deterministic required-read enforcement; a
+caller-side fallback for whole-plan cancellation), add focused
+stalled-planning tests including a mutation control, then freeze and
+verify **one** successor under **one** declared configuration. Keep the
+L2 parser/continuation work closed and the whole-document comparison
+visibly open. Evidence:
+`journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 1/2
+evidence, `ATTEMPT2_LIMITATION.md`, `CHECKSUMS_ATTEMPT2.sha256`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -571,6 +642,7 @@ against the `/tmp` originals; credential scans clean before archiving).
 | 41 | **R4 (focused slice)** — interrupted-read recovery: re-render the saved result without re-reading | verified (scoped; `diagnostic_only=true`, `counted=false`) | public API + restart (observed SIGKILL) + configuration-parity | **`c1beb7c0b` / pin `2070147ee` — NOT the approved `c6dd2d0e5`** (provenance: `a45da2b78` + `2070147ee` + 7-attempt history) | `journey_matrix/r4_read_recovery_r21/evidence_r4_read_recovery_20261017_081610_2d2ca7.json` (sha256 `8f62e12d…`; 7-file campaign set archived in-repo 2026-10-17, `checksums.sha256`; `/tmp` originals retained) + preserved scratch world | not counted; counter is post-attempt instrumentation; worker-loop coverage limit; not fresh-install | integration decision separately authorized (Phase G) |
 | 42 | **R4 (correctness follow-up)** — recovered render reports coverage/outcome truthfully | **failing** | public API + restart | same as 41 | attempt-7 JSON + persisted rows ("Coverage: 0/3 items matched"; `outcome=partial` on 3/3 delivered) | user-facing contradiction: durable coverage keys don't align with item labels | **one bounded repair + regression at the reconstruction boundary (implementation); tracked separately; R4 milestone not reopened** |
 | 43 | **SPINE — composed user job** — draft-vs-approved-records revision, deliberate interruption, continuation, reload | **verified (supported workflow) — 3 named exclusions; DEPLOYED (rev 9)** | browser + public API + SIGKILL crash/restart + deployed smoke | run 4 `9c9e5c76e` (runtime `dad8f9fce` lineage); deployed `8c593e57031e`; runs 1–3 preserved | `journey_matrix/composed_job_20261017/` (4 run JSONs, harness, screenshots, CHECKSUMS); `journey_matrix/deployment_smoke_20261017_223948/`; protocol `63de9aa8e` | supported workflow PASSED (36/39); deployed smoke 6/6; **exclusions (not certified):** idempotent re-ask settlement, continuation settlement, their `no-failed-requests` aggregate | value evaluation (predeclared `18b0dc2a2`, running) → support statement; then two SEPARATE frozen slices (owner briefs): **re-ask** = trace why the recorded S6 request fails to produce/propagate the existing `canvas_decline_requirement_check`/`already_satisfied` receipt (anchors `chat_orchestrator.py:15112/15115/15133`, no new success override; checks bind subject/field/value/artifact/current revision; controls: applied→zero writes, reverted→not satisfied, wrong artifact→not satisfied, unrelated value→not satisfied, fresh reload consistent); **continuation** = fix interpretation, not vocabulary (capture S7's accepted interpretation/requirement/observations/outcome first; preserve structured meaning; no noun regex) |
+| 44 | **SPINE — integrated L1+L2+L3 composed served workflow** (L3 sourced answer → L1 edit/no-op → L2 comparison/continuation → restart in one world) | **blocked — required document read not executed after tool-planning timeout; NOT DEPLOYED (rev 22 corrected)** | predeclared served attempt on scratch world + restart | `ddcc404dd` (L3 `6d662abff` + L1 `aaa1169d7` + L2 `c0cbea9f1` + main `e6308cb54`) | `journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 2 result/summary/logs; `ATTEMPT2_LIMITATION.md`; `CHECKSUMS_ATTEMPT2.sha256`) | attempt 2 40/58; first failure `l3_documents_receipt_missing`; accepted `source_read` documents/fresh_read did not execute after planner `TimeoutError` (`tool planning skipped` → `tool plan executed: None`); correct `QUARTZ-77` via `context_assembly` but no `documents.search`/settlement; S3 broader capture and S7 65 s interpretation timeout are separate observations; edit/zero-write/no-op and restart identity green; edit extraction corrected additively from preserved row; `live_db_unchanged` mtime is pilot-held store activity, no scratch row write found, row-level attribution incomplete | fix control flow: bound optional planning internally, deterministic required-read enforcement, caller fallback for whole-plan cancellation; focused stalled-planning tests + mutation control; freeze/verify one successor under one declared configuration; keep L2 parser closed; whole-document comparison visibly open |
 
 ---
 
