@@ -765,7 +765,10 @@ def main() -> int:
         if "live_db_guard_after" not in result:
             after = live_db_fingerprint(LIVE_DB)
             before = cfg["live_db_guard"]["before"]
-            scratch_pid = proc.pid if proc.poll() is None else None
+            active = procs[-1] if procs else None
+            scratch_pid = (active.pid
+                           if active is not None
+                           and active.poll() is None else None)
             scratch_holders = (
                 live_db_holders(LIVE_DB, pid=scratch_pid)
                 if scratch_pid else {"holders": [], "pid_tree": []})
@@ -1002,8 +1005,9 @@ def main() -> int:
         me = httpx.get(f"{BASE}/api/auth/me", headers=auth, timeout=30,
                        trust_env=False).json()
         uid = me.get("id")
+        workspace_id = str(me.get("workspace_id") or "")
         result["steps"]["user"] = {"id": uid,
-                                   "workspace_id": me.get("workspace_id")}
+                                   "workspace_id": workspace_id}
         if not uid:
             result["classification"] = "user_resolution_failed"
             result["pass"] = False
@@ -1304,6 +1308,9 @@ def main() -> int:
         log_text = (server_log_path.read_text(errors="replace")
                     + "\n"
                     + server_log2_path.read_text(errors="replace"))
+        # Capture the live-store fingerprint/holders while the restart
+        # process is still alive, before the log-derived isolation flag.
+        capture_after_guards()
         dispatch_models = sorted(set(re.findall(
             r"\[structured-dispatch\] ([^\s]+)", log_text)))
         deepseek_posts = log_text.count(
@@ -1358,6 +1365,9 @@ def main() -> int:
             l3_eid and l3_rec
             and str(((l3_rec.get("task_outcome") or {}).get(
                 "execution_id")) or "") == l3_eid)
+        l3_workspace_ok = bool(
+            workspace_id
+            and str(l3_task.get("workspace_id") or "") == workspace_id)
         l3_interp = ((l3.get("observation") or {}).get(
             "interpretation") or {}).get("interpretation") or {}
         l3_origin = str(l3_interp.get("origin") or "")
@@ -1664,6 +1674,7 @@ def main() -> int:
                 any(t.get("verified") is True for t in l3_docs)),
             "l3_receipt_verified_complete": bool(l3_complete_refs),
             "l3_receipt_bound_to_execution": l3_exact,
+            "l3_receipt_bound_to_workspace": l3_workspace_ok,
             "l3_objective_met": l3_task.get("objective_met") is True,
             "l3_settlement_completed": l3_settled,
             "l3_no_canvas_created": (
@@ -1868,6 +1879,7 @@ def main() -> int:
             ("l3_receipt_verified_complete",
              "l3_receipt_incomplete"),
             ("l3_receipt_bound_to_execution", "l3_receipt_unbound"),
+            ("l3_receipt_bound_to_workspace", "l3_receipt_wrong_workspace"),
             ("l3_objective_met", "l3_objective_not_met"),
             ("l3_settlement_completed", "l3_settlement_invalid"),
             ("l3_no_canvas_created", "l3_created_canvas"),

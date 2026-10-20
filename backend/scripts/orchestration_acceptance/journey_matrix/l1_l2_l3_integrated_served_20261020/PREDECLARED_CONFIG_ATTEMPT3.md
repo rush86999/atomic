@@ -115,15 +115,15 @@ composed workflow stays unverified and deployment stays held.
 
 ## Pass/fail
 
-58 gates total: the attempt-2 gates with the unattributable mtime-only
+59 gates total: the attempt-2 gates with the unattributable mtime-only
 `live_db_unchanged` gate replaced by `live_db_isolated` (scratch process
 tree holds no live DB/WAL/SHM handle; configured paths are under
-SCRATCH). The content fingerprint before/after is recorded as an
-observation. The run passes only if every gate is true. `first_failure`
-is the first false gate in the declared order. A pass must include the L3
-receipt chain and the successor's required-read path; an answer that
-merely contains `QUARTZ-77` without a `documents.search` receipt is a
-failure.
+SCRATCH), plus `l3_receipt_bound_to_workspace`. The content fingerprint
+before/after is recorded as an observation. The run passes only if every
+gate is true. `first_failure` is the first false gate in the declared
+order. A pass must include the L3 receipt chain and the successor's
+required-read path; an answer that merely contains `QUARTZ-77` without a
+`documents.search` receipt is a failure.
 
 ## Stop conditions
 
