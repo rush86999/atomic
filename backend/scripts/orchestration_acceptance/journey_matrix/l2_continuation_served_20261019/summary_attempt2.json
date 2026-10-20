@@ -1,0 +1,169 @@
+{
+  "attempt": "2",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "51628b925deb64c4e8226be8546ef475b74b8e87",
+    "parent": "ddab120c43333efdc219098cba35fdecd9a0988f",
+    "source_sha256_chat_orchestrator": "4e860e7950cf13149772c95c391428a44db46931034c16d75af53dccb30e2287",
+    "source_sha256_turn_decision": "05751e005140be93fa35b18029d0ed366b78fe38c1719315ed582f63f91747b3",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "checks": {
+    "draft_created_through_product": true,
+    "fixture_uploaded_through_product": true,
+    "live_db_unchanged": false,
+    "pilot_untouched": true,
+    "prior_evidence_observed": true,
+    "real_interpretation_dispatched": false,
+    "response_persisted_fresh_history_agreement": true,
+    "runtime_identity": true,
+    "s3_draft_unchanged": true,
+    "s3_reply_received": true,
+    "s3_requirement_captured": true,
+    "s3_settlement_basis": true,
+    "s3_truthful_comparison": false,
+    "s3_zero_canvas_writes": true,
+    "s7_draft_unchanged": true,
+    "s7_reply_received": true,
+    "s7_requirement_captured": false,
+    "s7_resolved_source_identity": false,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "s7_settlement_basis": false,
+    "s7_truthful_comparison": false,
+    "s7_zero_new_writes": true
+  },
+  "classification": "interpretation_not_real_or_not_dispatched",
+  "configuration": {
+    "cloud_route": "https://opencode.ai/zen/go/v1",
+    "embeddings": {
+      "dim": 384,
+      "model": "BAAI/bge-small-en-v1.5",
+      "provider": "fastembed"
+    },
+    "flags": {
+      "declared": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "ATOM_TURN_DECISION_ROUTING": "1",
+        "ATOM_TURN_INTERPRETATION": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      }
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-continuation-served-attempt2/atom.db",
+      "live_env_copied_wholesale": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-continuation-served-attempt2",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "LANCEDB_URI_BASE",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE",
+        "BYOK_ENC_KEY_FILE"
+      ]
+    },
+    "observation_harness": {
+      "candidate_source_edited": false,
+      "hooks": [
+        "interpret_turn_request",
+        "apply_interpretation_references",
+        "_stash_evidence_requirement",
+        "_context_backed_fulfillment",
+        "_fallback_turn_outcome"
+      ],
+      "launcher": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/server_observe.py",
+      "log": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/attempt2_observation.jsonl"
+    },
+    "port": 8096,
+    "provider": "opencode-go (only)"
+  },
+  "files": [
+    "CHECKSUMS.sha256",
+    "PREDECLARED_CONFIG.md",
+    "PREDECLARED_CONFIG_ATTEMPT2.md",
+    "README.md",
+    "README_ATTEMPT2.md",
+    "attempt1_config.json",
+    "attempt1_interpreter_freeze.txt",
+    "attempt1_observation.jsonl",
+    "attempt1_result.json",
+    "attempt1_server.log",
+    "attempt2_config.json",
+    "attempt2_interpreter_freeze.txt",
+    "attempt2_observation.jsonl",
+    "attempt2_result.json",
+    "attempt2_server.log",
+    "run_l2_served.py",
+    "run_l2_served_attempt2.py",
+    "server_observe.py",
+    "summary.json"
+  ],
+  "finding": "Both S3 and S7 interpretation calls timed out at the 12-second bound; the producer-corrected interpretation output was never produced, so the S7 requirement was not captured (required=false) and the fallback reply lane answered from an unverified basis (S3 wrong approved date; S7 unconfirmed). The producer correction is neither verified nor refuted by this attempt.",
+  "first_failure": "interpretation_not_real_or_not_dispatched",
+  "guard_disclosure": "live_db_unchanged=false: the live dev DB changed during the window (external pilot activity expected); the attempt process used only scratch stores and the server log contains no live dev DB path. The attempt is not a clean isolated run.",
+  "job": {
+    "draft_body": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "draft_title": "Quotation Q-2026-114 (DRAFT)",
+    "fixture": "approved_records_q2026_114.txt",
+    "s3_ask": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+    "s3_first": true,
+    "s7_ask": "What is the current Valid until date on the draft, and does it still match the approved record?",
+    "s7_original_continuation": true,
+    "upload_route": "POST /api/documents/upload"
+  },
+  "observed": {
+    "go_inference_chat_posts": 0,
+    "interpretation_log_lines": [
+      "INFO:core.turn_decision:[turn-interpretation] timeout ",
+      "INFO:core.turn_decision:[turn-interpretation] timeout "
+    ],
+    "live_db_unchanged": false,
+    "pilot_untouched": true,
+    "s3": {
+      "audit_counts": [
+        2,
+        2
+      ],
+      "draft_unchanged": true,
+      "message": "Let me compare the draft quotation with the Approved Records document.\n\nDraft Quotation:\nValid until: 2026-12-31\n\nApproved Records Document:\nQuotation Q-2026-114 Source: Sales Operations... Approved valid until: 2026-12-30\n\nThe Valid Until date in the draft quotation (2026-12-31) differs from the approved record (2026-12-30).",
+      "outcome": "partial",
+      "requirement_required": true,
+      "requirement_sources": [
+        "document"
+      ],
+      "success": true
+    },
+    "s7": {
+      "audit_counts": [
+        2,
+        2
+      ],
+      "draft_unchanged": true,
+      "message": "The current \"Valid Until\" date on the draft quotation is 2026-12-31. According to the Approved Records document (Quotation Q-2026-114), this date aligns with the approved record's Valid Until date.\n\nNo discrepancies have been found regarding the \"Valid Until\" dates.",
+      "outcome": "unconfirmed",
+      "requirement_identity": {
+        "candidates": [],
+        "state": "kind_only"
+      },
+      "requirement_required": false,
+      "requirement_sources": [],
+      "success": false
+    },
+    "structured_dispatch_models": [
+      "opencode-go/glm-5.3-flash",
+      "opencode-go/qwen3.8-flash"
+    ],
+    "zen_chat_posts": 8
+  },
+  "pass": false,
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG_ATTEMPT2.md",
+    "sha256": "d45de05e89acf3d98e9b96324a385ff4d043549dec72819ec3e03f7209e6324c"
+  },
+  "scope": "No promotion. L2 remains open; L1/L3 and the pilot are untouched. A further run, a different timeout, or a model change is an owner decision.",
+  "status": "NOT_PASSED"
+}

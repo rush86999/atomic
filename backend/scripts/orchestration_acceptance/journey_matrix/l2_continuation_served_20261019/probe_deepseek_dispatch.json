@@ -1,0 +1,123 @@
+{
+  "ask": "What is the current Valid until date on the draft, and does it still match the approved record?",
+  "candidate": "c0cbea9f191a9c41d67db7cddf3446f17318884d",
+  "cascade_exhausted": 1,
+  "chat_http": 200,
+  "chat_latency_s": 62.21,
+  "deepseek_http_lines": [
+    "INFO:httpx:HTTP Request: GET https://api.deepseek.com/v1/models \"HTTP/1.1 200 OK\"",
+    "INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions \"HTTP/1.1 400 Bad Request\"",
+    "INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions \"HTTP/1.1 400 Bad Request\""
+  ],
+  "dispatch_lines": [
+    "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l2-probe-c7e47da3318d4029843b831df7028969 attempt=1 prompt_chars=2607 cap=5500 instructor_retries=2",
+    "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l2-probe-c7e47da3318d4029843b831df7028969 attempt=2 prompt_chars=2607 cap=5500 instructor_retries=2"
+  ],
+  "dispatch_models": [
+    "deepseek/deepseek-v4-pro"
+  ],
+  "health": true,
+  "identity": {
+    "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-deepseek-dispatch-probe/byok_keys.json",
+    "captured_at": "2026-10-19T22:19:58.699983+00:00",
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend",
+    "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-deepseek-dispatch-probe/atom.db",
+    "dirty": false,
+    "dirty_digest": "e3b0c44298fc",
+    "dirty_paths": [],
+    "error": null,
+    "git_commit": "c0cbea9f191a",
+    "instance_id": "c0cbea9f191a.70395.1792448398",
+    "pid": 70395,
+    "port": null,
+    "revision": "c0cbea9f191a9c41d67db7cddf3446f17318884d",
+    "source_id": "c0cbea9f191a",
+    "started_at": "2026-10-19T22:19:55.709754+00:00",
+    "untracked_paths": []
+  },
+  "interpretation_event": {
+    "action_count": 1,
+    "action_kinds": [
+      "research"
+    ],
+    "confidence": 0.8,
+    "constraints": [],
+    "origin": "llm:deepseek-v4-pro",
+    "requested_fields": [
+      "Valid until date",
+      "match"
+    ],
+    "scope_change": "continue",
+    "sources": [
+      "approved record"
+    ],
+    "unresolved_reason": ""
+  },
+  "kind": "deepseek-dispatch-probe",
+  "note": "not an acceptance attempt; no promotion claim",
+  "pid": 70395,
+  "pin": "deepseek:deepseek-chat",
+  "pinned_lines": [],
+  "port": 8107,
+  "provider_activation": {
+    "base_url": "https://api.deepseek.com/v1",
+    "credential_value_read_back": false,
+    "credential_value_recorded": false,
+    "store_http": 200
+  },
+  "provider_state": {
+    "has_api_keys": true,
+    "has_tenant_key": true,
+    "provider": {
+      "api_key_env_var": "DEEPSEEK_API_KEY",
+      "base_url": "https://api.deepseek.com/v1",
+      "cost_per_token": 3.5000000000000004e-07,
+      "description": "Commoditized Intelligence (Reasoning Engine)",
+      "id": "deepseek",
+      "is_active": true,
+      "max_requests_per_minute": 60,
+      "model": "deepseek-chat",
+      "name": "DeepSeek V3",
+      "rate_limit_window": 60,
+      "reasoning_level": 4,
+      "requires_encryption": true,
+      "supported_tasks": [
+        "general",
+        "chat",
+        "code",
+        "analysis",
+        "reasoning",
+        "vision"
+      ]
+    },
+    "status": "active",
+    "usage": {
+      "cost_accumulated": 0.0,
+      "failed_requests": 0,
+      "last_used": null,
+      "provider_id": "deepseek",
+      "rate_limit_remaining": 0,
+      "rate_limit_reset": null,
+      "successful_requests": 0,
+      "total_requests": 0,
+      "total_tokens_used": 0
+    }
+  },
+  "recent_errors": [
+    "ERROR:instructor.v2.retry:API call failed on attempt 1: Error code: 400 - {'error': {'message': 'Thinking mode does not support this tool_choice (request_id: 057219eb-efd3-47c2-b060-aeee1f04fe1a)', 'type': 'invalid_reque",
+    "ERROR:instructor.v2.retry:Max retries exceeded. Total attempts: 1, Last error: Error code: 400 - {'error': {'message': 'Thinking mode does not support this tool_choice (request_id: 057219eb-efd3-47c2-b060-aeee1f04fe1a)',",
+    "ERROR:core.llm.byok_handler:All providers failed. Last error: Error code: 400 - {'error': {'message': 'The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v3.2-speciale. (request_id"
+  ],
+  "request_id": "l2-probe-c7e47da3318d4029843b831df7028969",
+  "server_exit": -15,
+  "settlement": {
+    "final_error_code": "outcome_unconfirmed",
+    "final_message": "Here is what the search this turn actually executed and returned \u2014 I can only report this, not a narration of it:\nLIVE TOOL RESULTS (memory.search, query='draft approved record Valid until'): nothing in the ingested workspace matched.\n\nGROUNDING RULE: specific facts (names, figures, prices, dates, quotations) must come from the evidence above. If the exact value the user asks about is not visible in this evidence, say what was found and that the source itself must be opened for the exact value \u2014 do not fill the gap from memory and do not present recalled values as if read from the source. BEFORE concluding anything is missing: mailbox/document lines are EXCERPTS and long quoted threads run to tens of thousands of chars. Every [ingested mailbox] line carries 'full: knowledge/conversations/<id>' \u2014 the COMPLETE line-numbered message. Open it with documents.cat(path + '/content.lines') (skim with documents.head / documents.tail); to search EVERY stored message use documents.grep with path_prefix 'knowledge/conversations'. Only after that may you say a value is not in the mailbox. An absence claim may only be as wide as the search performed: an 'emails we sent' question includes interna",
+    "final_outcome": "unconfirmed",
+    "final_success": false,
+    "polls": 84
+  }
+}

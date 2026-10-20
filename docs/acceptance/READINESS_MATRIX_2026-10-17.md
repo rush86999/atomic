@@ -233,6 +233,255 @@ served mechanism on `6d662abff` + the declared configuration — NOT pilot
 deployment; the pilot (`8c593e57031e`) still carries the L3 limitation
 until integration + re-verification there; row 43's exclusions unchanged.
 
+**Rev 13 (2026-10-19, L2 continuation served attempt 1 — NOT PASSED, no
+promotion).** The continuation-reference repair was served on candidate
+**`a6cd2c8ba`** (parent `ddab120c4`, the L3 promotion commit) in the
+predeclared isolated configuration (pilot cloud route `zen/go/v1`, one
+authorized operator credential through the scratch product API, fastembed
+local embeddings, pilot-matching finalization/lifecycle flags, scratch
+stores; pilot `:8001` untouched). Fresh user; the approved-records fixture
+uploaded through `POST /api/documents/upload`; the draft created through
+the product in the original S7 state; then the ORIGINAL S3 comparison ask
+and the ORIGINAL S7 continuation, in one conversation. **S3 passed**
+(validated partial with `context_fulfillment.state=partial`,
+`supplied_fields=["expiration_date"]`, matched
+`approved_records_q2026_114.txt`, `missing_comparison=true`; zero writes;
+truthful comparison). **S7 did NOT pass**: the requirement was captured
+and execution-bound (`required=true`, `sources=["document"]`), and the
+prior S3 source was in the observed pool, but the real interpreter
+(`llm:glm-5.3-flash`) proposed annotated descriptions
+("approved_records_q2026_114.txt (the user's uploaded Approved Records
+document)", "draft quotation (source not yet named by the user)") rather
+than clean identities. The composer preserved `unresolved` (its
+owner-approved no-substring-donation contract), so the F-C2 verdict is
+`unresolved` and the settlement is `partial` with the honest
+no-ingested-document-matches basis — not the resolved-source
+certification target. The reply was correct, zero-write, draft unchanged,
+and response/persisted-row/fresh-history agreement held; those do not
+substitute for the missing identity. 19/22 predeclared gates passed; the
+first failure is `s7_requirement_captured`. **No promotion**; L2 remains
+open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (declaration, config,
+result, observation log, server log, README, summary, CHECKSUMS). Next
+bounded question: clean interpreter source-identity proposals (exact
+filename or canonical kind), not tokenizer expansion or composer substring
+relaxation.
+
+**Rev 14 (2026-10-19, L2 continuation served attempt 2 — NOT PASSED, no
+promotion).** The producer-corrected candidate **`51628b925`** (parent
+`a6cd2c8ba`; `sources` keeps `List[str]` with an explicit identity
+contract in schema + prompt, structured `SOURCE REFERENCES` separating
+observed evidence/requested sources/attached artifact, supported kinds
+from `SOURCE_KINDS`; the composer/consumer is untouched; local L2 battery
+41 passed, neighbors 277 passed + the 2 pre-existing
+`TestEditPlanRungKnob` failures) was served in the same predeclared
+configuration on a fresh port/world (8096, scratch stores). **Both**
+interpretation calls (S3 and S7) timed out at the product's 12-second
+bound (structured dispatch attempted on `opencode-go/glm-5.3-flash` and
+`opencode-go/qwen3.8-flash`; 8 Zen posts, 0 Go-inference posts), so the
+producer correction was never exercised. The S7 requirement therefore
+stayed uncaptured (`required=false`, `sources=[]`), the fallback reply
+lane returned a wrong approved date in S3 (`2026-12-30`; the fixture says
+`2026-12-31`) and settled S7 `unconfirmed`; zero writes and draft
+unchanged held, and the pilot identity was unchanged. The live-DB guard
+also flagged a change during the window (external pilot activity
+expected; the attempt used only scratch stores and the server log
+contains no live dev DB path), so this was not a clean isolated run.
+15/22 predeclared gates passed; the first failure is
+`real_interpretation_dispatched`. **No promotion**; L2 remains open and
+the producer correction is unverified by served evidence. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempt 1 record +
+`README_ATTEMPT2.md`, `attempt2_*`, `summary_attempt2.json`,
+`CHECKSUMS_ATTEMPT2.sha256`). A further served run, an
+interpretation-timeout change, or a model change is an owner decision.
+
+**Rev 15 (2026-10-19, L2 served attempt 3 on the execution-policy
+successor — NOT PASSED, no promotion).** Candidate **`10982e839`**
+(parent `2604dea2d`; producer correction + `disable_reasoning=True`,
+derived 5,500-token budget, `turn_interpretation:<request_id>` trace,
+`allow_moa=False`; 12 s deadline preserved; composer untouched; local
+L2+transport 52 passed, neighbors 339 passed + 2 pre-existing) was served
+in the same predeclared configuration on a fresh port/world (8097). Stage
+record: `dispatch_attempted=true` for both turns — `opencode-go/glm-5.3-flash`
+(S3) and `qwen3.8-flash` (S7), both with `cap=5500` and the
+`turn_interpretation:…` route trace; `completed_within_deadline=false`
+for both (`[structured-cancelled]` at 11.9 s / 12.0 s, no
+`[structured-trace]` for the interpretation routes); `producer_output_valid=false`
+and `source_identity_resolved=false` (not reached). The S7 requirement
+stayed uncaptured (`required=false`), the settlement `unconfirmed`, and
+the S3 narration error recurred (excerpt `2026-12-31`; reply claimed
+`2023-01-01`). Zero writes/draft unchanged and both agreements held;
+`live_db_unchanged=true`; pilot untouched. **No promotion**; L2 remains
+open; the producer correction and the execution-policy change are both
+unverified by served evidence. A further run needs an owner decision on
+the completion budget/model/route (or the declared deadline). Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempts 1–3,
+corrected assessment, `CHECKSUMS_ATTEMPT3`).
+
+**Rev 16 (2026-10-19, L2 diagnostic-selected successor served attempt 4 —
+NOT PASSED, no promotion).** Candidate **`491afa936`** (parent
+`ef4b8ccf6`; measured `opencode-go/qwen3.8-flash` interpretation pin via
+the existing pinned-planning wrapper with unpinned fallback, bounded
+**65 s** interpretation deadline, 5,500-token ceiling, reasoning-off, MoA
+opt-out, verified-field narration guard; focused 73 passed, neighbors 556
+passed + 2 pre-existing `TestEditPlanRungKnob`) was served on a fresh
+port/world (8099). Stage record: `dispatch_attempted=true`,
+`completed_within_deadline=true` (S3 25.8 s, S7 35.2 s),
+`producer_output_valid=true`, `source_identity_resolved=true` (S7
+requirement resolved to `approved_records_q2026_114.txt`, catalog
+`doc_3abaf0d03badbc965b0f2770`; composition resolved).
+**S7 passed the certification target**: `success=true`,
+`outcome=completed`, `context_fulfillment.state=completed`,
+`supplied_fields=["expiration_date"]`, matched source, truthful
+`2026-12-31` reply, zero writes, draft unchanged, fresh-history
+agreement. **S3 failed on the reply-leg turn clock**: interpretation was
+valid at 25.8 s, the reply leg started at 27.6 s and ran 36.4 s, the
+turn's 68 s reply-leg cap enforced an honest budget error, and the POST
+returned at **95.07 s** (S7 73.21 s); no S3 reply/requirement/observation
+carrier existed, so the verified-narration guard was not exercised and
+prior evidence was absent. `live_db_unchanged` was false again, but the
+attempt's user/session/execution identities are present only in scratch
+(live 0/0/0) — unrelated pilot activity; the guard boolean is retained.
+**No promotion**; L2 remains open. The interpretation bottleneck is
+fixed; the next repair is the S3 reply/planning leg's share of the turn
+budget (or a faster reply route). Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempts 1–4,
+diagnostic results, corrected assessment, `CHECKSUMS_ATTEMPT4`).
+
+**Rev 17 (2026-10-19, L2 typed-field continuation/guard-order — SERVED
+VERIFICATION on `d0b707333`).** The guard-order successor (verified
+comparison built before the grounding/absence/search-narration corrective
+chain; complete typed-field coverage returns the deterministic comparison
+with no corrective model call; provider-failure/edit-shaped turns
+excluded; current-execution + resolved-file filtering; no search claim;
+65 s interpretation bound on the measured route; focused 78 passed,
+neighbors 561 passed + 2 pre-existing `TestEditPlanRungKnob`) was served
+on the same S3→S7 job/configuration (port 8100, scratch stores). All
+predeclared attempt-5 gates pass after correcting a latency-report bug
+(the preserved POST latencies are **S3 54.08 s / S7 59.72 s**, within the
+95 s budget): S3's log records `[verified-comparison] deterministic
+replacement BEFORE corrective guards`, no corrective model call, the
+verified `2026-12-31` reply with no wrong approved date, zero writes,
+draft unchanged, requirement captured and agreement true; S7 resolved the
+requirement to `approved_records_q2026_114.txt`
+(`doc_3abaf0d03badbc965b0f2770`), `context_fulfillment.completed`,
+`success=true`, `outcome=completed`, truthful content, zero writes,
+draft unchanged, fresh-history agreement; `live_db_unchanged=true`,
+`pilot_untouched=true`. **Promoted claim:** the typed-field
+continuation/guard-order repair on `d0b707333` + configuration — not
+general interpretation reliability, pilot deployment, or restart
+durability. **Disclosed residual (not promoted):** the S3 prose also says
+"Everything appears consistent for now" while the draft Terms (Net 45)
+differ from the approved Net 30; the deterministic scope line says other
+differences were not assessed, but the broader whole-document
+"flag anything that differs" comparison remains open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempts 1–5,
+diagnostic results, corrected assessment, `CHECKSUMS_ATTEMPT5`).
+
+**Rev 18 (2026-10-19, L2 S3 deterministic/request-coverage PASSED;
+S7 producer malformed — chain open, no full-chain promotion).** Candidate
+**`65b63494e`** (deterministic verified reply alone; reviewed
+`payment_terms` mapping and source-excerpt parsing; broader requests
+include every typed field the artifact exposes, draft-only fields as
+named gaps, `coverage.request_complete=false` keeps the overall result
+partial/open; interpretation unchanged; focused 81 passed, neighbors 564
+passed + 2 pre-existing `TestEditPlanRungKnob`) was served on the same
+S3→S7 job/configuration (port 8102). **S3 passed:** 52.5 s, renderer
+output alone, verified `2026-12-31` match, terms mismatch recorded (Net 45
+vs Net 30), no global consistency claim, no corrective model call, zero
+writes, draft unchanged, agreement true. **S7 did not:** the
+interpretation dispatched and completed in 32.9 s but returned
+`origin=unresolved`, `reason=malformed_output`, actions/sources empty, so
+the requirement stayed `required=false` and source identity/settlement
+were not established; the deterministic S7 text was not certified. This is
+a producer-output-validity failure, not a timeout or guard-order failure.
+No new full-chain promotion; L2 remains open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempt 7,
+`CHECKSUMS_ATTEMPT7`).
+
+**Rev 19 (2026-10-19, L2 scope contract PASSED; S7 producer empty
+actions — chain open).** Candidate **`23f3455f7`** (required five-value
+`scope_change` Literal; distinct `missing_scope`/`invalid_scope`/
+`scope_unresolved`/`no_actions_proposed`; scratch capture; prompt
+distinguishes established-conversation follow-up/continue from
+unfinished-work resume and ambiguous/unresolved; S3 deterministic/
+coverage repair unchanged; focused 87 passed, neighbors 570 passed + 2
+pre-existing) was served on the same S3→S7 job/configuration (port 8103).
+**S3 passed** (renderer alone, verified date, terms/coverage, no global
+claim, zero writes). **S7 did not:** the interpretation was schema-valid
+in scope but proposed **no actions** (`no_actions_proposed`, 30.5 s), so
+the requirement was not captured and source identity/settlement were not
+established. This is the producer action-contract gap, not the old silent
+scope default or a timeout. No new full-chain promotion; L2 remains open.
+Evidence: `journey_matrix/l2_continuation_served_20261019/` (attempt 8,
+`CHECKSUMS_ATTEMPT8`).
+
+**Rev 20 (2026-10-19, L2 S7 action contract PASSED; chain reaches
+settlement classification mismatch — open).** Candidate
+**`a3875d6bb`** (required actions + required six-kind action `kind`; at
+least one action for a resolved scope; explicit unresolved allowed
+without synthesis; reasons/telemetry independent of capture; content-free
+archived capture; schema/decode failures cannot bench a provider; focused
+102 passed, neighbors 584 passed + 2 pre-existing) was served on the same
+S3→S7 job/configuration (port 8104). The bounded S7 producer diagnostic
+first returned `continue`, 2 actions (`research`, `presentation`),
+resolved identity, and pre/post capture in 28.2 s (1 HTTP post, 65 s
+bound). **S3** passed the typed verified-narration gate (deterministic
+renderer alone, `2026-12-31` match, terms/price unverified, broader open,
+zero writes). **S7** passed the action contract, requirement capture
+(resolved `approved_records_q2026_114.txt`), truthful reply, zero writes,
+and fresh-history agreement — but **failed `s7_settlement_basis`**:
+`outcome=completed` while `context_fulfillment=partial` (expiration met;
+payment terms + price unmet; ledger covered=1/missing=2; broader
+comparison open). This is a settlement/outcome classification mismatch,
+not a producer or narration failure. No new full-chain promotion; L2
+remains open. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (attempt 9,
+`README_ATTEMPT9.md`, `summary_attempt9.json`).
+
+**Rev 21 (2026-10-19, L2 request-bound comparison-scope + settlement —
+SERVED VERIFICATION on `c0cbea9f1`; chain closed, promoted).** Lineage:
+`495099362` (delivery validation vs request-bound obligations) →
+`b70f9fa65` (request-bound completeness; attempt 10 passed S3 with the
+broader obligation open but failed `s7_date_only_not_completed` — the
+accepted S7 interpretation inherited the prior turn's generic constraint
+"Flag anything that differs" and the adapter expanded the date contract
+to payment terms/price) → **`c0cbea9f1`** (field-scope repair: a
+comparison is broad only when the accepted requested-fields contract
+names OTHER fields; a generic difference constraint about the requested
+date stays narrow; explicit narrowing still wins; degraded/unresolved
+interpretations fall back to message-shaped scope; served-contract
+controls cover attempt-10 S3 as broad and attempt-10 S7 as narrow; focused
+152 passed, neighbors 599 + 2 pre-existing `TestEditPlanRungKnob`;
+mutation controls for the gap-suppression and builder-search guards
+fail when restored; independent review PASS, no HIGH findings). Attempt
+11 on the same candidate was environment-blocked (opencode-go monthly
+quota: HTTP 429 `GoUsageLimitError` on every interpretation call;
+preserved, not promoted). Attempt 12 ran the unchanged job on the
+**declared DeepSeek direct API** (`https://api.deepseek.com/v1`,
+operator credential registered through the product, interpretation pin
+`deepseek:deepseek-v4-pro`, fresh scratch, port 8108) and passed
+**29/29 predeclared checks**: both turns interpreted on
+`llm:deepseek-v4-pro` (S3 63.55 s / S7 49.41 s, within the 95 s bound);
+S3 deterministic renderer alone with the verified `2026-12-31` match,
+payment terms and price named as unverified gaps, the broader comparison
+obligation OPEN and named (disclosed, not claimed), no global
+consistency claim, zero writes; S7 stayed narrow
+(`broader_comparison=false`, `expiration_date`), requirement resolved to
+`approved_records_q2026_114.txt` (`doc_3abaf0d03badbc965b0f2770`),
+`context_fulfillment=completed`, `outcome=completed`/`success=true`,
+truthful verified reply, zero writes, capture archived, fresh-history
+agreement; `live_db_unchanged=true`, `pilot_untouched=true`. **Promoted
+claim:** the L2 request-bound comparison-scope + settlement repair on
+`c0cbea9f1` in the declared DeepSeek-direct configuration — not the
+pilot's opencode-go route, general interpretation reliability, pilot
+deployment, or restart durability. The prior typed-field
+continuation/guard-order claim on `d0b707333` (rev 17) remains as
+lineage. Evidence:
+`journey_matrix/l2_continuation_served_20261019/` (README_ATTEMPT10/11/12,
+`summary_attempt12.json`, `attempt12_result.json`, `attempt12_server.log`,
+DeepSeek dispatch probe, `CHECKSUMS_ATTEMPT12.sha256`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /

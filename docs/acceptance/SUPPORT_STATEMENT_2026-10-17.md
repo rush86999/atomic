@@ -89,10 +89,90 @@ reconciled by the evidence cited here.
   Deployment to the pilot remains a separate integration step, and this
   pilot limitation stands until the successor is integrated and
   re-verified there.
-- **L2 — continuation ask**: "does it still match the approved record?"
-  is answered correctly but not captured as an evidence requirement (the
-  source-noun vocabulary); the settlement stays non-certified. Fix belongs
-  in interpretation (structured chain preserved), not in a new noun regex.
+- **L2 — continuation ask**: the **typed-field continuation/guard-order
+  claim is verified through the served API** on candidate
+  **`d0b707333`** (parent `0d6c52cf3`) in the same predeclared isolated
+  configuration. Interpretation completes on the measured
+  `opencode-go/qwen3.8-flash` route (S3 25.8 s / S7 35.2 s in the prior
+  attempt; attempt 5's turn POSTs completed at **S3 54.08 s / S7
+  59.72 s**, within the 95 s budget). The verified comparison now runs
+  **before** the grounding/absence/search-narration corrective chain:
+  the served log records the S3 deterministic replacement with no
+  corrective model call, the reply carries the verified `2026-12-31` and
+  no wrong approved date, and S7 resolves the requirement to
+  `approved_records_q2026_114.txt` (`doc_3abaf0d03badbc965b0f2770`) with
+  `context_fulfillment.completed`, `success=true`, `outcome=completed`,
+  truthful content, zero writes, unchanged draft, and explicit
+  response/persisted/fresh-history agreement. `live_db_unchanged` and
+  `pilot_untouched` are true. **Disclosed residual (not promoted):** the
+  S3 prose also says "Everything appears consistent for now" while the
+  draft Terms (Net 45) differ from the approved Net 30; the deterministic
+  scope line says other differences were not assessed, but the broader
+  "flag anything that differs" whole-document comparison remains open.
+  The promoted claim is therefore the typed-field continuation/guard-order
+  repair on `d0b707333` + configuration — not general interpretation
+  reliability, pilot deployment, or restart durability. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (attempts 1–5,
+  diagnostic results, corrected assessment). Not deployed to the pilot.
+  **Attempt 7 (2026-10-19, `65b63494e`)** then demonstrated the **S3
+  truthful deterministic delivery + request coverage**: renderer output
+  alone (no "everything consistent" prose), verified `2026-12-31` match,
+  terms mismatch recorded (Net 45 vs Net 30), no corrective model call,
+  zero writes, 52.5 s. However, the **S7 interpretation producer returned
+  malformed output** (`origin=unresolved`, `reason=malformed_output`,
+  32.9 s), so the S7 source identity/settlement was not established and
+  the complete S3→S7 chain remains **open**. No new full-chain promotion;
+  the S3 correctness claim is added to the evidence. **Attempt 8
+  (2026-10-19, `23f3455f7`)** verified the scope contract: the S7
+  response was schema-valid (a missing/invalid scope would now be
+  `missing_scope`/`invalid_scope`) but the model proposed **no actions**
+  (`reason=no_actions_proposed`, 30.5 s), so the requirement was not
+  captured and source identity/settlement remain unestablished. This is
+  the producer action-contract gap, not the old silent scope default or a
+  timeout. S3 passed with the deterministic renderer/terms/coverage
+  behavior. The complete chain remains open; no further promotion.
+  **Attempt 9 (2026-10-19, `a3875d6bb`)** resolved the action contract:
+  S7 returned `continue` with two read-only actions (`research`,
+  `presentation`), content-free pre/post capture was archived, the
+  requirement resolved to `approved_records_q2026_114.txt`, the reply
+  was truthful, zero writes occurred, and fresh-history agreement was
+  true; S3's typed verified-narration gate passed. The full-chain
+  acceptance still **failed one check**: S7 settled `outcome=completed`
+  while `context_fulfillment=partial` (expiration matched; payment terms
+  and price unverified; ledger covered=1, missing=2; broader comparison
+  open). **Attempts 10–12 (2026-10-19) closed the chain.** Attempt 10
+  (`b70f9fa65`) verified the settlement-obligation repair (S3 partial
+  with the broader obligation open, truthful deterministic narration,
+  zero writes) but failed `s7_date_only_not_completed`: the accepted S7
+  interpretation inherited the prior turn's generic constraint ("Flag
+  anything that differs") and the adapter expanded the date contract to
+  payment terms/price. The field-scope repair **`c0cbea9f1`** makes a
+  comparison broad only when the accepted requested-fields contract
+  names other fields; a generic difference constraint about the
+  requested date stays narrow, and explicit narrowing still wins.
+  Attempt 11 was environment-blocked (opencode-go monthly quota: HTTP 429
+  `GoUsageLimitError` on every interpretation call; preserved, not
+  promoted). Attempt 12 then ran the unchanged job on the **declared
+  DeepSeek direct API** (operator credential registered through the
+  product; interpretation pin `deepseek:deepseek-v4-pro`; fresh scratch,
+  port 8108) and passed **29/29 predeclared checks**: S3 deterministic
+  renderer alone with the verified `2026-12-31` match, payment terms and
+  price named as unverified gaps, the broader comparison obligation
+  OPEN and named (disclosed, by design), no global consistency claim,
+  zero writes; S7 stayed narrow (`broader_comparison=false`,
+  `expiration_date`), requirement resolved to
+  `approved_records_q2026_114.txt`, `context_fulfillment=completed`,
+  `outcome=completed`, truthful verified reply, zero writes, capture
+  archived, fresh-history agreement; S3 63.55 s / S7 49.41 s within the
+  95 s budget; `live_db_unchanged`, `pilot_untouched`. **Promoted claim:**
+  the request-bound comparison-scope + settlement repair on `c0cbea9f1`
+  in the declared DeepSeek-direct configuration — not the pilot's
+  opencode-go route, general interpretation reliability, pilot
+  deployment, or restart durability. Evidence:
+  `journey_matrix/l2_continuation_served_20261019/` (README_ATTEMPT10/11/12,
+  `summary_attempt12.json`, DeepSeek dispatch probe,
+  `CHECKSUMS_ATTEMPT12`). Not deployed to the pilot; the scoped
+  typed-field claim above remains as lineage.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
   deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
   evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)

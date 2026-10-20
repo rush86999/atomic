@@ -1,0 +1,245 @@
+{
+  "attempt": "11",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "c0cbea9f191a9c41d67db7cddf3446f17318884d",
+    "parent": "b70f9fa65ace13b59c8ebadd1ffcd968f2f033a1",
+    "source_sha256_chat_orchestrator": "fcc804b6e17ec9855775e154bf409a5a31f3c1bedce9d9a2a06763e41d6d1ca8",
+    "source_sha256_turn_decision": "79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "checks": {
+    "draft_created_through_product": true,
+    "fixture_uploaded_through_product": true,
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "prior_evidence_observed": true,
+    "real_interpretation_dispatched": false,
+    "response_persisted_fresh_history_agreement": true,
+    "runtime_identity": true,
+    "s3_broader_obligation_open": true,
+    "s3_draft_unchanged": true,
+    "s3_no_global_consistency_claim": true,
+    "s3_reply_received": true,
+    "s3_requirement_captured": true,
+    "s3_settlement_basis": true,
+    "s3_terms_limitation_named": true,
+    "s3_verified_narration": true,
+    "s3_zero_canvas_writes": true,
+    "s7_actions_proposed": false,
+    "s7_capture_archived": false,
+    "s7_date_only_completed": false,
+    "s7_draft_unchanged": true,
+    "s7_reply_received": true,
+    "s7_requirement_captured": false,
+    "s7_resolved_source_identity": false,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "s7_settlement_basis": false,
+    "s7_truthful_comparison": true,
+    "s7_zero_new_writes": true,
+    "total_turn_latency_within_budget": true
+  },
+  "classification": "interpretation_not_real_or_not_dispatched",
+  "first_failure": "interpretation_not_real_or_not_dispatched",
+  "observed": {
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "s3": {
+      "execution_id": "8c77f716-5864-436b-8a94-9d42d904b5e0",
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\n- Quotation Q-2026-114 (DRAFT) / payment terms: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\n- Quotation Q-2026-114 (DRAFT) / price: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\nNo canvas change was made by this comparison.\nBroader comparison obligation: OPEN \u2014 the unassessed fields above remain to be verified.",
+      "outcome": "partial",
+      "requirement": {
+        "artifact_attached": true,
+        "broader_comparison": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "s7": {
+      "capture": {
+        "action_count": 0,
+        "action_kinds": [],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation"
+        ],
+        "completed_within_deadline": false,
+        "dispatch_attempted": true,
+        "interpretation_origin": "unresolved",
+        "interpretation_sources": [],
+        "interpretation_unresolved_reason": "missing_scope",
+        "producer_output_valid": false,
+        "request_id": "l2-s7-b3cbe506ecc34c36847b35eebeeadbeb",
+        "scope_change": "unresolved",
+        "total_turn_latency_s": 10.83
+      },
+      "context_fulfillment": null,
+      "execution_id": "4de4a5ac-145b-4513-8d9b-ea43b9057c6a",
+      "interpretation": {
+        "actions": [],
+        "confidence": 0.0,
+        "constraints": [],
+        "deterministic_decision": {
+          "action_program": {
+            "actions": [
+              {
+                "action_id": "converse1",
+                "depends_on": [],
+                "op": "converse"
+              }
+            ],
+            "compiled_from": "turn-decision-1",
+            "message_excerpt": "What is the current Valid until date on the draft, and does it still match the approved record?",
+            "schema_version": "action-program-1",
+            "session_id": "a5a6084a-8b52-48be-9cad-73c41887c218"
+          },
+          "created_at": 1792447593.5834801,
+          "message": "What is the current Valid until date on the draft, and does it still match the approved record?",
+          "policy": {
+            "reasoning_available": null
+          },
+          "provenance": {
+            "signals": []
+          },
+          "references": {
+            "file": null,
+            "sources": []
+          },
+          "requested_actions": [
+            {
+              "authorization": "granted",
+              "kind": "conversation"
+            }
+          ],
+          "routed_lane": null,
+          "schema": "turn-decision-1",
+          "session_id": "a5a6084a-8b52-48be-9cad-73c41887c218",
+          "task_state_view": {
+            "active_objective": null,
+            "revision_proposed": false
+          }
+        },
+        "message": "What is the current Valid until date on the draft, and does it still match the approved record?",
+        "origin": "unresolved",
+        "output_format": "",
+        "request_id": "l2-s7-b3cbe506ecc34c36847b35eebeeadbeb",
+        "requested_fields": [],
+        "schema": "turn-interpretation-1",
+        "scope_change": "unresolved",
+        "sources": [],
+        "subjects": [],
+        "unresolved_reason": "missing_scope"
+      },
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\n- Quotation Q-2026-114 (DRAFT) / payment terms: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\n- Quotation Q-2026-114 (DRAFT) / price: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\nNo canvas change was made by this comparison.\nBroader comparison obligation: OPEN \u2014 the unassessed fields above remain to be verified.",
+      "outcome": "unconfirmed",
+      "requirement": {
+        "artifact_attached": true,
+        "broader_comparison": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": false,
+        "sources": [],
+        "subjects": []
+      },
+      "success": false
+    },
+    "served_log_evidence": {
+      "go_inference_chat_posts": 0,
+      "interpretation_log_lines": [
+        "INFO:core.turn_decision:[turn-interpretation] empty reason=missing_scope",
+        "INFO:core.turn_decision:[turn-interpretation] empty reason=missing_scope"
+      ],
+      "structured_dispatch_models": [
+        "opencode-go/deepseek-v4.1-flash",
+        "opencode-go/glm-5.1",
+        "opencode-go/glm-5.3",
+        "opencode-go/glm-5.3-flash",
+        "opencode-go/kimi-k2.7-code",
+        "opencode-go/minimax-m2.5",
+        "opencode-go/minimax-m3",
+        "opencode-go/qwen3.8-flash"
+      ],
+      "zen_chat_posts": 88
+    }
+  },
+  "pass": false,
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG_ATTEMPT11.md",
+    "sha256": "8b2b5a525b9c012f17befc743079e94283473522a2b6650b52efb2fd78dfbfee"
+  },
+  "scope": "Candidate/configuration-bound served claim only; no pilot deployment, no general NL reference-resolution claim, no restart-durability claim.",
+  "stages": {
+    "s3_no_global_consistency_claim": true,
+    "s3_reply": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\n- Quotation Q-2026-114 (DRAFT) / payment terms: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\n- Quotation Q-2026-114 (DRAFT) / price: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\nNo canvas change was made by this comparison.\nBroader comparison obligation: OPEN \u2014 the unassessed fields above remain to be verified.",
+    "s3_terms_limitation_named": true,
+    "s3_terms_recorded": true,
+    "s3_verified_narration": true,
+    "stage_summary": {
+      "completed_within_deadline": false,
+      "dispatch_attempted": true,
+      "producer_output_valid": false,
+      "s3_broader_obligation_open": true,
+      "s7_actions_proposed": false,
+      "s7_capture_archived": false,
+      "s7_date_only_completed": false,
+      "source_identity_resolved": false
+    },
+    "total_turn_latency_ok": true,
+    "turns": {
+      "s3": {
+        "action_count": 0,
+        "action_kinds": [],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation"
+        ],
+        "completed_within_deadline": false,
+        "dispatch_attempted": true,
+        "interpretation_origin": "unresolved",
+        "interpretation_sources": [],
+        "interpretation_unresolved_reason": "missing_scope",
+        "producer_output_valid": false,
+        "request_id": "l2-s3-0810003cc7674903a675af4f6709857c",
+        "scope_change": "unresolved",
+        "total_turn_latency_s": 22.33
+      },
+      "s7": {
+        "action_count": 0,
+        "action_kinds": [],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation"
+        ],
+        "completed_within_deadline": false,
+        "dispatch_attempted": true,
+        "interpretation_origin": "unresolved",
+        "interpretation_sources": [],
+        "interpretation_unresolved_reason": "missing_scope",
+        "producer_output_valid": false,
+        "request_id": "l2-s7-b3cbe506ecc34c36847b35eebeeadbeb",
+        "scope_change": "unresolved",
+        "total_turn_latency_s": 10.83
+      }
+    }
+  },
+  "status": "NOT_PASSED"
+}
