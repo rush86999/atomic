@@ -553,8 +553,56 @@ visibly open. Evidence:
 `journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 1/2
 evidence, `ATTEMPT2_LIMITATION.md`, `CHECKSUMS_ATTEMPT2.sha256`).
 
+**Rev 23 (2026-10-20, successor attempt 3 — L3 required-read timeout
+FIXED and verified; composed workflow still NOT PASSED; no promotion, no
+deployment).** Successor `2a113d1a3` on
+`fix/l3-required-read-timeout` bounds optional tool planning internally,
+enforces the accepted required read deterministically, and adds a
+caller-side fallback for whole-plan cancellation. Attempt 3 was
+predeclared at product `2a113d1a3` and run at acceptance HEAD
+`67b9fbc85` under the **same DeepSeek-direct / Ollama-reply / fastembed
+configuration** that failed attempt 2, with one workspace and the full
+upload → L3 → edit → identical re-ask → S3 → S7 → restart sequence.
+Result: **48/59 checks**, first failure `comparison_untruthful`. **L3
+passes:** optional planning timed out at 20.0 s
+(`attempt3_server_pre.log:1227`), the server executed
+`documents.search:the launch code for project Zephyr-9`
+(`:1242`), the durable receipt is verified complete
+(`match_count=1`/`coverage=complete`), bound to the turn's execution and
+workspace, `objective_met=true`, settlement `completed`, fresh history
+agrees, and the answer carries `QUARTZ-77` with no decoy. The L1 edit
+and identical re-ask also pass (one audit/write, then a structured no-op
+with zero added writes). **S3 and S7 remain open:** S3's structured
+interpretation was cancelled after 64.9 s and the 95.03 s turn returned
+the time-budget message with no comparison; S7 returned the correct
+typed date comparison with zero writes but settled
+`turn_failed_no_result`/`final_outcome=failed`, so restart
+history/execution agreement fails. The `continuation_source_resolved`
+gate is additionally over-constrained: it requires S3's execution id,
+which does not exist because S3 timed out, although S7's captured
+requirement resolves to `approved_records_q2026_114.txt`; this is
+recorded as a harness caveat, not as a source error. **Live DB:** the
+unattributable mtime gate was replaced by `live_db_isolated` based on
+actual store access — scratch PID `17669` held no live DB/WAL/SHM
+handle, only pilot PID `81067` held it, all configured stores were under
+scratch, and live row counts were unchanged. The pilot-owned content
+hash changed during the run and is recorded as an observation, not
+attributed to the scratch server. Mutation evidence: an in-test
+behavioral control restores the old no-receipt shape; a temporary
+literal `return proposal` in `enforce_required_read` makes the outer
+timeout test fail with `receipts=[]` while the restored source passes.
+The first launch was rejected by the identity gate because the runner's
+own evidence file dirtied the worktree; no turn executed, and the run
+was repeated under the same frozen product/configuration after ignoring
+runtime artifacts. **No promotion; the successor was not deployed; the
+pilot remains `8c593e57031e`.** Evidence:
+`journey_matrix/l1_l2_l3_integrated_served_20261020/` (attempt 3
+result/summary/logs, `ATTEMPT3_RESULT.md`,
+`MUTATION_EVIDENCE_ATTEMPT3.md`, `CHECKSUMS_ATTEMPT3.sha256`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
+
 `mechanism` / `public API` / `browser` / real process `restart` /
 `reload-readback` / `fresh install`. A restart test does not prove browser
 behavior; a reload/readback (a fresh re-read of durable state, no process
@@ -642,7 +690,7 @@ against the `/tmp` originals; credential scans clean before archiving).
 | 41 | **R4 (focused slice)** — interrupted-read recovery: re-render the saved result without re-reading | verified (scoped; `diagnostic_only=true`, `counted=false`) | public API + restart (observed SIGKILL) + configuration-parity | **`c1beb7c0b` / pin `2070147ee` — NOT the approved `c6dd2d0e5`** (provenance: `a45da2b78` + `2070147ee` + 7-attempt history) | `journey_matrix/r4_read_recovery_r21/evidence_r4_read_recovery_20261017_081610_2d2ca7.json` (sha256 `8f62e12d…`; 7-file campaign set archived in-repo 2026-10-17, `checksums.sha256`; `/tmp` originals retained) + preserved scratch world | not counted; counter is post-attempt instrumentation; worker-loop coverage limit; not fresh-install | integration decision separately authorized (Phase G) |
 | 42 | **R4 (correctness follow-up)** — recovered render reports coverage/outcome truthfully | **failing** | public API + restart | same as 41 | attempt-7 JSON + persisted rows ("Coverage: 0/3 items matched"; `outcome=partial` on 3/3 delivered) | user-facing contradiction: durable coverage keys don't align with item labels | **one bounded repair + regression at the reconstruction boundary (implementation); tracked separately; R4 milestone not reopened** |
 | 43 | **SPINE — composed user job** — draft-vs-approved-records revision, deliberate interruption, continuation, reload | **verified (supported workflow) — 3 named exclusions; DEPLOYED (rev 9)** | browser + public API + SIGKILL crash/restart + deployed smoke | run 4 `9c9e5c76e` (runtime `dad8f9fce` lineage); deployed `8c593e57031e`; runs 1–3 preserved | `journey_matrix/composed_job_20261017/` (4 run JSONs, harness, screenshots, CHECKSUMS); `journey_matrix/deployment_smoke_20261017_223948/`; protocol `63de9aa8e` | supported workflow PASSED (36/39); deployed smoke 6/6; **exclusions (not certified):** idempotent re-ask settlement, continuation settlement, their `no-failed-requests` aggregate | value evaluation (predeclared `18b0dc2a2`, running) → support statement; then two SEPARATE frozen slices (owner briefs): **re-ask** = trace why the recorded S6 request fails to produce/propagate the existing `canvas_decline_requirement_check`/`already_satisfied` receipt (anchors `chat_orchestrator.py:15112/15115/15133`, no new success override; checks bind subject/field/value/artifact/current revision; controls: applied→zero writes, reverted→not satisfied, wrong artifact→not satisfied, unrelated value→not satisfied, fresh reload consistent); **continuation** = fix interpretation, not vocabulary (capture S7's accepted interpretation/requirement/observations/outcome first; preserve structured meaning; no noun regex) |
-| 44 | **SPINE — integrated L1+L2+L3 composed served workflow** (L3 sourced answer → L1 edit/no-op → L2 comparison/continuation → restart in one world) | **blocked — required document read not executed after tool-planning timeout; NOT DEPLOYED (rev 22 corrected)** | predeclared served attempt on scratch world + restart | `ddcc404dd` (L3 `6d662abff` + L1 `aaa1169d7` + L2 `c0cbea9f1` + main `e6308cb54`) | `journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 2 result/summary/logs; `ATTEMPT2_LIMITATION.md`; `CHECKSUMS_ATTEMPT2.sha256`) | attempt 2 40/58; first failure `l3_documents_receipt_missing`; accepted `source_read` documents/fresh_read did not execute after planner `TimeoutError` (`tool planning skipped` → `tool plan executed: None`); correct `QUARTZ-77` via `context_assembly` but no `documents.search`/settlement; S3 broader capture and S7 65 s interpretation timeout are separate observations; edit/zero-write/no-op and restart identity green; edit extraction corrected additively from preserved row; `live_db_unchanged` mtime is pilot-held store activity, no scratch row write found, row-level attribution incomplete | fix control flow: bound optional planning internally, deterministic required-read enforcement, caller fallback for whole-plan cancellation; focused stalled-planning tests + mutation control; freeze/verify one successor under one declared configuration; keep L2 parser closed; whole-document comparison visibly open |
+| 44 | **SPINE — integrated L1+L2+L3 composed served workflow** (L3 sourced answer → L1 edit/no-op → L2 comparison/continuation → restart in one world) | **blocked — L3 required-read timeout fixed in the successor, but composed attempt 3 failed on S3 interpretation timeout + S7 settlement; NOT DEPLOYED (rev 23)** | predeclared served attempt on scratch world + restart | successor `2a113d1a3` (base `ddcc404dd`: L3 `6d662abff` + L1 `aaa1169d7` + L2 `c0cbea9f1` + main `e6308cb54`) | `journey_matrix/l1_l2_l3_integrated_served_20261020/` (attempt 3 result/summary/logs; `ATTEMPT3_RESULT.md`; `MUTATION_EVIDENCE_ATTEMPT3.md`; `CHECKSUMS_ATTEMPT3.sha256`); attempt 2: `journey_matrix/l1_l2_l3_integrated_served_20261019/` (`ATTEMPT2_LIMITATION.md`; `CHECKSUMS_ATTEMPT2.sha256`) | attempt 2 (historical): 40/58, first failure `l3_documents_receipt_missing`; the accepted `source_read` documents/fresh_read did not execute after planner `TimeoutError` (`tool planning skipped` → `tool plan executed: None`); **required document retrieval was not executed after tool-planning timeout; the integrated workflow remains unverified.** Attempt 3: 48/59, first failure `comparison_untruthful`; L3 pass under the same DeepSeek-direct configuration — optional planning timed out at 20.0 s, `documents.search:the launch code for project Zephyr-9` executed, verified complete receipt (`match_count=1`, `coverage=complete`) bound to execution + workspace, `objective_met=true`, settlement `completed`, `QUARTZ-77`/no decoy, fresh-history agreement; edit and identical re-ask pass. S3 interpretation cancelled after 64.9 s; 95.03 s turn returned the time-budget message with no comparison. S7 returned the correct typed date comparison with zero writes but settled `turn_failed_no_result` (`final_outcome=failed`), so restart history/execution agreement fails. `live_db_isolated=true` from actual store access: only pilot PID 81067 held the live DB/WAL, scratch PID tree held none, all stores scratch, row counts unchanged; the pilot-owned content hash change is an observation, not attributed. Whole-document comparison remains open; L2 parser work closed. | keep deployment held; no promotion; S3/S7 are separate open findings; do not switch configuration mid-workflow or shrink the workspace; do not introduce per-turn routing as a substitute for fixing them |
 
 ---
 

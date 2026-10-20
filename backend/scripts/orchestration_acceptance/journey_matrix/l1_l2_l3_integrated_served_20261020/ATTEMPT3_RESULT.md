@@ -24,6 +24,15 @@ workflow is still unverified because S3 timed out and S7 settled
 - Result: **48/59 checks true**, first failure
   `comparison_untruthful`; classification `comparison_untruthful`.
 
+Before this run, the exact captured S3/S7 accepted requests from the
+proven L2 attempt 12 and the failed composed attempt 2 were replayed
+through the real requirement stash in
+`backend/tests/test_s3_s7_captured_replay.py` (5 passed). The replay
+keeps the proven broad S3 obligation, records attempt 2's narrower S3
+capture without treating it as a pass, keeps the proven S7 narrow
+continuation resolved, and keeps attempt 2's S7 timeout unresolved.
+No workspace or configuration change was used to make them pass.
+
 ### Rejected first launch (harness-only, no turn executed)
 
 The first launch was stopped by the declared identity gate with

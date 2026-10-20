@@ -25,8 +25,10 @@ reconciled by the evidence cited here.
 4. **Source-backed answers** — ask from chat; answers are drawn from the
    uploaded document and attributed (content correct in 3/3 evaluation
    repetitions; "QUARTZ-77 … found in your uploaded file"). **Saved-status
-   limitation:** the turn's recorded status is validated only when the
-   documents-search lane is chosen — see L3.
+   limitation:** the deployed pilot's turn status is validated only when
+   the documents-search lane is chosen — see L3. The successor's
+   required-read enforcement is verified separately in attempt 3 (see the
+   L3 successor bullet in §4), but it is not deployed on the pilot.
 5. **Authorized draft edits** — edit a draft canvas with an explicit
    authorization: applied **exactly once**, authoritative readback, exactly
    +1 audit row, reply truthful (3/3 on the deployed pilot; journey
@@ -64,8 +66,11 @@ reconciled by the evidence cited here.
   `qwen3.8-flash` interpretation with an Ollama reply, and the L2
   comparison/continuation verification (attempt 12) ran on the
   DeepSeek-direct interpretation pin (`deepseek:deepseek-v4-pro`).
-  These route families are **not interchangeable in one server** — see
-  the integrated-build bullet in §4.
+  These route families were verified separately. The composed successor
+  used the DeepSeek-direct interpretation route with the Ollama reply;
+  the run does not establish that one configuration is uniquely
+  impossible, and no per-turn routing or configuration switching is
+  claimed.
 - **Hardware/OS**: this dev host only (no clean-machine or other-OS proof).
 
 ## 3. Measured numbers (deployed pilot)
@@ -199,10 +204,29 @@ reconciled by the evidence cited here.
   Deployment to the pilot remains a separate integration step, and this
   pilot limitation stands until the candidate is integrated and
   re-verified there.
-- **Integrated L1+L2+L3 build (2026-10-19) — composed served workflow
-  NOT PASSED; required document retrieval did not execute after a
-  tool-planning timeout (not deployed).**
-  Candidate `ddcc404dd` (L3 `6d662abff` containing L1 `aaa1169d7` + L2
+- **L3 successor (2026-10-20) — required-read timeout control gap
+  fixed and verified; pilot still unchanged.** Product commit
+  `2a113d1a3` bounds optional tool planning internally, enforces the
+  accepted required read deterministically, and adds a caller-side
+  fallback when the whole planning task is cancelled. In composed
+  attempt 3, under the same DeepSeek-direct configuration that failed
+  attempt 2, the accepted L3 turn's optional planning timed out after
+  20.0 s; the server then executed
+  `documents.search:the launch code for project Zephyr-9`. The durable
+  verified-complete documents receipt (`match_count=1`,
+  `coverage=complete`) was bound to the turn's execution and workspace,
+  `objective_met=true`, settlement `completed`, and fresh history
+  agreed. The answer contained `QUARTZ-77`, not the decoy. This closes
+  the attempt-2 L3 control-flow blocker; it does not deploy the fix and
+  does not verify the composed workflow (see the next bullet). Evidence:
+  `journey_matrix/l1_l2_l3_integrated_served_20261020/`
+  (`ATTEMPT3_RESULT.md`, `MUTATION_EVIDENCE_ATTEMPT3.md`,
+  `CHECKSUMS_ATTEMPT3.sha256`).
+- **Integrated L1+L2+L3 build (2026-10-19; successor run 2026-10-20) —
+  attempt 2 failed on the L3 control flow; attempt 3 fixes that L3
+  blocker but the composed workflow is still NOT PASSED (not
+  deployed).**
+  Attempt 2 (historical): candidate `ddcc404dd` (L3 `6d662abff` containing L1 `aaa1169d7` + L2
   `c0cbea9f1` + main `e6308cb54`; merge base `bb8081b288`) is locally
   clean (the 11-file focused run has only the pre-existing
   `fallback_honesty::test_satisfied_requirement_completes`; the wider
@@ -256,6 +280,29 @@ reconciled by the evidence cited here.
   `CHECKSUMS_ATTEMPT2.sha256`). The supported workflows remain the
   separate L1/L2/L3 verifications above, each on its own declared
   configuration; the composed workflow is unverified.
+  **Successor attempt 3 (2026-10-20):** product `2a113d1a3` on
+  `fix/l3-required-read-timeout`, under the same DeepSeek-direct
+  configuration, ran the full sequence and passed **48/59** checks;
+  first failure `comparison_untruthful`. The L3 leg now passes: the
+  optional planning call timed out at 20.0 s, the required
+  `documents.search` executed, the verified complete receipt was bound
+  to the turn's execution and workspace, and the turn settled
+  (`QUARTZ-77`, no decoy, fresh-history agreement). The L1 edit and
+  identical re-ask also passed. The composed workflow still did **not**
+  pass: S3's structured interpretation was cancelled after 64.9 s and
+  the 95.03 s turn returned the time-budget message with no comparison;
+  S7 produced the correct typed date comparison with zero writes but
+  settled `turn_failed_no_result` (`final_outcome=failed`), so restart
+  history/execution agreement fails. `live_db_isolated=true` from
+  actual store access: only the pilot held the live DB/WAL, the scratch
+  process tree held none, all configured stores were scratch, and live
+  row counts were unchanged. The pilot-owned content hash did change
+  during the run and is recorded as an observation, not attributed to
+  the scratch server. **Do not deploy the successor as supporting the
+  composed workflow; the pilot remains `8c593e57031e`.** Evidence:
+  `journey_matrix/l1_l2_l3_integrated_served_20261020/`
+  (`ATTEMPT3_RESULT.md`, `MUTATION_EVIDENCE_ATTEMPT3.md`,
+  `CHECKSUMS_ATTEMPT3.sha256`).
 - **Untested**: J7 background handoff beyond the tested slices, J8
   automation, J9 broad failure recovery; integrations beyond the one
   document source; other OSes/hardware; R4 coverage/outcome follow-up
@@ -268,9 +315,11 @@ reconciled by the evidence cited here.
 - Served: `8c593e57031e` (single instance; scoped controlled restart; two
   gzip-verified pre-restart DB snapshots, `backend/data/backups/`).
   Off-machine copy: **N/A on this host** (local-only layout — stated).
-- The 2026-10-19 integrated candidate `ddcc404dd` was **not deployed** —
-  the composed attempt did not pass (see §4). No deployment step was run;
-  the served identity and rollback below remain the pilot's.
+- The 2026-10-19 integrated candidate `ddcc404dd` and the 2026-10-20
+  successor `2a113d1a3` were **not deployed** — the composed attempt 2
+  failed, and attempt 3 fixed only the L3 leg while S3/S7 remained
+  failed (see §4). No deployment step was run; the served identity and
+  rollback below remain the pilot's.
 - Deviation: `scripts/restart_backend.sh` kills every uvicorn; the restart
   was scoped to `:8001` because 38 other instances (other streams' worlds)
   were running.
@@ -285,9 +334,11 @@ total, receives a source-attributed answer and an audit-verified saved
 edit; review and authorization remain with the user (verify the answer,
 approve the change). Remaining friction is the three named limitations
 above — none of them silently certified. The composed L1+L2+L3 journey
-(all three repairs in one served world) is additionally unverified: in
-attempt 2 the accepted required document read was not executed after the
-tool-planning timeout; it is not counted among the supported jobs.
+(all three repairs in one served world) is additionally unverified: the
+successor fixed attempt 2's L3 required-read timeout and passed the L3
+leg plus the edit/re-ask legs, but attempt 3's S3 interpretation timeout
+and S7 `turn_failed_no_result` settlement prevent a composed pass. It
+is not counted among the supported jobs.
 
 ## Evidence index
 
@@ -301,5 +352,9 @@ tool-planning timeout; it is not counted among the supported jobs.
   README carries F-R1/F-R2).
 - Install/fresh-install: `journey_matrix/phase_d_fresh_install/`,
   `phase_e_candidate/` (F1–F3 findings preserved).
+- Integrated successor attempt 3:
+  `journey_matrix/l1_l2_l3_integrated_served_20261020/`
+  (`ATTEMPT3_RESULT.md`, `MUTATION_EVIDENCE_ATTEMPT3.md`,
+  `CHECKSUMS_ATTEMPT3.sha256`).
 - Registry/matrix: `journey_status.json`,
-  `docs/acceptance/READINESS_MATRIX_2026-10-17.md` (rev 10).
+  `docs/acceptance/READINESS_MATRIX_2026-10-17.md` (rev 23).
