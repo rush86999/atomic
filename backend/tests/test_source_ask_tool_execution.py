@@ -60,8 +60,10 @@ class _ScriptedReplyEndpoint:
     the scripted assistant text — the external response under test
     control. Counts attributed calls."""
 
-    def __init__(self, reply_text: str, model: str = MODEL_NAME):
+    def __init__(self, reply_text: str, model: str = MODEL_NAME,
+                 reply_fn=None):
         self.reply_text = reply_text
+        self.reply_fn = reply_fn
         self.model = model
         self.calls = []
         self._lock = threading.Lock()
@@ -102,7 +104,17 @@ class _ScriptedReplyEndpoint:
                         "path": self.path,
                         "model": payload.get("model"),
                         "n_messages": len(payload.get("messages") or []),
+                        # Evidence assertions need the delivered context,
+                        # not just the count (distractor-source test).
+                        "messages": payload.get("messages") or [],
                     })
+                content = outer.reply_text
+                if outer.reply_fn is not None:
+                    try:
+                        content = outer.reply_fn(
+                            payload.get("messages") or []) or content
+                    except Exception:  # noqa: BLE001 — test scripted reply
+                        content = outer.reply_text
                 body = json.dumps({
                     "id": "chatcmpl-scripted",
                     "object": "chat.completion",
@@ -111,7 +123,7 @@ class _ScriptedReplyEndpoint:
                         "index": 0,
                         "finish_reason": "stop",
                         "message": {"role": "assistant",
-                                    "content": outer.reply_text},
+                                    "content": content},
                     }],
                     "usage": {"prompt_tokens": 5, "completion_tokens": 2,
                               "total_tokens": 7},
@@ -408,7 +420,9 @@ def _drive_source_ask_turn(
         scoped_world, world_app, structured_plan, session_id="sess-j2",
         reply_text=FABRICATED_REPLY, message=SOURCE_ASK,
         before_turn=None, history_out=None, session_out=None,
-        model_caps=None):
+        model_caps=None, structured_delay=0.0, planner_stall=None,
+        tool_plan_wait=None, optional_planning_timeout=None,
+        disable_required_read=False, reply_fn=None):
     """One real orchestrator turn for the preserved source ask, with the
     external responses controlled: the planner's structured proposal is
     ``structured_plan`` and the reply endpoint returns ``reply_text``.
@@ -419,13 +433,22 @@ def _drive_source_ask_turn(
     scratch world AFTER the fresh user/workspace exists (e.g. the uploaded
     document row the product's own upload route writes); ``history_out``
     receives the session-update payloads the turn would have persisted;
-    ``session_out["session"]`` exposes the live session dict."""
+    ``session_out["session"]`` exposes the live session dict.
+
+    Timeout controls (2026-10-19): ``structured_delay`` stalls the
+    OPTIONAL structured proposal; ``planner_stall`` replaces the whole
+    planner with a stalled coroutine (the outer-wait case);
+    ``tool_plan_wait`` / ``optional_planning_timeout`` shrink the real
+    waits for a focused test; ``disable_required_read`` is the mutation
+    control that restores the old ordering's outcome.
+    """
     from unittest.mock import AsyncMock, MagicMock, patch
 
     import integrations.chat_orchestrator as co
+    import core.chat_tool_planner as ctp
     from core.llm_service import LLMService
 
-    ep = _ScriptedReplyEndpoint(reply_text)
+    ep = _ScriptedReplyEndpoint(reply_text, reply_fn=reply_fn)
     ep.__enter__()
     try:
         ws = _authorized_workspace(world_app, scoped_world)
@@ -455,6 +478,12 @@ def _drive_source_ask_turn(
 
         async def _structured(llm_service, *, prompt, response_model,
                               system_instruction, **_kw):
+            if structured_delay:
+                await asyncio.sleep(float(structured_delay))
+            return structured_plan
+
+        async def _stalled_planner(*a, **k):
+            await asyncio.sleep(float(planner_stall))
             return structured_plan
 
         with ExitStack() as st:
@@ -491,6 +520,20 @@ def _drive_source_ask_turn(
                       new=AsyncMock(side_effect=_structured)),
             ]:
                 st.enter_context(cm)
+            if tool_plan_wait is not None:
+                st.enter_context(patch.object(
+                    co, "_TOOL_PLAN_WAIT_SECONDS", float(tool_plan_wait)))
+            if optional_planning_timeout is not None:
+                st.enter_context(patch.object(
+                    ctp, "_OPTIONAL_PLANNING_TIMEOUT_SECONDS",
+                    float(optional_planning_timeout)))
+            if planner_stall is not None:
+                st.enter_context(patch.object(
+                    ctp, "plan_tool_use", new=_stalled_planner))
+            if disable_required_read:
+                st.enter_context(patch.object(
+                    ctp, "enforce_required_read",
+                    new=lambda *a, **k: None))
             out = asyncio.run(orch.process_chat_message(
                 ws["user_id"], message, session_id,
                 context={"workspace_id": ws["workspace_id"]}))
@@ -892,3 +935,259 @@ class TestL3DocumentEvidence:
             "a document outside the authenticated workspace never "
             f"donates hits; got {refs!r}")
         assert "QUARTZ-77" not in str(out.get("message") or "")
+
+
+class TestRequiredReadSurvivesPlannerTimeout:
+    """2026-10-19 composed-attempt failure: a `source_read` had already
+    been compiled for the accepted document ask, but the tool-planning
+    call hit `TimeoutError` and the executor was skipped entirely. These
+    tests stall the real planning seam and require the accepted read to
+    reach the real executor, receipt and settlement."""
+
+    MODEL_CAPS = {"supports_reasoning": True, "quality_score": 1.0,
+                  "speed_score": 0.95, "context_window": 32768}
+
+    @staticmethod
+    def _doc_rows(receipts):
+        return [r for r in receipts
+                if "documents" in str(r.get("tool") or "")]
+
+    @staticmethod
+    def _message_blob(ep):
+        out = []
+        for call in ep.calls:
+            for msg in call.get("messages") or []:
+                if isinstance(msg, dict):
+                    out.append(str(msg.get("content") or ""))
+        return "\n".join(out)
+
+    def test_optional_planning_timeout_still_executes_document_read(
+            self, scoped_world, world_app, monkeypatch):
+        """Plan-layer proof: the optional structured call stalls past its
+        own bound, but the accepted requirement's documents read still
+        executes through the normal lane and settles complete."""
+        monkeypatch.setenv("ATOM_HYBRID_VECTOR_LEG_ENABLED", "false")
+        monkeypatch.setenv("ATOM_CHAT_STREAMING", "false")
+        history_out = []
+        out, receipts, ep = _drive_source_ask_turn(
+            scoped_world, world_app, _memory_proposal(),
+            "sess-timeout-optional", message=L3_ASK,
+            reply_text=("The launch code for project Zephyr-9 is QUARTZ-77. "
+                        "I found it in your uploaded document."),
+            before_turn=lambda ws: _seed_uploaded_document(scoped_world, ws),
+            history_out=history_out, model_caps=self.MODEL_CAPS,
+            structured_delay=3.0,
+            tool_plan_wait=6.0,
+            optional_planning_timeout=1.0,
+        )
+        doc_rows = self._doc_rows(receipts)
+        assert doc_rows, (
+            "a planning timeout must not skip the already-accepted "
+            f"document read; receipts={receipts!r}")
+        refs = [ref for ref in doc_rows[0].get("evidence_refs") or []
+                if isinstance(ref, dict)]
+        assert any(int(ref.get("match_count") or 0) >= 1 for ref in refs), (
+            f"the real documents search must find the seeded fact; {refs!r}")
+        assert "QUARTZ-77" in str(out.get("message") or "")
+        assert out.get("success") is True, f"settled timeout turn: {out!r}"
+        outcome = _turn_outcome(scoped_world)
+        assert outcome.get("objective_met") is True, (
+            f"persisted outcome must agree with the executed read: {outcome!r}")
+        assert any("documents" in str(t.get("tool") or "")
+                   for t in (outcome.get("tool_outcomes") or []))
+        if history_out:
+            assert any("QUARTZ-77" in str(
+                (h.get("response") or {}).get("message") or "")
+                for h in history_out), (
+                "fresh history must carry the same delivered answer")
+
+    def test_outer_plan_wait_timeout_still_executes_document_read(
+            self, scoped_world, world_app, monkeypatch):
+        """The exact attempt-2 shape: the WHOLE planner task is cancelled
+        by the outer wait. The caller fallback rebuilds the accepted
+        requirement's deterministic plan and executes it."""
+        monkeypatch.setenv("ATOM_HYBRID_VECTOR_LEG_ENABLED", "false")
+        monkeypatch.setenv("ATOM_CHAT_STREAMING", "false")
+        history_out = []
+        out, receipts, ep = _drive_source_ask_turn(
+            scoped_world, world_app, _memory_proposal(),
+            "sess-timeout-outer", message=L3_ASK,
+            reply_text=("The launch code for project Zephyr-9 is QUARTZ-77. "
+                        "I found it in your uploaded document."),
+            before_turn=lambda ws: _seed_uploaded_document(scoped_world, ws),
+            history_out=history_out, model_caps=self.MODEL_CAPS,
+            planner_stall=5.0,
+            tool_plan_wait=0.2,
+        )
+        doc_rows = self._doc_rows(receipts)
+        assert doc_rows, (
+            "outer planner cancellation must not lose the accepted "
+            f"document read; receipts={receipts!r}")
+        refs = [ref for ref in doc_rows[0].get("evidence_refs") or []
+                if isinstance(ref, dict)]
+        assert any(int(ref.get("match_count") or 0) >= 1 for ref in refs), (
+            f"the fallback read must be a real retrieval; {refs!r}")
+        assert "QUARTZ-77" in str(out.get("message") or "")
+        assert out.get("success") is True, f"settled timeout turn: {out!r}"
+        outcome = _turn_outcome(scoped_world)
+        assert outcome.get("objective_met") is True, (
+            f"persisted outcome must agree with the fallback read: {outcome!r}")
+        if history_out:
+            assert any("QUARTZ-77" in str(
+                (h.get("response") or {}).get("message") or "")
+                for h in history_out)
+
+    def test_outer_timeout_without_enforcement_keeps_no_receipt(
+            self, scoped_world, world_app, monkeypatch):
+        """Mutation control: restoring the old ordering (no required-read
+        enforcement) leaves the exact attempt-2 outcome — the planner is
+        cancelled, no executor runs, no documents receipt exists. This
+        makes the preceding regression meaningful."""
+        monkeypatch.setenv("ATOM_HYBRID_VECTOR_LEG_ENABLED", "false")
+        monkeypatch.setenv("ATOM_CHAT_STREAMING", "false")
+        out, receipts, ep = _drive_source_ask_turn(
+            scoped_world, world_app, _memory_proposal(),
+            "sess-timeout-mutation", message=L3_ASK,
+            reply_text=("I couldn't find any matching lines in your "
+                        "uploaded documents."),
+            before_turn=lambda ws: _seed_uploaded_document(scoped_world, ws),
+            model_caps=self.MODEL_CAPS,
+            planner_stall=5.0,
+            tool_plan_wait=0.2,
+            disable_required_read=True,
+        )
+        assert not self._doc_rows(receipts), (
+            "the mutation control must reproduce the old no-receipt shape; "
+            f"got {receipts!r}")
+        # The turn still answers, but without an attributable read.
+        assert ep.hit_count >= 1
+        assert out is not None
+
+    def test_outer_timeout_empty_result_settles_as_bounded_absence(
+            self, scoped_world, world_app, monkeypatch):
+        monkeypatch.setenv("ATOM_HYBRID_VECTOR_LEG_ENABLED", "false")
+        monkeypatch.setenv("ATOM_CHAT_STREAMING", "false")
+        history_out = []
+        out, receipts, ep = _drive_source_ask_turn(
+            scoped_world, world_app, _memory_proposal(),
+            "sess-timeout-empty", message=L3_ASK,
+            reply_text=("I couldn't find any matching lines in your "
+                        "uploaded documents."),
+            history_out=history_out, model_caps=self.MODEL_CAPS,
+            planner_stall=5.0,
+            tool_plan_wait=0.2,
+        )
+        doc_rows = self._doc_rows(receipts)
+        assert doc_rows, f"the required read must still execute; {receipts!r}"
+        refs = [ref for ref in doc_rows[0].get("evidence_refs") or []
+                if isinstance(ref, dict)]
+        assert any(ref.get("coverage") == "complete"
+                   and int(ref.get("match_count") or 0) == 0 for ref in refs), (
+            f"an empty real search is a bounded absence; got {refs!r}")
+        assert "empty_in_scope" in str(doc_rows[0].get("outcome") or "")
+        assert out.get("success") is True, (
+            f"a delivered bounded absence is settled truth: {out!r}")
+        outcome = _turn_outcome(scoped_world)
+        assert any("documents" in str(t.get("tool") or "")
+                   for t in (outcome.get("tool_outcomes") or []))
+
+    def test_distractor_document_does_not_replace_the_correct_source(
+            self, scoped_world, world_app, monkeypatch):
+        """The decoy is in the same workspace and matches the query; the
+        executed read must still deliver the approved document, and a
+        grounded reply must use it rather than the decoy."""
+        monkeypatch.setenv("ATOM_HYBRID_VECTOR_LEG_ENABLED", "false")
+        monkeypatch.setenv("ATOM_CHAT_STREAMING", "false")
+        decoy = (
+            "Project Zephyr-9 launch planning archive (superseded).\n"
+            "The launch code for project Zephyr-9 is BASALT-13.\n"
+            "Status: draft only, do not use.")
+
+        def _seed(ws):
+            _seed_uploaded_document(scoped_world, ws)
+            _seed_uploaded_document(
+                scoped_world, ws, content=decoy,
+                filename="zephyr9_superseded_decoy.txt")
+
+        def _grounded_reply(messages):
+            blob = "\n".join(
+                str(m.get("content") or "") for m in messages
+                if isinstance(m, dict))
+            if "QUARTZ-77" in blob:
+                return ("The launch code for project Zephyr-9 is QUARTZ-77, "
+                        "from the approved document.")
+            if "BASALT-13" in blob:
+                return "The launch code for project Zephyr-9 is BASALT-13."
+            return "I couldn't find the launch code in the sources."
+
+        out, receipts, ep = _drive_source_ask_turn(
+            scoped_world, world_app, _memory_proposal(),
+            "sess-timeout-distractor", message=L3_ASK,
+            reply_text="I couldn't find the launch code in the sources.",
+            reply_fn=_grounded_reply,
+            before_turn=_seed, model_caps=self.MODEL_CAPS,
+            planner_stall=5.0,
+            tool_plan_wait=0.2,
+        )
+        doc_rows = self._doc_rows(receipts)
+        assert doc_rows, f"the required read must execute; {receipts!r}"
+        blob = self._message_blob(ep)
+        assert "QUARTZ-77" in blob, (
+            "the correct document's fact must reach the generation context")
+        assert "BASALT-13" not in str(out.get("message") or ""), (
+            f"the decoy must not win: {out.get('message')!r}")
+
+    def test_ambiguous_identity_and_no_capability_stay_unresolved(self):
+        """Honesty at the deterministic seam: ambiguous accepted identity,
+        no eligible capability, several equally plausible mailboxes, and
+        a no-obligation requirement never produce a fabricated plan."""
+        import core.chat_tool_planner as ctp
+        from unittest.mock import patch
+
+        ambiguous = {
+            "required": True, "sources": ["document"], "fields": [],
+            "subjects": ["the approved record"],
+            "identity": {"state": "ambiguous",
+                         "names": ["record A", "record B"]},
+        }
+        assert ctp.enforce_required_read(
+            None, evidence_requirement=ambiguous,
+            connected=["documents"], message=L3_ASK) is None
+        assert ctp.eligible_read_capabilities(
+            ambiguous, ["documents"], L3_ASK) == []
+
+        no_cap = {
+            "required": True, "sources": ["document"], "fields": [],
+            "subjects": ["project Zephyr-9"],
+            "identity": {"state": "kind_only"},
+        }
+        with patch.object(ctp, "_available_platform_services",
+                          return_value=["memory"]), \
+                patch.object(ctp, "_datasets_service_available",
+                             return_value=False):
+            assert ctp.enforce_required_read(
+                None, evidence_requirement=no_cap, connected=[],
+                message=L3_ASK) is None
+
+        comms = {
+            "required": True, "sources": ["email"], "fields": [],
+            "subjects": ["the Acme quote"],
+            "identity": {"state": "kind_only"},
+        }
+        assert ctp.enforce_required_read(
+            None, evidence_requirement=comms,
+            connected=["outlook", "gmail", "memory"],
+            message="Search my emails for the Acme quote") is None
+
+        no_obligation = {
+            "required": False, "sources": ["document"], "fields": [],
+            "subjects": [],
+            "identity": {"state": "kind_only"},
+        }
+        assert ctp.enforce_required_read(
+            None, evidence_requirement=no_obligation,
+            connected=["documents"],
+            message="Update the draft payment terms to Net 30.") is None
+        assert ctp.enforce_required_read(
+            None, evidence_requirement=None, connected=["documents"],
+            message="Update the draft payment terms to Net 30.") is None

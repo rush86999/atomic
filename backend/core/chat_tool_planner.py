@@ -559,6 +559,10 @@ _SOURCE_ASK_COMMAND_RE = re.compile(
     r"^\s*(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?"
     r"(?:search|look\s?(?:in|through|up)|check|find|list|get|show|read|"
     r"pull|fetch|scan|grep)\s+(?:my|the|our|your)?\s*"
+    # A qualifier between the possessive and the source noun is common in
+    # the accepted L3 ask ("search my UPLOADED documents for ..."); it is
+    # still command scaffolding, not part of the subject query.
+    r"(?:(?:uploaded|stored|saved|ingested|connected)\s+)?"
     r"(?:documents?|docs?|files?|folders?|drives?|workbooks?|"
     r"spreadsheets?|sheets?|pdfs?|knowledge\s?base|e-?mails?|mail|inbox|"
     r"threads?|messages?|chats?|texts?|records?|notes?|tickets?|"
@@ -588,6 +592,163 @@ def _source_ask_query(message: str) -> str:
         return ""
     stripped = _SOURCE_ASK_TAIL_RE.sub("", stripped).strip(" \t.,?!;:")
     return stripped
+
+
+#: Optional structured planning is best-effort. It gets its own bound so
+#: required-read enforcement can still run when the planning call does not
+#: return in time (the 2026-10-19 composed-attempt failure was a planning
+#: TimeoutError followed by NO executor dispatch even though the accepted
+#: decision had already compiled a fresh `source_read` for documents).
+_OPTIONAL_PLANNING_TIMEOUT_SECONDS = float(
+    os.getenv("ATOM_TOOL_PLAN_OPTIONAL_TIMEOUT_SECONDS", "20") or 20)
+
+
+def _required_read_authority(
+    evidence_requirement: Optional[Dict[str, Any]],
+    message: str,
+) -> Dict[str, Any]:
+    """The accepted request's required-read authority, in one place.
+
+    This is the same eligibility contract the source-ask floor consumes:
+    accepted source kinds and obligation win over message-derived nouns;
+    an obligation the message never spells out still fires; a requirement
+    that carries no obligation does not conjure one. ``ambiguous`` is the
+    existing continuation-identity policy — multiple plausible sources are
+    never silently resolved by a deterministic first pick.
+    """
+    from core.turn_decision import (
+        _looks_seek_shaped as _td_seek,
+        _requested_sources as _td_sources,
+    )
+    from core.action_program import normalize_source_kind as _norm_kind
+
+    req = evidence_requirement if isinstance(
+        evidence_requirement, dict) else None
+    msg_kinds = sorted({
+        _norm_kind(s) for s in _td_sources(message or "")} - {""})
+    if req is not None:
+        req_kinds = sorted({
+            _norm_kind(s)
+            for s in (req.get("sources") or [])
+            if str(s or "").strip()} - {""})
+        required = req.get("required") is True
+        ask_kinds = req_kinds or (msg_kinds if required else [])
+        fires = bool(ask_kinds and (_td_seek(message or "") or required))
+        identity = req.get("identity") if isinstance(
+            req.get("identity"), dict) else {}
+        ambiguous = str(identity.get("state") or "") == "ambiguous"
+        return {
+            "requirement": req,
+            "kinds": ask_kinds,
+            "required": required,
+            "fires": fires,
+            "ambiguous": ambiguous,
+        }
+    return {
+        "requirement": None,
+        "kinds": msg_kinds,
+        # No accepted decision: the floor fires only on a seek-shaped
+        # source consult by construction — an evidence obligation.
+        "required": True,
+        "fires": bool(msg_kinds and _td_seek(message or "")),
+        "ambiguous": False,
+    }
+
+
+def eligible_read_capabilities(
+    evidence_requirement: Optional[Dict[str, Any]],
+    connected: Optional[List[str]],
+    message: str = "",
+) -> List[str]:
+    """Registered lanes whose result contract can serve the accepted
+    required read, most-specific first. Empty when there is no obligation,
+    the source identity is ambiguous, or nothing registered can serve it.
+    """
+    authority = _required_read_authority(evidence_requirement, message)
+    if not authority["fires"] or authority["ambiguous"]:
+        return []
+    return _source_service_candidates(
+        authority["kinds"], connected or [], message or "",
+        source_evidence_required=authority["required"])
+
+
+def _unique_required_read_service(
+    candidates: List[str],
+    kinds: List[str],
+) -> Optional[str]:
+    """Select a lane only when the accepted contract identifies one.
+
+    Deliberately not ``candidates[0]``: a document requirement takes the
+    dedicated documents lane (datasets is the fallback catalog), a sheet
+    requirement takes datasets, and correspondence prefers the single
+    connected mailbox lane over recollection. Multiple equally plausible
+    lanes (two mailboxes, two record systems, a multi-kind request) return
+    None and stay unresolved for the existing clarification policy.
+    """
+    cands = [str(c) for c in (candidates or []) if str(c or "").strip()]
+    if not cands:
+        return None
+    kind_set = {str(k) for k in (kinds or []) if str(k or "").strip()}
+    if kind_set == {"document"}:
+        if "documents" in cands:
+            return "documents"
+        if "datasets" in cands:
+            return "datasets"
+    if kind_set == {"spreadsheet"} and "datasets" in cands:
+        return "datasets"
+    if kind_set and kind_set <= _COMMISH:
+        mail = [
+            c for c in cands
+            if c in _MAILBOX_SERVICES or c in _COMMUNICATION_SERVICES
+        ]
+        if len(mail) == 1:
+            return mail[0]
+        if len(mail) > 1:
+            return None
+        if "memory" in cands:
+            return "memory"
+    if kind_set == {"web"} and "web_search" in cands:
+        return "web_search"
+    # A single source-reading lane is unique even when recollection is also
+    # available; recollection must not outrank a direct read.
+    non_memory = [c for c in cands if c != "memory"]
+    if len(non_memory) == 1:
+        return non_memory[0]
+    if len(cands) == 1:
+        return cands[0]
+    return None
+
+
+def _required_read_query(
+    evidence_requirement: Optional[Dict[str, Any]],
+    message: str,
+) -> str:
+    """A subject-grounded retrieval query for the deterministic rung.
+
+    Prefer the source-ask command's own subject terms; fall back to the
+    accepted requirement's subjects/fields (a follow-up need not repeat
+    the source noun), then the message itself. A resolved file identity is
+    prepended so a named document still scopes the search. Never invents
+    terms.
+    """
+    req = evidence_requirement if isinstance(
+        evidence_requirement, dict) else {}
+    query = _source_ask_query(message or "")
+    if not query.strip():
+        subjects = [
+            str(s) for s in (req.get("subjects") or []) if str(s).strip()]
+        fields = [
+            str(f) for f in (req.get("fields") or []) if str(f).strip()]
+        query = " ".join(subjects[:4] + fields[:3])
+    if not query.strip():
+        query = str(message or "")[:200]
+    identity = req.get("identity") if isinstance(
+        req.get("identity"), dict) else {}
+    if str(identity.get("state") or "") == "resolved":
+        name = str(identity.get("file_name") or "").strip()
+        if name and name.casefold() not in query.casefold():
+            query = f"{name} {query}".strip()
+    return query.strip()[:200]
 
 
 def _executed_tool_names(tool_block: Optional[str]) -> List[str]:
@@ -1197,6 +1358,88 @@ def get_connected_services(user_id: Optional[str]) -> List[str]:
 _connected_cache: Dict[str, Any] = {}
 
 
+def enforce_required_read(
+    proposal: Optional["ToolPlan"],
+    *,
+    evidence_requirement: Optional[Dict[str, Any]],
+    connected: Optional[List[str]],
+    message: str,
+) -> Optional["ToolPlan"]:
+    """Make the accepted required read survive an optional-planning failure.
+
+    The proposal is optional; the accepted requirement is not. If the
+    proposal already names an eligible lane it is preserved (a valid
+    alternative is never overridden). Otherwise, when exactly one lane can
+    serve the accepted source kind, return the deterministic plan for that
+    lane. When no lane is registered, or several are equally plausible,
+    return the proposal unchanged (normally ``None``) and leave the
+    obligation visibly unresolved — never fabricate a result, never pick
+    the first candidate arbitrarily.
+
+    This function performs no I/O beyond the caller-supplied connected
+    services and no execution: the normal dispatcher still stamps the
+    receipt, bind it to this response's execution/workspace, and settle
+    the outcome. A ``documents.search`` receipt therefore exists only when
+    the documents executor actually ran.
+    """
+    authority = _required_read_authority(evidence_requirement, message)
+    if not authority["fires"]:
+        return proposal
+    if authority["ambiguous"]:
+        logger.info(
+            "tool planner: required read left unresolved — the accepted "
+            "source identity is ambiguous (existing disambiguation policy)")
+        return proposal
+    candidates = _source_service_candidates(
+        authority["kinds"], connected or [], message or "",
+        source_evidence_required=authority["required"])
+    if not candidates:
+        logger.info(
+            "tool planner: required read left unresolved — no registered "
+            "capability can serve kinds %s", authority["kinds"])
+        return proposal
+    if (isinstance(proposal, ToolPlan) and proposal.use_tool
+            and (proposal.service or "") in candidates):
+        return proposal
+    service = _unique_required_read_service(candidates, authority["kinds"])
+    if not service:
+        logger.info(
+            "tool planner: required read left unresolved — multiple "
+            "plausible capabilities %s for kinds %s", candidates,
+            authority["kinds"])
+        return proposal
+    plan = ToolPlan(
+        use_tool=True,
+        service=service,
+        intent="search",
+        query=_required_read_query(evidence_requirement, message),
+        reason=(
+            "required-read enforcement: the accepted request requires "
+            f"source evidence ({', '.join(authority['kinds'])}) and "
+            f"{service} is the unique eligible capability"),
+    )
+    meta = getattr(plan, "_result_meta", None)
+    if not isinstance(meta, dict):
+        meta = {}
+        plan._result_meta = meta
+    if proposal is None:
+        proposal_desc = "none"
+    elif getattr(proposal, "use_tool", False):
+        proposal_desc = f"{proposal.service}.{proposal.intent}"
+    else:
+        proposal_desc = "declined"
+    meta["planning"] = {
+        "source": "required_read_floor",
+        "recovered": True,
+        "required_read_enforced": True,
+        "proposal": proposal_desc,
+    }
+    logger.info(
+        "tool planner: required-read enforcement -> %s.search query=%r "
+        "(optional proposal: %s)", service, plan.query, proposal_desc)
+    return plan
+
+
 #: How much of the open canvas rides along on the planner prompt. The planner
 #: only needs to recognise WHAT KIND of artefact is open and who/what it is
 #: about — not read it. Hard-capped so a 30 KB canvas body cannot bloat the
@@ -1514,6 +1757,7 @@ async def plan_tool_use(
     provenance: str = "",
     allow_canvas_target: bool = False,
     evidence_requirement: Optional[Dict[str, Any]] = None,
+    planning_timeout: Optional[float] = None,
 ) -> Optional[ToolPlan]:
     """Decide (via cheap structured LLM output) whether this turn needs live
     integration data, and which connected service to query. Returns None on
@@ -1529,7 +1773,16 @@ async def plan_tool_use(
     ``_stash_evidence_requirement`` — source kinds, obligation flag,
     identity). When carried, the source-ask floor's eligibility consumes
     THIS record; ``None`` keeps the message-derived read for callers
-    without an accepted decision (never treated as "no requirement")."""
+    without an accepted decision (never treated as "no requirement").
+
+    ``planning_timeout`` (2026-10-19) bounds the OPTIONAL structured call
+    only. It is deliberately inside this function so a slow/failed planner
+    cannot skip the deterministic required-read enforcement below: on
+    timeout we record the degraded proposal and keep going. Caller
+    cancellation (``CancelledError``) is never caught here; the
+    orchestrator's own outer wait still owns the turn's deadline and has a
+    final deterministic fallback for the case where this whole task is
+    cancelled."""
     if llm_service is None:
         return None
     connected = get_connected_services(user_id)
@@ -1544,20 +1797,61 @@ async def plan_tool_use(
         + f"Recent conversation:\n{_history_transcript(history, message)}\n\n"
         "Return the tool plan."
     )
-    plan = await _structured_with_fallback(
-        llm_service,
-        prompt=prompt,
-        response_model=ToolPlan,
-        system_instruction="You return only the requested JSON object.",
-    )
+    # OPTIONAL PLANNING BUDGET (2026-10-19). The old ordering awaited the
+    # structured call with the caller's whole planner budget in force, so a
+    # TimeoutError propagated before the source-ask floor ran; the executor
+    # was skipped entirely even though the interpretation had already
+    # compiled a fresh source_read for documents. Bound the OPTIONAL call
+    # here, then fall through to the deterministic source-ask /
+    # required-read enforcement below. This catches only this call's own
+    # timeout and ordinary provider failures — never CancelledError from
+    # the enclosing turn.
+    _planning_timeout = (
+        float(planning_timeout) if planning_timeout is not None
+        else float(_OPTIONAL_PLANNING_TIMEOUT_SECONDS))
+    _planning_timed_out = False
+    plan: Optional[ToolPlan] = None
+    _planning_error: Optional[str] = None
+    if _planning_timeout <= 0:
+        _planning_timed_out = True
+        _planning_error = "no planning budget"
+    else:
+        try:
+            plan = await asyncio.wait_for(
+                _structured_with_fallback(
+                    llm_service,
+                    prompt=prompt,
+                    response_model=ToolPlan,
+                    system_instruction=(
+                        "You return only the requested JSON object."),
+                ),
+                timeout=_planning_timeout,
+            )
+        except asyncio.TimeoutError:
+            _planning_timed_out = True
+            _planning_error = f"TimeoutError after {_planning_timeout:.1f}s"
+            logger.warning(
+                "tool planner: optional structured planning timed out "
+                "after %.1fs; required-read enforcement continues",
+                _planning_timeout)
+        except Exception as _plan_err:  # noqa: BLE001 — optional planning
+            _planning_error = repr(_plan_err)
+            logger.warning(
+                "tool planner: optional structured planning failed (%r); "
+                "required-read enforcement continues", _plan_err)
     # PLANNING PROVENANCE (job-work ledger, 2026-10-04): how this plan came
     # to be — first-pass success, or RECOVERED after a planner failure
     # (repair pass, deterministic rung, escalation). The execution seam
     # records this on the operation so a failure the fallback machinery
     # recovered is ATTEMPT HISTORY, never a final not_dispatched verdict.
     plan_meta = {"source": "structured", "recovered": False}
-    if plan is None:
+    if _planning_timed_out:
+        plan_meta["source"] = "optional_planning_timeout"
+        plan_meta["optional_planning_error"] = _planning_error
+    elif plan is None:
         plan_meta["source"] = "unavailable"
+        if _planning_error:
+            plan_meta["optional_planning_error"] = _planning_error
     # EXPLICIT-RESEARCH FLOOR: a message that explicitly instructs web
     # research must END in a web tool whenever web is configured — whether
     # the first pass declined, failed, or validly routed somewhere else
@@ -1594,40 +1888,15 @@ async def plan_tool_use(
     # requirement". A required obligation with no recorded kinds falls
     # back to the message's own source nouns (best available signal), and
     # a requirement that carries no obligation does not conjure one.
+    _authority = _required_read_authority(evidence_requirement, message)
+    _ask_kinds = _authority["kinds"]
+    _source_evidence_required = _authority["required"]
+    _floor_fires = bool(
+        _authority["fires"] and not _authority["ambiguous"])
     try:
-        from core.turn_decision import (
-            _looks_seek_shaped as _td_seek,
-            _requested_sources as _td_sources,
-        )
-        from core.action_program import (
-            normalize_source_kind as _norm_kind,
-        )
-
-        _req = (evidence_requirement
-                if isinstance(evidence_requirement, dict) else None)
-        _msg_kinds = sorted({
-            _norm_kind(s) for s in _td_sources(message or "")} - {""})
-        if _req is not None:
-            _req_kinds = sorted({
-                _norm_kind(s)
-                for s in (_req.get("sources") or [])
-                if str(s or "").strip()} - {""})
-            _source_evidence_required = _req.get("required") is True
-            _ask_kinds = _req_kinds or (
-                _msg_kinds if _source_evidence_required else [])
-            _floor_fires = bool(
-                _ask_kinds and (_td_seek(message or "")
-                                or _source_evidence_required))
-        else:
-            _ask_kinds = _msg_kinds
-            # No accepted decision: the floor fires only on a seek-shaped
-            # source consult by construction — an evidence obligation.
-            _source_evidence_required = True
-            _floor_fires = bool(_ask_kinds and _td_seek(message or ""))
         if _floor_fires:
-            _candidates = _source_service_candidates(
-                _ask_kinds, connected, message or "",
-                source_evidence_required=_source_evidence_required)
+            _candidates = eligible_read_capabilities(
+                evidence_requirement, connected, message)
             _already_served = bool(
                 plan is not None and plan.use_tool
                 and (plan.service or "") in _candidates)
@@ -1643,9 +1912,14 @@ async def plan_tool_use(
                     f"this ask: {_candidates}. Re-plan as a search on one "
                     "of those services, with the request's subject terms "
                     "as the query.")
-                _repaired = await _repair_plan_via_llm(
-                    llm_service, defect, connected, catalog, history,
-                    message, canvas)
+                _repaired = None
+                # Do not spend a second optional call after the first
+                # already exhausted its bounded budget: enforcement below
+                # is deterministic and must remain reachable.
+                if not _planning_timed_out:
+                    _repaired = await _repair_plan_via_llm(
+                        llm_service, defect, connected, catalog, history,
+                        message, canvas)
                 if _repaired and _repaired.use_tool and (
                         _repaired.service or "") in _candidates:
                     logger.info(
@@ -1655,24 +1929,63 @@ async def plan_tool_use(
                     plan_meta.update(source="source_ask_repair",
                                      recovered=True)
                 else:
-                    _subject = _source_ask_query(message) or (message or "")[:120]
-                    if plan is None:
-                        plan = ToolPlan()
-                    plan.use_tool = True
-                    plan.service = _candidates[0]
-                    plan.intent = "search"
-                    plan.query = _subject
-                    plan.reason = (
-                        "source-ask floor: the request names sources "
-                        f"{_ask_kinds} and must end in an executed search "
-                        "of one")
-                    logger.info(
-                        "tool planner: source-ask floor -> "
-                        f"{plan.service}.search query={plan.query!r}")
-                    plan_meta.update(source="source_ask_floor",
-                                     recovered=True)
+                    _unique = _unique_required_read_service(
+                        _candidates, _ask_kinds)
+                    if _unique:
+                        if plan is None:
+                            plan = ToolPlan()
+                        plan.use_tool = True
+                        plan.service = _unique
+                        plan.intent = "search"
+                        plan.query = _required_read_query(
+                            evidence_requirement, message)
+                        plan.reason = (
+                            "source-ask floor: the request names sources "
+                            f"{_ask_kinds} and must end in an executed "
+                            "search of one")
+                        logger.info(
+                            "tool planner: source-ask floor -> "
+                            f"{plan.service}.search query={plan.query!r}")
+                        plan_meta.update(source="source_ask_floor",
+                                         recovered=True)
+                    else:
+                        # The existing disambiguation policy: several
+                        # equally plausible lanes are not resolved by
+                        # picking the first. Leave the obligation open.
+                        logger.info(
+                            "tool planner: source-ask floor left "
+                            "unresolved — multiple plausible capabilities "
+                            "%s for kinds %s", _candidates, _ask_kinds)
+                        if (plan is not None and plan.use_tool
+                                and (plan.service or "") not in _candidates):
+                            logger.info(
+                                "tool planner: declining ineligible "
+                                "proposal %r rather than executing it "
+                                "against an ambiguous source set",
+                                plan.service)
+                            plan = None
     except Exception as _floor_err:  # noqa: BLE001 — floor must not gate
         logger.debug(f"source-ask floor skipped: {_floor_err}")
+    # DETERMINISTIC REQUIRED-READ ENFORCEMENT (2026-10-19): the accepted
+    # requirement is not optional. This runs AFTER the bounded optional
+    # planning and the source-ask floor, so it is reachable on proposal
+    # timeout, provider failure, decline, and wrong-service proposals. It
+    # only plans; the existing dispatcher executes and stamps the receipt.
+    _enforced = enforce_required_read(
+        plan,
+        evidence_requirement=evidence_requirement,
+        connected=connected,
+        message=message,
+    )
+    if _enforced is not plan:
+        plan = _enforced
+        if plan is not None:
+            _meta = getattr(plan, "_result_meta", None)
+            if isinstance(_meta, dict) and _meta.get("planning"):
+                plan_meta.update(
+                    source=str(_meta["planning"].get("source")
+                               or "required_read_floor"),
+                    recovered=True)
     if plan is None:
         return None
     if plan.use_tool:

@@ -402,6 +402,21 @@ _CANVAS_EDIT_DERIVATION_WAIT_SECONDS = float(
 _CANVAS_LEG_MAX_SECONDS = float(
     os.getenv("ATOM_CANVAS_LEG_MAX_SECONDS", "45") or 45)
 
+#: Interactive planner wait for an ordinary turn. Kept as a module constant
+#: (env-overridable) so focused timeout regressions can exercise the real
+#: outer wait without sleeping 25 seconds; the resume path raises this
+#: locally as before.
+_TOOL_PLAN_WAIT_SECONDS = float(
+    os.getenv("ATOM_TOOL_PLAN_WAIT_SECONDS", "25") or 25)
+
+#: Share of the planner wait reserved for deterministic enforcement and
+#: dispatch. The optional structured call gets (wait - reserve); if it
+#: still overruns, the outer wait catches the cancellation and the caller
+#: fallback below runs the accepted required read through the normal
+#: executor. This is time reserved for the work, not a latency target.
+_REQUIRED_READ_PLAN_RESERVE_SECONDS = float(
+    os.getenv("ATOM_REQUIRED_READ_PLAN_RESERVE_SECONDS", "5") or 5)
+
 #: Operator brake on the extended-class canvas-leg cap. The DEFAULT (0)
 #: DERIVES the cap per turn as (budget − reply floor) — on an edit-shaped
 #: turn the edit IS the answer, and a fixed 65 s cap was measured too tight
@@ -13380,6 +13395,10 @@ class ChatOrchestrator:
                                 canvas_attached=_req_canvas_attached)
                     except Exception:  # noqa: BLE001 — carry is additive
                         _plan_evidence_req = None
+                    _plan_task_wait = (
+                        _resume_plan_wait_seconds
+                        if _pending_file_task
+                        else _TOOL_PLAN_WAIT_SECONDS)
                     try:
                         return await plan_tool_use(
                             _plan_msg, _plan_hist, user_id, _scope_llm,
@@ -13389,6 +13408,10 @@ class ChatOrchestrator:
                                     message, {"canvas": _canvas_ctx})
                                 or _canvas_referencing_message(message)),
                             evidence_requirement=_plan_evidence_req,
+                            planning_timeout=max(
+                                1.0,
+                                _plan_task_wait
+                                - _REQUIRED_READ_PLAN_RESERVE_SECONDS),
                         )
                     finally:
                         if _wait_token is not None:
@@ -18850,7 +18873,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             # family. The confirmed read deserves a longer, deadline-
             # bounded wait (execute + reply keep their shares); ordinary
             # turns keep the 25s interactive contract.
-            _plan_wait_seconds = 25.0
+            _plan_wait_seconds = _TOOL_PLAN_WAIT_SECONDS
             if _resume_original:
                 try:
                     _remaining = deadline.remaining() if deadline else None
@@ -19657,6 +19680,58 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # A pre-started plan task means the caller overlapped this
                     # plan with the canvas-edit plan — just await it.
                     _plan_t0 = time.monotonic()
+
+                    async def _await_plan_with_required_read(
+                            _plan_awaitable, _wait_seconds):
+                        """Await the optional planner, but never let its own
+                        timeout discard an already-accepted required read.
+
+                        Only this call's timeout is caught. CancelledError
+                        from the enclosing turn is deliberately NOT caught:
+                        the turn's own cancellation must still win. If no
+                        deterministic required read is available, the
+                        original timeout is re-raised so the existing
+                        no-tool fallback keeps its behavior.
+                        """
+                        try:
+                            return await asyncio.wait_for(
+                                _plan_awaitable, timeout=_wait_seconds)
+                        except asyncio.TimeoutError as _plan_timeout:
+                            _fallback_req = None
+                            try:
+                                if isinstance(session, dict) and execution_id:
+                                    _fallback_req = session.get(
+                                        f"_evidence_requirement_{execution_id}")
+                            except Exception:  # noqa: BLE001 — optional read
+                                _fallback_req = None
+                            _fallback_plan = None
+                            try:
+                                from core.chat_tool_planner import (
+                                    enforce_required_read,
+                                    get_connected_services,
+                                )
+
+                                _fallback_plan = enforce_required_read(
+                                    None,
+                                    evidence_requirement=_fallback_req,
+                                    connected=get_connected_services(user_id),
+                                    message=message,
+                                )
+                            except Exception as _fallback_err:  # noqa: BLE001
+                                logger.warning(
+                                    "[tool-plan] required-read fallback "
+                                    "failed: %r", _fallback_err)
+                                _fallback_plan = None
+                            if _fallback_plan is None:
+                                raise _plan_timeout
+                            logger.warning(
+                                "[tool-plan] planner timed out after %.1fs; "
+                                "executing the accepted required read via "
+                                "%s.%s instead of skipping tools",
+                                _wait_seconds, _fallback_plan.service,
+                                _fallback_plan.intent)
+                            return _fallback_plan
+
                     if tool_plan_task is not None:
                         # TIMELINE ATTRIBUTION: how long the reply actually
                         # waited for the planner, and whether it had already
@@ -19664,8 +19739,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # the pre-reply cost is a single opaque stage number.
                         _plan_was_done = tool_plan_task.done()
                         _plan_wait_t0 = time.monotonic()
-                        _plan = await asyncio.wait_for(
-                            tool_plan_task, timeout=_plan_wait_seconds)
+                        _plan = await _await_plan_with_required_read(
+                            tool_plan_task, _plan_wait_seconds)
                         logger.info(
                             "[timeline] planner awaited by the reply builder: "
                             "%.1fs (already done when awaited: %s)",
@@ -19725,7 +19800,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             if isinstance(session, dict) and execution_id
                             else None)
                         try:
-                            _plan = await asyncio.wait_for(
+                            _plan = await _await_plan_with_required_read(
                                 plan_tool_use(
                                     message, planner_history or history, user_id,
                                     _scope_llm, canvas=canvas_context,
@@ -19733,8 +19808,12 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     allow_canvas_target=_canvas_edit_shaped(
                                         message, {"canvas": canvas_context}),
                                     evidence_requirement=_plan_evidence_req,
+                                    planning_timeout=max(
+                                        1.0,
+                                        _plan_wait_seconds
+                                        - _REQUIRED_READ_PLAN_RESERVE_SECONDS),
                                 ),
-                                timeout=_plan_wait_seconds,
+                                _plan_wait_seconds,
                             )
                         finally:
                             if _fresh_wait_token is not None:
