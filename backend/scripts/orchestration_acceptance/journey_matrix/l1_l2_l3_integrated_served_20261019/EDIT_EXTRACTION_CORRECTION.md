@@ -23,9 +23,10 @@ The served receipt also carried `outcome=completed`,
 from the preserved `execution.row.task_outcome` with `setdefault`
 (summary values win; the row only supplies fields the summary omitted).
 This is additive: no check was weakened and the raw attempt-2 result is
-untouched. The restart execution check was also corrected to read the
-nested `task_outcome` for the durable execution record; it stays false
-only because S7 independently settled `unconfirmed`.
+untouched. The restart execution check now reads the flattened
+`exec_brief` records that the restart step actually stores; it stays
+false only because S7 independently settled `unconfirmed`, and the
+edit/re-ask halves are asserted satisfied.
 
 ## Verification
 

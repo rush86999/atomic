@@ -64,3 +64,16 @@ def test_corrected_extraction_recovers_the_preserved_edit_mutation():
     assert edit_settled is True, (
         "the corrected extraction must make edit_settled_completed true "
         "from the preserved evidence")
+
+    executions = result["steps"]["restart"]["executions"]
+    expected_reask = result["steps"]["reask"]["execution"][
+        "response_execution_id"]
+    # The preserved attempt is false only because S7 independently settled
+    # unconfirmed. The edit and re-ask halves must be satisfied.
+    assert runner.restart_execution_ok(
+        executions["edit"], executions["reask"], executions["s7"],
+        expected_reask) is False
+    s7_fixed = dict(executions["s7"], objective_met=True)
+    assert runner.restart_execution_ok(
+        executions["edit"], executions["reask"], s7_fixed,
+        expected_reask) is True

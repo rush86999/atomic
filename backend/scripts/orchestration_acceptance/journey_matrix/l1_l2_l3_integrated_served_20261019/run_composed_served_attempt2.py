@@ -270,6 +270,29 @@ def cf_of(step: dict) -> dict:
                 "context_fulfillment") or {})
 
 
+def restart_execution_ok(edit_brief: dict, reask_brief: dict,
+                         s7_brief: dict, expected_reask_id: str) -> bool:
+    """Check the flattened ``exec_brief`` records captured after restart.
+
+    ``restart`` stores ``execution_record`` rows through ``exec_brief``
+    (mutation/objective flattened), not through the nested
+    ``task_outcome``. Read the shape that was actually persisted.
+    """
+    edit_brief = edit_brief or {}
+    reask_brief = reask_brief or {}
+    s7_brief = s7_brief or {}
+    return bool(
+        edit_brief.get("found") is True
+        and edit_brief.get("objective_met") is True
+        and (edit_brief.get("mutation") or {}).get(
+            "readback_matched") is True
+        and reask_brief.get("found") is True
+        and str(reask_brief.get("execution_id") or "")
+        == str(expected_reask_id or "")
+        and s7_brief.get("found") is True
+        and s7_brief.get("objective_met") is True)
+
+
 def task_of(step: dict) -> dict:
     """The execution summary with the durable row's outcome as an additive
     fallback.
@@ -1480,20 +1503,9 @@ def main() -> int:
                     if r.get("role") == "assistant")
             == pre_b["assistant_rows"])
         restart_canvas_ok = body2 == pre_restart["body"]
-        edit_outcome2 = exec_edit2.get("task_outcome") or {}
-        reask_outcome2 = exec_reask2.get("task_outcome") or {}
-        s7_outcome2 = exec_s7_2.get("task_outcome") or {}
-        restart_exec_ok = bool(
-            exec_edit2.get("found") is True
-            and edit_outcome2.get("objective_met") is True
-            and (edit_outcome2.get("mutation") or {}).get(
-                "readback_matched") is True
-            and exec_reask2.get("found") is True
-            and str(reask_outcome2.get("execution_id")
-                    or exec_reask2.get("row_id") or "")
-            == str(pre_a["execution_id"] or "")
-            and exec_s7_2.get("found") is True
-            and s7_outcome2.get("objective_met") is True)
+        restart_exec_ok = restart_execution_ok(
+            exec_edit2, exec_reask2, exec_s7_2,
+            pre_a["execution_id"])
 
         l3_summary = stage_summary(l3, log_text)
         edit_summary = stage_summary(edit, log_text)
