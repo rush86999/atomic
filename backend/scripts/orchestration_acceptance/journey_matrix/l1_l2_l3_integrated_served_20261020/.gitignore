@@ -1,0 +1,11 @@
+# Attempt-3 run artifacts are written by the runner while the server is
+# serving the frozen candidate. Keep them out of the candidate's clean
+# identity check; the committed evidence copy is checksummed separately.
+attempt3_config.json
+attempt3_result.json
+attempt3_summary.json
+attempt3_run.log
+attempt3_server_*.log
+attempt3_observation_*.jsonl
+attempt3_interpreter_freeze.txt
+attempt3_*.tmp
