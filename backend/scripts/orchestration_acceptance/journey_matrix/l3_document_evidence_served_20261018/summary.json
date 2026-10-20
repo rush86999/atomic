@@ -1,0 +1,166 @@
+{
+  "attempt": "1",
+  "binding_check": {
+    "definition": "receipt_bound_to_current_request binds through the response's own execution_id (exact agent_executions row lookup); query text recorded as supporting evidence",
+    "exact_row_bound": true,
+    "response_execution_id": "f6203e01-9959-4037-b877-ccc44e43bbd0"
+  },
+  "candidate": {
+    "branch": "codex/l3-document-evidence",
+    "commit": "6d662abfffc2d9e42ab209cf68521e4933edcf27",
+    "parent": "aaa1169d7dc1a2e511bce9b81c33ee85f58982eb",
+    "runtime_identity": {
+      "candidate_commit_ok": true,
+      "candidate_cwd_ok": true,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend",
+      "dirty": false,
+      "git_commit": "6d662abfffc2"
+    },
+    "tree_clean": true
+  },
+  "checks": {
+    "answer_contains_code": true,
+    "documents_receipt_executed": true,
+    "history_nonnull_agreement": true,
+    "objective_met_true": true,
+    "planner_dispatch_real": true,
+    "receipt_bound_to_current_request": true,
+    "receipt_verified_complete_coverage": true,
+    "successful_response": true,
+    "upload_through_product": true
+  },
+  "classification": "verified_document_evidence_completed",
+  "config": {
+    "credential": {
+      "environment": "production",
+      "key_name": "default",
+      "provider": "opencode-go",
+      "source": "authorized operator/global vault entry",
+      "value_recorded": false,
+      "vault_copied_wholesale": false
+    },
+    "declared_route": "https://opencode.ai/zen/go/v1",
+    "embeddings": {
+      "dim": 384,
+      "model": "BAAI/bge-small-en-v1.5",
+      "provider": "fastembed"
+    },
+    "flags": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-fix/scratch/l3-document-evidence-served/atom.db",
+      "live_env_copied_wholesale": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-fix/scratch/l3-document-evidence-served",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE"
+      ]
+    }
+  },
+  "disclosures": [
+    "Reply leg served by local ollama/llama3.1:8b (auto-discovered local runtime; no credential) although the predeclared note said the reply would use the same cloud route; planning was real cloud on the pilot route (glm-5.3-flash, deepseek-v4.1-flash). No gate depended on the reply route.",
+    "Scope: served API on the frozen candidate + declared configuration only; NOT pilot deployment; pilot :8001/:3000 untouched; live dev DB unchanged."
+  ],
+  "evidence": {
+    "documents_receipt": [
+      {
+        "outcome": "status=ok match_count=1",
+        "refs": [
+          {
+            "coverage": "complete",
+            "match_count": 1,
+            "query": "Zephyr-9 launch code",
+            "truncated": null
+          }
+        ],
+        "tool": "documents.search",
+        "verified": true
+      }
+    ],
+    "persisted_rows": [
+      {
+        "content": "search my uploaded documents for the launch code for project Zephyr-9 and tell me the code",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "user"
+      },
+      {
+        "content": "I've searched your uploaded documents using tools, and here's what I found:\n\nLIVE TOOL RESULTS (documents.search, query='Zephyr-9 launch code') \u2014 hybrid search over the workspace's ingested documents:\n\n* [ingested] l3_zephyr9_fixture.txt: ATOM PHASE D FIXTURE \u2014 internal notes.\nProject Zephyr-9 launch planning.\nThe launch code for project Zephyr-9 is QUARTZ-77.\n\nThe source document is \"l3_zephyr9_f",
+        "meta_outcome": "completed",
+        "meta_success": true,
+        "role": "assistant"
+      }
+    ],
+    "planner": {
+      "declared_route": "https://opencode.ai/zen/go/v1",
+      "go_inference_chat_posts": 0,
+      "source_ask_lines": [
+        "source-ask repair -> documents.search"
+      ],
+      "structured_dispatch_models": [
+        "opencode-go/deepseek-v4.1-flash",
+        "opencode-go/glm-5.3-flash"
+      ],
+      "zen_chat_posts": 4
+    },
+    "settlement": {
+      "final_error_code": null,
+      "final_outcome": "completed",
+      "final_success": true
+    },
+    "task_outcome": {
+      "delivery": {
+        "channel": "chat",
+        "delivered": true,
+        "deterministic": false,
+        "model": "llama3.1:8b"
+      },
+      "execution_id": "f6203e01-9959-4037-b877-ccc44e43bbd0",
+      "execution_row_id": "f6203e01-9959-4037-b877-ccc44e43bbd0",
+      "objective_met": true
+    },
+    "turn": {
+      "http": 200,
+      "latency_s": 43.11,
+      "outcome": "completed",
+      "response_model": "llama3.1:8b",
+      "response_provider": "ollama",
+      "success": true
+    },
+    "upload": {
+      "chunk_count": 1,
+      "doc_id": "doc_ee4153d4a4ff67b28359e186",
+      "http": 200,
+      "row": {
+        "file_name": "l3_zephyr9_fixture.txt",
+        "id": "doc_ee4153d4a4ff67b28359e186",
+        "preview_has_code": true,
+        "workspace_id": "224d9826-83f6-4b7d-bfda-40d60d9cfb7d"
+      },
+      "title": "l3_zephyr9_fixture.txt"
+    }
+  },
+  "finding": "F-R1 (repeatability_20261017_224802): document ask selected the memory lane 2/3; saved status validated only on documents.search",
+  "job": {
+    "ask": "search my uploaded documents for the launch code for project Zephyr-9 and tell me the code",
+    "fixture": "l3_zephyr9_fixture.txt",
+    "upload_route": "POST /api/documents/upload"
+  },
+  "pass": true,
+  "rescored": {
+    "artifact": "attempt1_result_exactlink.json",
+    "model_calls": 0,
+    "pass": true,
+    "raw_attempt_preserved": true,
+    "script": "rescore_exactlink.py"
+  },
+  "slice": "L3"
+}

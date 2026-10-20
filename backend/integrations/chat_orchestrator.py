@@ -10,6 +10,7 @@ This module provides a unified chat interface that connects all ATOM capabilitie
 """
 import asyncio
 import contextlib
+import sys
 import time
 from core.turn_learning import get_turn_learning
 from core import log_redaction
@@ -18,7 +19,7 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Sequence, Tuple
 from datetime import datetime, timezone
 from services.agent_service import agent_service
 
@@ -5871,6 +5872,65 @@ def _resolve_requirement_identity(
         return {"state": "ambiguous", "candidates": candidates[:4]}
     return {"state": "unresolved", "names": sorted(norm)[:4]}
 
+def _comparison_carrier_covers_fields(
+    carrier: Any, requested_fields: Sequence[str],
+) -> bool:
+    """Whether the carrier covers every field the request requires.
+
+    Field coverage is request-bound: a complete carrier for a different
+    field (for example an incidental price comparison) must not satisfy a
+    date-only request.
+    """
+    if not isinstance(carrier, dict) or not requested_fields:
+        return True
+    coverage = carrier.get("coverage") or {}
+    carrier_fields = {
+        str(f).strip().lower()
+        for f in (coverage.get("requested_fields") or [])
+        if str(f or "").strip()}
+    if not carrier_fields:
+        carrier_fields = {
+            str(o.get("field") or "").strip().lower()
+            for o in (coverage.get("outcomes") or [])
+            if isinstance(o, dict) and str(o.get("field") or "").strip()}
+    wanted = {str(f).strip().lower() for f in requested_fields
+              if str(f or "").strip()}
+    return bool(wanted) and wanted <= carrier_fields
+
+
+def _comparison_carrier_request_complete(
+    carrier: Any, requested_fields: Sequence[str],
+) -> bool:
+    """Whether the carrier delivered every requested field's outcome.
+
+    Unlike ``_comparison_carrier_complete``, extra unrequested fields do
+    not make a narrow request partial. The carrier must still bind the
+    requested fields (``_comparison_carrier_covers_fields``) and every
+    requested field's outcome must be covered.
+    """
+    if not isinstance(carrier, dict) or not requested_fields:
+        return False
+    if not _comparison_carrier_covers_fields(carrier, requested_fields):
+        return False
+    coverage = carrier.get("coverage") or {}
+    outcomes = [o for o in (coverage.get("outcomes") or [])
+                if isinstance(o, dict)]
+    by_field = {
+        str(o.get("field") or "").strip().lower(): o
+        for o in outcomes if str(o.get("field") or "").strip()}
+    for field in requested_fields:
+        key = str(field).strip().lower()
+        outcome = by_field.get(key)
+        if not outcome:
+            return False
+        status = str(outcome.get("status") or "unresolved")
+        reasons = {str(r) for r in (outcome.get("reasons") or [])}
+        if (status in _COMPARISON_UNCOVERED_STATUSES
+                or ({"field_missing", "evidence_missing"} & reasons)):
+            return False
+    return True
+
+
 def _comparison_carrier_complete(carrier: Any) -> bool:
     """Whether a recorded comparison carrier covers every compared field.
 
@@ -5886,6 +5946,13 @@ def _comparison_carrier_complete(carrier: Any) -> bool:
                 if isinstance(o, dict)]
     total = int(coverage.get("outcome_count") or 0)
     if not outcomes or total != len(outcomes):
+        return False
+    # REQUEST COVERAGE (L2 correctness, 2026-10-19): a complete typed-field
+    # comparison does not fulfill a broader "flag any other differences"
+    # request. Older workbook carriers predate request_complete and fall
+    # back to their field-level complete flag.
+    if not coverage.get(
+            "request_complete", coverage.get("complete", False)):
         return False
     covered = sum(
         1 for o in outcomes
@@ -5921,6 +5988,7 @@ def _build_evidence_requirement(
     evidence_required: Any,
     workspace_id: Any = None,
     canvas_attached: bool = False,
+    accepted_request: Any = None,
 ) -> Dict[str, Any]:
     """(Pure) The accepted request's evidence requirement — source kinds,
     file reference, deterministic typed-field requests, subject
@@ -5934,6 +6002,13 @@ def _build_evidence_requirement(
     decision — one authority, two consumers. No I/O beyond the catalog
     identity resolution the stash already performed; never raises for an
     unreadable addendum (fields/subjects degrade to empty).
+
+    ``accepted_request`` (L2, 2026-10-19) is the structured interpretation
+    that was actually accepted for this turn. When present and resolved,
+    the comparison scope comes from its constraints/requested fields (the
+    request contract), not from merely matching comparison vocabulary in
+    the raw message: a date-only follow-up ("does it still match?") must
+    not inherit the earlier turn's "flag anything that differs" breadth.
     """
     refs = (decision.get("references") or {}
             if isinstance(decision, dict) else {})
@@ -5960,6 +6035,9 @@ def _build_evidence_requirement(
         mentions = detect_file_mentions(str(message or "")) or []
     except Exception:  # noqa: BLE001
         mentions = []
+    _cont = refs.get("continuation_evidence") if isinstance(
+        refs.get("continuation_evidence"), dict) else None
+    _cont_state = str((_cont or {}).get("state") or "")
     if file_ref and (file_ref.get("file_name") or file_ref.get("name")
                      or file_ref.get("resource_id")):
         identity = _resolve_requirement_identity(
@@ -5973,9 +6051,59 @@ def _build_evidence_requirement(
                 "file_name": (file_ref.get("file_name")
                               or file_ref.get("name")),
             }
+    elif _cont is not None and _cont_state in ("ambiguous", "unresolved"):
+        # L2 correction (2026-10-18, owner review): the reference
+        # resolution preserved an AMBIGUOUS or UNRESOLVED antecedent —
+        # carry that state into the requirement's identity verbatim
+        # (the settlement reports the clarification / the honest
+        # non-match; never a silently chosen source).
+        if _cont_state == "ambiguous":
+            identity = {
+                "state": "ambiguous",
+                "candidates": [
+                    {"file_name": c.get("file_name"),
+                     "file_id": c.get("file_id")}
+                    for c in (_cont.get("candidates") or [])
+                    if isinstance(c, dict)][:4],
+            }
+        else:
+            identity = {
+                "state": "unresolved",
+                "names": [str(n)[:120]
+                          for n in (_cont.get("names") or [])][:4],
+            }
     elif mentions:
         identity = _resolve_requirement_identity(
             _mentions_to_filename_candidates(mentions), workspace_id)
+    try:
+        from core.workbook_read_artifact import (
+            accepted_comparison_scope,
+            comparison_request_shaped,
+        )
+
+        _accepted = (
+            accepted_request
+            if isinstance(accepted_request, dict)
+            and str(accepted_request.get("origin") or "") != "unresolved"
+            and str(accepted_request.get("scope_change") or "") != "unresolved"
+            else None)
+        _has_contract = bool(
+            _accepted and (
+                _accepted.get("constraints")
+                or _accepted.get("requested_fields")))
+        if _accepted and _has_contract:
+            # The accepted request's constraints/requested fields are the
+            # request contract. A degraded/unresolved interpretation falls
+            # back to the message shape so a broad obligation is not lost.
+            broader_comparison = accepted_comparison_scope(
+                _accepted, str(message or ""))
+        else:
+            # Legacy/direct callers and degraded interpretations retain
+            # the message-shaped contract.
+            broader_comparison = comparison_request_shaped(
+                str(message or ""))
+    except Exception:  # noqa: BLE001 — flag is additive
+        broader_comparison = False
     requirement = {
         "required": evidence_required is True,
         "sources": [
@@ -5987,6 +6115,7 @@ def _build_evidence_requirement(
         "subjects": subjects,
         "identity": identity,
         "artifact_attached": bool(canvas_attached),
+        "broader_comparison": broader_comparison,
     }
     return requirement
 
@@ -5999,6 +6128,7 @@ def _stash_evidence_requirement(
     evidence_required: Any,
     workspace_id: Any = None,
     canvas_attached: bool = False,
+    accepted_request: Any = None,
 ) -> Optional[Dict[str, Any]]:
     """Record the accepted request's evidence requirement for THIS execution.
 
@@ -6008,13 +6138,18 @@ def _stash_evidence_requirement(
     subject identities, the RESOLVED named-source identity, and whether
     an artifact was attached). Execution-keyed: another turn's requirement
     can never donate. Returns the recorded requirement (or None).
+
+    ``accepted_request`` is the structured interpretation accepted for
+    THIS turn; it supplies the request-bound comparison scope (L2,
+    2026-10-19). Absent/unresolved interpretations keep the message shape.
     """
     if (not isinstance(session, dict) or not execution_id
             or not isinstance(decision, dict)):
         return None
     requirement = _build_evidence_requirement(
         decision, message, evidence_required,
-        workspace_id=workspace_id, canvas_attached=canvas_attached)
+        workspace_id=workspace_id, canvas_attached=canvas_attached,
+        accepted_request=accepted_request)
     session[f"_evidence_requirement_{execution_id}"] = requirement
     return requirement
 
@@ -6130,10 +6265,55 @@ def _context_backed_fulfillment(
     if not missing:
         if req.get("artifact_attached"):
             carrier = session.get(f"_objective_evidence_{execution_id}")
-            if not _comparison_carrier_complete(carrier):
-                # both inputs available ≠ the comparison was performed
+            _carrier = carrier if isinstance(carrier, dict) else None
+            _carrier_outcomes = [
+                o for o in (((_carrier or {}).get("coverage") or {})
+                            .get("outcomes") or [])
+                if isinstance(o, dict)]
+            _carrier_fields = {
+                str(f).strip().lower()
+                for f in (((_carrier or {}).get("coverage") or {})
+                          .get("requested_fields") or [])
+                if str(f or "").strip()}
+            if not _carrier_fields:
+                _carrier_fields = {
+                    str(o.get("field") or "").strip().lower()
+                    for o in _carrier_outcomes
+                    if str(o.get("field") or "").strip()}
+            if (not (
+                    _comparison_carrier_complete(_carrier)
+                    if req.get("broader_comparison")
+                    else _comparison_carrier_request_complete(
+                        _carrier, fields))
+                    or not _comparison_carrier_covers_fields(
+                        _carrier, fields)):
+                # both inputs available ≠ the comparison was performed.
+                # Name the comparison fields the recorded carrier did not
+                # cover; a partial carrier is an unmet obligation, not an
+                # absent comparison. A broad request may legitimately
+                # assess fields beyond the explicit typed fields.
+                _applicable = set(fields)
+                if req.get("broader_comparison"):
+                    _applicable |= _carrier_fields
+                _unmet_comparison_fields = []
+                for outcome in _carrier_outcomes:
+                    field = str(outcome.get("field") or "").strip().lower()
+                    if not field or field not in _applicable:
+                        continue
+                    status = str(outcome.get("status") or "unresolved")
+                    reasons = {str(r) for r in
+                               (outcome.get("reasons") or [])}
+                    if (status in _COMPARISON_UNCOVERED_STATUSES
+                            or ({"field_missing", "evidence_missing"}
+                                & reasons)):
+                        if field not in _unmet_comparison_fields:
+                            _unmet_comparison_fields.append(field)
                 return {"state": "partial", "supplied_fields": supplied,
-                        "missing_comparison": True, "matched": matched_ids}
+                        "missing_comparison": True,
+                        "comparison_recorded": bool(_carrier),
+                        "missing_comparison_fields":
+                            _unmet_comparison_fields[:4],
+                        "matched": matched_ids}
         return {"state": "completed", "supplied_fields": supplied,
                 "matched": matched_ids}
     if supplied:
@@ -6476,18 +6656,39 @@ def _fallback_turn_outcome(
                 session, execution_id, workspace_id)
         except Exception:  # noqa: BLE001 — additive; never blocks the turn
             context_fulfillment = None
-        if context_fulfillment and not validated:
+        if context_fulfillment:
             _cf_state = str(context_fulfillment.get("state") or "")
             if _cf_state == "completed":
                 validated = True
             elif _cf_state == "partial":
                 # Delivered answer with a named gap: the supplied fields
                 # are usable work; the missing ones stay obligations.
+                # PROCESS THE GAPS EVEN WHEN ANOTHER PATH ALREADY
+                # VALIDATED DELIVERY. A verified search receipt (or any
+                # other delivered result) proves the operation executed;
+                # it does not erase this request's unmet comparison
+                # obligations. The state map resolves validated+open_work
+                # to partial.
                 validated = True
                 if context_fulfillment.get("missing_comparison"):
-                    open_work.append(
-                        "the comparison itself was not recorded this "
-                        "turn — only its inputs were available")
+                    _cmp_missing = [
+                        str(f) for f in (
+                            context_fulfillment.get(
+                                "missing_comparison_fields") or [])][:3]
+                    if _cmp_missing:
+                        open_work.append(
+                            "the requested comparison fields "
+                            + ", ".join(_cmp_missing)
+                            + " — not verified as an explicit outcome "
+                              "this turn")
+                    elif context_fulfillment.get("comparison_recorded"):
+                        open_work.append(
+                            "the recorded comparison is incomplete for "
+                            "this request")
+                    else:
+                        open_work.append(
+                            "the comparison itself was not recorded this "
+                            "turn — only its inputs were available")
                 _cf_missing = [
                     str(f) for f in (
                         context_fulfillment.get("missing_fields") or [])][:3]
@@ -8132,6 +8333,27 @@ class ChatOrchestrator:
                     f"_objective_evidence_{execution_id}")
                 if isinstance(_carrier_cmp, dict):
                     comparison = _carrier_cmp
+            # REQUEST-BOUND COMPARISON (owner work order 2026-10-19): an
+            # incidental canvas/workbook carrier is not this request's
+            # comparison. Bind the carrier to the accepted requirement's
+            # fields (or an explicitly attached/broad comparison request)
+            # before letting it gate completion.
+            _req_for_comparison = (
+                session.get(f"_evidence_requirement_{execution_id}")
+                if isinstance(session, dict) and execution_id else {})
+            _req_fields_for_comparison = [
+                str(f).strip().lower()
+                for f in ((_req_for_comparison or {}).get("fields") or [])
+                if str(f or "").strip()]
+            _request_bound_comparison = bool(
+                comparison and (
+                    (_req_fields_for_comparison
+                     and _comparison_carrier_covers_fields(
+                         comparison, _req_fields_for_comparison))
+                    or bool(
+                        (_req_for_comparison or {}).get("artifact_attached")
+                        or (_req_for_comparison or {}).get(
+                            "broader_comparison"))))
             comparison_coverage = comparison.get("coverage") or {}
             comparison_outcomes = [
                 item
@@ -8165,8 +8387,22 @@ class ChatOrchestrator:
             # branch excludes it. A comparison whose source field was
             # never found is not a delivered result on ANY lane; the
             # two resolvers now state one contract.
+            # COMPARISON COMPLETION CONSUMES THE SAME REQUEST-BOUND
+            # PREDICATE as the resolver: every outcome covered AND the
+            # carrier's own request_complete/coverage verdict AND the
+            # accepted requirement's fields present. A numeric-incomparable
+            # outcome or a price-only carrier cannot certify a date request.
             comparison_complete = bool(
-                comparison_total and comparison_covered == comparison_total
+                comparison_total
+                and comparison_covered == comparison_total
+                and (
+                    _comparison_carrier_complete(comparison)
+                    if (_req_for_comparison or {}).get(
+                        "broader_comparison")
+                    else _comparison_carrier_request_complete(
+                        comparison, _req_fields_for_comparison))
+                and _comparison_carrier_covers_fields(
+                    comparison, _req_fields_for_comparison)
             )
             comparison_ledger = {
                 "known": sum(
@@ -8593,6 +8829,13 @@ class ChatOrchestrator:
                 and _receipts_carry_verified_complete_search(
                     session.get(f"_planner_tool_receipts_{execution_id}")
                     if isinstance(session, dict) else None)
+                # ONE REQUEST-BOUND SETTLEMENT DECISION (owner work order
+                # 2026-10-19): a completed search proves useful execution,
+                # not completion of a comparison. Only a request-bound
+                # comparison (the accepted requirement's fields or an
+                # explicitly attached/broad comparison) blocks this branch;
+                # an incidental canvas carrier does not.
+                and not _request_bound_comparison
             ):
                 objective_met = True
             elif _cf_record:
@@ -8614,7 +8857,22 @@ class ChatOrchestrator:
                 objective_met = True
             elif comparison_complete and delivered:
                 objective_met = True
-            elif deterministic and retrieval_complete:
+            elif (
+                deterministic and retrieval_complete
+                and not _request_bound_comparison
+                # The deterministic retrieval branch must consume the
+                # resolver's request-bound decision too. Without a
+                # comparison carrier, a partial context verdict (e.g.
+                # inputs available but no comparison performed) is still
+                # recorded state=partial and must not become objective_met.
+                and isinstance(response.get("_recorded_outcome"), dict)
+                and response["_recorded_outcome"].get("state") == "completed"
+                and response["_recorded_outcome"].get("delivered") is True
+                and str(execution_id or "") in {
+                    str(e) for e in (
+                        response["_recorded_outcome"].get("execution_ids")
+                        or [])}
+            ):
                 objective_met = True
             elif (
                 canvas_edit.get("updated") is True
@@ -10117,6 +10375,7 @@ class ChatOrchestrator:
                 if os.getenv("ATOM_TURN_DECISION_ROUTING", "1").lower() not in ("0", "off", "false"):
                     try:
                         from core.turn_decision import (
+                            apply_interpretation_references,
                             build_turn_decision,
                             interpret_turn_request,
                         )
@@ -10157,6 +10416,21 @@ class ChatOrchestrator:
                                 "[turn-interpretation] invocation "
                                 "failed (floor retained): %r",
                                 _interp_err)
+                        # L2 repair (2026-10-18): CONSUME the resolved
+                        # interpretation's source references when the
+                        # deterministic floor found none. A continuation
+                        # ask that references an earlier source by
+                        # description ("does it still match the approved
+                        # record?") carries no source noun, so the
+                        # evidence obligation used to be lost and the
+                        # turn's verified retrieval could not certify
+                        # (S7: correct content, outcome_unconfirmed).
+                        # Fail-closed: a degraded interpretation, an
+                        # existing floor capture, or an unresolvable
+                        # reference changes nothing.
+                        _td = apply_interpretation_references(
+                            _td, _td_interpretation, session)
+                        _td_decision = _td
                         _td_sources = ((_td.get("references")
                                         or {}).get("sources")) or []
                         for _a in _td.get("requested_actions") or []:
@@ -13996,7 +14270,8 @@ class ChatOrchestrator:
                         or resolve_user_workspace(
                             locals().get("user_id")
                             or (session or {}).get("user_id"))),
-                    canvas_attached=bool(locals().get("_canvas_ctx")))
+                    canvas_attached=bool(locals().get("_canvas_ctx")),
+                    accepted_request=_td_interpretation)
             except Exception:  # noqa: BLE001 — additive, never blocks
                 pass
             _shared_tool: Dict[str, Any] = {
@@ -15830,6 +16105,73 @@ class ChatOrchestrator:
                 )
 
                 main_message = ai_response["content"]
+
+                # VERIFIED-FIELD NARRATION GUARD (L2 narration defect,
+                # 2026-10-19): when this turn compared a typed field on
+                # the attached canvas against the retrieved source's
+                # recorded field association, the verified values are
+                # rendered deterministically and free-form narration
+                # cannot replace them. A reply that does not carry every
+                # verified value is replaced by the comparison; a reply
+                # that does is kept and the comparison appended. No
+                # date-specific rule — the typed-field comparison
+                # machinery and the retrieved associations are the
+                # authority.
+                try:
+                    from core.workbook_read_artifact import (
+                        verified_comparison_reply,
+                    )
+
+                    _verified_requirement = session.get(
+                        f"_evidence_requirement_{_execution_id}") or {}
+                    _verified_observations = session.get(
+                        f"_retrieval_source_observations_{_execution_id}") \
+                        or []
+                    _verified = None
+                    if (not _is_llm_error_text(str(main_message or ""))
+                            and not ai_response.get("verified_comparison")):
+                        _verified = verified_comparison_reply(
+                            message=message,
+                            reply=str(main_message or ""),
+                            canvas=(
+                                _canvas_ctx
+                                if isinstance(_canvas_ctx, dict) else {}),
+                            source_observations=_verified_observations,
+                            requirement=_verified_requirement,
+                        )
+                    if _verified and _verified.get("reply"):
+                        main_message = _verified["reply"]
+                        ai_response["content"] = main_message
+                        _verified_comparison = _verified.get("comparison")
+                        ai_response["verified_comparison"] = (
+                            _verified_comparison)
+                        _coverage = ((_verified_comparison or {}).get(
+                            "coverage") or {})
+                        # The durable outcome consumes the same carrier
+                        # the workbook comparison path uses, so delivered
+                        # text and settlement agree. Don't overwrite a
+                        # more complete carrier recorded earlier.
+                        if (isinstance(_verified_comparison, dict)
+                                and _execution_id):
+                            _existing_carrier = session.get(
+                                f"_objective_evidence_{_execution_id}")
+                            if (not _existing_carrier
+                                    or _coverage.get("complete")):
+                                session[
+                                    f"_objective_evidence_{_execution_id}"
+                                ] = _verified_comparison
+                        ai_response["deterministic_delivery"] = True
+                        logger.info(
+                            "[verified-comparison] narration %s "
+                            "(session=%s execution=%s fields=%s)",
+                            "replaced" if _verified.get("replaced")
+                            else "appended",
+                            session_id, str(_execution_id)[:8],
+                            (_verified_requirement or {}).get("fields"))
+                except Exception:  # noqa: BLE001 — guard is additive
+                    logger.debug(
+                        "[verified-comparison] guard skipped: %r",
+                        sys.exc_info()[1])
 
                 # TRUTHFULNESS ENFORCEMENT (owner directive 2026-10-12,
                 # beyond the prompt envelope): a seek-shaped turn with NO
@@ -24287,6 +24629,62 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 from core.chat_tool_planner import (
                     _explicit_web_research_requested,
                 )
+                # VERIFIED COMPARISON BEFORE CORRECTIVE GUARDS (L2 guard-
+                # order repair, 2026-10-19): when the turn's own typed-field
+                # requirement + retrieved observations + attached canvas
+                # produce a COMPLETE verified comparison, deliver that
+                # deterministic answer NOW, before the grounding/absence/
+                # search-narration guards can spend the remaining turn
+                # budget regenerating prose. Partial/limitation comparisons
+                # fall through to the existing guarded processing.
+                try:
+                    from core.workbook_read_artifact import (
+                        verified_comparison_reply,
+                    )
+
+                    _vfy_requirement = (
+                        (session or {}).get(
+                            f"_evidence_requirement_{execution_id}") or {})
+                    _vfy_observations = (
+                        (session or {}).get(
+                            f"_retrieval_source_observations_{execution_id}")
+                        or [])
+                    _vfy = verified_comparison_reply(
+                        message=message,
+                        reply=_content,
+                        canvas=(canvas_context
+                                if isinstance(canvas_context, dict) else {}),
+                        source_observations=_vfy_observations,
+                        requirement=_vfy_requirement,
+                    )
+                    _vfy_coverage = (((_vfy or {}).get("comparison") or {})
+                                     .get("coverage") or {})
+                    if (_vfy and _vfy.get("reply")
+                            and not _is_llm_error_text(_content)
+                            and not _canvas_edit_shaped(
+                                message, {"canvas": canvas_context})):
+                        response_data = dict(response_data or {})
+                        response_data["content"] = _vfy["reply"]
+                        response_data["verified_comparison"] = (
+                            _vfy.get("comparison"))
+                        response_data["deterministic_delivery"] = True
+                        if (isinstance(session, dict) and execution_id):
+                            # This path only runs on a COMPLETE comparison;
+                            # it is authoritative over any earlier partial
+                            # carrier for the same execution.
+                            session[
+                                f"_objective_evidence_{execution_id}"
+                            ] = _vfy.get("comparison")
+                        logger.info(
+                            "[verified-comparison] deterministic replacement "
+                            "BEFORE corrective guards (execution=%s fields=%s)",
+                            str(execution_id)[:8],
+                            (_vfy_requirement or {}).get("fields"))
+                        return response_data
+                except Exception:  # noqa: BLE001 — guard is additive
+                    logger.debug(
+                        "[verified-comparison] pre-guard replacement "
+                        "skipped: %r", sys.exc_info()[1])
                 # GROUNDING GUARD (non-streaming path): same wobble guard as
                 # the streaming path — one grounded regeneration when the
                 # reply denies having data that a LIVE TOOL RESULT provided.

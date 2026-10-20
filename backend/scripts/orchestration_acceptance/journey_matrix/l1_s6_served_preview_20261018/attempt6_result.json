@@ -1,0 +1,560 @@
+{
+  "checks": {
+    "body_unchanged_and_holds_net45": true,
+    "noop_receipt_evidenced": false,
+    "outcome_completed": false,
+    "persisted_matches": true,
+    "receipt_derived_reply": false,
+    "success_true": false,
+    "zero_additional_writes": true
+  },
+  "classification": "settled_non_completed",
+  "declared_config": {
+    "attempt": "6",
+    "candidate": {
+      "branch": "codex/reask-current-artifact",
+      "commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+      "source_sha256_chat_canvas_editor": "e08f99b43a0ee3fb2c366ab9e2086150b20b281d5a6c6a6be127f1d5c9cedd0c",
+      "tree_clean": true
+    },
+    "declared_at": "2026-10-18T14:43:39",
+    "flags": {
+      "declared": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "pilot_effective_from_main_env": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "same_as_pilot": true
+    },
+    "interpreter": {
+      "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+      "version": "Python 3.14.7"
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+      "live_env_copied_wholesale": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE"
+      ]
+    },
+    "live_db_guard": {
+      "mtime_before": 1792346365.5856981,
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "sha256_before": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70"
+    },
+    "model": {
+      "base_url": "http://127.0.0.1:11434/v1",
+      "credentials": [
+        {
+          "name": "OPENROUTER_API_KEY",
+          "scope": "edit planning only (ATOM_ASYNC_EDIT_PLAN_MODEL pin, deepseek-v4-pro)",
+          "source": "operator backend/.env, by name at launch",
+          "value_recorded": false
+        }
+      ],
+      "edit_plan_pin": "openrouter/google/gemma-4-31b-it:free",
+      "forced_decline_seam": false,
+      "model": "llama3.1:8b",
+      "provider": "ollama"
+    },
+    "ports": {
+      "backend": 8093,
+      "frontend": null
+    }
+  },
+  "live_db_guard_after": {
+    "mtime": 1792346365.5856981,
+    "sha256": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70",
+    "unchanged": true
+  },
+  "pass": false,
+  "steps": {
+    "audits_after": {
+      "count": 2,
+      "rows": [
+        [
+          "fb63ad4f-bc1",
+          "create",
+          "2026-10-18 18:43:49.031962"
+        ],
+        [
+          "05a00cb2-446",
+          "update",
+          "2026-10-18 18:43:49.051862"
+        ]
+      ]
+    },
+    "audits_before": {
+      "count": 2,
+      "rows": [
+        [
+          "fb63ad4f-bc1",
+          "create",
+          "2026-10-18 18:43:49.031962"
+        ],
+        [
+          "05a00cb2-446",
+          "update",
+          "2026-10-18 18:43:49.051862"
+        ]
+      ]
+    },
+    "body_after": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "body_unchanged": true,
+    "canvas": {
+      "canvas_id": "53deb19d-e7c0-4a06-9062-e4b2e75cab5c",
+      "create_http": 200,
+      "seed_http": 200,
+      "seeded_has_terms_net45": true
+    },
+    "health": {
+      "database": "operational",
+      "deployed_sha": "unknown",
+      "identity": {
+        "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/byok_keys.json",
+        "captured_at": "2026-10-18T18:43:48.172897+00:00",
+        "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+        "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+        "dirty": false,
+        "dirty_digest": "e3b0c44298fc",
+        "dirty_paths": [],
+        "error": null,
+        "git_commit": "b96dec60a46d",
+        "instance_id": "b96dec60a46d.39989.1792349028",
+        "pid": 39989,
+        "port": 8093,
+        "revision": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+        "source_id": "b96dec60a46d",
+        "started_at": "2026-10-18T18:43:45.685195+00:00",
+        "untracked_paths": []
+      },
+      "memory_mb": 632.56,
+      "redis": "operational",
+      "services": {
+        "database": "operational",
+        "redis": "operational",
+        "vector_store": "operational"
+      },
+      "status": "healthy",
+      "timestamp": "2026-10-18T18:43:48.171726+00:00",
+      "vector_store": "operational",
+      "version": "8.0.0"
+    },
+    "launch": {
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "pid": 39989
+    },
+    "local_runtime_activation": {
+      "ollama": {
+        "has_api_keys": true,
+        "has_tenant_key": true,
+        "provider": {
+          "api_key_env_var": "OLLAMA_API_KEY",
+          "base_url": "http://127.0.0.1:11434/v1",
+          "cost_per_token": 0.0,
+          "description": "Local LLM inference via Ollama (OpenAI-compatible). No API key required.",
+          "id": "ollama",
+          "is_active": true,
+          "max_requests_per_minute": 60,
+          "model": "llama3:8b",
+          "name": "Ollama (Local)",
+          "rate_limit_window": 60,
+          "reasoning_level": 3,
+          "requires_encryption": false,
+          "supported_tasks": [
+            "general",
+            "chat",
+            "code",
+            "analysis",
+            "reasoning"
+          ]
+        },
+        "status": "active",
+        "usage": {
+          "cost_accumulated": 0.0,
+          "failed_requests": 0,
+          "last_used": null,
+          "provider_id": "ollama",
+          "rate_limit_remaining": 0,
+          "rate_limit_reset": null,
+          "successful_requests": 0,
+          "total_requests": 0,
+          "total_tokens_used": 0
+        }
+      },
+      "providers_http": 200,
+      "store_http": 200
+    },
+    "openrouter_activation": {
+      "credential_source": "operator backend/.env, by name, value never recorded",
+      "openrouter": {
+        "has_api_keys": true,
+        "has_tenant_key": true,
+        "provider": {
+          "api_key_env_var": "OPENROUTER_API_KEY",
+          "base_url": "https://openrouter.ai/api/v1",
+          "cost_per_token": 7.5e-07,
+          "description": "Unified gateway to 300+ models (OpenAI, Anthropic, Google, Meta, and more). One API key.",
+          "id": "openrouter",
+          "is_active": true,
+          "max_requests_per_minute": 60,
+          "model": "minimax/minimax-m3",
+          "name": "OpenRouter",
+          "rate_limit_window": 60,
+          "reasoning_level": 4,
+          "requires_encryption": true,
+          "supported_tasks": [
+            "general",
+            "chat",
+            "code",
+            "reasoning",
+            "analysis",
+            "vision"
+          ]
+        },
+        "status": "active",
+        "usage": {
+          "cost_accumulated": 0.0,
+          "failed_requests": 0,
+          "last_used": null,
+          "provider_id": "openrouter",
+          "rate_limit_remaining": 0,
+          "rate_limit_reset": null,
+          "successful_requests": 0,
+          "total_requests": 0,
+          "total_tokens_used": 0
+        }
+      },
+      "pin": "openrouter/google/gemma-4-31b-it:free",
+      "store_http": 200
+    },
+    "persisted_rows": [
+      {
+        "content": "Please also update the payment terms in the draft to Net 45.",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "user"
+      },
+      {
+        "content": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "meta_outcome": "unconfirmed",
+        "meta_success": false,
+        "role": "assistant"
+      },
+      {
+        "content": "I couldn't apply your update. I couldn't apply that edit after 3 tries. I couldn't confirm the canvas is exactly as it was \u2014 give it a quick look before relying on it.",
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "assistant"
+      }
+    ],
+    "register": {
+      "http": 200
+    },
+    "runtime_identity": {
+      "candidate_commit_ok": true,
+      "candidate_cwd_ok": true,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "dirty": false,
+      "git_commit": "b96dec60a46d",
+      "source_id": "b96dec60a46d"
+    },
+    "s6_turn": {
+      "http": 200,
+      "latency_s": 4.1,
+      "response": {
+        "confidence": 0.9,
+        "error_code": "outcome_unconfirmed",
+        "execution_id": "4aa2f2d3-34fe-4a47-8729-b84e02ddbeb9",
+        "failure_reason": null,
+        "intent": "canvas_edit",
+        "memory_context": null,
+        "message": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "metadata": {
+          "canvas_edit": {
+            "background_started": true,
+            "canvas_id": "53deb19d-e7c0-4a06-9062-e4b2e75cab5c",
+            "continuation_id": "8f856f52-4d18-4b99-8495-daa6a9670787",
+            "execution_id": "4aa2f2d3-34fe-4a47-8729-b84e02ddbeb9",
+            "no_apply": true,
+            "operation_id": "3357f0c7-02c7-4503-b91b-f25d8bf34413",
+            "outcome": "refused",
+            "plan_unavailable": true,
+            "planner_outcome": "unavailable",
+            "reason": "planner_unavailable",
+            "task_run_id": "a55010fc-ffc1-43bf-81c8-e2447236e9a4",
+            "updated": false
+          },
+          "persistence": {
+            "status": "persisted"
+          }
+        },
+        "model": null,
+        "next_steps": [],
+        "outcome": "unconfirmed",
+        "provider": null,
+        "reasoning": null,
+        "recovery_url": null,
+        "requires_confirmation": false,
+        "session_id": "ff94cd4f-7517-46d4-ba1f-e8cf49155fe8",
+        "success": false,
+        "suggested_actions": [],
+        "timestamp": "2026-10-18T14:43:53.089789"
+      }
+    },
+    "settlement": {
+      "final_error_code": null,
+      "final_message": "I couldn't apply your update. I couldn't apply that edit after 3 tries. I couldn't confirm the canvas is exactly as it was \u2014 give it a quick look before relying on it.",
+      "final_outcome": null,
+      "final_success": null,
+      "polls": [
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681158.9
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681168.9
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681178.9
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681188.9
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681199.0
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681209.0
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681219.0
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681229.0
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681239.0
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681249.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681259.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681269.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681279.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681289.1
+        },
+        {
+          "outcome": "unconfirmed",
+          "success": false,
+          "t": 1791681299.1
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681309.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681319.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681329.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681339.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681349.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681359.2
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681369.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681379.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681389.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681399.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681409.3
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681419.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681429.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681439.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681449.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681459.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681469.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681479.4
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681489.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681499.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681509.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681519.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681529.5
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681539.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681549.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681559.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681569.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681579.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681589.6
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681599.7
+        },
+        {
+          "outcome": null,
+          "success": null,
+          "t": 1791681609.7
+        }
+      ]
+    },
+    "user": {
+      "id": "2c3d3b53-b69a-449d-a937-740cc91c4249",
+      "workspace_id": "a35f3570-2006-4669-81e1-d8ce2ca8f2fd"
+    }
+  }
+}

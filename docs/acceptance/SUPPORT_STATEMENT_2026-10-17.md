@@ -76,29 +76,42 @@ reconciled by the evidence cited here.
 
 ## 4. Experimental, unavailable, or untested (visible)
 
-- **L1 — idempotent re-ask**: re-asking a change that is already applied on
-  the current artifact revision is declined truthfully but does not yet
-  settle as an "Already applied" completion. Follow-up criterion: verify
-  the same requested change durably satisfied **on the current revision**
-  (subject/field/value/artifact bound), answer "Already applied; nothing
-  changed", zero writes, consistent outcome; a historical success alone
-  must not establish it.
+- **L1 — idempotent re-ask**: the **deployed pilot (`8c593e57031e`)**
+  still declines truthfully without settling as an "Already applied"
+  completion. The mechanism is now **verified through the served API on
+  successor `aaa1169d7`** (pin-gate scope repair) in a declared isolated
+  configuration (Go planning route `opencode-go/deepseek-v4-pro`):
+  original S6 re-ask → structured no-op receipt
+  (`noop=true`/`noop_reason=already_satisfied`), receipt-derived
+  confirmation, zero added writes, `outcome=completed`/`success=true`,
+  explicit non-null agreement after fresh history reload — evidence
+  `journey_matrix/l1_s6_successor_served_20261018/`, matrix rev 11.
+  Deployment to the pilot remains a separate integration step, and this
+  pilot limitation stands until the successor is integrated and
+  re-verified there.
 - **L2 — continuation ask**: "does it still match the approved record?"
   is answered correctly but not captured as an evidence requirement (the
   source-noun vocabulary); the settlement stays non-certified. Fix belongs
   in interpretation (structured chain preserved), not in a new noun regex.
 - **L3 — sourced-answer saved status is planner-dependent**: on the
-  deployed world's cloud planners, the `memory` lane was chosen in 2/3
-  repetitions (no verifiable evidence ⇒ failed/unconfirmed) while the
-  answer content was correct; with the `documents.search` lane (1/3) the
-  status validated. Same variance class as composed run 6 vs 7. Repair
-  frozen at `8f881fd6c` (requirement-driven tool eligibility; locally
-  verified on scratch stores — parent-failing / successor-passing,
-  mutation-checked; the parent run captures the exact `memory` receipt
-  shape). **This limitation stands unchanged on the deployed pilot
-  `8c593e57031e` until a served acceptance run on the frozen candidate
-  demonstrates otherwise** (evidence:
-  `journey_matrix/l3_document_evidence_20261018/`).
+  deployed pilot (`8c593e57031e`) the `memory` lane was chosen in 2/3
+  evaluation repetitions (no verifiable evidence ⇒ failed/unconfirmed)
+  while the answer content was correct; with `documents.search` (1/3) the
+  status validated. The repair is now **verified through the served API
+  on candidate `6d662abff`** (requirement-driven tool eligibility;
+  parent `aaa1169d7`) in a predeclared isolated configuration (pilot
+  cloud route, one authorized operator credential registered through the
+  product, local fastembed embeddings, scratch stores): the original
+  Zephyr-9 ask — fixture uploaded through the product, real cloud
+  planning — executed `documents.search` with a verified complete receipt
+  (`match_count=1`, `coverage=complete`), `objective_met=true`,
+  `success=true`, `outcome=completed`, the answer carrying `QUARTZ-77`
+  from the uploaded file, and explicit non-null agreement after a fresh
+  history reload — evidence
+  `journey_matrix/l3_document_evidence_served_20261018/`, matrix rev 12.
+  Deployment to the pilot remains a separate integration step, and this
+  pilot limitation stands until the candidate is integrated and
+  re-verified there.
 - **Untested**: J7 background handoff beyond the tested slices, J8
   automation, J9 broad failure recovery; integrations beyond the one
   document source; other OSes/hardware; R4 coverage/outcome follow-up

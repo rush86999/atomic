@@ -1,0 +1,58 @@
+{
+  "attempt": "2",
+  "candidate": {
+    "branch": "codex/reask-current-artifact",
+    "commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+    "source_sha256_chat_canvas_editor": "e08f99b43a0ee3fb2c366ab9e2086150b20b281d5a6c6a6be127f1d5c9cedd0c",
+    "tree_clean": true
+  },
+  "declared_at": "2026-10-18T14:07:58",
+  "flags": {
+    "declared": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    },
+    "pilot_effective_from_main_env": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    },
+    "same_as_pilot": true
+  },
+  "interpreter": {
+    "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "version": "Python 3.14.7"
+  },
+  "isolation": {
+    "credential_vault_copied": false,
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+    "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+    "live_env_copied_wholesale": false,
+    "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview",
+    "stores": [
+      "DATABASE_URL",
+      "ATOM_DATA_DIR",
+      "LANCEDB_URI",
+      "BYOK_CONFIG_FILE",
+      "BYOK_KEYS_FILE"
+    ]
+  },
+  "live_db_guard": {
+    "mtime_before": 1792346365.5856981,
+    "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+    "sha256_before": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70"
+  },
+  "model": {
+    "base_url": "http://127.0.0.1:11434/v1",
+    "credentials": [],
+    "edit_plan_pin": "deepseek/deepseek-v4-pro",
+    "forced_decline_seam": false,
+    "model": "llama3.1:8b",
+    "provider": "ollama"
+  },
+  "ports": {
+    "backend": 8093,
+    "frontend": null
+  }
+}

@@ -8451,9 +8451,21 @@ class BYOKHandler:
                     # later structured call re-pays a 402 round trip on the
                     # same dead rung while healthy providers (opencode-go)
                     # sit idle.
-                    self._bench_provider_on_quota_error(
-                        provider_id, err_str)
-                    if ("401" in err_str or "auth" in err_str.lower() or "invalid" in err_str.lower() or "connection error" in err_str.lower() or "refused" in err_str.lower() or "1000" in err_str
+                    #
+                    # Schema validation failures are NOT account failures.
+                    # Instructor embeds the failed generation (including
+                    # model-written subject text) in its error string, so a
+                    # subject containing "quota" must never bench a healthy
+                    # provider for 30 minutes.
+                    _is_schema_attempt = bool(
+                        isinstance(attempt_err, _PydanticValidationError)
+                        or isinstance(attempt_err, json.JSONDecodeError)
+                        or "validation error" in err_str.lower())
+                    if not _is_schema_attempt:
+                        self._bench_provider_on_quota_error(
+                            provider_id, err_str)
+                    if (not _is_schema_attempt
+                            and ("401" in err_str or "auth" in err_str.lower() or "invalid" in err_str.lower() or "connection error" in err_str.lower() or "refused" in err_str.lower() or "1000" in err_str
                             # QUOTA (2026-09-20): a credits-exhausted account
                             # (openrouter 402 "can only afford N tokens") fails
                             # IDENTICALLY for every model on the provider —
@@ -8462,7 +8474,7 @@ class BYOKHandler:
                             # the balance was zero.
                             or "402" in err_str
                             or "more credits" in err_str.lower()
-                            or "quota" in err_str.lower()):
+                            or "quota" in err_str.lower())):
                         failed_providers.add(provider_id)
                         continue
                     # Phase 2 cascade classification. Instructor wraps the

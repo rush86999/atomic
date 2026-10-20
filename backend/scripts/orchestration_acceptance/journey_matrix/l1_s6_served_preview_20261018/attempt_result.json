@@ -1,0 +1,247 @@
+{
+  "checks": {
+    "body_unchanged_and_holds_net45": true,
+    "history_agrees": true,
+    "noop_receipt_produced": false,
+    "outcome_completed": false,
+    "persisted_matches": true,
+    "receipt_derived_reply": false,
+    "success_true": false,
+    "zero_additional_writes": true
+  },
+  "classification": "turn_unconfirmed_or_failed",
+  "declared_config": {
+    "attempt": "1",
+    "candidate": {
+      "branch": "codex/reask-current-artifact",
+      "commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+      "source_sha256_chat_canvas_editor": "e08f99b43a0ee3fb2c366ab9e2086150b20b281d5a6c6a6be127f1d5c9cedd0c",
+      "tree_clean": true
+    },
+    "declared_at": "2026-10-18T14:05:07",
+    "flags": {
+      "declared": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "pilot_effective_from_main_env": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      },
+      "same_as_pilot": true
+    },
+    "interpreter": {
+      "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+      "version": "Python 3.14.7"
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+      "live_env_copied": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE"
+      ]
+    },
+    "live_db_guard": {
+      "mtime_before": 1792346365.5856981,
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "sha256_before": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70"
+    },
+    "model": {
+      "base_url": "http://127.0.0.1:11434/v1",
+      "forced_decline_seam": false,
+      "model": "llama3.1:8b",
+      "provider": "ollama"
+    },
+    "ports": {
+      "backend": 8093,
+      "frontend": null
+    }
+  },
+  "live_db_guard_after": {
+    "mtime": 1792346365.5856981,
+    "sha256": "0c27e5f84df256fcb4ec968e38cc4594cc52b6128fe341d8602ba187230b5d70",
+    "unchanged": true
+  },
+  "pass": false,
+  "steps": {
+    "audits_after": {
+      "count": 2,
+      "rows": [
+        [
+          "f0b8283c-fb3",
+          "create",
+          "2026-10-18 18:05:22.431799"
+        ],
+        [
+          "ccab53f4-1c0",
+          "update",
+          "2026-10-18 18:05:22.464715"
+        ]
+      ]
+    },
+    "audits_before": {
+      "count": 2,
+      "rows": [
+        [
+          "f0b8283c-fb3",
+          "create",
+          "2026-10-18 18:05:22.431799"
+        ],
+        [
+          "ccab53f4-1c0",
+          "update",
+          "2026-10-18 18:05:22.464715"
+        ]
+      ]
+    },
+    "body_after": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "body_unchanged": true,
+    "canvas": {
+      "canvas_id": "cc3ed9fb-ae48-4451-8251-bc85deaf5186",
+      "create_http": 200,
+      "seed_http": 200,
+      "seeded_body_head": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid u",
+      "seeded_has_terms_net45": true
+    },
+    "health": {
+      "database": "operational",
+      "deployed_sha": "unknown",
+      "identity": {
+        "byok_key_store": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/byok_keys.json",
+        "captured_at": "2026-10-18T18:05:21.478604+00:00",
+        "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+        "database": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-fix/scratch/l1-s6-preview/atom.db",
+        "dirty": false,
+        "dirty_digest": "e3b0c44298fc",
+        "dirty_paths": [],
+        "error": null,
+        "git_commit": "b96dec60a46d",
+        "instance_id": "b96dec60a46d.37321.1792346721",
+        "pid": 37321,
+        "port": 8093,
+        "revision": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+        "source_id": "b96dec60a46d",
+        "started_at": "2026-10-18T18:05:16.675974+00:00",
+        "untracked_paths": []
+      },
+      "memory_mb": 623.36,
+      "redis": "operational",
+      "services": {
+        "database": "operational",
+        "redis": "operational",
+        "vector_store": "operational"
+      },
+      "status": "healthy",
+      "timestamp": "2026-10-18T18:05:21.477242+00:00",
+      "vector_store": "operational",
+      "version": "8.0.0"
+    },
+    "history": {
+      "assistant_response": {
+        "error_code": "outcome_unconfirmed",
+        "message": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "outcome": "unconfirmed",
+        "success": false
+      },
+      "http": 200,
+      "served_outcome": "unconfirmed",
+      "served_success": false
+    },
+    "launch": {
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "pid": 37321
+    },
+    "persisted_rows": [
+      {
+        "content": "Please also update the payment terms in the draft to Net 45.",
+        "meta_keys": [],
+        "meta_outcome": null,
+        "meta_success": null,
+        "role": "user"
+      },
+      {
+        "content": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "meta_keys": [
+          "_pending_file_task",
+          "assistant_message_id",
+          "error_code",
+          "execution_id",
+          "outcome",
+          "quality",
+          "success",
+          "turn_decision"
+        ],
+        "meta_outcome": "unconfirmed",
+        "meta_success": false,
+        "role": "assistant"
+      }
+    ],
+    "register": {
+      "http": 200
+    },
+    "runtime_identity": {
+      "candidate_commit_ok": false,
+      "candidate_cwd_ok": true,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "dirty": false,
+      "git_commit": "b96dec60a46d",
+      "source_id": "b96dec60a46d"
+    },
+    "s6_turn": {
+      "http": 200,
+      "latency_s": 1.29,
+      "response": {
+        "confidence": 0.9,
+        "error_code": "outcome_unconfirmed",
+        "execution_id": "5b78c6e8-fb15-45a3-9419-8e43ad67750f",
+        "failure_reason": null,
+        "intent": "canvas_edit",
+        "memory_context": null,
+        "message": "I'm still applying that edit in the background \u2014 I'll confirm here the moment it lands. Nothing has changed yet.",
+        "metadata": {
+          "canvas_edit": {
+            "background_started": true,
+            "canvas_id": "cc3ed9fb-ae48-4451-8251-bc85deaf5186",
+            "continuation_id": "5e725696-b583-4c71-be9e-b95bd4a1d9aa",
+            "execution_id": "5b78c6e8-fb15-45a3-9419-8e43ad67750f",
+            "no_apply": true,
+            "operation_id": "978a20a3-68da-45f6-8279-c581f19457f3",
+            "outcome": "refused",
+            "plan_unavailable": true,
+            "planner_outcome": "unavailable",
+            "reason": "planner_unavailable",
+            "task_run_id": "60e00c5d-9e4a-468d-abfe-4243194ab4a2",
+            "updated": false
+          },
+          "persistence": {
+            "status": "persisted"
+          }
+        },
+        "model": null,
+        "next_steps": [],
+        "outcome": "unconfirmed",
+        "provider": null,
+        "reasoning": null,
+        "recovery_url": null,
+        "requires_confirmation": false,
+        "session_id": "4a10e2cf-14fb-422b-b67c-7a6e4645b3d0",
+        "success": false,
+        "suggested_actions": [],
+        "timestamp": "2026-10-18T14:05:23.524995"
+      }
+    },
+    "user": {
+      "id": "ff11709b-2ba4-49a5-b5b5-306feed486c5",
+      "workspace_id": "3c8b32f7-a822-4195-b499-e4ff1c47a999"
+    }
+  }
+}

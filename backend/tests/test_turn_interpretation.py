@@ -132,7 +132,8 @@ async def test_negated_edit_proposal_authorizes_no_mutation():
 
 
 @pytest.mark.asyncio
-async def test_timeout_yields_explicit_unresolved():
+async def test_timeout_yields_explicit_unresolved(monkeypatch):
+    monkeypatch.setattr(td, "_INTERPRET_TIMEOUT_S", 0.01)
     out = await _run(_StubLLM(hang=True), "check the price list")
     assert out["scope_change"] == "unresolved"
     assert out["origin"] == "unresolved"
