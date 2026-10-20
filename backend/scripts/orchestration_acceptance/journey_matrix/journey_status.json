@@ -1,4 +1,18 @@
 {
+  "SPINE.integrated-composed": {
+    "status": "blocked",
+    "evidence": "journey_matrix/l1_l2_l3_integrated_served_20261019/attempt2_summary.json",
+    "notes": "Integrated L1+L2+L3 composed served attempt 2 on ddcc404dd (L3 6d662abff containing L1 aaa1169d7 + L2 c0cbea9f1 + main e6308cb54, merge base bb8081b288): 40/58 predeclared checks; first failure l3_documents_receipt_missing. Boundary is a provider-route conflict, not a local merge bug: the L3 sourced answer needs the L3 parent's proven route (default opencode-go qwen3.8-flash interpretation + Ollama reply) to execute documents.search, while the L2 comparison/continuation needs the DeepSeek pin (c0cbea9f1 attempt 12); under one DeepSeek pin the L3 ask resolves by context_assembly only (correct QUARTZ-77 answer, no receipt, objective_met null), S3 captured only the date (broader_comparison=false, context_fulfillment=partial), and S7's interpretation timed out at the 65 s stage bound (turn 94.77 s, outcome=unconfirmed). ChatRequest exposes no per-turn model/provider/interpretation selection and ATOM_TURN_INTERPRET_PIN is global. Also green: L1 edit receipt/body/audit and identical re-ask no-op (noop=true/already_satisfied, zero added writes, body unchanged), S3 date truthfulness/no false date/no global claim/zero writes, restart identity/zero-write, durable edit/re-ask rows. Harness notes: edit_settled_completed false is a check-extraction bug (durable row objective_met=true/mutation.readback_matched=true); live_db_unchanged false is a concurrent live-world write while the scratch identity database was the scratch file (attribution incomplete). NO PROMOTION, NOT DEPLOYED; pilot 8c593e57031e unchanged. Composed workflow becomes supportable with per-turn interpretation routing or a declared two-phase configuration with source-scoped context. Evidence: journey_matrix/l1_l2_l3_integrated_served_20261019/ (attempt2_*, ATTEMPT2_LIMITATION.md, CHECKSUMS_ATTEMPT2.sha256).",
+    "campaign": "2026-10-19-l1-l2-l3-integration",
+    "recorded_at": "2026-10-19T22:30:00-04:00",
+    "tested_candidate": "ddcc404ddca2c1ff50b02d510d0d0c3d376cc4ab",
+    "tested_config": "isolated scratch served world (:8111): ATOM_TURN_INTERPRETATION=1; ATOM_TURN_INTERPRET_PIN=deepseek:deepseek-v4-pro; DeepSeek operator credential registered through the product; local fastembed embeddings; scratch SQLite/LanceDB/BYOK stores; pilot :8001 untouched",
+    "evidence_path": "journey_matrix/l1_l2_l3_integrated_served_20261019/",
+    "identity": {
+      "commit": "ddcc404ddca2c1ff50b02d510d0d0c3d376cc4ab",
+      "dirty_tracked": ""
+    }
+  },
   "J1.config-parity": {
     "status": "verified",
     "evidence": "journey_matrix/parity_pristine_20261012_20261012_104240_de7328.json",

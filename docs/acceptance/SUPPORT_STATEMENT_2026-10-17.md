@@ -58,7 +58,14 @@ reconciled by the evidence cited here.
   routed for planning/replies — cloud *answer-leg* claims are bound to the
   run-7 cloud evidence and canvas run-4; the tested drafting configuration
   in the journey used a `deepseek/deepseek-v4-pro` edit-plan pin
-  (disclosed; edit planning only).
+  (disclosed; edit planning only). The 2026-10-19 integration work
+  established the two route families the frozen successors depend on:
+  the L3 sourced-answer verification ran on the default opencode-go
+  `qwen3.8-flash` interpretation with an Ollama reply, and the L2
+  comparison/continuation verification (attempt 12) ran on the
+  DeepSeek-direct interpretation pin (`deepseek:deepseek-v4-pro`).
+  These route families are **not interchangeable in one server** — see
+  the integrated-build bullet in §4.
 - **Hardware/OS**: this dev host only (no clean-machine or other-OS proof).
 
 ## 3. Measured numbers (deployed pilot)
@@ -192,6 +199,55 @@ reconciled by the evidence cited here.
   Deployment to the pilot remains a separate integration step, and this
   pilot limitation stands until the candidate is integrated and
   re-verified there.
+- **Integrated L1+L2+L3 build (2026-10-19) — composed served workflow
+  NOT SUPPORTED under one provider configuration (not deployed).**
+  Candidate `ddcc404dd` (L3 `6d662abff` containing L1 `aaa1169d7` + L2
+  `c0cbea9f1` + main `e6308cb54`; merge base `bb8081b288`) is locally
+  clean (the 11-file focused run has only the pre-existing
+  `fallback_honesty::test_satisfied_requirement_completes`; the wider
+  focused run has no merge-specific failures). The predeclared composed
+  served attempt 2 (`PREDECLARED_CONFIG_ATTEMPT2.md`, sha256
+  `66e21151…`; 58 checks; scratch world; DeepSeek credential registered
+  through the product; pilot untouched) passed **40/58** with first
+  failure **`l3_documents_receipt_missing`**. The boundary is a
+  provider-route conflict, not a local merge bug: the L3 sourced answer
+  needs the L3 parent's proven route (default opencode-go
+  `qwen3.8-flash` interpretation + Ollama reply) for the
+  `search_request` intent to execute `documents.search`; under the
+  DeepSeek pin the same ask becomes a `research` action resolved only by
+  `context_assembly` — the answer content is right (`QUARTZ-77`, no
+  decoy `BASALT-13`) but there is no search receipt and no settled
+  status (`outcome=null`, `objective_met=null`). The L2 comparison/
+  continuation needs the DeepSeek pin (attempt 12) and did not reproduce
+  in the same two-document world: S3 captured only the date
+  (`broader_comparison=false`, `fields=["expiration_date"]`,
+  `context_fulfillment=partial`) although the reply stayed visibly open
+  ("I did not find one in what this turn actually searched, and I can't
+  rule out places that were not searched"); S7's interpretation hit the
+  65 s stage timeout (`reason=timeout`; turn 94.77 s against the 95 s
+  bound) leaving `outcome=unconfirmed`/`success=false`. There is no
+  per-turn model/interpretation selection (`ChatRequest` in
+  `core/atom_agent_endpoints.py` exposes no model/provider field, and
+  `ATOM_TURN_INTERPRET_PIN` is global — `core/turn_decision.py`), so one
+  server cannot run both routes. **Do not deploy the integrated
+  candidate as supporting the composed workflow.** The L1 edit and
+  identical re-ask passed in the same run (receipt `completed`/
+  `postcondition_verified`/`updated`, exactly +1 audit; re-ask
+  `noop=true`/`already_satisfied`, zero added writes, body unchanged;
+  durable edit/re-ask rows persisted across restart), and the S3 date
+  truthfulness, zero writes, and no-global-claim checks also passed.
+  Harness notes: `edit_settled_completed` false was a check-extraction
+  bug (the durable row carries `objective_met=true`/
+  `mutation.readback_matched=true`; the served receipt is
+  `outcome=completed`); `live_db_unchanged` false was a concurrent
+  live-world write while the scratch server's identity database was the
+  scratch file (attribution incomplete; live-data deployment stays
+  blocked). Evidence:
+  `journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 2
+  result/summary/logs, `ATTEMPT2_LIMITATION.md`,
+  `CHECKSUMS_ATTEMPT2.sha256`). The supported workflows remain the
+  separate L1/L2/L3 verifications above, each on its own declared
+  configuration.
 - **Untested**: J7 background handoff beyond the tested slices, J8
   automation, J9 broad failure recovery; integrations beyond the one
   document source; other OSes/hardware; R4 coverage/outcome follow-up
@@ -204,6 +260,9 @@ reconciled by the evidence cited here.
 - Served: `8c593e57031e` (single instance; scoped controlled restart; two
   gzip-verified pre-restart DB snapshots, `backend/data/backups/`).
   Off-machine copy: **N/A on this host** (local-only layout — stated).
+- The 2026-10-19 integrated candidate `ddcc404dd` was **not deployed** —
+  the composed attempt did not pass (see §4). No deployment step was run;
+  the served identity and rollback below remain the pilot's.
 - Deviation: `scripts/restart_backend.sh` kills every uvicorn; the restart
   was scoped to `:8001` because 38 other instances (other streams' worlds)
   were running.
@@ -217,7 +276,10 @@ For the supported job: the user performs 5 interactions, waits ≈ 2 minutes
 total, receives a source-attributed answer and an audit-verified saved
 edit; review and authorization remain with the user (verify the answer,
 approve the change). Remaining friction is the three named limitations
-above — none of them silently certified.
+above — none of them silently certified. The composed L1+L2+L3 journey
+(all three repairs in one served world) is additionally blocked by the
+single-provider-configuration boundary in §4; it is not counted among the
+supported jobs.
 
 ## Evidence index
 

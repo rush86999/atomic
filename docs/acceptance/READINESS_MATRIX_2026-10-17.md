@@ -482,6 +482,59 @@ lineage. Evidence:
 `summary_attempt12.json`, `attempt12_result.json`, `attempt12_server.log`,
 DeepSeek dispatch probe, `CHECKSUMS_ATTEMPT12.sha256`).
 
+**Rev 22 (2026-10-19, integrated L1+L2+L3 candidate — composed served
+attempt 2 NOT PASSED; single-configuration composed workflow not
+supported; no promotion, no deployment).** Candidate `ddcc404dd`
+(`integration/l1-l2-l3`) merges L3 `6d662abff` (contains L1 `aaa1169d7`)
++ L2 `c0cbea9f1` + main `e6308cb54` (merge base `bb8081b288`); the one
+code conflict (L3 `_build_evidence_requirement` + L2 `accepted_request`)
+was resolved as a union (`_stash_evidence_requirement` forwards
+`accepted_request`); no product changes in attempts 1 or 2. Local: the
+11-file focused run has only the pre-existing
+`fallback_honesty::test_satisfied_requirement_completes`; the wider
+focused run has no merge-specific failures. Attempt 1 (preserved,
+non-governing) failed on job design/harness issues only. Attempt 2 was
+predeclared (`PREDECLARED_CONFIG_ATTEMPT2.md`, sha256 `66e21151…`;
+runner `run_composed_served_attempt2.py`) and ran on a scratch
+world/port with the frozen candidate: **40/58 checks**; first failure
+`l3_documents_receipt_missing`. The boundary is a **provider-route
+conflict, not a local merge bug**: (a) the L3 sourced answer needs the
+L3 parent's proven interpretation route (default `qwen3.8-flash` via
+the pilot cloud route, Ollama reply) for the `search_request` intent to
+execute `documents.search`; under the L2-verified DeepSeek pin the same
+ask becomes a `research` action resolved by `context_assembly` only —
+correct `QUARTZ-77` answer, no search receipt, `objective_met=null`;
+(b) the L2 comparison/continuation needs the DeepSeek pin and in the
+composed two-document world S3 captured only the date
+(`broader_comparison=false`, `fields=["expiration_date"]`) with
+`context_fulfillment=partial`, and S7's interpretation hit the 65 s
+stage timeout (`reason=timeout`, turn 94.77 s vs the 95 s bound) leaving
+`outcome=unconfirmed`; (c) `ChatRequest` exposes no per-turn
+model/provider/interpretation selection
+(`core/atom_agent_endpoints.py`) and `ATOM_TURN_INTERPRET_PIN` is
+global (`core/turn_decision.py`), so one server cannot run both routes.
+Harness notes: `edit_settled_completed` false was an extraction bug —
+the durable edit row is `objective_met=true`/
+`mutation.readback_matched=true` and the served receipt is
+`outcome=completed`; `live_db_unchanged` false was a concurrent
+live-world write (`backend/data/atom.db` mtime 21:53:48 EDT mid-run)
+while the scratch server's identity database was the scratch file
+(attribution incomplete; live-data deployment stays blocked). Also green
+in attempt 2: L3 answer content (`QUARTZ-77`, no `BASALT-13`), draft
+creation, terms edit receipt/body/audit/field preservation, the
+identical re-ask structured no-op (`noop=true`/`already_satisfied`,
+`outcome=completed`, zero added writes, body unchanged), S3 date
+truthfulness/no false date/no global claim/zero writes, restart
+identity/zero-write, and durable edit/re-ask rows after restart. **No
+promotion; the integrated candidate was not deployed; the pilot
+(`8c593e57031e`) remains the served build.** The composed workflow
+becomes supportable with per-turn interpretation routing (product
+change) or a declared two-phase configuration with source-scoped context
+(not designed/tested); the individual L1/L2/L3 workflows remain
+supported on their own declared configurations. Evidence:
+`journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 1/2
+evidence, `ATTEMPT2_LIMITATION.md`, `CHECKSUMS_ATTEMPT2.sha256`).
+
 **How to read the columns.** Evidence dimensions are **independent, not a
 ladder** — a row names exactly which dimension(s) its evidence establishes:
 `mechanism` / `public API` / `browser` / real process `restart` /
@@ -571,6 +624,7 @@ against the `/tmp` originals; credential scans clean before archiving).
 | 41 | **R4 (focused slice)** — interrupted-read recovery: re-render the saved result without re-reading | verified (scoped; `diagnostic_only=true`, `counted=false`) | public API + restart (observed SIGKILL) + configuration-parity | **`c1beb7c0b` / pin `2070147ee` — NOT the approved `c6dd2d0e5`** (provenance: `a45da2b78` + `2070147ee` + 7-attempt history) | `journey_matrix/r4_read_recovery_r21/evidence_r4_read_recovery_20261017_081610_2d2ca7.json` (sha256 `8f62e12d…`; 7-file campaign set archived in-repo 2026-10-17, `checksums.sha256`; `/tmp` originals retained) + preserved scratch world | not counted; counter is post-attempt instrumentation; worker-loop coverage limit; not fresh-install | integration decision separately authorized (Phase G) |
 | 42 | **R4 (correctness follow-up)** — recovered render reports coverage/outcome truthfully | **failing** | public API + restart | same as 41 | attempt-7 JSON + persisted rows ("Coverage: 0/3 items matched"; `outcome=partial` on 3/3 delivered) | user-facing contradiction: durable coverage keys don't align with item labels | **one bounded repair + regression at the reconstruction boundary (implementation); tracked separately; R4 milestone not reopened** |
 | 43 | **SPINE — composed user job** — draft-vs-approved-records revision, deliberate interruption, continuation, reload | **verified (supported workflow) — 3 named exclusions; DEPLOYED (rev 9)** | browser + public API + SIGKILL crash/restart + deployed smoke | run 4 `9c9e5c76e` (runtime `dad8f9fce` lineage); deployed `8c593e57031e`; runs 1–3 preserved | `journey_matrix/composed_job_20261017/` (4 run JSONs, harness, screenshots, CHECKSUMS); `journey_matrix/deployment_smoke_20261017_223948/`; protocol `63de9aa8e` | supported workflow PASSED (36/39); deployed smoke 6/6; **exclusions (not certified):** idempotent re-ask settlement, continuation settlement, their `no-failed-requests` aggregate | value evaluation (predeclared `18b0dc2a2`, running) → support statement; then two SEPARATE frozen slices (owner briefs): **re-ask** = trace why the recorded S6 request fails to produce/propagate the existing `canvas_decline_requirement_check`/`already_satisfied` receipt (anchors `chat_orchestrator.py:15112/15115/15133`, no new success override; checks bind subject/field/value/artifact/current revision; controls: applied→zero writes, reverted→not satisfied, wrong artifact→not satisfied, unrelated value→not satisfied, fresh reload consistent); **continuation** = fix interpretation, not vocabulary (capture S7's accepted interpretation/requirement/observations/outcome first; preserve structured meaning; no noun regex) |
+| 44 | **SPINE — integrated L1+L2+L3 composed served workflow** (L3 sourced answer → L1 edit/no-op → L2 comparison/continuation → restart in one world) | **blocked — no single provider configuration; NOT DEPLOYED (rev 22)** | predeclared served attempt on scratch world + restart | `ddcc404dd` (L3 `6d662abff` + L1 `aaa1169d7` + L2 `c0cbea9f1` + main `e6308cb54`) | `journey_matrix/l1_l2_l3_integrated_served_20261019/` (attempt 2 result/summary/logs; `ATTEMPT2_LIMITATION.md`; `CHECKSUMS_ATTEMPT2.sha256`) | attempt 2 40/58; first failure `l3_documents_receipt_missing`; L3 DeepSeek route lacks `documents.search`; S3 broader not captured; S7 interpretation timeout 65 s (turn 94.77 s); edit/zero-write/no-op and restart identity green; `live_db_unchanged` blocked by concurrent live-world write (scratch identity database was the scratch file) | per-turn interpretation routing, or a declared two-phase configuration with source-scoped context; keep L2 parser closed |
 
 ---
 
