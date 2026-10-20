@@ -1,0 +1,124 @@
+{
+  "attempt": "1",
+  "candidate": {
+    "branch": "integration/l1-l2-l3",
+    "head": "ddcc404ddca2c1ff50b02d510d0d0c3d376cc4ab",
+    "parents": {
+      "l2": "c0cbea9f1",
+      "l3_contains_l1": "6d662abff (L1 aaa1169d7)",
+      "main": "e6308cb54"
+    },
+    "source_sha256": {
+      "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
+      "chat_orchestrator": "5580692b372f003cfcdf1b440b22e6b68e292ddebef8a86b4e36b350e73274b5",
+      "turn_decision": "79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a",
+      "workbook_read_artifact": "3158d329cd3fdfbaa69fdda250c403ba9f694a10430f45d1fb42a026d9298a29"
+    },
+    "status_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l1-l2-l3-integration"
+  },
+  "declared_at": "2026-10-19T21:01:53",
+  "embeddings": {
+    "dim": 384,
+    "model": "BAAI/bge-small-en-v1.5",
+    "provider": "fastembed"
+  },
+  "flags": {
+    "declared": {
+      "ATOM_ASYNC_EDIT_PLAN_MODEL": "deepseek/deepseek-v4-pro",
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "ATOM_TURN_DECISION_ROUTING": "1",
+      "ATOM_TURN_INTERPRETATION": "1",
+      "ATOM_TURN_INTERPRET_CAPTURE": "1",
+      "ATOM_TURN_INTERPRET_PIN": "deepseek:deepseek-v4-pro",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    }
+  },
+  "interpreter": {
+    "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "version": "Python 3.14.7"
+  },
+  "isolation": {
+    "credential_vault_copied": false,
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l1-l2-l3-integration/backend",
+    "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-composed-attempt1/atom.db",
+    "live_env_copied_wholesale": false,
+    "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-composed-attempt1",
+    "stores": [
+      "DATABASE_URL",
+      "ATOM_DATA_DIR",
+      "LANCEDB_URI",
+      "LANCEDB_URI_BASE",
+      "BYOK_CONFIG_FILE",
+      "BYOK_KEYS_FILE",
+      "BYOK_ENC_KEY_FILE"
+    ]
+  },
+  "job": {
+    "edit_ask": "Please update the payment terms in the draft to Net 30.",
+    "fixture": "approved_records_q2026_114.txt",
+    "l3_ask": "Search my uploaded documents for the approved valid-until date for quotation Q-2026-114 and tell me the date.",
+    "reask": "identical EDIT_ASK in the same session/canvas",
+    "restart": "stop/relaunch the same scratch process/stores; reload history/canvas/audits",
+    "s3_ask": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+    "s7_ask": "What is the current Valid until date on the draft, and does it still match the approved record?",
+    "upload_route": "POST /api/documents/upload"
+  },
+  "live_db_guard": {
+    "mtime_before": 1792454965.5652409,
+    "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+    "sha256_before": "e7e73a9e6ca88b4404f6ada72a477e4a77ea8c89616b81b7a51ff1e976cf19f8"
+  },
+  "model": {
+    "credentials": [
+      {
+        "environment": "production",
+        "key_name": "default",
+        "provider": "deepseek",
+        "source": "authorized operator/global vault entry",
+        "value_recorded": false,
+        "vault_copied_wholesale": false
+      }
+    ],
+    "edit_planning": "configured deepseek/deepseek-v4-pro; the deterministic assignment/no-op path may run without an LLM plan; actual path recorded",
+    "interpretation": "DeepSeek direct, pinned deepseek:deepseek-v4-pro; actual origin recorded",
+    "reply": "product-selected; the L2 attempt-12 observed route was ollama/llama3.1:8b; actual reply route recorded, no gate depends on it",
+    "structured_route": "https://api.deepseek.com/v1",
+    "tool_planning": "product-selected structured dispatch with DeepSeek as the only structured credential; actual model recorded"
+  },
+  "observation_harness": {
+    "candidate_source_edited": false,
+    "hooks": [
+      "interpret_turn_request",
+      "apply_interpretation_references",
+      "_stash_evidence_requirement",
+      "_context_backed_fulfillment",
+      "_fallback_turn_outcome"
+    ],
+    "launcher": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l1_l2_l3_integrated_served_20261019/server_observe.py"
+  },
+  "pilot_before": {
+    "backend_8001_listening": true,
+    "frontend_3000_listening": true,
+    "health_http": 200,
+    "identity": {
+      "cwd": "/Users/rushiparikh/projects/atom/backend",
+      "database": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "git_commit": "8c593e57031e",
+      "instance_id": "8c593e57031e-dirty.4f091b0e6ee2.81067.1792291183",
+      "pid": 81067,
+      "revision": "8c593e57031ebfea08dac81bbc2b4d78e47d8559",
+      "source_id": "8c593e57031e-dirty.4f091b0e6ee2",
+      "started_at": "2026-10-18T02:39:37.985639+00:00"
+    }
+  },
+  "ports": {
+    "backend": 8110,
+    "frontend": null
+  },
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l1_l2_l3_integrated_served_20261019/PREDECLARED_CONFIG.md",
+    "sha256": "10cd8a040fa422df651d9897e7c76b0126035a9c6eedaa7803da429e6b2e05b3"
+  }
+}
