@@ -9,3 +9,17 @@ attempt3_server_*.log
 attempt3_observation_*.jsonl
 attempt3_interpreter_freeze.txt
 attempt3_*.tmp
+
+# Attempt-4 artifacts are new names so the controlled run cannot
+# overwrite the preserved attempt-3 evidence. They are archived after the
+# single run (git add -f) and checksummed separately.
+attempt4_config.json
+attempt4_result.json
+attempt4_summary.json
+attempt4_run.log
+attempt4_server_*.log
+attempt4_observation_*.jsonl
+attempt4_interpreter_freeze.txt
+attempt4_preflight.json
+attempt4_*.tmp
+
