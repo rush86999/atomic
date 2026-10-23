@@ -1,0 +1,448 @@
+{
+  "attempt": 5,
+  "checks": {
+    "artifact_paths_fresh": {
+      "detail": {
+        "unexpected_existing": []
+      },
+      "ok": true
+    },
+    "attempt3_artifacts_preserved": {
+      "detail": {
+        "missing": []
+      },
+      "ok": true
+    },
+    "attempt3_result_checksums": {
+      "detail": {
+        "attempt3_result.json": true,
+        "attempt3_run.log": true
+      },
+      "ok": true
+    },
+    "attempt4_result_checksums": {
+      "detail": {
+        "ATTEMPT4_RESULT.md": true,
+        "attempt4_result.json": true,
+        "attempt4_run.log": true
+      },
+      "ok": true
+    },
+    "authorized_credential_available": {
+      "detail": {
+        "value_recorded": false
+      },
+      "ok": true
+    },
+    "constant_chat_hash": {
+      "detail": {
+        "new_hash": "6e6c51facb8cb5fa34e1e012ed1d1511db69cf27ac5229622c27821c9a387cf4"
+      },
+      "ok": true
+    },
+    "constant_gate_commit": {
+      "detail": {
+        "gate_commit": "f2f8329971129bc14e9f107aa234b98db7f18379"
+      },
+      "ok": true
+    },
+    "constant_port": {
+      "detail": 8115,
+      "ok": true
+    },
+    "constant_predecl": {
+      "detail": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout/backend/scripts/orchestration_acceptance/journey_matrix/l1_l2_l3_integrated_served_20261020/PREDECLARED_CONFIG_ATTEMPT5.md",
+      "ok": true
+    },
+    "constant_product_pin": {
+      "detail": {
+        "product": "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83"
+      },
+      "ok": true
+    },
+    "constant_scratch": {
+      "detail": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-composed-attempt5",
+      "ok": true
+    },
+    "frozen_gate_tests": {
+      "detail": "======================= 67 passed, 137 warnings in 3.95s =======================",
+      "ok": true
+    },
+    "gate_antecedent_ids_alone_rejected": {
+      "detail": "carried ids agree but no durable record",
+      "ok": true
+    },
+    "gate_antecedent_scope": {
+      "detail": "same conversation/workspace + verified fixture",
+      "ok": true
+    },
+    "gate_commit_is_ancestor": {
+      "detail": null,
+      "ok": true
+    },
+    "gate_honest_partial": {
+      "detail": "captured S7 shape + structured prior obligation",
+      "ok": true
+    },
+    "gate_module_frozen": {
+      "detail": {
+        "actual": "a0b2f748633c21536774048b6591006aa3548b0947e62178fa6fa6142707a017",
+        "expected": "a0b2f748633c21536774048b6591006aa3548b0947e62178fa6fa6142707a017"
+      },
+      "ok": true
+    },
+    "gate_pre_fix_failed_rejected": {
+      "detail": "captured attempt-3 failed settlement",
+      "ok": true
+    },
+    "gate_unknown_text_gap_rejected": {
+      "detail": "prior obligation plus current-field gap",
+      "ok": true
+    },
+    "gate_unrelated_date_rejected": {
+      "detail": "supplied_fields=[unrelated_date]",
+      "ok": true
+    },
+    "gate_wrong_conversation_rejected": {
+      "detail": "wrong conversation",
+      "ok": true
+    },
+    "gate_wrong_workspace_rejected": {
+      "detail": "wrong workspace",
+      "ok": true
+    },
+    "gitignore_attempt5_artifacts": {
+      "detail": {
+        "missing": []
+      },
+      "ok": true
+    },
+    "live_db_present": {
+      "detail": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "ok": true
+    },
+    "obsolete_hash_rejected": {
+      "detail": {
+        "actual": "6e6c51facb8cb5fa34e1e012ed1d1511db69cf27ac5229622c27821c9a387cf4",
+        "obsolete": "59f1c550cf51a434631d6202b61b5aa8eefc2de0735edacbdee184cc53e152ed"
+      },
+      "ok": true
+    },
+    "obsolete_pin_rejected": {
+      "detail": {
+        "obsolete_diff": [
+          "backend/core/answer_boundary.py",
+          "backend/core/chat_tool_planner.py",
+          "backend/integrations/chat_orchestrator.py"
+        ]
+      },
+      "ok": true
+    },
+    "ollama_reply_model": {
+      "detail": {
+        "http": 200,
+        "models": [
+          "llama3.1:8b"
+        ]
+      },
+      "ok": true
+    },
+    "pilot_healthy": {
+      "detail": {
+        "http": 200,
+        "identity": {
+          "byok_key_store": "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json",
+          "captured_at": "2026-10-18T02:39:40.773975+00:00",
+          "cwd": "/Users/rushiparikh/projects/atom/backend",
+          "database": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+          "dirty": true,
+          "dirty_digest": "4f091b0e6ee2",
+          "dirty_paths": [
+            "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/summary.json",
+            "frontend-nextjs/.preview-instance/299-08-execution-summary.md",
+            "frontend-nextjs/.preview-instance/299-11-PROGRESS.md",
+            "frontend-nextjs/.preview-instance/ACCESSIBILITY.md",
+            "frontend-nextjs/.preview-instance/DEPLOYMENT.md",
+            "frontend-nextjs/.preview-instance/Dockerfile",
+            "frontend-nextjs/.preview-instance/Dockerfile.production",
+            "frontend-nextjs/.preview-instance/FAILURE_CATEGORIES-299-06.md",
+            "frontend-nextjs/.preview-instance/LIGHTHOUSE.md",
+            "frontend-nextjs/.preview-instance/PERCY.md",
+            "frontend-nextjs/.preview-instance/README.md",
+            "frontend-nextjs/.preview-instance/README_TEAM_CHAT.md",
+            "frontend-nextjs/.preview-instance/a11y-test-results.json",
+            "frontend-nextjs/.preview-instance/advanced-management.js",
+            "frontend-nextjs/.preview-instance/analyze_coverage.js",
+            "frontend-nextjs/.preview-instance/components",
+            "frontend-nextjs/.preview-instance/components.json",
+            "frontend-nextjs/.preview-instance/config",
+            "frontend-nextjs/.preview-instance/contexts",
+            "frontend-nextjs/.preview-instance/coverage",
+            "frontend-nextjs/.preview-instance/coverage-reports",
+            "frontend-nextjs/.preview-instance/data",
+            "frontend-nextjs/.preview-instance/docs",
+            "frontend-nextjs/.preview-instance/e2e",
+            "frontend-nextjs/.preview-instance/element-not-found-patterns.md",
+            "frontend-nextjs/.preview-instance/enterprise-dashboard.js",
+            "frontend-nextjs/.preview-instance/eslint.config.mjs",
+            "frontend-nextjs/.preview-instance/final-implementation.js",
+            "frontend-nextjs/.preview-instance/find-uncovered-files.js",
+            "frontend-nextjs/.preview-instance/fix-eslint-errors.js",
+            "frontend-nextjs/.preview-instance/fix-parsing-errors.js",
+            "frontend-nextjs/.preview-instance/hooks",
+            "frontend-nextjs/.preview-instance/jest.config.js",
+            "frontend-nextjs/.preview-instance/jest.setup.js",
+            "frontend-nextjs/.preview-instance/k8s",
+            "frontend-nextjs/.preview-instance/layouts",
+            "frontend-nextjs/.preview-instance/lib",
+            "frontend-nextjs/.preview-instance/lighthouserc.json",
+            "frontend-nextjs/.preview-instance/middleware.ts",
+            "frontend-nextjs/.preview-instance/next-env.d.ts"
+          ],
+          "error": null,
+          "git_commit": "8c593e57031e",
+          "instance_id": "8c593e57031e-dirty.4f091b0e6ee2.81067.1792291183",
+          "pid": 81067,
+          "port": 8001,
+          "revision": "8c593e57031ebfea08dac81bbc2b4d78e47d8559",
+          "source_id": "8c593e57031e-dirty.4f091b0e6ee2",
+          "started_at": "2026-10-18T02:39:37.985639+00:00",
+          "untracked_paths": [
+            "backend/replay_subject_admission.py",
+            "backend/scripts/orchestration_acceptance/deployment_smoke.py",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_221948/deployment_smoke_20261017_221948.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_222902/deployment_smoke_20261017_222902.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/deployment_smoke_20261017_223251.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/phase_d_after_click.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/phase_d_ready_before_click.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/smoke_saved_edit.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/smoke_sourced_answer.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/deployment_smoke_20261017_223554.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/phase_d_after_click.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/phase_d_ready_before_click.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/smoke_saved_edit.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/smoke_sourced_answer.png",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j2_live_20261013_e8b01dcec.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/j4_r16_20261013_164740_e5bc38.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/j5_r16_20261013_165009_e69d41.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/summary.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/driver_j45_r17.py",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/j4_r17_20261014_065311_3ccbf8.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/j5_r17_20261014_065402_02a9bb.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/summary.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_config.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_encryption_key",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_keys.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_config.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_encryption_key",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_keys.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_105549/j4_evidence.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_105935/j5_evidence.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_110533/j5_evidence.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/diagnostic_tool_planner_20261014_204321.json",
+            "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/diagnostic_tool_planner_benchmark.py",
+            "backend/tests/test_direct_read_settlement_facts.py",
+            "backend/tests/test_probe_exec_row_tmp.py",
+            "backend/tests/test_t1_investigate_end_to_end.py",
+            "backend/tests/test_unmet_obligation_replay.py",
+            "docs/architecture/orchestration_migration/BRENNAN_FIRST_PRODUCT_COMPLETION_PLAN_2026_10_06.md",
+            "docs/architecture/orchestration_migration/DOMAIN_INDEPENDENT_JOB_COMPLETION_AGENT_GUIDE_2026_10_07.md",
+            "docs/architecture/orchestration_migration/INTENT_AND_FRESH_INSTALL_COMPLETION_GUIDE_2026_10_08.md"
+          ]
+        }
+      },
+      "ok": true
+    },
+    "port_free": {
+      "detail": 8115,
+      "ok": true
+    },
+    "predecl_sha": {
+      "detail": "34675a023e6f3e92be8f48ca2e6fe00bd46d2c4c76f69c9485b121286bc79ee0",
+      "ok": true
+    },
+    "product_commit_is_ancestor": {
+      "detail": null,
+      "ok": true
+    },
+    "product_commit_present": {
+      "detail": "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83",
+      "ok": true
+    },
+    "product_tree_equals_pin": {
+      "detail": {
+        "diff": []
+      },
+      "ok": true
+    },
+    "s3_gates_present": {
+      "detail": {
+        "missing": []
+      },
+      "ok": true
+    },
+    "s3_helpers_unchanged": {
+      "detail": {
+        "cf_completed": true,
+        "cf_partial": true,
+        "settlement_ok": true
+      },
+      "ok": true
+    },
+    "scratch_stores_explicit": {
+      "detail": {
+        "live_db_in_env": false,
+        "scratch": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-composed-attempt5"
+      },
+      "ok": true
+    },
+    "scratch_world_fresh": {
+      "detail": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-composed-attempt5",
+      "ok": true
+    },
+    "scratch_world_still_fresh": {
+      "detail": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-composed-attempt5",
+      "ok": true
+    },
+    "source_hashes_match": {
+      "detail": {},
+      "ok": true
+    },
+    "venv_python": {
+      "detail": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+      "ok": true
+    },
+    "worktree_clean": {
+      "detail": "clean",
+      "ok": true
+    }
+  },
+  "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout",
+  "failures": [],
+  "identity": {
+    "credential": {
+      "active": true,
+      "environment": "production",
+      "key_name": "default",
+      "provider": "deepseek",
+      "value_recorded": false
+    },
+    "gate_commit": "f2f8329971129bc14e9f107aa234b98db7f18379",
+    "gate_module_sha256": "a0b2f748633c21536774048b6591006aa3548b0947e62178fa6fa6142707a017",
+    "head": "a4f805cebe49b9a6f990ba18e083feb310d55f34",
+    "pilot_before": {
+      "byok_key_store": "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json",
+      "captured_at": "2026-10-18T02:39:40.773975+00:00",
+      "cwd": "/Users/rushiparikh/projects/atom/backend",
+      "database": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "dirty": true,
+      "dirty_digest": "4f091b0e6ee2",
+      "dirty_paths": [
+        "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/summary.json",
+        "frontend-nextjs/.preview-instance/299-08-execution-summary.md",
+        "frontend-nextjs/.preview-instance/299-11-PROGRESS.md",
+        "frontend-nextjs/.preview-instance/ACCESSIBILITY.md",
+        "frontend-nextjs/.preview-instance/DEPLOYMENT.md",
+        "frontend-nextjs/.preview-instance/Dockerfile",
+        "frontend-nextjs/.preview-instance/Dockerfile.production",
+        "frontend-nextjs/.preview-instance/FAILURE_CATEGORIES-299-06.md",
+        "frontend-nextjs/.preview-instance/LIGHTHOUSE.md",
+        "frontend-nextjs/.preview-instance/PERCY.md",
+        "frontend-nextjs/.preview-instance/README.md",
+        "frontend-nextjs/.preview-instance/README_TEAM_CHAT.md",
+        "frontend-nextjs/.preview-instance/a11y-test-results.json",
+        "frontend-nextjs/.preview-instance/advanced-management.js",
+        "frontend-nextjs/.preview-instance/analyze_coverage.js",
+        "frontend-nextjs/.preview-instance/components",
+        "frontend-nextjs/.preview-instance/components.json",
+        "frontend-nextjs/.preview-instance/config",
+        "frontend-nextjs/.preview-instance/contexts",
+        "frontend-nextjs/.preview-instance/coverage",
+        "frontend-nextjs/.preview-instance/coverage-reports",
+        "frontend-nextjs/.preview-instance/data",
+        "frontend-nextjs/.preview-instance/docs",
+        "frontend-nextjs/.preview-instance/e2e",
+        "frontend-nextjs/.preview-instance/element-not-found-patterns.md",
+        "frontend-nextjs/.preview-instance/enterprise-dashboard.js",
+        "frontend-nextjs/.preview-instance/eslint.config.mjs",
+        "frontend-nextjs/.preview-instance/final-implementation.js",
+        "frontend-nextjs/.preview-instance/find-uncovered-files.js",
+        "frontend-nextjs/.preview-instance/fix-eslint-errors.js",
+        "frontend-nextjs/.preview-instance/fix-parsing-errors.js",
+        "frontend-nextjs/.preview-instance/hooks",
+        "frontend-nextjs/.preview-instance/jest.config.js",
+        "frontend-nextjs/.preview-instance/jest.setup.js",
+        "frontend-nextjs/.preview-instance/k8s",
+        "frontend-nextjs/.preview-instance/layouts",
+        "frontend-nextjs/.preview-instance/lib",
+        "frontend-nextjs/.preview-instance/lighthouserc.json",
+        "frontend-nextjs/.preview-instance/middleware.ts",
+        "frontend-nextjs/.preview-instance/next-env.d.ts"
+      ],
+      "error": null,
+      "git_commit": "8c593e57031e",
+      "instance_id": "8c593e57031e-dirty.4f091b0e6ee2.81067.1792291183",
+      "pid": 81067,
+      "port": 8001,
+      "revision": "8c593e57031ebfea08dac81bbc2b4d78e47d8559",
+      "source_id": "8c593e57031e-dirty.4f091b0e6ee2",
+      "started_at": "2026-10-18T02:39:37.985639+00:00",
+      "untracked_paths": [
+        "backend/replay_subject_admission.py",
+        "backend/scripts/orchestration_acceptance/deployment_smoke.py",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_221948/deployment_smoke_20261017_221948.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_222902/deployment_smoke_20261017_222902.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/deployment_smoke_20261017_223251.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/phase_d_after_click.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/phase_d_ready_before_click.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/smoke_saved_edit.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223251/smoke_sourced_answer.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/deployment_smoke_20261017_223554.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/phase_d_after_click.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/phase_d_ready_before_click.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/smoke_saved_edit.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/deployment_smoke_20261017_223554/smoke_sourced_answer.png",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j2_live_20261013_e8b01dcec.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/j4_r16_20261013_164740_e5bc38.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/j5_r16_20261013_165009_e69d41.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_00a8312ed_r16/summary.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/driver_j45_r17.py",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/j4_r17_20261014_065311_3ccbf8.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/j5_r17_20261014_065402_02a9bb.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/summary.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_config.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_encryption_key",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j4_r17__423cxgv/byok_keys.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_config.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_encryption_key",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_3b07ed75d_r17/world_atom_journey_j5_r17_560k0fk2/byok_keys.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_105549/j4_evidence.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_105935/j5_evidence.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j45_campaign_74a9fbb82_20261013_110533/j5_evidence.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/diagnostic_tool_planner_20261014_204321.json",
+        "backend/scripts/orchestration_acceptance/journey_matrix/j6_draft_33f54ba75_r18/diagnostic_tool_planner_benchmark.py",
+        "backend/tests/test_direct_read_settlement_facts.py",
+        "backend/tests/test_probe_exec_row_tmp.py",
+        "backend/tests/test_t1_investigate_end_to_end.py",
+        "backend/tests/test_unmet_obligation_replay.py",
+        "docs/architecture/orchestration_migration/BRENNAN_FIRST_PRODUCT_COMPLETION_PLAN_2026_10_06.md",
+        "docs/architecture/orchestration_migration/DOMAIN_INDEPENDENT_JOB_COMPLETION_AGENT_GUIDE_2026_10_07.md",
+        "docs/architecture/orchestration_migration/INTENT_AND_FRESH_INSTALL_COMPLETION_GUIDE_2026_10_08.md"
+      ]
+    },
+    "predecl_sha256": "34675a023e6f3e92be8f48ca2e6fe00bd46d2c4c76f69c9485b121286bc79ee0",
+    "product": "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83",
+    "runner_sha256": "b95191fff002109cdde8d4b9aebc6d47a430d629ac0845f2c0e968270dd586bb",
+    "server_observe_sha256": "c2dddfcd1618aa3b0575dd6cecde8d5028a05dcc581f7ecbbe56ef4e7e922368",
+    "source_sha256": {
+      "answer_boundary": "0c6415935609c3fa5bbf7c4a92afedffb4e803ccbc2a702e5f8ecd1db2c5c02b",
+      "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
+      "chat_orchestrator": "6e6c51facb8cb5fa34e1e012ed1d1511db69cf27ac5229622c27821c9a387cf4",
+      "chat_tool_planner": "b087a31ef06355cfa888b9b0d96f96a383e8634b0dc9926b1751b7470ee59697",
+      "turn_decision": "79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a",
+      "workbook_read_artifact": "3158d329cd3fdfbaa69fdda250c403ba9f694a10430f45d1fb42a026d9298a29"
+    }
+  },
+  "pass": true,
+  "timestamp": "2026-10-23T19:35:29"
+}

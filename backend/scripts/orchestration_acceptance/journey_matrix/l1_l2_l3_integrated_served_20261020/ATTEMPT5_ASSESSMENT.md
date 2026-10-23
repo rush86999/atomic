@@ -68,6 +68,12 @@ The 95-second turn budget is unchanged.
   boundary wiring).
 - `test_s3_s7_captured_replay.py`: 9 passed (product replay).
 - Combined focused run: **67 passed**.
+- `preflight_attempt5.py`: **41/41 checks passed** at harness HEAD
+  `a4f805ceb` (product `824a94c5b`, gate harness `f2f832997`, gate module
+  `a0b2f748…`): intended pin accepted, obsolete attempt-4 hash rejected,
+  product tree equal to the pin, source/gate hashes match, attempt 3/4
+  evidence checksums preserved, fresh scratch/artifact paths, pilot and
+  credential checks pass, and the three focused suites pass.
 
 ## Why this is still non-passing
 
