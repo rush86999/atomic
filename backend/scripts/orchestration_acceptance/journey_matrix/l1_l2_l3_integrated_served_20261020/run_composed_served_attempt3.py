@@ -531,6 +531,63 @@ def cf_partial(cf: dict, task: dict, fallback: dict) -> bool:
         and bool((fallback or {}).get("open_work")))
 
 
+def cf_completed_scope(cf: dict) -> bool:
+    """The date-only typed scope was fully supplied by the named source.
+
+    Deliberately does NOT require ``task.objective_met``: a partial
+    settlement for a prior task-level obligation leaves objective_met
+    unset while THIS request's field coverage is complete. The successor
+    gate uses this for the honest-partial branch (see ATTEMPT3_RESULT.md
+    'Corrected gate semantics for the successor')."""
+    matched = [str(m.get("file_name") or "")
+               for m in (cf.get("matched") or [])
+               if isinstance(m, dict)]
+    supplied = [str(f) for f in (cf.get("supplied_fields") or [])]
+    date_field = any(w in " ".join(supplied).casefold()
+                     for w in ("expiration", "valid", "date"))
+    return bool(
+        cf.get("state") == "completed"
+        and FIXTURE_NAME in matched
+        and date_field
+        and not cf.get("missing_comparison")
+        and not (cf.get("missing_fields") or []))
+
+
+def s7_settlement_ok(final: dict, cf: dict, task: dict,
+                     fallback: dict) -> bool:
+    """S7's date-only continuation settled truthfully.
+
+    ``completed`` is the clean case. ``partial`` is honest when THIS
+    turn's date scope was fully supplied and the only open work is the
+    PRIOR broader S3 verification (S3 timed out before it could run).
+    A partial caused by this turn's own missing comparison is never
+    accepted."""
+    if final.get("final_success") is not True:
+        return False
+    outcome = final.get("final_outcome")
+    delivered = ((task.get("delivery") or {}).get("delivered") is True)
+    if outcome == "completed":
+        return cf_completed(cf, task) and not (
+            (fallback or {}).get("open_work") or [])
+    if outcome == "partial":
+        open_work = [str(w) for w in
+                     ((fallback or {}).get("open_work") or [])]
+        prior_obligation = any(
+            "re-run the workbook verification for the quote's items" in w
+            for w in open_work)
+        own_gap = any(
+            "comparison" in w.casefold()
+            and ("not recorded" in w.casefold()
+                 or "not verified" in w.casefold())
+            for w in open_work)
+        return bool(
+            cf_completed_scope(cf)
+            and delivered
+            and prior_obligation
+            and not own_gap)
+    return False
+
+
 def settlement_ok(final: dict, cf: dict, task: dict,
                   fallback: dict) -> bool:
     if final.get("final_success") is not True:
@@ -1531,18 +1588,28 @@ def main() -> int:
         s7_zero = s7.get("audit_after") == s3.get("audit_after")
         s7_body_ok = (s7.get("canvas_after")
                       == s3.get("canvas_after"))
+        s7_antecedent_ids = {
+            str(a.get("execution_id") or "")
+            for a in (s7_after_refs.get("antecedents") or [])
+            if isinstance(a, dict) and a.get("execution_id")}
         s7_completed = bool(
-            (s7.get("settlement") or {}).get("final_outcome")
-            == "completed"
-            and (s7.get("settlement") or {}).get("final_success") is True
+            (s7.get("settlement") or {}).get("final_success") is True
             and s7_cf.get("state") == "completed"
-            and cf_completed(s7_cf, s7_task))
+            and cf_completed_scope(s7_cf)
+            and s7_settlement_ok(
+                s7.get("settlement") or {}, s7_cf, s7_task, s7_fb))
         s7_source_ok = bool(
             s7_after_refs.get("state") == "resolved"
             and s7_after_refs.get("resolved_file") == FIXTURE_NAME
             and any(str(o.get("file_name") or "") == FIXTURE_NAME
                     for o in s7_observed)
-            and any(str(o.get("execution_id") or "") == s3_eid
+            # Bind to the continuation's OWN resolved antecedent: S3's
+            # timeout response carries no execution id, so comparing to
+            # it is impossible even when the antecedent is recorded.
+            and bool(s7_antecedent_ids)
+            and any(str(o.get("file_name") or "") == FIXTURE_NAME
+                    and str(o.get("execution_id") or "")
+                    in s7_antecedent_ids
                     for o in s7_observed)
             and s7_origin.startswith("llm:")
             and s7_interp.get("scope_change") != "unresolved")
@@ -1578,7 +1645,7 @@ def main() -> int:
                 "execution_id") or "") == s7_eid
             and (s7.get("requirement_event") or {}).get(
                 "bound_to_execution_key") is True)
-        s7_settle = settlement_ok(
+        s7_settle = s7_settlement_ok(
             s7.get("settlement") or {}, s7_cf, s7_task, s7_fb)
         s7_agreement = agreement(
             s7.get("initial_response") or {},

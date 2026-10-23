@@ -102,8 +102,11 @@ capture event was recorded (`comparison_requirement_captured=false`),
 and there is no comparison or truthful date in the reply.
 
 This is not the L3 control-flow blocker and it is not hidden by changing
-models or workspaces. It remains an open S3 interpretation-latency
-finding under this configuration.
+models or workspaces. It remains an open **provider-latency** finding
+under this configuration (DeepSeek returned after 64.9 s against the
+65 s interpretation bound); it is not evidence that the configuration
+is impossible, and it does not justify per-turn routing or user-visible
+model selection.
 
 ## S7 date-only continuation — failed settlement
 
@@ -223,6 +226,22 @@ and must not be carried into the successor unchanged:
 
 Both corrections make the acceptance stricter about what is claimed
 (no completion over an unresolved prior obligation) rather than weaker.
+
+Implementation check (2026-10-23): the successor runner now carries
+`cf_completed_scope` and `s7_settlement_ok`, and binds
+`continuation_source_resolved` to the continuation's own antecedent
+ids. Replayed against the captured attempt-3 record, the pre-fix
+`failed` settlement is still rejected; a synthetic post-fix
+`success=true` / `outcome=partial` state with `cf=completed`,
+`delivered=true`, and only the prior S3 obligation open is accepted.
+A turn-own comparison gap, a partial without the prior obligation, a
+partial `cf` state, and `completed` with prior work still open are all
+rejected. The captured S7 observation carries the antecedent
+`67d12b03-5ce0-4278-b09f-00d8f28e0e66` and the fixture file, while
+S3's timeout response carries no execution id — confirming the old
+source gate was unsatisfiable by construction. The attempt-3 result
+JSON remains unchanged.
+
 Deployment remains held.
 
 ## What this establishes
