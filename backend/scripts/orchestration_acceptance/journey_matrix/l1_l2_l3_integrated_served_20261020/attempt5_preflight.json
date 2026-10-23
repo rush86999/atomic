@@ -56,7 +56,7 @@
     },
     "constant_product_pin": {
       "detail": {
-        "product": "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83"
+        "product": "22af424a07d84a21c62eb7bb97046d98a01d3d14"
       },
       "ok": true
     },
@@ -65,7 +65,7 @@
       "ok": true
     },
     "frozen_gate_tests": {
-      "detail": "======================= 67 passed, 137 warnings in 3.95s =======================",
+      "detail": "======================= 74 passed, 196 warnings in 3.02s =======================",
       "ok": true
     },
     "gate_antecedent_ids_alone_rejected": {
@@ -258,7 +258,7 @@
       "ok": true
     },
     "predecl_sha": {
-      "detail": "34675a023e6f3e92be8f48ca2e6fe00bd46d2c4c76f69c9485b121286bc79ee0",
+      "detail": "a6a0fc7c147771c9c2091c7aa34476d53c7097ee0b7f4473c87c36ba7cde65b5",
       "ok": true
     },
     "product_commit_is_ancestor": {
@@ -266,7 +266,7 @@
       "ok": true
     },
     "product_commit_present": {
-      "detail": "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83",
+      "detail": "22af424a07d84a21c62eb7bb97046d98a01d3d14",
       "ok": true
     },
     "product_tree_equals_pin": {
@@ -329,7 +329,7 @@
     },
     "gate_commit": "f2f8329971129bc14e9f107aa234b98db7f18379",
     "gate_module_sha256": "a0b2f748633c21536774048b6591006aa3548b0947e62178fa6fa6142707a017",
-    "head": "a4f805cebe49b9a6f990ba18e083feb310d55f34",
+    "head": "3d1856eeb07a5609af5a0829a2e26ba852218a6c",
     "pilot_before": {
       "byok_key_store": "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json",
       "captured_at": "2026-10-18T02:39:40.773975+00:00",
@@ -430,19 +430,19 @@
         "docs/architecture/orchestration_migration/INTENT_AND_FRESH_INSTALL_COMPLETION_GUIDE_2026_10_08.md"
       ]
     },
-    "predecl_sha256": "34675a023e6f3e92be8f48ca2e6fe00bd46d2c4c76f69c9485b121286bc79ee0",
-    "product": "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83",
-    "runner_sha256": "b95191fff002109cdde8d4b9aebc6d47a430d629ac0845f2c0e968270dd586bb",
+    "predecl_sha256": "a6a0fc7c147771c9c2091c7aa34476d53c7097ee0b7f4473c87c36ba7cde65b5",
+    "product": "22af424a07d84a21c62eb7bb97046d98a01d3d14",
+    "runner_sha256": "01333317aade7060fe8b77a11dc715a58bd12a9d0a5e13fd218d07ef56dd6198",
     "server_observe_sha256": "c2dddfcd1618aa3b0575dd6cecde8d5028a05dcc581f7ecbbe56ef4e7e922368",
     "source_sha256": {
-      "answer_boundary": "0c6415935609c3fa5bbf7c4a92afedffb4e803ccbc2a702e5f8ecd1db2c5c02b",
+      "answer_boundary": "2d27f369475540013b59ae00cd643fd077fca35a152ad978df7648f6c7994997",
       "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
       "chat_orchestrator": "6e6c51facb8cb5fa34e1e012ed1d1511db69cf27ac5229622c27821c9a387cf4",
-      "chat_tool_planner": "b087a31ef06355cfa888b9b0d96f96a383e8634b0dc9926b1751b7470ee59697",
+      "chat_tool_planner": "0b6294a6c1e3493e91a94db35af0187126a870297f5e78c144472b270cda7c13",
       "turn_decision": "79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a",
       "workbook_read_artifact": "3158d329cd3fdfbaa69fdda250c403ba9f694a10430f45d1fb42a026d9298a29"
     }
   },
   "pass": true,
-  "timestamp": "2026-10-23T19:35:29"
+  "timestamp": "2026-10-23T19:42:28"
 }
