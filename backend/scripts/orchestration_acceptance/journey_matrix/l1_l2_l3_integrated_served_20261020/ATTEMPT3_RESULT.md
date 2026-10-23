@@ -227,20 +227,63 @@ and must not be carried into the successor unchanged:
 Both corrections make the acceptance stricter about what is claimed
 (no completion over an unresolved prior obligation) rather than weaker.
 
-Implementation check (2026-10-23): the successor runner now carries
-`cf_completed_scope` and `s7_settlement_ok`, and binds
-`continuation_source_resolved` to the continuation's own antecedent
-ids. Replayed against the captured attempt-3 record, the pre-fix
-`failed` settlement is still rejected; a synthetic post-fix
-`success=true` / `outcome=partial` state with `cf=completed`,
-`delivered=true`, and only the prior S3 obligation open is accepted.
-A turn-own comparison gap, a partial without the prior obligation, a
-partial `cf` state, and `completed` with prior work still open are all
-rejected. The captured S7 observation carries the antecedent
-`67d12b03-5ce0-4278-b09f-00d8f28e0e66` and the fixture file, while
-S3's timeout response carries no execution id — confirming the old
-source gate was unsatisfiable by construction. The attempt-3 result
-JSON remains unchanged.
+### Successor gates — post-review correction (2026-10-23)
+
+The first gate correction (`636c9c9f9`) was replayed by review and two
+false positives were reproduced on that exact commit:
+
+- `cf_completed_scope` accepted `supplied_fields=["unrelated_date"]`
+  because it searched for the substring `date`, and it never checked the
+  accepted requirement's field set.
+- `s7_settlement_ok` accepted the prior obligation **plus** "current
+  requested field could not be checked": it required one recognized
+  prior gap instead of proving every remaining gap belongs to prior work.
+
+The successor now closes both:
+
+- **Exact canonical coverage.** `cf_completed_scope` requires the
+  accepted requirement and the fulfillment carrier to name exactly
+  `expiration_date` (case/whitespace canonicalized), with the fixture
+  matched and no missing comparison/field. `unrelated_date`, extra
+  fields, duplicate fields and empty coverage are rejected.
+- **Every open obligation accounted for.** A partial is accepted only
+  when every open obligation is the identified prior S3 verification.
+  The runner prefers the structured task record
+  (`goal_runs.parameters.task_lifecycle.task_revision.unresolved`) and
+  matches `question_id` + `source_operation` + `next_action` + `kind`.
+  The resolver's text snapshot is still cross-checked, so a structured
+  record cannot hide a recorded text gap. If no structured record is
+  available, the fallback requires every `open_work` string to equal the
+  exact fixture-bounded prior obligation. **Disclosed limitation:** the
+  text fallback proves "every recorded text gap is the known prior
+  obligation", not that the text channel enumerated every obligation;
+  `gate_basis.open_work_source` records which channel was used.
+- **Antecedent attribution.** The continuation gate keeps the
+  continuation-owned antecedent link, then requires each referenced
+  execution to resolve to a durable `agent_executions` row in the same
+  conversation and workspace, and requires the antecedent bound to the
+  fixture observation to have actually supplied the fixture in its
+  durable outcome (top-level evidence or a `verified` tool outcome).
+  Two carried ids agreeing is insufficient; a missing row, wrong
+  conversation, wrong workspace, unverified evidence, or fixture-less
+  record is rejected.
+
+Permanent negatives live in
+`backend/tests/test_successor_s7_gates.py` (31 tests): the two
+reproduced false positives, wrong-conversation antecedent,
+wrong-workspace antecedent, missing record, unverified evidence, missing
+date coverage, extra/duplicate fields, unknown text and structured
+obligations, partial scope/delivery, and completed-with-open-work. The
+honest partial (captured shape + structured prior obligation) is
+accepted; the captured pre-fix `failed` settlement is still rejected;
+the captured S3 timeout still does not pass (`comparison_untruthful`
+remains the first failure), so S3's latency gate is unchanged and the
+timeout does not become a passing workflow.
+
+The attempt-3 result JSON is unchanged. Attempt 3 remains 48/59 and
+non-governing. The successor harness is frozen at tag
+`successor/s7-gates-frozen-20261023`; no campaign is launched by this
+commit. Deployment remains held.
 
 Deployment remains held.
 
