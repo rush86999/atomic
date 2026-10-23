@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """L1+L2+L3 integrated composed served acceptance — one workflow.
 
-Candidate: fix/l3-required-read-timeout at 824a94c5b, the repair
+Candidate: fix/l3-required-read-timeout at 22af424a0, the repair
 commit built on b0bee5dbf (the attempt-3 pin 2a113d1a3 + the reviewed
 S7 settlement correction; ddcc404dd: L3 6d662abff containing L1
-aaa1169d7 + L2 c0cbea9f1 + main e6308cb54). 824a94c5b contains the
+aaa1169d7 + L2 c0cbea9f1 + main e6308cb54). 22af424a0 contains the
 attempt-4 repairs: the user-facing answer boundary (internal evidence
-echo stripped, supported fact/source rendered) and attribution-aware
-figure grounding with the passed canvas context. The successor gate
+echo stripped; only a unique structured fact renders a fallback, else
+an explicit limitation) and attribution-aware figure grounding with the
+passed canvas context. The successor gate
 harness is f2f832997 (per-run prior identity + partial-aware restart).
 This runner only adds acceptance files and never edits the product.
 
@@ -72,7 +73,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 LIVE_DB = MAIN / "backend/data/atom.db"
 PILOT_BACKEND = "http://127.0.0.1:8001"
 PILOT_FRONTEND = "http://127.0.0.1:3000"
-PRODUCT_SHA = "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83"
+PRODUCT_SHA = "22af424a07d84a21c62eb7bb97046d98a01d3d14"
 CANDIDATE_SHA = PRODUCT_SHA
 HARNESS_GATE_COMMIT = "f2f8329971129bc14e9f107aa234b98db7f18379"
 HARNESS_GATE_TAG = "successor/attempt5-repaired-20261023"
@@ -81,9 +82,9 @@ EXPECTED_GATES_SHA256 = (
 PRE_DECL = HERE / "PREDECLARED_CONFIG_ATTEMPT5.md"
 
 EXPECTED_SOURCE_SHA256 = {
-    "chat_tool_planner": "b087a31ef06355cfa888b9b0d96f96a383e8634b0dc9926b1751b7470ee59697",
+    "chat_tool_planner": "0b6294a6c1e3493e91a94db35af0187126a870297f5e78c144472b270cda7c13",
     "chat_orchestrator": "6e6c51facb8cb5fa34e1e012ed1d1511db69cf27ac5229622c27821c9a387cf4",
-    "answer_boundary": "0c6415935609c3fa5bbf7c4a92afedffb4e803ccbc2a702e5f8ecd1db2c5c02b",
+    "answer_boundary": "2d27f369475540013b59ae00cd643fd077fca35a152ad978df7648f6c7994997",
     "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
     "workbook_read_artifact": "3158d329cd3fdfbaa69fdda250c403ba9f694a10430f45d1fb42a026d9298a29",
     "turn_decision": "79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a",
@@ -154,6 +155,19 @@ S3_ASK = (
 S7_ASK = (
     "What is the current Valid until date on the draft, and does it still "
     "match the approved record?")
+
+
+def l3_answer_contract(message: str) -> bool:
+    """The declared L3 answer contract: expected code, no decoy.
+
+    Kept as a named predicate so the answer-boundary replay can exercise
+    the same contract the campaign checks.
+    """
+    text = str(message or "")
+    return bool(
+        L3_EXPECTED_CODE in text
+        and L3_DECOY_CODE not in text
+        and "needs to be connected" not in text.casefold())
 
 WRONG_VALUES = ("2026-11-30", "2026-10-31", "2025-12-31")
 GLOBAL_CLAIMS = (
@@ -1519,10 +1533,7 @@ def main() -> int:
         l3_interp = ((l3.get("observation") or {}).get(
             "interpretation") or {}).get("interpretation") or {}
         l3_origin = str(l3_interp.get("origin") or "")
-        l3_answer_ok = bool(
-            L3_EXPECTED_CODE in l3_msg
-            and L3_DECOY_CODE not in l3_msg
-            and "needs to be connected" not in l3_msg.casefold())
+        l3_answer_ok = l3_answer_contract(l3_msg)
         l3_settled = bool(
             (l3.get("settlement") or {}).get("final_outcome")
             == "completed"

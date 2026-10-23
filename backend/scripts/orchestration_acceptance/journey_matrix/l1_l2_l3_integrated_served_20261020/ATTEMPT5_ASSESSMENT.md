@@ -33,17 +33,20 @@ legitimate; an arbitrary partial fails because the S7 gate must have
 accepted it. Tests cover completed, reviewed partial, arbitrary partial,
 and each mismatched field.
 
-### L3 answer boundary
+### L3 answer boundary (simplified after the wrong-subject reproduction)
 
 The preserved attempt-4 response proves served == persisted == reloaded:
 the internal `LIVE TOOL RESULTS` echo came from reply generation and
-passed through finalization unchanged. `core.answer_boundary` now strips
-the exact internal envelope at the final return and, when the remaining
-answer omits the evidence-backed code/fact or the source attribution,
-renders the supported sentence with its source. Ordinary quotations and
-unrelated source material are preserved; the full evidence remains on the
-turn. Controls cover changed subject/code, multiple subjects, an explicit
-both-request, a wrong decoy answer, and ordinary quotations.
+passed through finalization unchanged. `core.answer_boundary` now does
+only envelope removal plus a structured fallback: substantive prose is
+preserved unchanged; a fallback renders only a unique structured
+subject → field → value → source association, otherwise an explicit
+limitation. Word-overlap ranking and token presence were removed as
+authority after the wrong-subject reproduction. Controls cover the
+wrong-subject fallback, captured envelope-only limitation, prose with
+both codes (preserved but rejected by the real L3 contract), changed
+identifiers, two subjects/explicit both, ordinary quotations, the real
+final-return path, and the canvas empty/conflicting-context cases.
 
 ### S3 figure grounding
 
@@ -51,7 +54,9 @@ The preserved log shows `$48,000.00` flagged at 92.1 s with only 2.9 s
 left, followed by the time-budget reply. The route had resolved the
 canvas and passed it as `canvas_context`; the guard read only the local
 `_canvas_ctx`, which is empty for a fresh comparison conversation. The
-successor serializes both contexts (preferring the one with content) and
+successor serializes both contexts, skips empty serializations (an empty
+local content no longer shadows the resolved route context), refuses to
+silently choose between conflicting canvas identities/revisions, and
 checks attribution: the draft-supported figure passes, while a
 source-unsupported or misattributed figure still triggers correction.
 The 95-second turn budget is unchanged.
@@ -61,15 +66,15 @@ The 95-second turn budget is unchanged.
 - `test_successor_s7_gates.py`: 37 passed (cross-run UUIDs, S7-created
   obligation rejection, honest partial, arbitrary partial, restart
   exactness, captured pre-fix rejection).
-- `test_attempt4_repairs.py`: 21 passed (captured L3 boundaries/envelope,
+- `test_attempt4_repairs.py`: 28 passed (captured L3 boundaries/envelope,
   changed subject/code, multiple subjects, both-request, wrong decoy,
   ordinary quotation, captured S3 canvas replay, source attribution,
   unsupported figure, normalization, 95 s budget, zero-write controls,
   boundary wiring).
 - `test_s3_s7_captured_replay.py`: 9 passed (product replay).
-- Combined focused run: **67 passed**.
+- Combined focused run: **74 passed**.
 - `preflight_attempt5.py`: **41/41 checks passed** at harness HEAD
-  `a4f805ceb` (product `824a94c5b`, gate harness `f2f832997`, gate module
+  `PENDING` (product `22af424a0`, gate harness `f2f832997`, gate module
   `a0b2f748…`): intended pin accepted, obsolete attempt-4 hash rejected,
   product tree equal to the pin, source/gate hashes match, attempt 3/4
   evidence checksums preserved, fresh scratch/artifact paths, pilot and

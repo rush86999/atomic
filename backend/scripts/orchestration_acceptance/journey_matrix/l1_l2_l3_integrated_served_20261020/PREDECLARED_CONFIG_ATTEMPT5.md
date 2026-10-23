@@ -9,8 +9,8 @@ remains non-passing; see `ATTEMPT5_ASSESSMENT.md`.
 
 - Worktree: `/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout`
 - Branch: `fix/l3-required-read-timeout`
-- Frozen product commit: `824a94c5ba8b255bb087e49b9f0abd6cf2c85c83`
-  (`fix(chat): present supported facts and ground canvas figures`), built
+- Frozen product commit: `22af424a07d84a21c62eb7bb97046d98a01d3d14`
+  (`fix(chat): simplify the answer boundary to removal plus structured fallback`), built
   on `b0bee5dbf` (the attempt-3 pin `2a113d1a3` plus the reviewed S7
   settlement correction).
 - Frozen successor gate harness: `f2f8329971129bc14e9f107aa234b98db7f18379`
@@ -21,18 +21,18 @@ remains non-passing; see `ATTEMPT5_ASSESSMENT.md`.
   runner records the actual `head_at_launch` and `harness_commit`.
 - Product source hashes (the runner aborts on any mismatch):
   - `backend/core/chat_tool_planner.py`
-    `b087a31ef06355cfa888b9b0d96f96a383e8634b0dc9926b1751b7470ee59697`
+    `0b6294a6c1e3493e91a94db35af0187126a870297f5e78c144472b270cda7c13`
   - `backend/integrations/chat_orchestrator.py`
     `6e6c51facb8cb5fa34e1e012ed1d1511db69cf27ac5229622c27821c9a387cf4`
   - `backend/core/answer_boundary.py`
-    `0c6415935609c3fa5bbf7c4a92afedffb4e803ccbc2a702e5f8ecd1db2c5c02b`
+    `2d27f369475540013b59ae00cd643fd077fca35a152ad978df7648f6c7994997`
   - `backend/core/chat_canvas_editor.py`
     `5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece`
   - `backend/core/workbook_read_artifact.py`
     `3158d329cd3fdfbaa69fdda250c403ba9f694a10430f45d1fb42a026d9298a29`
   - `backend/core/turn_decision.py`
     `79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a`
-- The runner verifies `git diff 824a94c5b..HEAD -- backend/core
+- The runner verifies `git diff 22af424a0..HEAD -- backend/core
   backend/integrations` is empty, every source hash matches, the gate
   module hash matches the reviewed harness, and the worktree is clean.
   It aborts on any unexplained difference.
@@ -56,12 +56,14 @@ successor adds only the reviewed repairs:
   partial are legitimate; an arbitrary partial fails because the S7 gate
   must have accepted it.
 - **L3 answer boundary.** The internal `LIVE TOOL RESULTS` envelope is
-  stripped from the user-facing answer; the requested subject's supported
-  fact and source are rendered when the remaining answer omits them.
-  Full evidence remains on the turn. Ordinary quotations and unrelated
-  source material are not removed.
+  stripped from the user-facing answer. Substantive prose is preserved
+  unchanged; a fallback renders only a uniquely supported structured
+  subject → field → value → source association, otherwise an explicit
+  limitation. Word-overlap ranking and token presence are not authority.
+  Full evidence remains on the turn; ordinary quotations are preserved.
 - **S3 figure grounding.** The guard reads the passed canvas context as
-  well as the local one, so the draft's `$48,000.00` is supported; the
+  well as the local one; empty local serializations are skipped, and
+  conflicting canvas identities/revisions are not silently chosen. The
   figure check is attribution-aware (canvas vs tool source), and a
   source-unsupported or misattributed figure still triggers correction.
   The 95-second turn budget is unchanged.

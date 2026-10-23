@@ -37,7 +37,7 @@ MAIN = Path("/Users/rushiparikh/projects/atom")
 PY = MAIN / "backend/venv314/bin/python"
 PREFLIGHT = HERE / "attempt5_preflight.json"
 
-PRODUCT_SHA = "824a94c5ba8b255bb087e49b9f0abd6cf2c85c83"
+PRODUCT_SHA = "22af424a07d84a21c62eb7bb97046d98a01d3d14"
 OBSOLETE_SHA = "b0bee5dbfd608103bd8875bbc35066c28959ae1e"
 OBSOLETE_CHAT_HASH = (
     "59f1c550cf51a434631d6202b61b5aa8eefc2de0735edacbdee184cc53e152ed")
