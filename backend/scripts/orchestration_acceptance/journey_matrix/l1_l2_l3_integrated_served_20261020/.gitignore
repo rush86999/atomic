@@ -22,4 +22,14 @@ attempt4_observation_*.jsonl
 attempt4_interpreter_freeze.txt
 attempt4_preflight.json
 attempt4_*.tmp
-
+# Attempt-5 successor artifacts (unlaunched). New names again so the
+# corrected harness cannot overwrite attempt 3/4 evidence.
+attempt5_config.json
+attempt5_result.json
+attempt5_summary.json
+attempt5_run.log
+attempt5_server_*.log
+attempt5_observation_*.jsonl
+attempt5_interpreter_freeze.txt
+attempt5_preflight.json
+attempt5_*.tmp
