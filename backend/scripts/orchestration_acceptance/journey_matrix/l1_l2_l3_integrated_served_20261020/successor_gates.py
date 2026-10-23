@@ -19,28 +19,31 @@ when EVERY open obligation is the identified prior S3 verification.
 
 Obligation accounting
 ---------------------
-The runner prefers the structured task record
-(``goal_runs.parameters.task_lifecycle.task_revision.unresolved``) and
-matches an open question by ``question_id`` + ``source_operation`` +
-``next_action`` + ``kind``. When only the resolver's text snapshot is
-available, the fallback requires every ``open_work`` string to equal the
-exact fixture-bounded prior obligation (``S7_PRIOR_OBLIGATION``). That
-fallback is deliberately conservative but it is a LIMITATION: it proves
-"every recorded text gap is the known prior obligation", not that the
-text channel enumerated every obligation. The runner records which
-channel it used and ``ATTEMPT3_RESULT.md`` discloses the limitation.
-When the structured record IS available the text snapshot is still
-cross-checked, so a structured record cannot hide an extra recorded gap.
+The runner captures the durable prior obligation from THIS run before
+S7 (the task record's open questions at that point) and passes it as
+``expected_prior``. The gate matches actual S7 open questions against
+that captured identity (``question_id`` + ``source_operation`` +
+``next_action`` + ``kind``); a fresh run's UUIDs are therefore first-class,
+while an S7-created obligation cannot bootstrap itself into the expected
+set. When no structured capture exists, the fallback requires every
+``open_work`` string to equal the exact fixture-bounded prior obligation
+(``S7_PRIOR_OBLIGATION``). That fallback is deliberately conservative but
+it is a LIMITATION: it proves "every recorded text gap is the known prior
+obligation", not that the text channel enumerated every obligation. The
+runner records which channel it used and ``ATTEMPT3_RESULT.md`` discloses
+the limitation. When the structured record IS available the text snapshot
+is still cross-checked, so a structured record cannot hide an extra
+recorded gap.
 """
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, Iterable, List, Optional
 
 FIXTURE_NAME = "approved_records_q2026_114.txt"
 EXPECTED_DATE_FIELD = "expiration_date"
 S7_PRIOR_OBLIGATION = "re-run the workbook verification for the quote's items"
-PRIOR_S3_QUESTION_ID = "2ff5c959-a082-4320-837e-3d83b42663c0"
-PRIOR_S3_SOURCE_OPERATION = "a6413371-6e42-4ea1-8a9c-5bb0447dbac0"
+PRIOR_OBLIGATION_KIND = "verification"
 
 
 def _canonical(value: Any) -> str:
@@ -114,49 +117,92 @@ def _structured_open(
         and _canonical(item.get("status") or "open") == "open"]
 
 
-def _is_prior_s3_obligation(item: Any) -> bool:
-    """The identified prior S3 verification, never a generic negative phrase.
+def obligation_identity(item: Dict[str, Any]) -> Dict[str, str]:
+    """The durable fields that identify one task obligation."""
+    return {
+        "question_id": _canonical(item.get("question_id")),
+        "source_operation": _canonical(item.get("source_operation")),
+        "next_action": str(item.get("next_action") or "").strip(),
+        "kind": _canonical(item.get("kind")),
+    }
+
+
+def capture_prior_obligation(
+        obligations: Optional[Iterable[Dict[str, Any]]]
+        ) -> Dict[str, Any]:
+    """Capture the open obligations that exist BEFORE the S7 turn.
+
+    The caller invokes this only between the durable record's update after
+    S3 and the start of S7. The returned identities are the expected prior
+    work: they cannot be derived from whatever S7 later reports, so a
+    fresh run's generated UUIDs are legitimate and an S7-created
+    obligation is not.
+    """
+    items = _structured_open(obligations)
+    return {
+        "source": "durable_task_record_before_s7",
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "items": [dict(item) for item in items],
+    }
+
+
+def _expected_items(expected_prior: Any) -> List[Dict[str, Any]]:
+    if isinstance(expected_prior, dict):
+        expected_prior = expected_prior.get("items")
+    return _structured_open(expected_prior)
+
+
+def _is_prior_s3_obligation(
+        item: Any,
+        expected_prior: Optional[Iterable[Dict[str, Any]]] = None) -> bool:
+    """The identified prior obligation, never a generic negative phrase.
 
     Text items must equal the fixture-bounded prior obligation exactly.
-    Structured items must carry the prior question/source-operation
-    identities AND the same next action and verification kind, so an
-    unrelated open question that happens to say "re-run" is not owned.
+    Structured items must match an identity captured from the durable
+    record BEFORE S7: question_id + source_operation + next_action + kind.
+    A question that appears only in S7's own open list is not owned.
     """
     if isinstance(item, dict):
-        return bool(
-            _canonical(item.get("status") or "open") == "open"
-            and _canonical(item.get("question_id")) == _canonical(
-                PRIOR_S3_QUESTION_ID)
-            and _canonical(item.get("source_operation")) == _canonical(
-                PRIOR_S3_SOURCE_OPERATION)
-            and str(item.get("next_action") or "").strip()
-            == S7_PRIOR_OBLIGATION
-            and _canonical(item.get("kind")) == "verification")
+        if _canonical(item.get("status") or "open") != "open":
+            return False
+        identity = obligation_identity(item)
+        if identity["kind"] != PRIOR_OBLIGATION_KIND:
+            return False
+        return any(
+            identity == obligation_identity(expected)
+            for expected in _expected_items(expected_prior))
     return str(item).strip() == S7_PRIOR_OBLIGATION
 
 
 def all_open_work_is_prior_s3(
         fallback: Dict[str, Any],
-        obligations: Optional[Iterable[Dict[str, Any]]] = None) -> bool:
-    """Every remaining obligation belongs to the prior S3 verification.
+        obligations: Optional[Iterable[Dict[str, Any]]] = None,
+        expected_prior: Optional[Iterable[Dict[str, Any]]] = None) -> bool:
+    """Every remaining obligation belongs to the captured prior work.
 
     A single recognized prior obligation is not enough: an additional
     unknown, turn-own, or second prior-looking gap rejects the
     honest-partial branch. At least one open obligation must exist.
 
     Structured obligations are authoritative for IDENTITY, but the
-    resolver's text snapshot is still checked when present. Otherwise a
-    structured record that omitted a text gap (the reproduced
-    "current requested field could not be checked" case) would license
-    the partial.
+    expected identity must have been captured BEFORE S7. The resolver's
+    text snapshot is still checked when present. Otherwise a structured
+    record that omitted a text gap (the reproduced "current requested
+    field could not be checked" case) would license the partial.
     """
     texts = _fallback_texts(fallback)
     if obligations is not None:
         structured = _structured_open(obligations)
+        expected = _expected_items(expected_prior)
         return bool(
             structured
-            and all(_is_prior_s3_obligation(item) for item in structured)
-            and all(_is_prior_s3_obligation(item) for item in texts))
+            and expected
+            and all(
+                _is_prior_s3_obligation(item, expected)
+                for item in structured)
+            and all(
+                _is_prior_s3_obligation(item, expected)
+                for item in texts))
     return bool(texts) and all(
         _is_prior_s3_obligation(item) for item in texts)
 
@@ -178,7 +224,8 @@ def s7_settlement_ok(
         task: Dict[str, Any],
         fallback: Dict[str, Any],
         requirement: Dict[str, Any],
-        obligations: Optional[Iterable[Dict[str, Any]]] = None) -> bool:
+        obligations: Optional[Iterable[Dict[str, Any]]] = None,
+        expected_prior: Optional[Iterable[Dict[str, Any]]] = None) -> bool:
     """S7's date-only continuation settled truthfully.
 
     ``completed`` requires the exact date scope, a met objective, a
@@ -199,8 +246,30 @@ def s7_settlement_ok(
         return bool(
             cf_completed_scope(cf, requirement)
             and delivered
-            and all_open_work_is_prior_s3(fallback, obligations))
+            and all_open_work_is_prior_s3(
+                fallback, obligations, expected_prior))
     return False
+
+
+def restart_agreement_ok(pre: Dict[str, Any],
+                         post: Dict[str, Any]) -> bool:
+    """Exact agreement with the accepted PRE-restart S7 outcome.
+
+    Both ``completed`` and the reviewed honest ``partial`` are legitimate.
+    An arbitrary partial is rejected because ``s7_gate_ok`` must be true
+    (the reviewed date/source/settlement gate accepted the pre-restart
+    settlement). The reload must reproduce the same outcome, success,
+    content, execution identity, status, and delivery record exactly.
+    """
+    if not isinstance(pre, dict) or not isinstance(post, dict):
+        return False
+    if pre.get("outcome") not in ("completed", "partial"):
+        return False
+    if pre.get("s7_gate_ok") is not True:
+        return False
+    keys = ("outcome", "success", "message", "execution_id", "status",
+            "delivery")
+    return all(pre.get(key) == post.get(key) for key in keys)
 
 
 def _ref_supplies_fixture(ref: Any) -> bool:

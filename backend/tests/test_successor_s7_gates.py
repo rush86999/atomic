@@ -90,6 +90,11 @@ def _structured_obligations() -> list:
         TASK["task_revision"]["unresolved"]))
 
 
+def _expected_prior(obligations=None) -> dict:
+    return gates.capture_prior_obligation(
+        _structured_obligations() if obligations is None else obligations)
+
+
 def _antecedent_refs() -> dict:
     return json.loads(json.dumps(
         S7["observation"]["apply"]["decision_refs_after"]
@@ -259,7 +264,8 @@ def test_current_field_gap_is_not_hidden_by_structured_obligations():
         PRIOR, "current requested field could not be checked"])
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(), fallback, _requirement(),
-        _structured_obligations()) is False
+        _structured_obligations(),
+        expected_prior=_expected_prior()) is False
 
 
 # ---------------------------------------------------------------------------
@@ -268,13 +274,62 @@ def test_current_field_gap_is_not_hidden_by_structured_obligations():
 def test_honest_partial_with_only_the_prior_obligation_is_accepted():
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(), _fallback(), _requirement(),
-        _structured_obligations()) is True
+        _structured_obligations(),
+        expected_prior=_expected_prior()) is True
 
 
 def test_honest_partial_text_fallback_is_accepted():
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(),
         dict(_fallback(), open_work=[PRIOR]), _requirement(), None) is True
+
+
+def test_cross_run_generated_uuids_are_accepted():
+    """Two runs' task records carry different generated UUIDs; each run's
+    own pre-S7 capture must identify its prior obligation. Historical
+    attempt-3 UUIDs must not be hardcoded."""
+    run_a = _structured_obligations()
+    run_b = [dict(q, question_id="run-b-question",
+                  source_operation="run-b-operation")
+             for q in run_a]
+    for actual, expected in (
+            (run_a, _expected_prior(run_a)),
+            (run_b, _expected_prior(run_b))):
+        assert gates.s7_settlement_ok(
+            _partial_final(), _cf(), _task(), _fallback(), _requirement(),
+            actual, expected_prior=expected) is True
+    # A cross-run identity mismatch is not attribution.
+    assert gates.s7_settlement_ok(
+        _partial_final(), _cf(), _task(), _fallback(), _requirement(),
+        run_b, expected_prior=_expected_prior(run_a)) is False
+
+
+def test_s7_created_obligation_cannot_bootstrap_the_expected_prior():
+    """The expected identity is captured BEFORE S7. An obligation that
+    appears only in S7's own open list must not license a partial."""
+    prior = _structured_obligations()
+    s7_created = dict(
+        prior[0], question_id="s7-question",
+        source_operation="s7-operation",
+        next_action="verify the current date")
+    assert gates.s7_settlement_ok(
+        _partial_final(), _cf(), _task(), _fallback(), _requirement(),
+        prior + [s7_created], expected_prior=_expected_prior(prior)) is False
+    assert gates.s7_settlement_ok(
+        _partial_final(), _cf(), _task(), _fallback(), _requirement(),
+        [s7_created], expected_prior=_expected_prior(prior)) is False
+
+
+def test_capture_prior_obligation_returns_only_open_items():
+    opened = _structured_obligations()
+    resolved = [dict(opened[0], status="resolved")]
+    captured = gates.capture_prior_obligation(resolved)
+    assert captured["items"] == []
+    assert captured["source"] == "durable_task_record_before_s7"
+    captured = gates.capture_prior_obligation(opened)
+    assert captured["items"] == opened
+    assert gates.obligation_identity(opened[0])["question_id"] == (
+        opened[0]["question_id"])
 
 
 def test_partial_without_the_prior_obligation_is_rejected():
@@ -294,7 +349,8 @@ def test_additional_unknown_text_obligation_is_rejected():
         None) is False
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(), fallback, _requirement(),
-        _structured_obligations()) is False
+        _structured_obligations(),
+        expected_prior=_expected_prior()) is False
 
 
 def test_additional_unknown_structured_obligation_is_rejected():
@@ -306,10 +362,11 @@ def test_additional_unknown_structured_obligation_is_rejected():
         "status": "open",
     }]
     assert gates.all_open_work_is_prior_s3(
-        dict(_fallback(), open_work=[]), obligations) is False
+        dict(_fallback(), open_work=[]), obligations,
+        _expected_prior()) is False
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(), _fallback(), _requirement(),
-        obligations) is False
+        obligations, expected_prior=_expected_prior()) is False
 
 
 def test_resolved_structured_obligations_do_not_count_as_open():
@@ -318,20 +375,22 @@ def test_resolved_structured_obligations_do_not_count_as_open():
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(),
         dict(_fallback(), open_work=[]), _requirement(),
-        obligations) is False
+        obligations, expected_prior=_expected_prior()) is False
 
 
 def test_partial_scope_still_requires_exact_date_coverage():
     cf = dict(_cf(), state="partial", missing_comparison=True)
     assert gates.s7_settlement_ok(
         _partial_final(), cf, _task(), _fallback(), _requirement(),
-        _structured_obligations()) is False
+        _structured_obligations(),
+        expected_prior=_expected_prior()) is False
 
 
 def test_partial_still_requires_a_delivery():
     assert gates.s7_settlement_ok(
         _partial_final(), _cf(), _task(delivered=False), _fallback(),
-        _requirement(), _structured_obligations()) is False
+        _requirement(), _structured_obligations(),
+        expected_prior=_expected_prior()) is False
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +414,8 @@ def test_captured_pre_fix_failed_settlement_is_still_rejected():
     assert S7["settlement"]["final_outcome"] == "failed"
     assert gates.s7_settlement_ok(
         S7["settlement"], _cf(), _task(), _fallback(), _requirement(),
-        _structured_obligations()) is False
+        _structured_obligations(),
+        expected_prior=_expected_prior()) is False
 
 
 def test_captured_s3_timeout_does_not_pass_the_unchanged_latency_gate():
@@ -427,6 +487,53 @@ def test_antecedent_scope_is_still_required():
     assert _source_ok(
         {ANTECEDENT_ID: _antecedent_record()},
         scope_change="unresolved") is False
+
+
+# ---------------------------------------------------------------------------
+# Restart agreement: exact accepted pre-restart state, partial-aware
+# ---------------------------------------------------------------------------
+def _restart_pre(**overrides) -> dict:
+    pre = {
+        "outcome": "partial",
+        "success": True,
+        "message": "Verified comparison: draft 2026-12-31 = approved "
+                   "2026-12-31 (match).",
+        "execution_id": "exec-s7",
+        "status": "success",
+        "delivery": {"delivered": True, "channel": "chat"},
+        "s7_gate_ok": True,
+    }
+    pre.update(overrides)
+    return pre
+
+
+def test_restart_agreement_accepts_completed_and_reviewed_partial():
+    pre = _restart_pre()
+    assert gates.restart_agreement_ok(pre, dict(pre)) is True
+    completed = _restart_pre(outcome="completed")
+    assert gates.restart_agreement_ok(completed, dict(completed)) is True
+
+
+def test_restart_agreement_rejects_arbitrary_partial():
+    pre = _restart_pre(s7_gate_ok=False)
+    assert gates.restart_agreement_ok(pre, dict(pre)) is False
+    assert gates.restart_agreement_ok(
+        _restart_pre(outcome="failed"), _restart_pre(outcome="failed")
+    ) is False
+
+
+def test_restart_agreement_requires_exact_status_content_execution_delivery():
+    pre = _restart_pre()
+    for key, value in (
+            ("outcome", "completed"),
+            ("success", False),
+            ("message", "a different accepted reply"),
+            ("execution_id", "another-execution"),
+            ("status", "failed"),
+            ("delivery", {"delivered": False, "channel": "chat"})):
+        post = dict(pre)
+        post[key] = value
+        assert gates.restart_agreement_ok(pre, post) is False, key
 
 
 # ---------------------------------------------------------------------------
