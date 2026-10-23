@@ -155,6 +155,76 @@ observation:
 (over-constrained harness check, see above), `continuation_settlement_basis`,
 `restart_history_agreement`, `restart_execution_persists`.
 
+## Post-run correction — S7 settlement classification (2026-10-23)
+
+The captured S7 execution `f178f3ed-9c2e-4acc-a0a1-2fc657c8ea76`
+delivered the verified date comparison, but the ledger also bound a
+declined lookup (`8ebc306e-f1bc-4211-8d1c-49d9dc814e58`, outcome
+`not_dispatched`, stage `plan_relevance_declined`) and a
+receipt-less read (`923b8cd7-fb0d-4775-ae52-22c5564cc803`). The
+resolver's `failed` classification was caused by treating
+`not_dispatched` as a hard execution failure: `recorded_failure`
+overrode `validated=True`, the envelope settled `turn_failed_no_result`,
+and the durable outcome recorded `delivery.delivered=false` /
+`basis=delivery_not_confirmed`.
+
+Correction: `not_dispatched` is the task ledger's vocabulary for "the
+read never ran" and is distinct from `read_failed`/`search_failed` by
+construction. When the same turn validates a delivery (a covered
+verified comparison, a complete search, a bound delivery) and no bound
+operation has `status=failed` or a hard read/search failure, the
+delivery stands and the settlement is `partial` with the undispatched
+lookup named as open work. The declined lookup is never converted into
+a receipt and the obligation is never silently resolved.
+
+Pinned by `backend/tests/test_s3_s7_captured_replay.py` against the
+captured attempt-3 task record (`backend/tests/fixtures/
+s7_attempt3_task_record.json`) and the real verified-comparison
+producer. The replay asserts:
+
+- `delivered=true`, `state=partial`, and the prior verification
+  obligation in `open_work` — not `failed`;
+- a bound `status=failed` operation still settles `failed`;
+- the same declined lookup without a delivered result still settles
+  `failed`;
+- the route keeps `success=true` / `outcome=partial` with no error code;
+- the durable outcome records `delivery.delivered=true` and is not
+  diagnosed as a delivery failure.
+
+Mutation check: reverting only the classification block makes the
+replay's first assertion fail (`failed` instead of `partial`).
+
+### Corrected gate semantics for the successor
+
+The attempt-3 result file is preserved unchanged; its S7 `failed`
+settlement is the real pre-fix behavior. Two gates were over-constrained
+and must not be carried into the successor unchanged:
+
+- `continuation_date_only_completed` required `completed`. The truthful
+  successor settlement is `completed` only when the task has no open
+  obligations; when the only open work is the **prior S3 broader
+  verification** (S3 timed out before capturing/executing the "flag
+  anything that differs" obligation), the date-only turn settles
+  `partial`. The gate must accept that partial only when
+  `cf=completed` (the date field was supplied and the verified
+  comparison covered every requested field), `delivery.delivered=true`,
+  and no open-work entry says the turn's own comparison was not
+  recorded. A `partial` caused by a turn-own comparison gap still
+  fails.
+- `continuation_source_resolved` compared the observed source's
+  execution id to S3's **response** execution id. S3's timeout response
+  carries no execution id, so the comparison is impossible even though
+  the continuation correctly resolved the antecedent execution
+  `67d12b03-5ce0-4278-b09f-00d8f28e0e66`. The successor gate must bind
+  to the continuation's own
+  `decision_refs_after.continuation_evidence.antecedents[].execution_id`
+  (the captured S7 observation carries exactly that id and the correct
+  fixture file).
+
+Both corrections make the acceptance stricter about what is claimed
+(no completion over an unresolved prior obligation) rather than weaker.
+Deployment remains held.
+
 ## What this establishes
 
 - The attempt-2 L3 blocker is fixed at the product level and verified in

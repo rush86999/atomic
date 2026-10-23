@@ -6906,6 +6906,31 @@ def _fallback_turn_outcome(
         if record is not None and not work_turn:
             work_turn = True
 
+        # AN UNDISPATCHED LOOKUP IS AN OPEN OBLIGATION, NOT A FAILED
+        # EXECUTION (composed S7, 2026-10-20). `not_dispatched` is the
+        # task ledger's vocabulary for "the read never ran" (planner
+        # relevance decline, missing capability/time) — it is distinct
+        # from `read_failed`/`search_failed` by construction. When this
+        # turn ALSO delivered a validated result (a covered verified
+        # comparison, a complete search, a bound delivery), the
+        # undispatched attempt must not negate that delivery: it stays
+        # open work and resolves the turn to `partial` (the state map
+        # below), never to `failed`. Hard failures and an explicit
+        # failed operation status still resolve `failed`.
+        if (recorded_failure and validated
+                and any(_operation_outcome(op) == "not_dispatched"
+                        for op in this_ops)
+                and not any(
+                    str(op.get("status") or "") == "failed"
+                    or _operation_outcome(op) in {
+                        "read_failed", "search_failed"}
+                    for op in this_ops)):
+            logger.info(
+                "[outcome] undispatched lookup(s) do not negate a "
+                "validated delivery (execution=%s open_work=%s)",
+                str(execution_id)[:8], len(open_work))
+            recorded_failure = False
+
         # Map to the state. THE EDIT-DECLINE CARRIER (F3) maps BEFORE
         # the generic branches: a named decline with a delivered reply
         # is PARTIAL — the honest answer was delivered; the requested
