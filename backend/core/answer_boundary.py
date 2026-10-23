@@ -3,35 +3,35 @@
 The reply model receives internal ``LIVE TOOL RESULTS`` evidence. Some
 models echo that envelope back as the first paragraph of their answer
 (attempt 4's L3 turn did exactly that). The envelope is an internal
-evidence carrier, not user-facing prose: the final answer must present the
-requested subject's supported fact and name its source, while the full
-evidence stays in the turn's tool block/audit.
+evidence carrier, not user-facing prose.
 
-This module is deliberately narrow:
+This module deliberately does only two things:
 
-* only the internal ``LIVE TOOL RESULTS`` envelope is removed; ordinary
-  quotations and unrelated source material are untouched;
-* no fixture-specific code or decoy blacklist is used — the fact line is
-  derived from whatever the retrieved source actually says;
-* the fallback renderer is used only when stripping leaves no substantive
-  answer, and it cites the source it used.
+1. remove the exact internal envelope from the answer;
+2. if the answer consisted only of that envelope, either render a fact
+   supplied by **existing structured evidence** or return an explicit
+   limitation.
+
+It does NOT rank source sentences by word overlap and does NOT treat the
+presence of a code-like token as proof that the token belongs to the
+requested subject. A candidate sentence is not a supported answer: the
+subject → field → value → source association must come from structured
+evidence, and a fallback is allowed only when that association is unique.
 """
 from __future__ import annotations
 
 import re
-from typing import List, Optional
+from typing import Iterable, Optional
 
 _INTERNAL_HEADER = "LIVE TOOL RESULTS ("
-_SOURCE_LINE = re.compile(
-    r"^\s*-\s*\[(?P<kind>[^\]]+)\]\s*(?P<name>[^:]+):\s*(?P<body>.*)$")
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
-_WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
-_STOPWORDS = frozenset({
-    "the", "and", "for", "was", "that", "this", "with", "from", "have",
-    "has", "had", "are", "were", "been", "their", "which", "what", "who",
-    "when", "where", "how", "why", "does", "did", "tell", "please", "my",
-    "me", "about", "into", "over", "under", "than", "then", "them",
-})
+
+EXPLICIT_LIMITATION = (
+    "I found retrieved evidence for this request, but I could not "
+    "establish the requested subject and value from it without guessing. "
+    "Please ask me to open the specific source, or name the subject and "
+    "field you want checked.")
+
+_FACT_KEYS = ("subject", "field", "value", "source")
 
 
 def _strip_exact(content: str, tool_block: Optional[str]) -> str:
@@ -64,114 +64,43 @@ def strip_internal_tool_envelope(
     return text.strip()
 
 
-def _query_terms(message: str) -> List[str]:
-    return [
-        word.casefold() for word in _WORD.findall(message or "")
-        if len(word) >= 3 and word.casefold() not in _STOPWORDS]
+def _unique_fact(facts: Optional[Iterable[dict]]) -> Optional[dict]:
+    """The one fully specified structured association, or None.
 
-
-def _source_records(tool_block: str) -> List[dict]:
-    """Parse ``- [kind] name: body`` source records from a tool block."""
-    records: List[dict] = []
-    current = None
-    for line in str(tool_block or "").splitlines():
-        match = _SOURCE_LINE.match(line)
-        if match:
-            current = {
-                "name": match.group("name").strip(),
-                "kind": match.group("kind").strip(),
-                "lines": [match.group("body")],
-            }
-            records.append(current)
-            continue
-        if current is not None:
-            stripped = line.strip()
-            if stripped:
-                current["lines"].append(line)
-            elif current["lines"]:
-                # A blank line ends the excerpt unless another source line
-                # follows; keep the record and stop appending to it.
-                current = None
-    for record in records:
-        record["body"] = "\n".join(record["lines"]).strip()
-    return [record for record in records if record.get("body")]
-
-
-def render_supported_fact(
-        tool_block: str, message: str, max_records: int = 2) -> str:
-    """Render the requested subject's supported sentence(s) + source.
-
-    Used only as a fallback when the model's answer is entirely an echoed
-    envelope. It scores source sentences by the request's own terms; it
-    never hardcodes a fixture subject or code.
+    The caller supplies facts already bound to the requested subject. A
+    fallback is not allowed to choose among candidates: zero or more than
+    one association means the boundary cannot construct an answer.
     """
-    terms = set(_query_terms(message))
-    if not terms:
-        return ""
-    scored = []
-    for record in _source_records(tool_block):
-        for sentence in _SENTENCE_SPLIT.split(record["body"]):
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-            words = {word.casefold() for word in _WORD.findall(sentence)}
-            score = len(words & terms)
-            if score <= 0:
-                continue
-            scored.append((score, record["name"], sentence))
-    if not scored:
-        return ""
-    scored.sort(key=lambda item: (-item[0], item[1], item[2]))
-    chosen = []
-    seen_sources = set()
-    for _score, name, sentence in scored:
-        if name in seen_sources and len(chosen) >= 1:
+    valid = []
+    for fact in facts or []:
+        if not isinstance(fact, dict):
             continue
-        chosen.append((name, sentence))
-        seen_sources.add(name)
-        if len(chosen) >= max_records:
-            break
-    return "\n".join(
-        f"{sentence} (Source: {name})" for name, sentence in chosen)
-
-
-_CODE_ANCHOR = re.compile(r"\b[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\b")
-
-
-def _supported_anchors(text: str) -> set:
-    return {m.group(0) for m in _CODE_ANCHOR.finditer(text or "")}
-
-
-def _rendered_source_names(text: str) -> List[str]:
-    return [
-        m.group(1).strip()
-        for m in re.finditer(r"\(Source:\s*([^)]+)\)", text or "")]
+        if all(str(fact.get(key) or "").strip() for key in _FACT_KEYS):
+            valid.append(fact)
+    return valid[0] if len(valid) == 1 else None
 
 
 def present_answer(content: str, tool_block: Optional[str],
-                   message: str) -> str:
-    """Return the user-facing answer, never the internal evidence envelope.
+                   message: str,
+                   supported_facts: Optional[Iterable[dict]] = None) -> str:
+    """Return the user-facing answer without the internal envelope.
 
-    A substantive model answer after envelope removal is kept verbatim.
-    If the echo consumed the whole answer, render the supported fact line
-    from the evidence with its source attribution; if no supported line can
-    be derived, return the stripped content (possibly empty), never the
-    envelope.
+    A substantive answer after envelope removal is preserved unchanged;
+    the boundary does not rewrite or certify it from token presence. If
+    the envelope consumed the whole answer, a unique structured
+    ``subject``/``field``/``value``/``source`` association may be rendered;
+    otherwise the explicit limitation is returned. ``message`` is kept for
+    call-site compatibility and future subject binding; it is not used to
+    rank source sentences.
     """
+    del message  # intentionally not used to rank or certify answers
     stripped = strip_internal_tool_envelope(content, tool_block)
-    rendered = render_supported_fact(tool_block or "", message)
-    anchors = _supported_anchors(rendered)
-    if len(stripped) >= 20 and not stripped.startswith(_INTERNAL_HEADER):
-        # A substantive answer is kept, but it must carry the supported
-        # code/fact when the evidence has one. An answer that selects the
-        # unrelated decoy (or otherwise omits the supported fact) is
-        # replaced by the evidence-backed line, not shipped.
-        if anchors and not all(anchor in stripped for anchor in anchors):
-            return rendered or stripped
-        if anchors:
-            names = _rendered_source_names(rendered)
-            if names and not any(name in stripped for name in names):
-                return (
-                    stripped + "\n\n(Source: " + ", ".join(names) + ")")
+    if stripped:
         return stripped
-    return rendered or stripped
+    fact = _unique_fact(supported_facts)
+    if fact is None:
+        return EXPLICIT_LIMITATION
+    return (
+        f"{str(fact['subject']).strip()} {str(fact['field']).strip()}: "
+        f"{str(fact['value']).strip()} "
+        f"(Source: {str(fact['source']).strip()})")

@@ -7,12 +7,14 @@ and zero-write controls.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.answer_boundary import present_answer, render_supported_fact
+from core.answer_boundary import EXPLICIT_LIMITATION, present_answer
 from core.chat_tool_planner import (
     figure_issues,
     serialize_canvas_evidence,
@@ -34,6 +36,21 @@ def _l3_envelope_and_answer() -> tuple[str, str]:
     served = L3["initial_response"]["message"]
     envelope, answer = served.split("\n\n", 1)
     return envelope, answer
+
+
+def _load_runner():
+    path = EVIDENCE / "run_composed_served_attempt5.py"
+    spec = importlib.util.spec_from_file_location(
+        "attempt5_repair_runner", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def _fact(subject, field, value, source="records.txt") -> dict:
+    return {"subject": subject, "field": field,
+            "value": value, "source": source}
 
 
 def _tool_block(*records: tuple[str, str]) -> str:
@@ -76,50 +93,120 @@ def test_captured_l3_envelope_is_stripped_and_fact_survives():
     assert "l3_zephyr9_fixture.txt" in clean
 
 
-def test_l3_changed_subject_and_code_are_not_hardcoded():
+def test_wrong_subject_fallback_is_a_limitation():
+    """Reproduced on 824a94c5b: an empty answer plus Zephyr-9/Halcyon-2
+    sentences returned the Halcyon sentence as if it answered Zephyr-9.
+    The fallback may only use a unique structured association."""
     tool = _tool_block(
-        ("fixture_b.txt",
-         "ATOM fixture for Zephyr-10. The launch code for project "
-         "Zephyr-10 is QUARTZ-88. Decoy: the archive key for Halcyon-3 "
-         "is BASALT-99."))
-    content = tool + "\n\nI found a match. The launch code is QUARTZ-88."
-    clean = present_answer(
-        content, tool, "what is the launch code for Zephyr-10?")
-    assert "LIVE TOOL RESULTS" not in clean
-    assert "QUARTZ-88" in clean
-    assert "BASALT-99" not in clean
-    assert "QUARTZ-77" not in clean
+        ("records.txt",
+         "Zephyr-9: QUARTZ-77.\n"
+         "The launch code for project Halcyon-2 is BASALT-13."))
+    out = present_answer(
+        "", tool, "What is the launch code for Zephyr-9?")
+    assert out == EXPLICIT_LIMITATION
+    assert "Halcyon" not in out
+    assert "BASALT-13" not in out
+    assert "QUARTZ-77" not in out
 
 
-def test_l3_multiple_subjects_select_only_the_requested_one():
+def test_captured_envelope_only_answer_returns_a_limitation():
+    envelope, _answer = _l3_envelope_and_answer()
+    out = present_answer(envelope, envelope, L3_ASK)
+    assert out == EXPLICIT_LIMITATION
+    assert "LIVE TOOL RESULTS" not in out
+    assert "BASALT-13" not in out
+
+
+def test_prose_with_both_codes_is_not_certified_by_the_boundary():
+    """The boundary preserves substantive prose; it must not use anchor
+    presence to certify it. The real L3 contract still rejects the decoy."""
     tool = _tool_block(
-        ("zephyr.txt",
-         "The launch code for project Zephyr-9 is QUARTZ-77."),
-        ("halcyon.txt",
-         "The archive key for project Halcyon-2 is BASALT-13."))
-    rendered = render_supported_fact(
-        tool, "what is the launch code for Zephyr-9?")
-    assert "QUARTZ-77" in rendered
-    assert "BASALT-13" not in rendered
-    both = render_supported_fact(
-        tool, "tell me both the Zephyr-9 launch code and the Halcyon-2 "
-              "archive key")
-    assert "QUARTZ-77" in both
-    assert "BASALT-13" in both
-    assert both.count("(Source:") == 2
+        ("records.txt",
+         "The launch code for project Zephyr-9 is QUARTZ-77.\n"
+         "The launch code for project Halcyon-2 is BASALT-13."))
+    prose = (
+        "The launch code for Zephyr-9 is QUARTZ-77. "
+        "The launch code for project Halcyon-2 is BASALT-13.")
+    out = present_answer(prose, tool, L3_ASK)
+    assert out == prose, "the boundary must not rewrite/certify prose"
+    assert _load_runner().l3_answer_contract(out) is False
 
 
-def test_l3_wrong_decoy_answer_is_corrected_from_evidence():
-    tool = _tool_block(
-        ("l3_zephyr9_fixture.txt",
-         "The launch code for project Zephyr-9 is QUARTZ-77. "
-         "Decoy: the archive key for project Halcyon-2 is BASALT-13."))
-    content = tool + "\n\nThe launch code is BASALT-13."
-    clean = present_answer(
-        content, tool, L3_ASK)
-    assert "BASALT-13" not in clean
-    assert "QUARTZ-77" in clean
-    assert "Source: l3_zephyr9_fixture.txt" in clean
+def test_structured_fallback_uses_changed_identifiers():
+    fact = _fact("Zephyr-10", "launch code", "QUARTZ-88", "fixture_b.txt")
+    out = present_answer(
+        "", "", "what is the launch code for Zephyr-10?",
+        supported_facts=[fact])
+    assert out == (
+        "Zephyr-10 launch code: QUARTZ-88 (Source: fixture_b.txt)")
+    assert "QUARTZ-77" not in out
+
+
+def test_two_requested_subjects_need_two_explicit_associations():
+    facts = [
+        _fact("Zephyr-9", "launch code", "QUARTZ-77"),
+        _fact("Halcyon-2", "archive key", "BASALT-13"),
+    ]
+    assert present_answer(
+        "", "", "tell me both codes", supported_facts=facts) == (
+        EXPLICIT_LIMITATION)
+    assert present_answer(
+        "", "", "tell me Zephyr-9's code",
+        supported_facts=[facts[0]]) == (
+        "Zephyr-9 launch code: QUARTZ-77 (Source: records.txt)")
+
+
+def test_incomplete_or_duplicate_structured_facts_are_limitations():
+    assert present_answer(
+        "", "", "code", supported_facts=[
+            {"subject": "Zephyr-9", "value": "QUARTZ-77"}]) == (
+        EXPLICIT_LIMITATION)
+    same = _fact("Zephyr-9", "launch code", "QUARTZ-77")
+    assert present_answer(
+        "", "", "code", supported_facts=[same, dict(same)]) == (
+        EXPLICIT_LIMITATION)
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_final_return_strips_the_envelope():
+    import integrations.chat_orchestrator as co
+
+    envelope, answer = _l3_envelope_and_answer()
+    orch = co.ChatOrchestrator()
+    orch.ai_engines = {}
+    llm = MagicMock()
+    llm.generate_completion = AsyncMock(return_value={
+        "success": True,
+        "content": envelope + "\n\n" + answer,
+        "model": "llama3.1:8b",
+        "provider": "ollama",
+    })
+    orch.llm_service = llm
+    out = await orch._get_qwen_response(L3_ASK, [])
+    assert out is not None
+    assert "LIVE TOOL RESULTS" not in out["content"]
+    assert "QUARTZ-77" in out["content"]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_envelope_only_returns_the_limitation():
+    import integrations.chat_orchestrator as co
+
+    envelope, _answer = _l3_envelope_and_answer()
+    orch = co.ChatOrchestrator()
+    orch.ai_engines = {}
+    llm = MagicMock()
+    llm.generate_completion = AsyncMock(return_value={
+        "success": True,
+        "content": envelope,
+        "model": "llama3.1:8b",
+        "provider": "ollama",
+    })
+    orch.llm_service = llm
+    out = await orch._get_qwen_response(L3_ASK, [])
+    assert out is not None
+    assert out["content"] == EXPLICIT_LIMITATION
+    assert "BASALT-13" not in out["content"]
 
 
 def test_l3_ordinary_quotation_is_not_stripped():
@@ -238,6 +325,22 @@ def test_serialize_canvas_evidence_prefers_the_available_context():
     assert "$48,000.00" in serialize_canvas_evidence(
         {"canvas_content": CANVAS}, None)
     assert serialize_canvas_evidence(None, None) == ""
+
+
+def test_canvas_local_empty_does_not_shadow_resolved_context():
+    local = {"content": ""}
+    resolved = {"content": CANVAS}
+    evidence = serialize_canvas_evidence(local, resolved)
+    assert "$48,000.00" in evidence
+
+
+def test_canvas_conflicting_identities_are_not_silently_chosen():
+    assert serialize_canvas_evidence(
+        {"canvas_id": "a", "content": CANVAS},
+        {"canvas_id": "b", "content": CANVAS}) == ""
+    assert serialize_canvas_evidence(
+        {"canvas_id": "a", "revision": 1, "content": CANVAS},
+        {"canvas_id": "a", "revision": 2, "content": CANVAS}) == ""
 
 
 # ---------------------------------------------------------------------------

@@ -424,6 +424,7 @@ def serialize_canvas_evidence(canvas_ctx: Any, canvas_context: Any,
     the guard read only the empty local value and flagged the draft's
     $48,000.00 as unsourced.
     """
+    entries = []
     for source in (canvas_ctx, canvas_context):
         if not isinstance(source, dict):
             continue
@@ -435,10 +436,29 @@ def serialize_canvas_evidence(canvas_ctx: Any, canvas_context: Any,
         try:
             from core.chat_canvas_editor import _serialize_content
 
-            return str(_serialize_content(content))[:max_chars]
+            serialized = str(_serialize_content(content))[:max_chars]
         except Exception:  # noqa: BLE001 — additive evidence
             continue
-    return ""
+        # An empty local content must not shadow the populated resolved
+        # context. Only non-empty serializations are evidence.
+        if not serialized.strip():
+            continue
+        identity = (
+            source.get("canvas_id") or source.get("id"),
+            source.get("revision") or source.get("updated_at")
+            or source.get("version"))
+        entries.append((serialized, identity))
+    if not entries:
+        return ""
+    if len(entries) >= 2:
+        left, right = entries[0][1], entries[1][1]
+        # Two different artifacts/revisions must be reconciled by identity;
+        # silently choosing one could ground the wrong draft.
+        if left[0] and right[0] and left[0] != right[0]:
+            return ""
+        if left[1] and right[1] and left[1] != right[1]:
+            return ""
+    return entries[0][0]
 
 
 def figure_issues(reply: str, *, canvas_text: str = "",
