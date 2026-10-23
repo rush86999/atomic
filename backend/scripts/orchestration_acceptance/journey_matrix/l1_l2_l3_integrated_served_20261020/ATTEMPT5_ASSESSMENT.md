@@ -1,8 +1,18 @@
-# Attempt-5 successor assessment (unlaunched)
+# Attempt-5 successor assessment (executed)
 
-**Status: corrected harness, NOT a served pass. Attempt 4 remains the last
-campaign and remains non-passing (L3 decoy echo; S3 time-budget). No new
-campaign was launched. Deployment remains held.**
+**Status: NOT PASSED. 57/59 declared checks; first failure
+`comparison_broader_not_open`. One launch; no retry, provider switch,
+deadline increase, or gate relaxation. Deployment remains held.**
+
+The repaired S7/restart gates passed: the per-run prior obligation was
+captured from this run's durable record, the S7 honest partial was
+accepted, and restart agreement reproduced it exactly. The simplified
+L3 boundary passed the declared answer contract (no decoy) but the grep
+header `LIVE TOOL RESULTS — regex scan...` is still a user-facing
+internal-envelope leak. S3 failed the broader-obligation/scope gates and
+reported the approved valid-until date as `2027-03-31` although the
+approved record says `2026-12-31`; the current wrong-date gate does not
+recognise that value. See `ATTEMPT5_RESULT.md`.
 
 Attempt 4 is preserved unchanged: `attempt4_result.json`,
 `attempt4_summary.json`, server/observation logs, and
@@ -89,13 +99,24 @@ is now centralized and preflight asserts every expected key is present;
 the rejected-launch log is preserved outside the worktree. No user turn,
 provider call, or acceptance result was produced by that launch.
 
-## Why this is still non-passing
+## Attempt-5 outcome
 
-The local replays prove the repaired predicates and boundaries against
-the captured failures; they do not constitute a served acceptance run.
-The last served campaign (attempt 4) failed L3 and S3, so the integrated
-workflow remains unverified. A future campaign must pass
-`preflight_attempt5.py` (cross-run gates, captured L3/S3 replays,
-persistence/restart agreement, zero-write controls) and then the full
-59-gate served run. No automatic retry, provider switch, deadline
-increase, or gate relaxation applies.
+The run used product `22af424a0` and harness/launch HEAD `8528ad03c`;
+preflight was 42/42 and 74 focused tests passed. 57 of 59 gates passed:
+
+- **Passed:** L3 answer contract, edit, re-ask, S7 date/source/settlement
+  (dynamic expected prior), restart agreement/zero-write/persistence.
+- **Failed:** `comparison_broader_obligation_open`,
+  `comparison_requirement_captured` (first failure
+  `comparison_broader_not_open`).
+- **Product finding:** S3 fabricated `2027-03-31` as the approved date;
+  `comparison_truthful_date` and `comparison_no_false_date` are a gate
+  false positive because the predeclared wrong-date set does not contain
+  it.
+- **Boundary residual:** the em-dash grep envelope is not removed by the
+  parenthesis-only header match; no decoy leaked and the L3 contract
+  passed.
+
+No retry was performed. The next correction batch is S3 scope/date
+grounding plus the grep-header boundary shape; deployment and the
+integrated workflow remain held.
