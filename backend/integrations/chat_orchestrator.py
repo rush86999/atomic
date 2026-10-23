@@ -25460,7 +25460,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 ) and not _calc_evidence:
                     _grounding_ran = False
                     try:
-                        from core.chat_tool_planner import _unsupported_figures
+                        from core.chat_tool_planner import (
+                            figure_issues, serialize_canvas_evidence,
+                        )
 
                         # THE OPEN CANVAS IS EVIDENCE (2026-10-03, the
                         # 8-machine replay): narration echoing the user's OWN
@@ -25470,21 +25472,37 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # regeneration that then lost the reply's table. The
                         # canvas the user is looking at is ground truth for
                         # what its own text says.
-                        _canvas_evidence = ""
-                        try:
-                            from core.chat_canvas_editor import (
-                                _serialize_content as _canvas_serialize,
-                            )
-
-                            if isinstance(_canvas_ctx, dict):
-                                _canvas_evidence = str(_canvas_serialize(
-                                    _canvas_ctx.get("content")))[:24000]
-                        except Exception:  # noqa: BLE001 — additive evidence
-                            _canvas_evidence = ""
-                        _unsupported = _unsupported_figures(
+                        #
+                        # ATTEMPT-4 S3: the route resolved the canvas and
+                        # passed it as ``canvas_context``, but this guard read
+                        # the local ``_canvas_ctx`` (None for a fresh
+                        # comparison conversation), so the draft's
+                        # $48,000.00 looked unsupported and spent the last
+                        # 2.9 s of the 95 s turn on a regeneration. Read both
+                        # and fall back to the resolved parameter.
+                        _canvas_evidence = serialize_canvas_evidence(
+                            _canvas_ctx, canvas_context)
+                        _issues = figure_issues(
                             _content,
-                            f"{_tool_block}\n{message}\n{_canvas_evidence}",
+                            canvas_text=_canvas_evidence,
+                            tool_text=_tool_block,
+                            message=message,
                         )
+                        _unsupported = [
+                            issue["figure"] for issue in _issues
+                            if issue.get("kind") in (
+                                "unsupported", "misattributed_to_source",
+                                "misattributed_to_draft")]
+                        _fig_issue_kinds = [
+                            str(issue.get("kind")) for issue in _issues]
+                        logger.info(
+                            "[figure-grounding] trace canvas_ctx=%s "
+                            "canvas_passed=%s evidence_len=%d tool_len=%d "
+                            "reply_len=%d issues=%s",
+                            isinstance(_canvas_ctx, dict),
+                            isinstance(canvas_context, dict),
+                            len(_canvas_evidence), len(_tool_block or ""),
+                            len(_content), _fig_issue_kinds)
                         _grounding_ran = True
                     except Exception as _fig_err:  # noqa: BLE001
                         logger.debug(f"figure grounding skipped: {_fig_err}")
@@ -25522,8 +25540,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             logger.debug(f"grounding-pass signal skipped: {_gp_err}")
                     if _unsupported:
                         logger.warning(
-                            "[figure-grounding] reply states figures the evidence "
-                            "does not contain: " + ", ".join(_unsupported[:6])
+                            "[figure-grounding] reply states figures the "
+                            "attributed evidence does not contain: "
+                            + ", ".join(_unsupported[:6])
                             + " — grounded regeneration")
                         # ROUTING SIGNAL: record the fabrication against the model
                         # that produced it, so per-model predictors learn it and
@@ -25602,14 +25621,16 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     "calculation fallback applied (%d "
                                     "chars)", len(_det))
                         messages.append({"role": "system", "content": (
-                            "FIGURE GROUNDING FAILURE: these figures in your reply "
-                            "appear in NO retrieved evidence and no user message: "
+                            "FIGURE GROUNDING/ATTRIBUTION FAILURE: these "
+                            "figures in your reply are not supported by the "
+                            "evidence they are attributed to: "
                             + ", ".join(_unsupported[:6])
                             + ". Do NOT present arithmetic steps, intermediate "
                             "values or add-ons that are not literally present in "
-                            "the evidence. Open the cited source "
-                            "(documents.cat on the 'full:'/'open:' path) and quote "
-                            "its actual cells, or say the derivation cannot be "
+                            "the evidence. Attribute each figure only to the "
+                            "source that literally contains it (the open "
+                            "draft/canvas or the cited retrieved source); if "
+                            "neither carries it, say the derivation cannot be "
                             "confirmed from the stored copy."
                         )})
                         # BOUNDED (same rule as every other corrective regeneration):
@@ -25972,6 +25993,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         )
                     except Exception:
                         pass
+                # USER-FACING ANSWER BOUNDARY (attempt-4 L3): the internal
+                # LIVE TOOL RESULTS envelope is evidence, not prose. Some
+                # reply models echo it before the answer; strip that echo
+                # here so the user sees the requested fact and its source,
+                # while the full evidence remains on the turn.
+                try:
+                    from core.answer_boundary import present_answer
+
+                    _content = present_answer(_content, _tool_block, message)
+                except Exception as _ab_err:  # noqa: BLE001 — never gate
+                    logger.debug("[answer-boundary] skipped: %r", _ab_err)
                 _claimed_content = await self._canvas_claim_correction(
                     _content, canvas_context, session_id, user_id,
                     async_continuation_forked,

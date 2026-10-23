@@ -378,6 +378,140 @@ def _unsupported_figures(reply: str, evidence: str) -> List[str]:
     return out
 
 
+#: The two evidence sides a figure can legitimately come from. A reply
+#: sentence that attributes a canvas-only figure to the approved source (or
+#: a source-only figure to the draft) is misattributed even when the number
+#: exists somewhere in the turn — presence alone is not attribution.
+_DRAFT_HINT_RE = re.compile(
+    r"\b(?:draft|quotation|quote|canvas|current draft)\b", re.IGNORECASE)
+_SOURCE_HINT_RE = re.compile(
+    r"\b(?:approved (?:record|source|terms)|source document|"
+    r"the document|uploaded document|reference document|the file)\b",
+    re.IGNORECASE)
+_SENTENCE_BOUNDARY_RE = re.compile(
+    r"""(?<=[.!?])\s+(?=[A-Z"'])""")
+
+
+def _money_forms(raw: str) -> set:
+    value = raw.replace("$", "").replace(",", "").strip()
+    try:
+        number = float(value)
+    except ValueError:
+        return set()
+    if number.is_integer():
+        return {str(int(number)), "%.2f" % number}
+    return {("%.2f" % number).rstrip("0").rstrip("."), "%.2f" % number}
+
+
+def _tool_source_names(tool_text: str) -> List[str]:
+    return [
+        str(m.group(1)).strip()
+        for m in re.finditer(
+            r"^\s*-\s*\[[^\]]+\]\s*([^:]+):", tool_text or "",
+            re.MULTILINE)
+        if str(m.group(1)).strip()]
+
+
+def serialize_canvas_evidence(canvas_ctx: Any, canvas_context: Any,
+                             max_chars: int = 24000) -> str:
+    """Serialize the open canvas for the figure-grounding guard.
+
+    The route resolves the canvas and passes it as ``canvas_context``; the
+    reply method also resolves its own local ``_canvas_ctx`` for some
+    turns. A fresh comparison conversation can have the local one empty
+    while the passed context carries the draft — read both, preferring
+    whichever actually has content. This is the attempt-4 S3 failure:
+    the guard read only the empty local value and flagged the draft's
+    $48,000.00 as unsourced.
+    """
+    for source in (canvas_ctx, canvas_context):
+        if not isinstance(source, dict):
+            continue
+        content = source.get("content")
+        if content is None:
+            content = source.get("canvas_content") or source.get("body")
+        if content is None:
+            continue
+        try:
+            from core.chat_canvas_editor import _serialize_content
+
+            return str(_serialize_content(content))[:max_chars]
+        except Exception:  # noqa: BLE001 — additive evidence
+            continue
+    return ""
+
+
+def figure_issues(reply: str, *, canvas_text: str = "",
+                  tool_text: str = "", message: str = "") -> List[dict]:
+    """Attribution-aware figure findings for a tool-backed reply.
+
+    A figure is supported when it appears in the open canvas, the tool
+    evidence, or the user's own message. It is ``unsupported`` when none
+    of those carry it. It is ``misattributed`` when the reply's sentence
+    names a source that does not carry the figure (a canvas-only figure
+    attributed to the approved record, or a source-only figure attributed
+    to the draft). The caller still owns the decision to regenerate or
+    withhold; this function only reports.
+    """
+    if not reply:
+        return []
+    canvas = _money_canon(canvas_text or "")
+    tool = _money_canon(tool_text or "")
+    request = _money_canon(message or "")
+    source_names = _tool_source_names(tool_text or "")
+    issues: List[dict] = []
+    seen = set()
+    for match in _MONEY_RE.finditer(reply):
+        raw = match.group(0)
+        forms = _money_forms(raw)
+        if not forms:
+            continue
+        if "$" not in raw and "," not in raw and not any(
+                float(form) >= 1000 for form in forms):
+            continue
+        in_canvas = bool(forms & canvas)
+        in_tool = bool(forms & tool)
+        in_request = bool(forms & request)
+        span = raw
+        if not (in_canvas or in_tool or in_request):
+            kind = "unsupported"
+        else:
+            boundaries = [
+                m.start() for m in _SENTENCE_BOUNDARY_RE.finditer(reply)]
+            starts = [0] + boundaries
+            ends = boundaries + [len(reply)]
+            span = next(
+                (reply[start:end] for start, end in zip(starts, ends)
+                 if start <= match.start() < end),
+                raw)
+            names_source = bool(_SOURCE_HINT_RE.search(span)) or any(
+                name and name in span for name in source_names)
+            names_draft = bool(_DRAFT_HINT_RE.search(span))
+            # A sentence that names both sides is ambiguous; do not invent
+            # a misattribution. A single-side sentence is checkable.
+            if names_source and not names_draft and not in_tool:
+                kind = "misattributed_to_source"
+            elif (names_draft and not names_source
+                  and not in_canvas and not in_request):
+                kind = "misattributed_to_draft"
+            else:
+                continue
+        key = (kind, raw, span[:120] if isinstance(span, str) else "")
+        if key in seen:
+            continue
+        seen.add(key)
+        issues.append({
+            "figure": raw,
+            "kind": kind,
+            "sentence": (
+                span[:300] if isinstance(span, str) else raw),
+            "in_canvas": in_canvas,
+            "in_tool": in_tool,
+            "in_request": in_request,
+        })
+    return issues
+
+
 def _with_grounding(block: Optional[str]) -> Optional[str]:
     """Attach the grounding contract to a tool-results block."""
     if not block:
