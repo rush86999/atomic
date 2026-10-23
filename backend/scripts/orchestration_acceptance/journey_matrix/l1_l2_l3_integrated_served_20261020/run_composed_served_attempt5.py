@@ -183,6 +183,29 @@ def sha256_file(path: Path) -> str:
     return base.sha256_file(path)
 
 
+def source_hashes(cand_backend: Path) -> dict:
+    """The product source hash set the launch guard verifies.
+
+    Kept in one place so the preflight can assert the builder covers every
+    expected key — the missing answer_boundary entry was caught only at
+    launch on 2026-10-23.
+    """
+    return {
+        "chat_tool_planner": sha256_file(
+            cand_backend / "core" / "chat_tool_planner.py"),
+        "chat_orchestrator": sha256_file(
+            cand_backend / "integrations" / "chat_orchestrator.py"),
+        "answer_boundary": sha256_file(
+            cand_backend / "core" / "answer_boundary.py"),
+        "chat_canvas_editor": sha256_file(
+            cand_backend / "core" / "chat_canvas_editor.py"),
+        "workbook_read_artifact": sha256_file(
+            cand_backend / "core" / "workbook_read_artifact.py"),
+        "turn_decision": sha256_file(
+            cand_backend / "core" / "turn_decision.py"),
+    }
+
+
 def port_open(port: int) -> bool:
     return base.port_open(port)
 
@@ -751,20 +774,7 @@ def main() -> int:
                 "main": "e6308cb54",
                 "base_candidate": "ddcc404dd",
             },
-            "source_sha256": {
-                "chat_tool_planner": sha256_file(
-                    CAND_BACKEND / "core" / "chat_tool_planner.py"),
-                "chat_orchestrator": sha256_file(
-                    CAND_BACKEND / "integrations" /
-                    "chat_orchestrator.py"),
-                "chat_canvas_editor": sha256_file(
-                    CAND_BACKEND / "core" / "chat_canvas_editor.py"),
-                "workbook_read_artifact": sha256_file(
-                    CAND_BACKEND / "core" /
-                    "workbook_read_artifact.py"),
-                "turn_decision": sha256_file(
-                    CAND_BACKEND / "core" / "turn_decision.py"),
-            },
+            "source_sha256": source_hashes(CAND_BACKEND),
         },
         "interpreter": {
             "absolute_path": str(PY),

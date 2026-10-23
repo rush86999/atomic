@@ -369,6 +369,17 @@ def main() -> int:
         for k, v in source_hashes.items()
         if v != runner.EXPECTED_SOURCE_SHA256.get(k)}
     check(report, "source_hashes_match", not hash_mismatch, hash_mismatch)
+    built = runner.source_hashes(BACKEND)
+    missing_builder = sorted(
+        set(runner.EXPECTED_SOURCE_SHA256) - set(built))
+    builder_mismatch = {
+        key: {"expected": runner.EXPECTED_SOURCE_SHA256.get(key),
+              "built": built.get(key)}
+        for key in runner.EXPECTED_SOURCE_SHA256
+        if key in built and built.get(key) != runner.EXPECTED_SOURCE_SHA256.get(key)}
+    check(report, "source_hash_builder_complete",
+          not missing_builder and not builder_mismatch,
+          {"missing": missing_builder, "mismatch": builder_mismatch})
 
     # ---- environment -----------------------------------------------------
     check(report, "port_free", not port_open(runner.PORT), runner.PORT)
