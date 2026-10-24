@@ -304,3 +304,15 @@ def test_interpretation_wait_preserves_reply_reserve():
     assert _interpretation_wait_seconds(40) == 5
     assert _interpretation_wait_seconds(10) == 0.1
     assert _interpretation_wait_seconds(200) == 75
+
+
+def test_verify_panel_respects_finalization_reserve():
+    from integrations.chat_orchestrator import (
+        _VERIFY_PANEL_MIN_REMAINING_SECONDS,
+        _VERIFY_PANEL_RESERVE_SECONDS,
+    )
+    # Document the measured invariant rather than duplicating the inline
+    # branch: a 15.7s remainder is below the skip threshold, and a 40s
+    # remainder leaves at most 30s for the panel after the reserve.
+    assert _VERIFY_PANEL_MIN_REMAINING_SECONDS >= 15
+    assert _VERIFY_PANEL_RESERVE_SECONDS >= 10

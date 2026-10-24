@@ -1145,6 +1145,15 @@ _FEATURE_ROUTING_MAX_SECONDS = float(
 #: 0 falls back to "whatever the turn has left".
 _VERIFY_PANEL_MAX_SECONDS = float(
     os.getenv("ATOM_VERIFY_PANEL_MAX_SECONDS", "30") or 30)
+# The verify panel is provenance, not a gate. It must never consume the
+# finalization/reply-delivery reserve; when less than this remains, skip it
+# and ship the reply unverified. Measured live (S3 replay): the panel started
+# with 15.7s left, made three 1200-cap judge attempts, and the turn hit the
+# clock without a reply.
+_VERIFY_PANEL_RESERVE_SECONDS = float(
+    os.getenv("ATOM_VERIFY_PANEL_RESERVE_SECONDS", "10") or 10)
+_VERIFY_PANEL_MIN_REMAINING_SECONDS = float(
+    os.getenv("ATOM_VERIFY_PANEL_MIN_REMAINING_SECONDS", "15") or 15)
 
 #: Same deadline for a DERIVATION ask — tighter, and for a different reason.
 #: A derivation answer is a few hundred tokens of transcription from the row
@@ -19506,10 +19515,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 turn failure.
                 """
                 _left = _remaining_budget(_plan_t0, _turn_budget)
-                if _left <= 0:
+                if _left <= max(_VERIFY_PANEL_RESERVE_SECONDS,
+                                _VERIFY_PANEL_MIN_REMAINING_SECONDS):
                     logger.warning(
-                        "[verify-panel] skipped — turn budget exhausted; the "
-                        "reply ships unverified rather than late"
+                        "[verify-panel] skipped — only %.1fs remains; the "
+                        "reply ships unverified rather than late", _left
                     )
                     # Close the un-run coroutine: returning without awaiting it
                     # leaves a never-awaited coroutine on every skipped panel
@@ -19518,8 +19528,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # never started.
                     _coro.close()
                     return {"ran": False, "error": "turn_budget_exhausted"}
-                _cap = min(_left, _VERIFY_PANEL_MAX_SECONDS) \
-                    if _VERIFY_PANEL_MAX_SECONDS > 0 else _left
+                _usable = max(
+                    0.0, _left - _VERIFY_PANEL_RESERVE_SECONDS)
+                _cap = min(_usable, _VERIFY_PANEL_MAX_SECONDS) \
+                    if _VERIFY_PANEL_MAX_SECONDS > 0 else _usable
+                if _cap <= 1.0:
+                    logger.warning(
+                        "[verify-panel] skipped — %.1fs is below the "
+                        "finalization reserve; reply ships unverified",
+                        _left)
+                    _coro.close()
+                    return {"ran": False, "error": "verify_panel_budget"}
                 try:
                     return await asyncio.wait_for(_coro, timeout=_cap)
                 except asyncio.TimeoutError:
