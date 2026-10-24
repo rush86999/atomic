@@ -221,3 +221,86 @@ def test_delivery_scope_falls_back_to_goal_run(monkeypatch):
     assert _lifecycle_scope_for_run(
         "run-1", {"data": {}}, _ChatMessage()) == (
             "tenant-chat", "workspace-run")
+
+
+def test_answer_scope_uses_accepted_subjects_not_fixture_literals():
+    text = co._answer_scope_instruction({
+        "scope": {"subjects": ["launch code for project Vega-4"],
+                  "fields": ["launch code"],
+                  "explicit_conflict": False}})
+    assert "Vega-4" in text
+    assert "launch code" in text
+    assert "Zephyr" not in text
+    assert "QUARTZ" not in text
+    two = co._answer_scope_instruction({
+        "scope": {"subjects": ["code for Vega-4", "code for Lyra-8"],
+                  "fields": ["launch code"],
+                  "explicit_conflict": False}})
+    assert "Vega-4" in two and "Lyra-8" in two
+    conflict = co._answer_scope_instruction({
+        "scope": {"subjects": ["decoy line"],
+                  "fields": ["differences"],
+                  "explicit_conflict": True}})
+    assert "explicitly asked" in conflict
+    assert "Do not volunteer facts" not in conflict
+
+
+def test_requirement_scope_is_taken_from_the_accepted_request():
+    req = co._build_evidence_requirement(
+        {"references": {"sources": ["document"]}},
+        "What is the launch code for project Vega-4?",
+        True,
+        accepted_request={
+            "subjects": ["launch code for project Vega-4"],
+            "requested_fields": ["launch code"],
+            "constraints": [],
+        })
+    assert req["scope"]["subjects"] == ["launch code for project Vega-4"]
+    assert req["scope"]["fields"] == ["launch code"]
+    assert req["scope"]["explicit_conflict"] is False
+
+
+@pytest.mark.asyncio
+async def test_generation_prompt_carries_the_accepted_scope():
+    from unittest.mock import AsyncMock, MagicMock
+
+    captured = {}
+
+    async def _gen(messages=None, **kwargs):
+        captured["messages"] = messages or []
+        return {"success": True, "content": "ok",
+                "model": "test", "provider": "test"}
+
+    orch = co.ChatOrchestrator()
+    orch.ai_engines = {}
+    orch.llm_service = MagicMock()
+    orch.llm_service.generate_completion = AsyncMock(side_effect=_gen)
+    session = {
+        "id": "scope-test",
+        "history": [],
+        "_evidence_requirement_exec-scope": {
+            "scope": {
+                "subjects": ["launch code for project Vega-4"],
+                "fields": ["launch code"],
+                "explicit_conflict": False,
+            },
+        },
+    }
+    await orch._get_qwen_response(
+        "What is the launch code for project Vega-4?",
+        [], execution_id="exec-scope", session=session)
+    system = next(
+        str(message.get("content") or "")
+        for message in captured.get("messages") or []
+        if isinstance(message, dict) and message.get("role") == "system")
+    assert "ANSWER SCOPE" in system
+    assert "Vega-4" in system
+    assert "Zephyr" not in system
+
+
+def test_interpretation_wait_preserves_reply_reserve():
+    from integrations.chat_orchestrator import _interpretation_wait_seconds
+    assert _interpretation_wait_seconds(95) == 60
+    assert _interpretation_wait_seconds(40) == 5
+    assert _interpretation_wait_seconds(10) == 0.1
+    assert _interpretation_wait_seconds(200) == 75

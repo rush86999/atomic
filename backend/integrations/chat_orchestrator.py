@@ -1111,6 +1111,27 @@ _LEGACY_TAIL_RESERVE_SECONDS = float(
 
 #: Longest a single feature-routing pass may take, capped further by whatever
 #: the request has left.
+# Turn-stage allocation: the interpretation leg must not consume the
+# reply/finalization reserve. The reserve was measured on the isolated
+# live-world rehearsal (interpretation 50.7s; total S3 83.9s; reply/finish
+# ~33s). This is a cap, not a longer deadline.
+_INTERPRETATION_MAX_SECONDS = float(
+    os.getenv("ATOM_INTERPRETATION_MAX_SECONDS", "75") or 75)
+_TURN_REPLY_RESERVE_SECONDS = float(
+    os.getenv("ATOM_TURN_REPLY_RESERVE_SECONDS", "35") or 35)
+
+
+def _interpretation_wait_seconds(remaining: float) -> float:
+    """One bounded interpretation window, preserving the reply reserve."""
+    try:
+        remaining = float(remaining)
+    except (TypeError, ValueError):
+        remaining = 0.0
+    return max(0.1, min(
+        _INTERPRETATION_MAX_SECONDS,
+        remaining - _TURN_REPLY_RESERVE_SECONDS))
+
+
 _SEARCH_HANDLER_TIMEOUT_SECONDS = float(
     os.getenv("ATOM_SEARCH_HANDLER_TIMEOUT_SECONDS", "5") or 5)
 _FEATURE_ROUTING_MAX_SECONDS = float(
@@ -1494,14 +1515,45 @@ def _references_conversation(message: str) -> bool:
 # a workbook search unresolved, "go ahead" produced the open email draft —
 # the canvas supplied context and this rule's old wording supplied the
 # artifact pressure.
-_ANSWER_SCOPE_RULE = (
-    "ANSWER SCOPE: answer only the subject and field the user asked for. "
-    "For a direct factual question, state the requested value and its "
-    "source; do not enumerate or mention other entries, decoy values, "
-    "alternatives, or neighboring records from the evidence, even to "
-    "disclaim them. If the requested value is absent, say it is not "
-    "supported; do not list alternatives."
-)
+def _answer_scope_instruction(
+    requirement: Optional[Dict[str, Any]],
+) -> str:
+    """The answer-scope instruction derived from THIS turn's accepted scope.
+
+    The accepted request supplies the subjects and fields. A request that
+    explicitly asks about conflicts, differences, decoys, or alternatives
+    gets a comparison-scope instruction instead of the exclusion. No
+    fixture names or values are embedded here.
+    """
+    if not isinstance(requirement, dict):
+        return ""
+    scope = requirement.get("scope") if isinstance(
+        requirement.get("scope"), dict) else {}
+    subjects = [
+        str(item).strip() for item in (scope.get("subjects") or [])
+        if str(item).strip()][:4]
+    fields = [
+        str(item).strip() for item in (scope.get("fields") or [])
+        if str(item).strip()][:4]
+    if not subjects and not fields:
+        return ""
+    subject_text = ", ".join(subjects) or "(the requested source)"
+    field_text = ", ".join(fields) or "(the requested field)"
+    if scope.get("explicit_conflict") is True:
+        return (
+            "ANSWER SCOPE: the user explicitly asked about conflicting, "
+            "differing, decoy, or alternative material. Address the "
+            f"requested subject(s) {subject_text} and field(s) {field_text}, "
+            "explain the differences the user asked about, and include the "
+            "supporting source. Do not introduce unrelated subjects the "
+            "user did not ask about.")
+    return (
+        "ANSWER SCOPE: answer only the requested subject(s) "
+        f"{subject_text} and field(s) {field_text}. Include the supporting "
+        "source. Do not volunteer facts about other subjects, including "
+        "explanations that distinguish unrelated examples or decoys. If "
+        "the requested value is absent, say it is not supported; do not "
+        "list alternatives.")
 
 
 _APPROVAL_EXECUTION_RULE = (
@@ -6234,6 +6286,25 @@ def _build_evidence_requirement(
         "artifact_attached": bool(canvas_attached),
         "broader_comparison": broader_comparison,
     }
+    _scope = accepted_request if isinstance(accepted_request, dict) else {}
+    _scope_subjects = [
+        str(item).strip() for item in (_scope.get("subjects") or [])
+        if str(item).strip()][:4] or subjects
+    _scope_fields = [
+        str(item).strip() for item in (_scope.get("requested_fields") or [])
+        if str(item).strip()][:4] or fields
+    _scope_text = " ".join(
+        [*_scope_subjects, *_scope_fields,
+         *[str(c) for c in (_scope.get("constraints") or [])]])
+    requirement["scope"] = {
+        "subjects": _scope_subjects,
+        "fields": _scope_fields,
+        "explicit_conflict": bool(
+            broader_comparison or re.search(
+                r"\b(?:conflict|contradict|decoy|differ|discrepan|"
+                r"alternative|comparison)\w*", _scope_text,
+                re.IGNORECASE)),
+    }
     return requirement
 
 
@@ -10563,21 +10634,31 @@ class ChatOrchestrator:
                         # request_scope) so executor inputs stop being
                         # re-derived by independent miners.
                         try:
+                            _interp_wait = _interpretation_wait_seconds(
+                                _deadline.remaining())
+                            logger.info(
+                                "[turn-interpretation] bounded wait=%.1fs "
+                                "(remaining=%.1fs reserve=%.1fs)",
+                                _interp_wait, _deadline.remaining(),
+                                _TURN_REPLY_RESERVE_SECONDS)
                             _td_interpretation = (
-                                await interpret_turn_request(
-                                    message, session, history or [],
-                                    context or {}, session_id=session_id,
-                                    request_id=str(
-                                        (context or {}).get("request_id")
-                                        or ""),
-                                    # The REQUEST-scoped service (_scope_llm
-                                    # above), never self.llm_service: the
-                                    # public route serves every user through
-                                    # ONE default-scoped orchestrator, so
-                                    # constructor scope is not authenticated
-                                    # request scope (verifier correction
-                                    # 2026-10-16).
-                                    llm_service=_scope_llm))
+                                await asyncio.wait_for(
+                                    interpret_turn_request(
+                                        message, session, history or [],
+                                        context or {}, session_id=session_id,
+                                        request_id=str(
+                                            (context or {}).get(
+                                                "request_id") or ""),
+                                        # The REQUEST-scoped service
+                                        # (_scope_llm above), never
+                                        # self.llm_service: the public route
+                                        # serves every user through ONE
+                                        # default-scoped orchestrator, so
+                                        # constructor scope is not
+                                        # authenticated request scope
+                                        # (verifier correction 2026-10-16).
+                                        llm_service=_scope_llm),
+                                    timeout=_interp_wait))
                         except Exception as _interp_err:  # noqa: BLE001
                             _td_interpretation = None
                             logger.debug(
@@ -18606,7 +18687,7 @@ class ChatOrchestrator:
 
 When users ask to fetch live data (like CRM leads), acknowledge that the integration needs to be connected first and guide them on setup. Be helpful, specific, and actionable. Keep responses concise (2-4 sentences) unless detail is needed.
 
-""" + _ANSWER_SCOPE_RULE + "\n\n" + _APPROVAL_EXECUTION_RULE + "\n\n" + EVIDENCE_GROUNDING_RULE
+""" + _APPROVAL_EXECUTION_RULE + "\n\n" + EVIDENCE_GROUNDING_RULE
 
             # OUTBOUND IDENTITY: resolved per-install data — the agent's
             # OWNER (agents are owned by, and trained by, one user) falling
@@ -18683,8 +18764,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         f"{_TOOL_CAPABILITY} "
                         "Be helpful, specific, and actionable. Keep responses concise "
                         "(2-4 sentences) unless detail is needed. "
-                        + _ANSWER_SCOPE_RULE
-                        + "\n\n" + _APPROVAL_EXECUTION_RULE
+                        + _APPROVAL_EXECUTION_RULE
                         + "\n\n" + EVIDENCE_GROUNDING_RULE
                     )
 
@@ -18714,6 +18794,23 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "'Operation status' section, generated from operation "
                     "evidence — never state them yourself."
                 )
+
+            # ACCEPTED ANSWER SCOPE (this turn's structured contract, not
+            # a fixture phrase list): the generation prompt names the
+            # subjects/fields the user actually requested and tells the
+            # model not to volunteer unrelated facts. A request that
+            # explicitly asks about differences/decoys gets the comparison
+            # variant instead.
+            try:
+                _scope_req = (
+                    (session or {}).get(
+                        f"_evidence_requirement_{execution_id}")
+                    if isinstance(session, dict) and execution_id else None)
+                _scope_rule = _answer_scope_instruction(_scope_req)
+                if _scope_rule:
+                    system_prompt += "\n\n" + _scope_rule
+            except Exception:  # noqa: BLE001 — prompt addendum only
+                pass
 
             messages = [
                 {
