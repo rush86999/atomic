@@ -100,6 +100,24 @@ def main() -> int:
             "byok_enc": str(R.SCRATCH / "byok_encryption_key"),
         },
         "requests": {},
+        "flags": {
+            key: R.declared_env().get(key)
+            for key in (
+                "ATOM_TURN_INTERPRETATION",
+                "ATOM_TURN_INTERPRET_PIN",
+                "ATOM_PROVIDER",
+                "ATOM_DEFAULT_MODEL",
+                "PREFERRED_PROVIDER",
+                "ATOM_ASYNC_EDIT_PLAN_MODEL",
+                "CHAT_FINALIZATION_M1",
+                "CHAT_FINALIZATION_M2",
+                "ATOM_TASK_LIFECYCLE_ENABLED",
+                "ATOM_TURN_DECISION_ROUTING",
+            )
+        },
+        "model": {"structured": R.CREDENTIAL_ROUTE,
+                  "reply": "ollama/llama3.1:8b",
+                  "fallback": "deepseek/deepseek-v4-pro"},
     }
 
     proc = log = None
@@ -178,6 +196,7 @@ def main() -> int:
         }
         if post.status_code != 200 or not active:
             raise RuntimeError("authorized DeepSeek registration inactive")
+        result["provider_verified"] = True
 
         # Fixtures through the product.
         for name, text in ((R.FIXTURE_NAME, R.FIXTURE_TEXT),
@@ -220,7 +239,10 @@ def main() -> int:
             }
 
         # L3 replay: one real-model response to the captured request.
+        _n0 = len(log_path.read_text(errors="replace").splitlines())
         l3 = ask("l3", R.L3_ASK, str(uuid.uuid4()), None)
+        _all0 = log_path.read_text(errors="replace").splitlines()
+        l3["transport"] = _all0[_n0:]
         transport = log_transport(log_path)
         result["requests"]["l3"] = l3
         result["transport_l3"] = transport
@@ -255,14 +277,22 @@ def main() -> int:
         if cput.status_code != 200:
             raise RuntimeError(f"canvas seed failed: {cput.status_code}")
         session_b = str(uuid.uuid4())
+        _n1 = len(log_path.read_text(errors="replace").splitlines())
         s3 = ask("s3", R.S3_ASK, session_b, cid)
+        _all1 = log_path.read_text(errors="replace").splitlines()
+        s3["transport"] = _all1[_n1:]
         result["requests"]["s3"] = s3
         result["transport_all"] = log_transport(log_path)
         result["canvas_id"] = cid
+        if result["transport_all"]["invalid"]:
+            result["classification"] = "diagnostic_invalid_wrong_provider"
+            result["pass"] = False
+            write("replay_result.json", result)
+            write("replay_transport.jsonl",
+                  "\n".join(result["transport_all"]["lines"]))
+            return 2
         result["classification"] = "replay_passed"
-        result["pass"] = bool(
-            l3["http"] == 200 and s3["http"] == 200
-            and not result["transport_all"]["invalid"])
+        result["pass"] = bool(l3["http"] == 200 and s3["http"] == 200)
         write("replay_result.json", result)
         write("replay_transport.jsonl",
               "\n".join(result["transport_all"]["lines"]))

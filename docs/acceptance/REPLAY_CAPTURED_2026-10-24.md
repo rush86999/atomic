@@ -16,33 +16,54 @@ correctly-configured replay, not a latency-tail proof.**
 - HTTP destinations: `https://api.deepseek.com/v1/...` and
   `http://localhost:11434/...` only. **No OpenRouter request.**
 - The earlier manual wrong-route attempt (OpenRouter GLM 402) is preserved
-  as `diagnostic_invalid_wrong_route.json` and is not counted.
+  as `diagnostic_invalid_wrong_route.json`; it is a memo from the terminal
+  output (raw server log not retained), not evidence counted as a replay.
 
 ## L3 replay (real model)
 
 - Request ID `replay-l3-e80e6dd5f48647eea88f21ad0a166f54`; HTTP 200; 67.12 s.
-- Actual answer route: **DeepSeek `deepseek/deepseek-v4-pro`**, after local
-  Ollama streaming produced no tokens (`chat streaming produced no tokens —
-  falling back`). This is the declared Ollama-first/DeepSeek-fallback profile.
+- Actual answer route in this rerun: **Ollama `ollama/llama3.1:8b`**. The
+  prior a032 replay used DeepSeek fallback after Ollama produced no tokens;
+  both are within the declared profile. The current run did not need the
+  fallback.
 - Answer: `The launch code for project Zephyr-9 is **QUARTZ-77**.` with the
   uploaded `l3_zephyr9_fixture.txt` source. No `BASALT-13`, no `Owner:`/
   `Team:` volunteered text.
-- Interpretation: one structured dispatch, 26.5 s trace, HTTP 200;
-  required-read plan leg canceled after 20 s but did not block the answer.
+- Interpretation: one structured dispatch, HTTP 200; required-read plan leg
+  canceled after 20 s but did not block the answer. Verify panel was skipped
+  with 6.6 s remaining (the finalization reserve worked).
 - The fallback finished inside the 95 s budget; no duplicated partial tokens
   were observed.
 
 ## S3 replay (real model)
 
-- Request ID `replay-s3-365aa8f72b124409a54ab794a92a6e55`; HTTP 200; 69.25 s.
-- Actual answer route: **Ollama `ollama/llama3.1:8b`**, 192 chunks, 9.7 s to
-  full text.
-- Interpretation: one dispatch; **HTTP 400 on the first attempt**, then a
-  compatibility retry completed as `_Interpretation` (39.1 s); no
-  interpretation cancellation. Required-read/plan leg canceled at 20 s.
+- Request ID `replay-s3-ab164f5323d7436a99c5f5f248e55bd9`; HTTP 200; 61.86 s.
+- Actual answer route: **Ollama `ollama/llama3.1:8b`**.
+- Interpretation: one `[structured-dispatch]` (2949 prompt chars, cap 5500,
+  `attempt=1`), one successful `[structured-trace]` (30.5 s,
+  `_Interpretation`). A **400 response is present in the slice immediately
+  before the 200**, but the slice does not preserve its body and there is no
+  second dispatch. We therefore record the 400 without claiming that it was
+  a compatibility retry or a second attempt.
+- Required-read/plan leg canceled at 20 s (`worker_may_still_run=true`).
 - Answer is the honest partial: approved record retrieved, comparison not
   completed, draft expiration 2026-12-31, broader obligation OPEN.
 - No OpenRouter destination; no timeout.
+
+## Full-rehearsal finding (attempt 7, after the replay)
+
+The first full rehearsal after the a032 replay failed S3 with
+`comparison_untruthful` and the literal reply “I'll manage those tasks for
+you.” The log records
+`Unified conversational response failed: cannot access local variable
+'_chain_query' where it is not associated with a value`; the fallback task
+message shipped. `_chain_query` was assigned only on one branch. This is a
+latent production bug exposed by the S3 path, not a replay artifact. It is
+fixed by initializing `_chain_query = ""` at the response-function scope.
+The L3 answer in that attempt also carried an inline `[ingested]` excerpt;
+the answer boundary now drops a leading paragraph containing it when a
+later answer paragraph exists. These are the only product changes from this
+batch; a fresh rehearsal is required and has not yet been counted.
 
 ## Budget edges
 

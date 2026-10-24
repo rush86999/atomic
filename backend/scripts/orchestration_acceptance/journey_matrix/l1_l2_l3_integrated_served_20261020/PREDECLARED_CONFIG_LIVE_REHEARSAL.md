@@ -39,7 +39,7 @@ preserved.
   - `backend/core/chat_tool_planner.py`
     `807dd65eb83fe7676ac29fba475ef188cac6ad82146c02321d66564a023414c5`
   - `backend/integrations/chat_orchestrator.py`
-    `8a44f874a5e51efb310652671cd86db0c3034633ba05436598f414caa75d4a97`
+    `7736adbf3bbf9e007087201f4e72b212a1667f7384ec44426efc915b3802d91c`
   - `backend/core/answer_boundary.py`
     `5f38f51a6691bbea7cc9bf1cdb19b0efaeec0476977b59fd9fac500963dcb836`
   - `backend/integrations/chat_routes.py`
@@ -49,7 +49,7 @@ preserved.
   - `backend/core/workbook_read_artifact.py`
     `db23d66749eb79ed37f0011b96b0096ad0e746cc0c981fd5f5f6edb89889da67`
   - `backend/core/turn_decision.py`
-    `79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a`
+    `f5342f1d8deac03a917142d5931efec190fe58a52889e8acf9cc551963508065`
 - The runner verifies `git diff 561907d4f..HEAD -- backend/core
   backend/integrations` is empty, every source hash matches, the gate
   module hash matches the reviewed harness, and the worktree is clean.
