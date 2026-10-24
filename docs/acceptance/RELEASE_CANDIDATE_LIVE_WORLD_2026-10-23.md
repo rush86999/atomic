@@ -1,8 +1,8 @@
 # Live-world release candidate — 2026-10-23
 
-**Status: deployment ROLLED BACK 2026-10-24; the pre-cutover pilot
-`8c593e57031e` is serving again. This candidate remains a local
-replay/rehearsal package only while the live-cutover hold is in force.**
+**Status: LOCAL REHEARSAL PASSED 60/60 (attempt 8, product
+`cc813aeeb`). Deployment remains held; the old pilot `8c593e57031e` is
+serving. No cutover was performed after the rollback.**
 
 This supersedes the fresh-scratch release candidate identity for the
 live pilot. The prior `910bf85a6` candidate and its evidence remain
@@ -12,9 +12,9 @@ preserved as history.
 
 | Item | Value |
 |---|---|
-| Product tree | `264677107d23196fcd77e2ccedf97c511fc6f32f` |
-| Rehearsal runtime | `06b213c79b66` clean (`dirty=false`) |
-| Served runtime | `3b6a1316f16f` clean (`dirty=false`) on `:8001` |
+| Product tree | `cc813aeeb90b84fcb36d128fda0a3b32b255742e` |
+| Rehearsal runtime | `b682d017e60f` clean (`dirty=false`) |
+| Serving pilot | `8c593e57031e` on `:8001` (hold) |
 | Clean export HEAD | `06b213c79b66` (product tree above); backend health 200 on `:8124` |
 | Live gate | `successor_gates_live.py` `6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2` |
 | Frozen old gate | `successor_gates.py` `a0b2f748…` unchanged for attempts 3–7 |
@@ -78,11 +78,10 @@ Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 
 ## Hold
 
-Approved and deployed on 2026-10-24. The served backend is
-`3b6a1316f16f`; the frontend was rebuilt for `:8001`. The full workflow was
-rehearsed 60/60; the cutover browser smoke registered a new account and
-reached `/dashboard`, but that new account's first chat correctly asked for
-a provider. The candidate uses the filtered DeepSeek/Ollama BYOK profile;
-the original BYOK is in the backup. Rollback is in `CUTOVER_2026-10-24.md`.
+The earlier candidate cutover was rolled back and the hold re-engaged.
+After the budget-edge and replay work, the isolated live-world rehearsal
+passed 60/60 on product `cc813aeeb` / runtime `b682d017e`. No new cutover
+has been performed. The serving pilot is the old `8c593e57031e` with its
+original DB/BYOK; the final backup remains available.
 
 Support statement: `SUPPORT_STATEMENT_LIVE_WORLD_2026-10-23.md`.
