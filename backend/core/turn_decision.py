@@ -1344,7 +1344,8 @@ _interpret_failures = 0
 _interpret_breaker_until = 0.0
 _interpret_metrics: Dict[str, Any] = {
     "ok": 0, "unresolved": 0, "timeout": 0, "error": 0, "skipped": 0,
-    "max_ms": 0.0, "sum_ms": 0.0}
+    "stage_budget_exhausted": 0, "max_ms": 0.0, "sum_ms": 0.0}
+_interpretation_metrics_lock = threading.Lock()
 
 #: Scratch-only capture of the producer's raw scope/action shape before
 #: normalization (enabled by ATOM_TURN_INTERPRET_CAPTURE=1). Records no
@@ -1456,7 +1457,8 @@ def reset_interpretation_for_tests() -> None:
     global _interpret_failures, _interpret_breaker_until
     _interpret_failures = 0
     _interpret_breaker_until = 0.0
-    for k in ("ok", "unresolved", "timeout", "error", "skipped"):
+    for k in ("ok", "unresolved", "timeout", "error", "skipped",
+              "stage_budget_exhausted"):
         _interpret_metrics[k] = 0
     _interpret_metrics.update({"max_ms": 0.0, "sum_ms": 0.0})
 
@@ -1483,6 +1485,25 @@ def _interpretation_unresolved(
         # interpretation leaves the existing floor fully in charge.
         "deterministic_decision": deterministic,
     }
+
+
+def interpretation_budget_unresolved(
+    message: str,
+    request_id: str = "",
+    deterministic: Optional[Dict[str, Any]] = None,
+    reason: str = "stage_budget_exhausted",
+) -> Dict[str, Any]:
+    """Request-bound degraded interpretation when the stage has no budget.
+
+    No provider call is made, no action or source is invented, and the
+    deterministic decision remains the floor. This is the explicit record
+    the outer deadline/caller must preserve instead of ``None``.
+    """
+    with _interpretation_metrics_lock:
+        _interpret_metrics["skipped"] += 1
+        _interpret_metrics["stage_budget_exhausted"] += 1
+    return _interpretation_unresolved(
+        reason, message, request_id, deterministic)
 
 
 def _interpretation_prompt(

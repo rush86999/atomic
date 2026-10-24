@@ -1127,7 +1127,7 @@ def _interpretation_wait_seconds(remaining: float) -> float:
         remaining = float(remaining)
     except (TypeError, ValueError):
         remaining = 0.0
-    return max(0.1, min(
+    return max(0.0, min(
         _INTERPRETATION_MAX_SECONDS,
         remaining - _TURN_REPLY_RESERVE_SECONDS))
 
@@ -10645,35 +10645,71 @@ class ChatOrchestrator:
                         try:
                             _interp_wait = _interpretation_wait_seconds(
                                 _deadline.remaining())
+                            _interp_request_id = str(
+                                (context or {}).get("request_id") or "")
                             logger.info(
                                 "[turn-interpretation] bounded wait=%.1fs "
                                 "(remaining=%.1fs reserve=%.1fs)",
                                 _interp_wait, _deadline.remaining(),
                                 _TURN_REPLY_RESERVE_SECONDS)
-                            _td_interpretation = (
-                                await asyncio.wait_for(
-                                    interpret_turn_request(
-                                        message, session, history or [],
-                                        context or {}, session_id=session_id,
-                                        request_id=str(
-                                            (context or {}).get(
-                                                "request_id") or ""),
-                                        # The REQUEST-scoped service
-                                        # (_scope_llm above), never
-                                        # self.llm_service: the public route
-                                        # serves every user through ONE
-                                        # default-scoped orchestrator, so
-                                        # constructor scope is not
-                                        # authenticated request scope
-                                        # (verifier correction 2026-10-16).
-                                        llm_service=_scope_llm),
-                                    timeout=_interp_wait))
-                        except Exception as _interp_err:  # noqa: BLE001
+                            if _interp_wait <= 0.0:
+                                from core.turn_decision import (
+                                    interpretation_budget_unresolved,
+                                )
+                                _td_interpretation = (
+                                    interpretation_budget_unresolved(
+                                        message, _interp_request_id, _td))
+                                logger.warning(
+                                    "[turn-interpretation] skipped — stage "
+                                    "budget exhausted (remaining=%.1fs "
+                                    "reserve=%.1fs); deterministic floor "
+                                    "retained", _deadline.remaining(),
+                                    _TURN_REPLY_RESERVE_SECONDS)
+                            else:
+                                try:
+                                    _td_interpretation = (
+                                        await asyncio.wait_for(
+                                            interpret_turn_request(
+                                                message, session,
+                                                history or [], context or {},
+                                                session_id=session_id,
+                                                request_id=_interp_request_id,
+                                                # The REQUEST-scoped service
+                                                # (_scope_llm above), never
+                                                # self.llm_service: the public
+                                                # route serves every user
+                                                # through ONE default-scoped
+                                                # orchestrator, so
+                                                # constructor scope is not
+                                                # authenticated request scope
+                                                # (verifier correction
+                                                # 2026-10-16).
+                                                llm_service=_scope_llm),
+                                            timeout=_interp_wait))
+                                except asyncio.TimeoutError:
+                                    from core.turn_decision import (
+                                        interpretation_budget_unresolved,
+                                    )
+                                    _td_interpretation = (
+                                        interpretation_budget_unresolved(
+                                            message, _interp_request_id, _td))
+                                    logger.warning(
+                                        "[turn-interpretation] wait %.1fs "
+                                        "expired — preserving explicit "
+                                        "stage_budget_exhausted and the "
+                                        "deterministic floor", _interp_wait)
+                                except Exception as _interp_err:  # noqa: BLE001
+                                    _td_interpretation = None
+                                    logger.debug(
+                                        "[turn-interpretation] invocation "
+                                        "failed (floor retained): %r",
+                                        _interp_err)
+                        except Exception as _interp_outer_err:  # noqa: BLE001
                             _td_interpretation = None
                             logger.debug(
-                                "[turn-interpretation] invocation "
+                                "[turn-interpretation] outer budget seam "
                                 "failed (floor retained): %r",
-                                _interp_err)
+                                _interp_outer_err)
                         # L2 repair (2026-10-18): CONSUME the resolved
                         # interpretation's source references when the
                         # deterministic floor found none. A continuation

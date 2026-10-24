@@ -302,8 +302,25 @@ def test_interpretation_wait_preserves_reply_reserve():
     from integrations.chat_orchestrator import _interpretation_wait_seconds
     assert _interpretation_wait_seconds(95) == 60
     assert _interpretation_wait_seconds(40) == 5
-    assert _interpretation_wait_seconds(10) == 0.1
+    # Reserve exhausted means NO work, not a token 0.1s provider attempt.
+    assert _interpretation_wait_seconds(35) == 0
+    assert _interpretation_wait_seconds(30) == 0
+    assert _interpretation_wait_seconds(10) == 0
     assert _interpretation_wait_seconds(200) == 75
+
+
+def test_stage_budget_unresolved_preserves_floor_and_telemetry():
+    from core import turn_decision as td
+    td.reset_interpretation_for_tests()
+    floor = {"schema": "turn-decision-1", "actions": []}
+    record = td.interpretation_budget_unresolved(
+        "find the launch code", "req-budget", floor)
+    assert record["origin"] == "unresolved"
+    assert record["unresolved_reason"] == "stage_budget_exhausted"
+    assert record["actions"] == [] and record["sources"] == []
+    assert record["deterministic_decision"] is floor
+    assert td._interpret_metrics["stage_budget_exhausted"] == 1
+    assert td._interpret_metrics["skipped"] == 1
 
 
 def test_verify_panel_respects_finalization_reserve():
