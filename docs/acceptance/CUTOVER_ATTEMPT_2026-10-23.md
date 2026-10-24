@@ -37,6 +37,22 @@ Chromium sign-in).
    the reply leg returned a provider failure. The sourced answer was not
    verified.
 
+## Turn trace addendum
+
+- The first live attempt ran before the declared DeepSeek credential was
+  registered and before the candidate was restarted with the turn pin.
+  Its interpretation cascade tried OpenCode-Go/OpenRouter models, emitted
+  `missing_scope`, spent 43.5 s before legacy features, and failed.
+- After the restart with `ATOM_TURN_INTERPRETATION=1` and
+  `ATOM_TURN_INTERPRET_PIN=deepseek:deepseek-v4-pro`, the interpretation
+  succeeded on DeepSeek in 23.8 s. Legacy `SEARCH` + `AI_ANALYTICS` then
+  ran from 24.6 s to 77.7 s (~53 s), leaving 17.3 s; the reply leg returned
+  the provider failure.
+- Therefore the remaining live blocker is the legacy feature path /
+  live-corpus latency **after** a successful interpretation, not a missing
+  turn pin or an unregistered credential. The fresh-scratch attempt 7 had
+  the same feature classes but ran them after the reply with 0.0 s.
+
 ## Rollback
 
 - Stopped the candidate processes; ports freed.
