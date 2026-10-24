@@ -1,0 +1,559 @@
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55 attempt=1 prompt_chars=2949 cap=5500 instructor_retries=2
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 400 Bad Request"
+INFO:core.llm.byok_handler:[inflight] deepseek/deepseek-v3.2-speciale released by 'completion:general' after 0.4s
+WARNING:core.llm.byok_handler:Attempt failed for deepseek/deepseek-v3.2-speciale: Error code: 400 - {'error': {'message': 'The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v3.2-speciale. (request_id: 52382575-7689-4a29-8204-cb4d6a789e6a)', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_request_error'}}
+ERROR:core.llm.byok_handler:All providers failed. Last error: Error code: 400 - {'error': {'message': 'The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v3.2-speciale. (request_id: 52382575-7689-4a29-8204-cb4d6a789e6a)', 'type': 'invalid_request_error', 'param': None, 'code': 'invalid_request_error'}}
+WARNING:core.turn_fact_extractor:turn_fact parse failure — raw output (truncated): I couldn't generate a response — every configured provider failed. Last error: Error code: 400 - {'error': {'message': 'The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v3.2-speciale. (request_id: 52382575-7689-4a29-8204-cb4d6a789e6a)', . Check provider status or credentials in Settings and try again.
+WARNING:core.turn_fact_extractor:turn_fact_extraction_failure total={'timeout': 0, 'llm_error': 0, 'parse_error': 1}
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:core.turn_decision:[turn-interpretation-capture] {"action_count": 1, "action_kinds": ["research"], "has_invalid_action_kind": false, "has_missing_action_kind": false, "phase": "pre_validation", "rejection_reason": "", "request_id": "turn interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55", "scope_present": true, "scope_raw": "replace"}
+INFO:core.llm.byok_handler:[inflight] deepseek/deepseek-v4-pro released by 'completion2:planning' after 39.1s
+INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=39.1s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55 attempt=1
+INFO:core.turn_decision:[turn-interpretation-capture] {"action_count": 1, "action_kinds": ["research"], "has_invalid_action_kind": false, "has_missing_action_kind": false, "phase": "post_validation", "rejection_reason": "", "request_id": "turn interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55", "scope_present": true, "scope_raw": "replace"}
+INFO:core.turn_decision:[turn-interpretation] ok latency_ms=39170.2
+INFO:integrations.chat_orchestrator:[stage-timing] canvas-edit leg skipped — the turn's own words do not authorize a canvas mutation (deterministic authorization: 'needs_grant')
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7b7daa7f-0ea2-418d-bf26-9f6c64f3060b
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/FW-DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3.2-speciale excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/dashscope/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/qwencloud/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/qwen_ai_platform/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/databricks/databricks-deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sail/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/tencent/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/tencent/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/aihubmix/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:BPC cost-priority active (task_type=planning): cheapest capable model deepseek/deepseek-v4-pro (eff.cost=2.640e-06, quality=96, default score would have picked deepseek-v4-pro)
+INFO:core.llm.byok_handler:BPC Ranking Successful for advanced: Top model deepseek-v4-pro (Value: 1170.97)
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/FW-DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3.2-speciale excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/dashscope/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/qwencloud/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/qwen_ai_platform/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/databricks/databricks-deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sail/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/tencent/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/tencent/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/aihubmix/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:BPC cost-priority active (task_type=planning): cheapest capable model deepseek/deepseek-v4-pro (eff.cost=2.640e-06, quality=96, default score would have picked deepseek-v4-pro)
+INFO:core.llm.byok_handler:BPC Ranking Successful for advanced: Top model deepseek-v4-pro (Value: 1170.97)
+INFO:core.llm.byok_handler:Structured generation (free, BYOK): deepseek/deepseek-v4-pro
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=structured-1b35e3120a37 attempt=1 prompt_chars=14840 cap=6000 instructor_retries=2
+INFO:integrations.chat_orchestrator:[MEMCTX] agent_id=None
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7b7daa7f-0ea2-418d-bf26-9f6c64f3060b
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: 7b7daa7f-0ea2-418d-bf26-9f6c64f3060b
+INFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=7b7daa7f-0ea2-418d-bf26-9f6c64f3060b
+INFO:core.memory_context_assembler:integration records leg: ws=7b7daa7f-0ea2-418d-bf26-9f6c64f3060b role=None tables=[] (0 total)
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default
+INFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+INFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5420929616. LANCEDB_AVAILABLE: True
+INFO:core.lancedb_handler:Lazy loading LanceDB connection...
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-live-rehearsal-20261023/atom_memory with storage_options=None
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default
+INFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+INFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5421155744. LANCEDB_AVAILABLE: True
+INFO:core.lancedb_handler:Lazy loading LanceDB connection...
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-live-rehearsal-20261023/atom_memory with storage_options=None
+INFO:core.lancedb_handler:LanceDB connected successfully
+INFO:core.lancedb_handler:LanceDB connected successfully
+INFO:core.graphrag_engine:Hybrid search: vector leg found 0 nodes
+INFO:core.graphrag_engine:Hybrid search: keyword leg found 0 nodes
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default
+INFO:core.embedding_service:Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+INFO:core.lancedb_handler:LanceDBHandler initialized. ID: 5420933200. LANCEDB_AVAILABLE: True
+INFO:core.lancedb_handler:Lazy loading LanceDB connection...
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l1-l2-l3-live-rehearsal-20261023/atom_memory with storage_options=None
+INFO:core.lancedb_handler:LanceDB connected successfully
+INFO:core.embedding_service:Generated 9 embeddings in batch
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=39.5s elapsed=39.5s remaining=55.5s budget=95.0s
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default
+INFO:core.llm.byok_handler:Initialized Ollama (local) client at http://localhost:11434/v1
+INFO:core.llm.byok_handler:Initialized deepseek client using BYOK credential
+INFO:core.llm.escalation_manager:EscalationManager initialized
+INFO:core.llm.cognitive_tier_service:CognitiveTierService initialized for workspace: default
+INFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery: {'candidates': 110, 'deferred_in_flight': 0, 'delivered': 0, 'failed': 0, 'chat_crashes_skipped': 110}
+2026-10-24 09:32:42.635 python[13744:30380789] Error: stepSQLStatement:toCompletionWithRetry - stepping returned unhandled result=8, DB=/Users/rushiparikh/Library/Caches/python/Cache.db
+WARNING:core.llm.byok_handler:[structured-cancelled] deepseek/deepseek-v4-pro route=structured-1b35e3120a37 attempt=1 waited=20.0s reservation_released=true worker_may_still_run=true
+INFO:core.llm.byok_handler:[inflight] deepseek/deepseek-v4-pro released by 'completion2:planning' after 20.0s
+WARNING:core.chat_tool_planner:tool planner: optional structured planning timed out after 20.0s; required-read enforcement continues
+INFO:core.chat_tool_planner:tool planner: source-ask floor -> documents.search query='Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.'
+INFO:integrations.chat_orchestrator:[timeline] chat planner finished: 20.0s after the turn's canvas-edit clock started
+INFO:integrations.chat_orchestrator:[timeline] planner awaited by the reply builder: 19.8s (already done when awaited: False)
+INFO:integrations.chat_orchestrator:[stage-timing] tool plan (overlapped=True): 19.8s
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'
+INFO:core.chat_tool_planner:[etp-provenance] service=documents intent=search caller=chat_orchestrator.py:20585 _get_qwen_response exec_id=True conv=05827cc2-127c-4b7f-8fd4-96072dfef44d
+INFO:integrations.chat_orchestrator:[settle-probe] primary: receipt_keys=['coverage_items', 'datasets_search', 'documents_read', 'read_outcomes', 'searched_threads', 'source_observations', 'structured_keys', 'value_trace_coverage', 'value_trace_items', 'zoho_inventory', 'zoho_inventory_error'] ds_keys=[] hits_count=0 findings=0
+INFO:core.task_lifecycle:[job-work-ledger] settled run=59e7a9a5 op=0895ee0f added=0 resolved_total=0 open(actions=0 owner=0 exhausted=0)
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'
+INFO:integrations.chat_orchestrator:[stage-timing] tool exec: 0.1s
+INFO:integrations.chat_orchestrator:[teaching-fallback] 3 designating hires share ONE teaching corpus — single authority
+INFO:integrations.chat_orchestrator:[planner-boundary] research turn recovery state: research=True required=['datasets', 'outlook'] consulted=[] planned=True block=True turn_left=36s
+INFO:core.chat_tool_planner:[etp-provenance] service=datasets intent=value_trace caller=chat_orchestrator.py:22926 _chain_attempt exec_id=True conv=05827cc2-127c-4b7f-8fd4-96072dfef44d
+INFO:integrations.chat_orchestrator:[planner-boundary] chained source datasets: bounded absence (receipt={'structured_keys': [], 'searched_threads': 0, 'source_observations': 0, 'read_outcomes': 0, 'datasets_search': {}, 'value_trace_coverage': {}, 'value_trace_items': 2, 'coverage_items': [], 'documents_read': {}, 'zoho_inventory': {}, 'zoho_inventory_error': None})
+INFO:core.task_lifecycle:[job-work-ledger] settled run=59e7a9a5 op=462d36e9 added=0 resolved_total=0 open(actions=0 owner=0 exhausted=0)
+INFO:core.chat_tool_planner:[etp-provenance] service=outlook intent=search caller=chat_orchestrator.py:22926 _chain_attempt exec_id=True conv=05827cc2-127c-4b7f-8fd4-96072dfef44d
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='Quotation' (tried ['Quotation']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='Q 2026 114' (tried ['Q 2026 114', 'Q "2026" "114"']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='DRAFT' (tried ['DRAFT']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: 3 consecutive KQL forms rejected — aborting the ladder early
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='Q-2026-114' (tried ['"Q-2026-114"', '"Q 2026 114"', 'Q "2026" "114"']) — returning []
+INFO:core.chat_tool_planner:outlook leg: hydrated 0 full bodies (intent=search, 0 graph hits)
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: 3 consecutive KQL forms rejected — aborting the ladder early
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='Q-2026-114' (tried ['"Q-2026-114"', '"Q 2026 114"', 'Q "2026" "114"']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='Quotation' (tried ['Quotation']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='Q 2026 114' (tried ['Q 2026 114', 'Q "2026" "114"']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:integrations.outlook_service:search_emails: every KQL form rejected by Graph for query='DRAFT' (tried ['DRAFT']) — returning []
+ERROR:integrations.outlook_service:No access token available for user ce160d61-89b9-4a71-8a6b-c2bbb75c7a13
+WARNING:core.chat_tool_planner:memory tool execution failed: Table 'documents' was not found
+INFO:integrations.chat_orchestrator:[planner-boundary] chained source outlook: NO usable receipt — obligation open (receipt={'structured_keys': [], 'searched_threads': 0, 'source_observations': 0, 'read_outcomes': 0, 'datasets_search': {}, 'value_trace_coverage': {}, 'value_trace_items': 0, 'coverage_items': [], 'documents_read': {}, 'zoho_inventory': {}, 'zoho_inventory_error': None})
+INFO:core.task_lifecycle:[job-work-ledger] settled run=59e7a9a5 op=fa01dcb2 added=1 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+INFO:integrations.chat_orchestrator:[derivation] ask=False matched-row-evidence=False tool_block=2566 chars named_file=False
+INFO:integrations.chat_orchestrator:tool plan executed: documents.search:Compare the draft quotation with my uploaded Approved Records document. Does the
+INFO:integrations.chat_orchestrator:[prompt-budget] routing-default model=auto: input=2279 tokens (window=32000, output reservation=6000, fits=True, window estimated)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:core.llm.learning_router_registry:[LearningRouter] auto-mode readiness: 3173 verdict row(s) in the last 7d, 6 model(s) with >= 8 observations -> re-ranking ENABLED (thresholds: >=30 rows, >=2 models)
+INFO:core.llm.byok_handler:Attempting stream with provider: ollama (requested: ollama) model=llama3.1:8b
+INFO:core.exchange_memory_maintenance:✓ exchange memory maintenance: {'backfilled': 0, 'distilled': {}, 'promoted': {'promoted': False, 'reason': 'corpus_too_small', 'counts': {'positive': 0, 'negative': 0}}, 'promoted_panel': {'promoted': False, 'reason': 'mode_pinned_enforce'}, 'playbook_drafts': {'drafted': 0, 'updated': 0, 'unchanged': 5, 'retired_legacy': 0}, 'playbook_auto_approved': {'latched': 0, 'replayed': 0, 'autonomy_blocked': 0, 'reason': 'latch_off (default)'}, 'patterns': {'tenants': 0, 'created': 0, 'bumped': 0}, 'import_validation': [], 'goal_run_timer_wakes': {'woke': []}, 'goal_run_stale_sweep': {'interrupted': []}, 'db_safety': {'snapshot': '/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout/backend/data/backups/atom-cycle-20261024-093234.db.gz', 'fingerprint': True, 'protected': True}, 'lance_cleanup': {'tables': 2, 'cleaned': 0, 'errors': 2}}
+INFO:httpx:HTTP Request: POST http://localhost:11434/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:core.llm.byok_handler:[inflight] ollama/llama3.1:8b released by 'structured:chat' after 5.1s
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+2026-10-24 09:32:51.854 python[13744:30379190] Error: stepSQLStatement:toCompletionWithRetry - stepping returned unhandled result=8, DB=/Users/rushiparikh/Library/Caches/python/Cache.db
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token'
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'user:ce160d61-89b9-4a71-8a6b-c2bbb75c7a13'. type='chat_token_done'
+INFO:integrations.chat_orchestrator:[stage-timing] reply STREAMED: 9.7s to full text (ollama/llama3.1:8b, 192 chunks)
+INFO:integrations.chat_orchestrator:[stage-timing] reply generation: 29.6s (incl. tool plan + exec above)
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=29.6s turn_offset=39.5s elapsed=69.1s remaining=25.9s budget=95.0s
+INFO:integrations.chat_orchestrator:[verify-panel] state: mode=enforce tool_block=True content=True mission=False
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:core.llm.self_consistency_voter:SC fan-out: 0 candidate(s) available; running all samples unpinned
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:core.llm.self_consistency_voter:SC fan-out: 0 candidate(s) available; running all samples unpinned
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_step_update'
+INFO:integrations.chat_orchestrator:[comparison-missing] replaced an unsupported comparison claim with the draft/open-obligation limitation (execution=b9d154a8)
+INFO:ai.nlp_engine:Parsing command: Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:integrations.chat_orchestrator:[feature-routing] document-only required read owns the turn; skipped ['tasks', 'automation']
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=69.1s elapsed=69.1s remaining=25.9s budget=95.0s
+WARNING:core.websockets:[WS-DEBUG] Attempted broadcast to EMPTY channel: 'workspace:default'. type='agent_status_change'
+WARNING:core.finalization:[apply-dbg] state=partial work_turn=True noop=None success_in=True
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/FW-DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3.2-speciale excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/dashscope/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/qwencloud/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/qwen_ai_platform/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/databricks/databricks-deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sail/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-reasoner excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/tencent/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/tencent/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v4-pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/aihubmix/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/baseten/deepseek-ai/DeepSeek-V4-Pro-0813 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v4-pro excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:BPC Ranking Successful for advanced: Top model deepseek-v4-pro (Value: 1170.97)
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3.2-exp excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3.1-terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/FW-DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3.1-Terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek-v3-2-251201 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3p1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3p2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/friendliai/deepseek-ai/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/gmi/deepseek-ai/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/gmi/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/hyperbolic/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/hyperbolic/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/crusoe/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/lambda_ai/deepseek-v3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/replicate/deepseek-ai/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/replicate/deepseek-ai/deepseek-v3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sambanova/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sambanova/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/vercel_ai_gateway/deepseek/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/vertex_ai/deepseek-ai/deepseek-v3.1-maas excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/vertex_ai/deepseek-ai/deepseek-v3.2-maas excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.2-exp excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.1-terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3-turbo excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3/community excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+WARNING:core.llm.byok_handler:BPC latency gate excluded EVERY candidate — re-ranking once without it (a slow answer inside the deadline beats no answer)
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3.2-exp excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3.1-terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/FW-DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/azure_ai/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3.1-Terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepseek-v3-2-251201 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3p1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/fireworks_ai/accounts/fireworks/models/deepseek-v3p2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/friendliai/deepseek-ai/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/gmi/deepseek-ai/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/gmi/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/hyperbolic/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/hyperbolic/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/crusoe/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/inferenceapis/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/lambda_ai/deepseek-v3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/nebius/deepseek-ai/DeepSeek-V3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/replicate/deepseek-ai/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/replicate/deepseek-ai/deepseek-v3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sambanova/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/sambanova/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/vercel_ai_gateway/deepseek/deepseek-v3 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/vertex_ai/deepseek-ai/deepseek-v3.1-maas excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/vertex_ai/deepseek-ai/deepseek-v3.2-maas excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/wandb/deepseek-ai/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.2-exp excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.1-terminus excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3-0324 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3-turbo excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/novita/deepseek/deepseek-v3/community excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/deepinfra/deepseek-ai/DeepSeek-V3.2 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+INFO:core.llm.byok_handler:structured gate: deepseek/together_ai/deepseek-ai/DeepSeek-V3.1 excluded — not_in_provider_catalog (fresh, identifier not present in deepseek's discovered catalogue (2 identifiers))
+WARNING:core.llm.byok_handler:no ranked route is verified against a provider catalogue (1 candidate(s) checked); using the unreconciled ranking — support is UNKNOWN, not confirmed: deepseek/deepseek-v3.2-speciale: not_in_provider_catalog
+INFO:main_api_app:🏁 [ULTRA LOUD] POST /api/chat/message -> 200
+INFO:     127.0.0.1:59078 - "POST /api/chat/message HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:core.async_turn_continuation:[async-continuation] terminal-delivery recovery task stopping
+INFO:main_api_app:Shutting down ATOM Platform...
+INFO:main_api_app:✓ Workflow Scheduler stopped
+INFO:main_api_app:✓ Postgres Event Bus listener stopped
+INFO:main_api_app:✓ AI Workflow Service sessions cleaned up
+INFO:     Application shutdown complete.
+INFO:     Finished server process [13744]

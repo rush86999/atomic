@@ -333,3 +333,26 @@ def test_verify_panel_respects_finalization_reserve():
     # remainder leaves at most 30s for the panel after the reserve.
     assert _VERIFY_PANEL_MIN_REMAINING_SECONDS >= 15
     assert _VERIFY_PANEL_RESERVE_SECONDS >= 10
+
+
+@pytest.mark.asyncio
+async def test_stage_timeout_produces_explicit_record_and_late_worker_is_inert():
+    import asyncio
+    from core.turn_decision import interpretation_budget_unresolved
+
+    floor = {"schema": "turn-decision-1", "actions": []}
+    returned = interpretation_budget_unresolved(
+        "compare the draft", "req-stage-timeout", floor)
+    late = asyncio.create_task(asyncio.sleep(0.05, result={
+        "origin": "late-success", "actions": [{"kind": "invented"}]}))
+    with pytest.raises(asyncio.TimeoutError):
+        # This is the OUTER bounded wait: it bounds waiting, not the worker.
+        await asyncio.wait_for(asyncio.shield(late), timeout=0.005)
+    await late
+    # The explicit degraded decision is already returned and cannot be
+    # mutated by the late worker's result.
+    assert returned["origin"] == "unresolved"
+    assert returned["unresolved_reason"] == "stage_budget_exhausted"
+    assert returned["actions"] == []
+    assert returned["deterministic_decision"] is floor
+    assert late.result()["origin"] == "late-success"
