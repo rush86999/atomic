@@ -1,0 +1,17 @@
+backup_dir=/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023
+total 263616
+-rw-r--r--@ 1 rushiparikh  staff   127M Oct 23 23:39 atom-pre-cutover-live-world-20261023-233920.db.gz
+-rw-r--r--@ 1 rushiparikh  staff   8.9K Sep 30 09:41 backend.env.pre
+-rw-------@ 1 rushiparikh  staff    27K Oct 23 21:50 byok_config.pre.json
+-rw-------@ 1 rushiparikh  staff    44B Aug 29 16:15 byok_encryption_key.pre
+-rw-------@ 1 rushiparikh  staff   8.0K Oct 23 21:50 byok_keys.pre.json
+-rw-r--r--@ 1 rushiparikh  staff    24B Oct 23 23:39 pilot_frontend.txt
+-rw-r--r--@ 1 rushiparikh  staff   929B Oct 23 23:39 pilot_health_before.json
+-rw-r--r--@ 1 rushiparikh  staff    32K Oct 23 23:39 verify.db-shm
+-rw-r--r--@ 1 rushiparikh  staff     0B Oct 23 23:39 verify.db-wal
+--- sha256
+e574f50b9b7684d03cde291f895f8edb6606e71b816da7956337b9f3710ee52f  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/atom-pre-cutover-live-world-20261023-233920.db.gz
+9e432a98004533760b88a8882e2ca0aba3510218f61916833461e5c3f5d2e5d2  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/byok_config.pre.json
+0c721c625c02b32037c8da63fde0ea1f828d7bf308add8032f9f9e4f06ee3ebc  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/byok_keys.pre.json
+fdb201a6283ff5ea120b423cbe9f22600b32c580d35fccf2cc8575c2be170ca9  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/byok_encryption_key.pre
+397246f1db02e92625e07a01d3583f88c6533575f0275e97932adb68f99fceb2  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/backend.env.pre
