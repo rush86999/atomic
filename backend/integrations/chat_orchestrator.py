@@ -1494,6 +1494,16 @@ def _references_conversation(message: str) -> bool:
 # a workbook search unresolved, "go ahead" produced the open email draft —
 # the canvas supplied context and this rule's old wording supplied the
 # artifact pressure.
+_ANSWER_SCOPE_RULE = (
+    "ANSWER SCOPE: answer only the subject and field the user asked for. "
+    "For a direct factual question, state the requested value and its "
+    "source; do not enumerate or mention other entries, decoy values, "
+    "alternatives, or neighboring records from the evidence, even to "
+    "disclaim them. If the requested value is absent, say it is not "
+    "supported; do not list alternatives."
+)
+
+
 _APPROVAL_EXECUTION_RULE = (
     "APPROVAL MEANS EXECUTE: when the user says \"go ahead\", \"proceed\", "
     "\"yes\", \"do it\", or otherwise approves something you proposed or "
@@ -18596,7 +18606,7 @@ class ChatOrchestrator:
 
 When users ask to fetch live data (like CRM leads), acknowledge that the integration needs to be connected first and guide them on setup. Be helpful, specific, and actionable. Keep responses concise (2-4 sentences) unless detail is needed.
 
-""" + _APPROVAL_EXECUTION_RULE + "\n\n" + EVIDENCE_GROUNDING_RULE
+""" + _ANSWER_SCOPE_RULE + "\n\n" + _APPROVAL_EXECUTION_RULE + "\n\n" + EVIDENCE_GROUNDING_RULE
 
             # OUTBOUND IDENTITY: resolved per-install data — the agent's
             # OWNER (agents are owned by, and trained by, one user) falling
@@ -18673,7 +18683,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         f"{_TOOL_CAPABILITY} "
                         "Be helpful, specific, and actionable. Keep responses concise "
                         "(2-4 sentences) unless detail is needed. "
-                        + _APPROVAL_EXECUTION_RULE
+                        + _ANSWER_SCOPE_RULE
+                        + "\n\n" + _APPROVAL_EXECUTION_RULE
                         + "\n\n" + EVIDENCE_GROUNDING_RULE
                     )
 
