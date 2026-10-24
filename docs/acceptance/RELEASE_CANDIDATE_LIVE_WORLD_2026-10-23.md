@@ -1,9 +1,8 @@
 # Live-world release candidate — 2026-10-23
 
-**Status: DEPLOYED 2026-10-24. Served health/frontend/browser verified;
-full composed workflow passed 60/60 in the isolated live-world
-rehearsal. See `CUTOVER_2026-10-24.md` for rollback and the filtered
-BYOK note.**
+**Status: deployment ROLLED BACK 2026-10-24; the pre-cutover pilot
+`8c593e57031e` is serving again. This candidate remains a local
+replay/rehearsal package only while the live-cutover hold is in force.**
 
 This supersedes the fresh-scratch release candidate identity for the
 live pilot. The prior `910bf85a6` candidate and its evidence remain

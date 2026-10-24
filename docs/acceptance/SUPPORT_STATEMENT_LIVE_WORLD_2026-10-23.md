@@ -3,9 +3,9 @@
 **Build:** `264677107d23196fcd77e2ccedf97c511fc6f32f`
 (clean export `06b213c79b66`; rehearsal runtime `06b213c79b66`)
 **Scope:** single-tenant local Atom pilot on the declared configuration
-**Status:** DEPLOYED 2026-10-24; served runtime `3b6a1316f16f`; live-world
-rehearsal passed 60/60. The pre-cutover pilot is restorable from the final
-backup.
+**Status:** deployment rolled back 2026-10-24 after the live-cutover hold
+was re-engaged. The old pilot `8c593e57031e` is serving; this build remains
+a local rehearsal candidate.
 
 ## Supported
 
