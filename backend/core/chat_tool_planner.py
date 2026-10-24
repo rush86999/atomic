@@ -893,7 +893,21 @@ def _required_read_query(
             str(s) for s in (req.get("subjects") or []) if str(s).strip()]
         fields = [
             str(f) for f in (req.get("fields") or []) if str(f).strip()]
-        query = " ".join(subjects[:4] + fields[:3])
+        # A typed field is useful only when it is actually part of this
+        # request or there is a subject to anchor it. The live-world
+        # extraction produced fields=["version"] for a request that never
+        # mentioned version; appending it made the deterministic read
+        # query ("release_smoke_record.txt version") fail relevance. With
+        # no subject, fall back to the user's own words instead of an
+        # unsupported field.
+        msg_l = str(message or "").casefold().replace("_", " ")
+        supported = [
+            field for field in fields
+            if field.casefold().replace("_", " ") in msg_l]
+        if subjects:
+            query = " ".join(subjects[:4] + supported[:3])
+        elif supported:
+            query = " ".join(supported[:3])
     if not query.strip():
         query = str(message or "")[:200]
     identity = req.get("identity") if isinstance(
@@ -1552,16 +1566,33 @@ def enforce_required_read(
             "tool planner: required read left unresolved — no registered "
             "capability can serve kinds %s", authority["kinds"])
         return proposal
-    if (isinstance(proposal, ToolPlan) and proposal.use_tool
-            and (proposal.service or "") in candidates):
-        return proposal
     service = _unique_required_read_service(candidates, authority["kinds"])
     if not service:
+        if (isinstance(proposal, ToolPlan) and proposal.use_tool
+                and (proposal.service or "") in candidates):
+            return proposal
         logger.info(
             "tool planner: required read left unresolved — multiple "
             "plausible capabilities %s for kinds %s", candidates,
             authority["kinds"])
         return proposal
+    _req = authority.get("requirement") or {}
+    _identity = _req.get("identity") if isinstance(
+        _req.get("identity"), dict) else {}
+    _resolved_file = (
+        str(_identity.get("state") or "") == "resolved"
+        and bool(_identity.get("file_id") or _identity.get("file_name")))
+    if isinstance(proposal, ToolPlan) and proposal.use_tool:
+        if (proposal.service or "") == service:
+            return proposal
+        if not _resolved_file:
+            # An eligible alternative is a valid strategy unless the
+            # accepted requirement names a specific document: datasets is
+            # not interchangeable with the named document's knowledge VFS.
+            return proposal
+        logger.info(
+            "tool planner: resolved document identity overrides %s.%s "
+            "with the documents lane", proposal.service, proposal.intent)
     plan = ToolPlan(
         use_tool=True,
         service=service,

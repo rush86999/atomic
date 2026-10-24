@@ -139,3 +139,49 @@ async def test_slow_sync_entity_search_is_bounded(monkeypatch):
     assert out["success"] is False
     assert out["error"] == "search_timeout"
     assert elapsed < 0.3, elapsed
+
+
+def test_required_query_drops_unsupported_fields():
+    from core.chat_tool_planner import _required_read_query
+
+    query = _required_read_query(
+        {"subjects": [], "fields": ["version"],
+         "identity": {"state": "resolved",
+                      "file_name": "release_smoke_record.txt"}},
+        "What is the release smoke code in my uploaded release smoke record?")
+    assert "release smoke code" in query.casefold()
+    assert "version" not in query.casefold()
+    assert "release_smoke_record.txt" in query
+
+
+def test_delivery_scope_prefers_row_scope():
+    from integrations.chat_routes import _lifecycle_scope_for_run
+
+    class _Row:
+        tenant_id = "tenant-a"
+        workspace_id = "workspace-a"
+
+    assert _lifecycle_scope_for_run(
+        "run-1", {"data": {}}, _Row()) == ("tenant-a", "workspace-a")
+
+
+def test_resolved_document_overrides_a_dataset_proposal():
+    from core.chat_tool_planner import ToolPlan, enforce_required_read
+
+    proposal = ToolPlan(use_tool=True, service="datasets",
+                        intent="search", query="release smoke code",
+                        reason="optional planner")
+    plan = enforce_required_read(
+        proposal,
+        evidence_requirement={
+            "required": True, "sources": ["document"],
+            "fields": ["version"], "subjects": [],
+            "identity": {"state": "resolved", "file_id": "doc-1",
+                         "file_name": "release_smoke_record.txt"}},
+        connected=["documents", "datasets"],
+        message="What is the release smoke code in my uploaded "
+                "release smoke record?")
+    assert plan is not None
+    assert plan.service == "documents"
+    assert "release smoke code" in plan.query.casefold()
+    assert "version" not in plan.query.casefold()

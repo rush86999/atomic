@@ -21,3 +21,76 @@
 {"ts": 1792808351.054, "mono": 1124423.56, "event": "loop_lag", "lag_ms": 148.7}
 {"ts": 1792808352.347, "mono": 1124424.853, "event": "loop_lag", "lag_ms": 175.7}
 {"ts": 1792808361.686, "mono": 1124434.192, "event": "imported", "pid": 58286}
+{"ts": 1792808819.526, "mono": 1124892.008, "event": "imported", "pid": 61388}
+{"ts": 1792808822.45, "mono": 1124894.932, "event": "turn_start", "thread": 8450792832}
+{"ts": 1792808822.512, "mono": 1124894.994, "event": "turn_interpretation_start"}
+{"ts": 1792808830.112, "mono": 1124902.594, "event": "heartbeat_start"}
+{"ts": 1792808865.428, "mono": 1124937.909, "event": "loop_lag", "lag_ms": 179.8}
+{"ts": 1792808872.857, "mono": 1124945.338, "event": "turn_interpretation_end", "dur_ms": 50344.1, "origin": "llm:deepseek-v4-pro", "unresolved": "", "actions": ["research"]}
+{"ts": 1792808872.869, "mono": 1124945.35, "event": "stash_requirement", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}}
+{"ts": 1792808872.873, "mono": 1124945.354, "event": "reply_leg_start", "thread": 8450792832}
+{"ts": 1792808877.481, "mono": 1124949.962, "event": "enforce_required_read_request", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}, "message": "What is the release smoke code in my uploaded release smoke record? Answer with the code and name the source.", "connected": []}
+{"ts": 1792808877.481, "mono": 1124949.962, "event": "enforce_required_read_result", "result": {"service": "datasets", "intent": "search", "query": "release smoke"}}
+{"ts": 1792808880.432, "mono": 1124952.913, "event": "loop_lag", "lag_ms": 599.2}
+{"ts": 1792808880.502, "mono": 1124952.983, "event": "reply_leg_end", "dur_ms": 7628.5, "success": false}
+{"ts": 1792808880.502, "mono": 1124952.983, "event": "route_features_start", "thread": 8450792832}
+{"ts": 1792808880.502, "mono": 1124952.983, "event": "route_features_end", "dur_ms": 0.1, "success": false}
+{"ts": 1792808880.51, "mono": 1124952.991, "event": "finish_execution_start", "thread": 8450792832, "entity_count": 0}
+{"ts": 1792808880.513, "mono": 1124952.994, "event": "finish_execution_end", "dur_ms": 3.1, "entity_count": 0, "results": null}
+{"ts": 1792808880.514, "mono": 1124952.994, "event": "turn_end", "dur_ms": 58062.7, "success": false}
+{"ts": 1792808910.658, "mono": 1124983.139, "event": "loop_lag", "lag_ms": 133.1}
+{"ts": 1792808935.237, "mono": 1125007.717, "event": "imported", "pid": 61990}
+{"ts": 1792808937.903, "mono": 1125010.383, "event": "turn_start", "thread": 8450792832}
+{"ts": 1792808937.953, "mono": 1125010.433, "event": "turn_interpretation_start"}
+{"ts": 1792808945.298, "mono": 1125017.778, "event": "heartbeat_start"}
+{"ts": 1792808976.667, "mono": 1125049.146, "event": "turn_interpretation_end", "dur_ms": 38713.0, "origin": "llm:deepseek-v4-pro", "unresolved": "", "actions": ["research"]}
+{"ts": 1792808976.679, "mono": 1125049.158, "event": "stash_requirement", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}}
+{"ts": 1792808976.683, "mono": 1125049.162, "event": "reply_leg_start", "thread": 8450792832}
+{"ts": 1792808980.891, "mono": 1125053.37, "event": "loop_lag", "lag_ms": 222.0}
+{"ts": 1792809002.134, "mono": 1125074.613, "event": "enforce_required_read_request", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}, "message": "What is the release smoke code in my uploaded release smoke record? Answer with the code and name the source.", "connected": []}
+{"ts": 1792809002.135, "mono": 1125074.614, "event": "enforce_required_read_result", "result": {"service": "documents", "intent": "search", "query": "release_smoke_record.txt version"}}
+{"ts": 1792809004.303, "mono": 1125076.782, "event": "reply_leg_end", "dur_ms": 27619.4, "success": false}
+{"ts": 1792809004.303, "mono": 1125076.782, "event": "legacy_intent_start", "thread": 8450792832}
+{"ts": 1792809004.321, "mono": 1125076.8, "event": "legacy_intent_end", "dur_ms": 18.4, "success": false}
+{"ts": 1792809004.321, "mono": 1125076.8, "event": "route_features_start", "thread": 8450792832}
+{"ts": 1792809004.321, "mono": 1125076.8, "event": "route_features_end", "dur_ms": 0.1, "success": false}
+{"ts": 1792809004.331, "mono": 1125076.81, "event": "finish_execution_start", "thread": 8450792832, "entity_count": 0}
+{"ts": 1792809004.334, "mono": 1125076.813, "event": "finish_execution_end", "dur_ms": 2.9, "entity_count": 0, "results": null}
+{"ts": 1792809004.334, "mono": 1125076.813, "event": "turn_end", "dur_ms": 66430.1, "success": false}
+{"ts": 1792809026.123, "mono": 1125098.602, "event": "loop_lag", "lag_ms": 138.1}
+{"ts": 1792809051.228, "mono": 1125123.707, "event": "imported", "pid": 62358}
+{"ts": 1792809053.696, "mono": 1125126.174, "event": "turn_start", "thread": 8450792832}
+{"ts": 1792809053.744, "mono": 1125126.222, "event": "turn_interpretation_start"}
+{"ts": 1792809061.136, "mono": 1125133.614, "event": "heartbeat_start"}
+{"ts": 1792809086.467, "mono": 1125158.945, "event": "turn_interpretation_end", "dur_ms": 32722.7, "origin": "llm:deepseek-v4-pro", "unresolved": "", "actions": ["research"]}
+{"ts": 1792809086.479, "mono": 1125158.956, "event": "stash_requirement", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}}
+{"ts": 1792809086.482, "mono": 1125158.96, "event": "reply_leg_start", "thread": 8450792832}
+{"ts": 1792809089.799, "mono": 1125162.277, "event": "enforce_required_read_request", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}, "message": "What is the release smoke code in my uploaded release smoke record? Answer with the code and name the source.", "connected": []}
+{"ts": 1792809089.799, "mono": 1125162.277, "event": "enforce_required_read_result", "result": {"service": "datasets", "intent": "search", "query": "release smoke code"}}
+{"ts": 1792809092.393, "mono": 1125164.871, "event": "reply_leg_end", "dur_ms": 5911.0, "success": false}
+{"ts": 1792809092.393, "mono": 1125164.871, "event": "route_features_start", "thread": 8450792832}
+{"ts": 1792809092.394, "mono": 1125164.871, "event": "route_features_end", "dur_ms": 0.1, "success": false}
+{"ts": 1792809092.401, "mono": 1125164.878, "event": "finish_execution_start", "thread": 8450792832, "entity_count": 0}
+{"ts": 1792809092.404, "mono": 1125164.881, "event": "finish_execution_end", "dur_ms": 3.3, "entity_count": 0, "results": null}
+{"ts": 1792809092.404, "mono": 1125164.881, "event": "turn_end", "dur_ms": 38707.8, "success": false}
+{"ts": 1792809096.907, "mono": 1125169.385, "event": "loop_lag", "lag_ms": 230.0}
+{"ts": 1792809111.622, "mono": 1125184.099, "event": "loop_lag", "lag_ms": 170.3}
+{"ts": 1792809126.233, "mono": 1125198.71, "event": "imported", "pid": 62587}
+{"ts": 1792809128.207, "mono": 1125200.684, "event": "turn_start", "thread": 8450792832}
+{"ts": 1792809128.266, "mono": 1125200.743, "event": "turn_interpretation_start"}
+{"ts": 1792809137.26, "mono": 1125209.737, "event": "heartbeat_start"}
+{"ts": 1792809171.929, "mono": 1125244.405, "event": "loop_lag", "lag_ms": 166.6}
+{"ts": 1792809186.641, "mono": 1125259.117, "event": "loop_lag", "lag_ms": 154.1}
+{"ts": 1792809192.124, "mono": 1125264.6, "event": "loop_lag", "lag_ms": 186.5}
+{"ts": 1792809193.27, "mono": 1125265.746, "event": "turn_interpretation_end", "dur_ms": 65003.2, "origin": "unresolved", "unresolved": "timeout", "actions": []}
+{"ts": 1792809193.282, "mono": 1125265.758, "event": "stash_requirement", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}}
+{"ts": 1792809193.287, "mono": 1125265.762, "event": "reply_leg_start", "thread": 8450792832}
+{"ts": 1792809213.327, "mono": 1125285.802, "event": "enforce_required_read_request", "requirement": {"required": true, "sources": ["document"], "file": {"file_name": "release_smoke_record.txt", "resource_id": "doc_c276daab55ab4b33d79dfb67"}, "fields": ["version"], "subjects": [], "identity": {"state": "resolved", "file_id": "doc_c276daab55ab4b33d79dfb67", "file_name": "release_smoke_record.txt"}, "artifact_attached": false, "broader_comparison": false}, "message": "What is the release smoke code in my uploaded release smoke record? Answer with the code and name the source.", "connected": []}
+{"ts": 1792809213.327, "mono": 1125285.803, "event": "enforce_required_read_result", "result": {"service": "documents", "intent": "search", "query": "release_smoke_record.txt What is the release smoke code in my uploaded release smoke record? Answer with the code and name the source."}}
+{"ts": 1792809214.842, "mono": 1125287.318, "event": "reply_leg_end", "dur_ms": 21555.3, "success": false}
+{"ts": 1792809214.848, "mono": 1125287.323, "event": "finish_execution_start", "thread": 8450792832, "entity_count": 0}
+{"ts": 1792809214.85, "mono": 1125287.326, "event": "finish_execution_end", "dur_ms": 2.5, "entity_count": 0, "results": null}
+{"ts": 1792809214.85, "mono": 1125287.326, "event": "turn_end", "dur_ms": 86641.6, "success": true}
+{"ts": 1792809217.143, "mono": 1125289.618, "event": "loop_lag", "lag_ms": 154.2}
+{"ts": 1792809246.811, "mono": 1125319.286, "event": "loop_lag", "lag_ms": 153.5}
+{"ts": 1792809262.441, "mono": 1125334.916, "event": "loop_lag", "lag_ms": 261.3}

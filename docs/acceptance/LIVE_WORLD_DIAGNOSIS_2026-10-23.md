@@ -92,6 +92,20 @@ cause. It is removed for a document-only requirement below.
    with a 5 s wait bound. Timeout returns a visible `search_timeout`; the
    request does not stall. The worker thread may outlive the timeout
    (resource behavior is explicit, not hidden).
+4. **Delivery lifecycle scope.** The first after-repair answer was
+   correct prose but its delivery ledger failed with
+   `TaskLifecycleError: no task record on run ...`: the delivery helper
+   built the lifecycle with the `"default"` workspace because the
+   response omitted `workspace_id`, while the run lived in the user's
+   workspace (GoalRunService is correctly workspace-scoped). The helper
+   now resolves tenant/workspace from the execution row, then the run row
+   itself; the live-world run's delivery is recorded.
+5. **Required-read query/lane.** The deterministic read query no longer
+   appends a typed field that the request never mentioned (the spurious
+   `version` made `documents.search` fail relevance). A resolved file
+   identity overrides a less-specific `datasets` proposal with the
+   documents lane. The live-world read now executes
+   `documents.search` and cites the uploaded record.
 
 ## Measured after the repair
 
@@ -104,17 +118,30 @@ registered before the request:
 | required read enforced | `documents.read` at 51.95 s |
 | reply leg | 5.72 s |
 | feature routing | 0.1 s (skipped) |
-| total | **53.7 s** |
+| total | **53.7 s** (prose-only; delivery failed) |
 
-Answer: `SMOKE-42` from the uploaded document, with the correct source;
-no decoy. A prior run with OpenCode-Go reply took 41.7 s and also
-returned the correct sourced answer. The requirement is now
-`required=true, sources=["document"], identity=resolved` with
-`file_name=release_smoke_record.txt`.
+That run's prose was correct, but its delivery ledger was
+`failed/TaskLifecycleError`; it was **not** a clean delivered answer.
+After the delivery-scope fix and the query/lane fix, the same isolated
+live-world request returned:
+
+| Event | Time |
+|---|---|
+| turn interpretation (DeepSeek) | ~50 s (varies) |
+| tool planner optional wait | 20.0 s, then required-read floor |
+| required read | `documents.search` on the uploaded record |
+| total | **87.1 s** (within the 95 s budget) |
+| delivery | **recorded** (`delivery_id` present) |
+| persistence | **persisted** |
+
+Answer: `SMOKE-42` from `release_smoke_record.txt`, with the correct
+source; no decoy. The requirement is
+`required=true, sources=["document"], identity=resolved`.
 
 The event-loop heartbeat showed no 53 s block; the dominant remaining
-cost is the DeepSeek turn-interpretation call (28–47 s). The 95 s budget
-is not widened.
+cost is the DeepSeek turn-interpretation call (28–50 s). The 95 s budget
+is not widened. The latest clean run used 87.1 s, so the margin is thin
+and must be measured again in the full composed rehearsal.
 
 ## Provider/config parity finding
 
