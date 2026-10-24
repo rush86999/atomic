@@ -483,3 +483,18 @@ def test_captured_attempt5_leading_ingested_excerpt_is_stripped():
     assert "Team:" not in clean
     assert "QUARTZ-77" in clean
     assert "l3_zephyr9_fixture.txt" in clean
+
+
+def test_captured_attempt7_inline_ingested_lead_is_not_shipped():
+    text = (
+        "Based on the live tool results from your uploaded documents, I "
+        "found one matching document: [ingested] l3_zephyr9_fixture.txt: "
+        "ATOM PHASE D FIXTURE — internal notes. Project Zephyr-9 launch "
+        "planning.\n\nFrom this document, the launch code for project "
+        "Zephyr-9 is QUARTZ-77. \n\nSource: [ingested] "
+        "l3_zephyr9_fixture.txt")
+    clean = present_answer(text, None, L3_ASK)
+    assert "Phase D" not in clean
+    assert "Project Zephyr-9 launch planning" not in clean
+    assert "QUARTZ-77" in clean
+    assert "l3_zephyr9_fixture.txt" in clean

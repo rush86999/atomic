@@ -53,7 +53,18 @@ def _strip_retrieved_excerpt(text: str) -> str:
     paragraphs = re.split(r"\n\s*\n", text)
     if not paragraphs:
         return text
-    kept = [p for p in paragraphs if not _RETRIEVED_PARAGRAPH.match(p.strip())]
+    kept = []
+    for index, paragraph in enumerate(paragraphs):
+        stripped = paragraph.strip()
+        # Leading numbered form, or a leading "Based on ... [ingested] ..."
+        # paragraph, is an internal evidence carrier. A later standalone
+        # paragraph must exist; do not drop the only paragraph.
+        is_carrier = bool(_RETRIEVED_PARAGRAPH.match(stripped)) or (
+            index == 0 and "[ingested]" in stripped.lower()
+            and len(paragraphs) > 1)
+        if is_carrier:
+            continue
+        kept.append(paragraph)
     return "\n\n".join(kept).strip()
 
 

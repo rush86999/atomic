@@ -18702,6 +18702,11 @@ class ChatOrchestrator:
             workspace_id=_llm_scope.get("workspace_id", "default"),
             tenant_id=_llm_scope.get("tenant_id", "default"),
         )
+        # Request-scoped chain query. It is assigned only on the
+        # resolved-work branch below; an unbound local previously killed the
+        # entire conversational response (S3 replay: "I'll manage those
+        # tasks" fallback). Empty means "no resolved work to chain".
+        _chain_query = ""
 
         try:
             # Build messages from history
