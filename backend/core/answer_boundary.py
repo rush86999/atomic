@@ -32,6 +32,35 @@ EXPLICIT_LIMITATION = (
     "field you want checked.")
 
 _FACT_KEYS = ("subject", "field", "value", "source")
+_LINE_NUMBERED = re.compile(r"^\s*L\d+:\s")
+_FULL_TEXT_LEAD = re.compile(
+    r"(?:full text|top hit|source excerpt|excerpt|stored document)",
+    re.IGNORECASE)
+
+
+def _strip_line_numbered_excerpt(text: str) -> str:
+    """Remove an internal line-numbered VFS excerpt from user-facing text.
+
+    The knowledge VFS renders evidence as consecutive ``L1:``/``L2:``
+    lines. That is an internal carrier; the answer is the prose around it.
+    A single ``L1:`` line is left alone (it can be a legitimate citation).
+    """
+    lines = text.splitlines()
+    kept = []
+    index = 0
+    while index < len(lines):
+        if _LINE_NUMBERED.match(lines[index]):
+            end = index
+            while end < len(lines) and _LINE_NUMBERED.match(lines[end]):
+                end += 1
+            if end - index >= 2:
+                if kept and _FULL_TEXT_LEAD.search(kept[-1]):
+                    kept.pop()
+                index = end
+                continue
+        kept.append(lines[index])
+        index += 1
+    return "\n".join(kept).strip()
 
 
 def _strip_exact(content: str, tool_block: Optional[str]) -> str:
@@ -66,7 +95,7 @@ def strip_internal_tool_envelope(
     if text.upper().startswith(_INTERNAL_HEADER):
         paragraphs = re.split(r"\n\s*\n", text, maxsplit=1)
         text = paragraphs[1].strip() if len(paragraphs) == 2 else ""
-    return text.strip()
+    return _strip_line_numbered_excerpt(text.strip())
 
 
 def _unique_fact(facts: Optional[Iterable[dict]]) -> Optional[dict]:

@@ -25,8 +25,10 @@ EVIDENCE = (ROOT / "backend/scripts/orchestration_acceptance/journey_matrix/"
             "l1_l2_l3_integrated_served_20261020")
 ATTEMPT4 = EVIDENCE / "attempt4_result.json"
 ATTEMPT5 = EVIDENCE / "attempt5_result.json"
+ATTEMPT6 = EVIDENCE / "attempt6_result.json"
 CAPTURED = json.loads(ATTEMPT4.read_text())
 CAPTURED5 = json.loads(ATTEMPT5.read_text())
+CAPTURED6 = json.loads(ATTEMPT6.read_text())
 L3 = CAPTURED["steps"]["l3"]
 S3 = CAPTURED["steps"]["s3"]
 L3_ASK = L3["ask"]
@@ -139,6 +141,24 @@ def test_missing_comparison_limitation_is_draft_grounded():
     assert "comparison itself was not recorded" in text
     assert "Broader comparison obligation: OPEN" in text
     assert "approved_records_q2026_114.txt" in text
+
+
+def test_captured_attempt6_full_text_excerpt_is_stripped():
+    """Attempt 6 emitted the line-numbered VFS full text (including the
+    decoy) as prose. That block is an internal evidence carrier; the
+    boundary must remove it and leave the supported answer."""
+    served = CAPTURED6["steps"]["l3"]["initial_response"]["message"]
+    assert "L1:" in served and "BASALT-13" in served
+    clean = present_answer(served, None, L3_ASK)
+    assert "L1:" not in clean
+    assert "BASALT-13" not in clean
+    assert "QUARTZ-77" in clean
+    assert _load_runner().l3_answer_contract(clean) is True
+
+
+def test_single_line_numbered_citation_is_not_removed():
+    text = "The launch code is QUARTZ-77 (L3: fixture line)."
+    assert present_answer(text, None, L3_ASK) == text
 
 
 def test_wrong_subject_fallback_is_a_limitation():
