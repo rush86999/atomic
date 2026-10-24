@@ -1111,6 +1111,8 @@ _LEGACY_TAIL_RESERVE_SECONDS = float(
 
 #: Longest a single feature-routing pass may take, capped further by whatever
 #: the request has left.
+_SEARCH_HANDLER_TIMEOUT_SECONDS = float(
+    os.getenv("ATOM_SEARCH_HANDLER_TIMEOUT_SECONDS", "5") or 5)
 _FEATURE_ROUTING_MAX_SECONDS = float(
     os.getenv("ATOM_FEATURE_ROUTING_MAX_SECONDS", "45") or 45)
 
@@ -5887,6 +5889,78 @@ def _resolve_requirement_identity(
         return {"state": "ambiguous", "candidates": candidates[:4]}
     return {"state": "unresolved", "names": sorted(norm)[:4]}
 
+def _catalog_title_match(
+    message: str, rows: Any,
+) -> Dict[str, Any]:
+    """Resolve a document mention against the ACTUAL uploaded catalog.
+
+    A user may name an uploaded record without its extension
+    ("my uploaded release smoke record"). The accepted interpretation can
+    miss that source; this deterministic identity resolver matches the
+    canonical title stem (separators/extension removed) against the
+    message. It never invents a source: exactly one distinct catalog row
+    must match, otherwise the result is ``none``/``ambiguous``.
+    """
+    def _canon(value: Any) -> str:
+        return re.sub(r"[\s_\-]+", "", str(value or "").casefold())
+
+    text = _canon(message)
+    if len(text) < 5:
+        return {"state": "none"}
+    hits: Dict[str, Dict[str, Any]] = {}
+    for row in rows or []:
+        if isinstance(row, dict):
+            rid = str(row.get("id") or
+                      row.get("doc_id") or row.get("file_id") or "")
+            name = str(row.get("file_name") or row.get("title") or "")
+        else:
+            rid = str(getattr(row, "id", "") or "")
+            name = str(getattr(row, "file_name", None)
+                       or getattr(row, "title", None) or "")
+        if not rid or not name:
+            continue
+        stem = name.rsplit(".", 1)[0] if "." in name else name
+        canon = _canon(stem)
+        if len(canon) < 5:
+            continue
+        # Require at least two strong tokens (or a long single token) so a
+        # generic one-word title does not capture an unrelated question.
+        tokens = [t for t in re.split(r"[^a-z0-9]+", stem.casefold())
+                  if len(t) >= 3]
+        if len(tokens) < 2 and len(canon) < 10:
+            continue
+        if canon in text:
+            hits[rid] = {
+                "file_id": rid,
+                "file_name": name,
+                "state": "resolved",
+            }
+    if len(hits) == 1:
+        return next(iter(hits.values()))
+    if len(hits) > 1:
+        return {"state": "ambiguous",
+                "candidates": list(hits.values())[:4]}
+    return {"state": "none"}
+
+
+def _resolve_catalog_mention(
+    message: str, workspace_id: Any,
+) -> Dict[str, Any]:
+    """Catalog-backed identity for an uploaded-document mention."""
+    try:
+        from core.database import get_db_session
+        from core.models import IngestedDocument
+
+        with get_db_session() as db:
+            q = db.query(IngestedDocument)
+            if workspace_id:
+                q = q.filter(IngestedDocument.workspace_id == workspace_id)
+            rows = q.all()
+    except Exception:  # noqa: BLE001 — lookup failure never completes
+        return {"state": "none"}
+    return _catalog_title_match(message, rows)
+
+
 def _comparison_carrier_covers_fields(
     carrier: Any, requested_fields: Sequence[str],
 ) -> bool:
@@ -6090,6 +6164,24 @@ def _build_evidence_requirement(
     elif mentions:
         identity = _resolve_requirement_identity(
             _mentions_to_filename_candidates(mentions), workspace_id)
+    # A document-scoped ask may name an uploaded record without its
+    # extension and without a source noun the interpretation recognised
+    # ("my uploaded release smoke record"). Resolve that mention against
+    # the actual catalog; a unique match becomes the accepted source, not
+    # a filename rule and not a blanket message noun scan.
+    if not refs.get("sources") and not file_ref and not mentions:
+        _cat = _resolve_catalog_mention(str(message or ""), workspace_id)
+        if _cat.get("state") == "resolved":
+            refs = dict(refs)
+            refs["sources"] = ["document"]
+            file_ref = {"file_name": _cat.get("file_name"),
+                        "resource_id": _cat.get("file_id")}
+            identity = {
+                "state": "resolved",
+                "file_id": _cat.get("file_id"),
+                "file_name": _cat.get("file_name"),
+            }
+            evidence_required = True
     try:
         from core.workbook_read_artifact import (
             accepted_comparison_scope,
@@ -16152,9 +16244,15 @@ class ChatOrchestrator:
                 else:
                     try:
                         with _deadline.stage("legacy-features"):
+                            _feature_req = (
+                                session.get(
+                                    f"_evidence_requirement_{_execution_id}")
+                                if isinstance(session, dict) and _execution_id
+                                else None)
                             feature_responses = await asyncio.wait_for(
                                 self._route_to_features(
-                                    message, intent_analysis, session, context),
+                                    message, intent_analysis, session, context,
+                                    evidence_requirement=_feature_req),
                                 timeout=_features_left,
                             )
                     except asyncio.TimeoutError:
@@ -29554,9 +29652,18 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         message: str,
         intent_analysis: Dict[str, Any],
         session: Dict,
-        context: Optional[Dict]
+        context: Optional[Dict],
+        evidence_requirement: Optional[Dict[str, Any]] = None,
     ) -> Dict[FeatureType, Any]:
-        """Route message to appropriate feature handlers"""
+        """Route message to appropriate feature handlers.
+
+        A resolved document-only obligation is served by its required
+        authorized read. The older SEARCH_REQUEST mapping also offers a
+        synchronous entity-registry scan and a placeholder analytics
+        handler; those are unrelated to a document read and must not run
+        merely because the legacy label says SEARCH_REQUEST. Multi-source
+        requests keep the mapped features.
+        """
         feature_responses = {}
         primary_intent = intent_analysis["primary_intent"]
 
@@ -29579,6 +29686,30 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         }
 
         target_features = intent_to_features.get(primary_intent, [FeatureType.SEARCH])
+
+        _req_sources = {
+            str(source).strip().lower()
+            for source in ((evidence_requirement or {}).get("sources") or [])
+            if str(source or "").strip()}
+        if ((evidence_requirement or {}).get("required") is True
+                and _req_sources == {"document"}):
+            _before = list(target_features)
+            # A document-only obligation is owned by its required
+            # authorized read. The legacy feature fan-out is unrelated
+            # (entity search / placeholder analytics / agent fallback);
+            # none of it may run merely because an older intent label
+            # selected the turn. Multi-source requests keep their mapped
+            # features.
+            target_features = []
+            if _before:
+                logger.info(
+                    "[feature-routing] document-only required read owns "
+                    "the turn; skipped %s", [
+                        feature.value for feature in _before])
+            # Do not fall through to the generic/agent fallback: the
+            # accepted document read is the whole capability this turn
+            # needs, and it has already been dispatched.
+            return {}
 
         # AN ENTITY-SET EDIT IS NOT A REQUEST TO CREATE A TASK (2026-09-27).
         #
@@ -29862,11 +29993,29 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
     ) -> Dict[str, Any]:
         """Handle search requests across all platforms"""
         try:
-            # Use AI data intelligence for unified search
+            # Use AI data intelligence for unified search. The legacy
+            # implementation is SYNCHRONOUS (registry + attribute scan);
+            # run it off the event loop and bound the wait so a slow
+            # registry can never silently consume the whole request.
+            # The worker thread may finish after timeout; the request
+            # returns a visible search_timeout instead of stalling.
             if "data_intelligence" in self.ai_engines:
-                search_results = self.ai_engines["data_intelligence"].search_unified_entities(
-                    message
-                )
+                try:
+                    search_results = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self.ai_engines["data_intelligence"]
+                            .search_unified_entities, message),
+                        timeout=_SEARCH_HANDLER_TIMEOUT_SECONDS)
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "[feature-search] synchronous entity search "
+                        "exceeded %.1fs; returning search_timeout",
+                        _SEARCH_HANDLER_TIMEOUT_SECONDS)
+                    return {
+                        "success": False,
+                        "error": "search_timeout",
+                        "data": {"results": [], "query": message},
+                    }
             else:
                 search_results = []
 
