@@ -1,7 +1,16 @@
 {
   "status": "diagnostic-invalid",
   "reason": "manual scratch replay selected OpenRouter instead of the declared DeepSeek route",
-  "observed": "OpenRouter z-ai/glm-5.3-flash returned HTTP 402 / insufficient credits; result was not counted",
-  "source": "manual replay recorded earlier in this session; no secret values preserved",
-  "action": "retained as invalid evidence; the configured replay harness above is the valid run"
+  "observed": {
+    "http": 200,
+    "elapsed_s": 11.5,
+    "success": false,
+    "outcome": "partial",
+    "provider": "openrouter",
+    "model": "deepseek/deepseek-v4-pro",
+    "message": "[Error: All LLM providers failed. Please check your API key configuration and try again.]",
+    "provider_error": "OpenRouter z-ai/glm-5.3-flash returned HTTP 402 / insufficient credits"
+  },
+  "source": "terminal output from the manual replay in this session; raw server log not retained",
+  "action": "retained as diagnostic-invalid memo; not counted as a replay"
 }
