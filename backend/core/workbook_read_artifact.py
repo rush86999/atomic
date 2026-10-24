@@ -4641,16 +4641,93 @@ def accepted_comparison_scope(
         r"|\bany\s+other\s+(?:differences?|discrepanc(?:y|ies))\b"
         r"|\b(?:comparable|quotation)\s+fields?\b",
         re.IGNORECASE)
+    # The USER's own broad instruction is part of the request contract even
+    # when the interpretation's requested_fields list only names the primary
+    # field. "Flag anything that differs" is a whole-document obligation,
+    # not a date-only match question. Explicit narrowing still wins.
+    _BROAD_MESSAGE = re.compile(
+        r"\b(?:flag|report|identify|list|show|assess|check)\b"
+        r"[^\n]{0,40}\b(?:anything|everything|all|any|other)\b"
+        r"[^\n]{0,30}\b(?:differs?|differences?|discrepanc(?:y|ies))\b",
+        re.IGNORECASE)
     relevant = [text for text in candidates
                 if comparison_request_shaped(text)
                 or re.search(r"\b(?:fields?|attributes?|columns?|"
                              r"properties?|metrics?|comparable)\b",
                              text, re.IGNORECASE)]
+    message_text = str(message or "").strip()
+    if not relevant and message_text:
+        relevant = [message_text]
     if not relevant:
         return False
     if any(_NARROWING.search(text) for text in relevant):
         return False
+    if message_text and _NARROWING.search(message_text):
+        return False
+    if message_text and _BROAD_MESSAGE.search(message_text):
+        return True
     return any(_BROAD_FIELD.search(text) for text in relevant)
+
+def comparison_missing_limitation(
+    *,
+    canvas: Dict[str, Any],
+    requirement: Dict[str, Any],
+    source_label: str = "",
+) -> Optional[str]:
+    """A truthful limitation for a comparison that was not recorded.
+
+    Uses only the attached canvas and the accepted requirement: it states
+    the draft value(s) it can read, names the source it retrieved, and
+    leaves the comparison explicitly open. It never invents a source value
+    or a difference.
+    """
+    if not isinstance(canvas, dict) or not isinstance(requirement, dict):
+        return None
+    fields = [str(f).strip() for f in (requirement.get("fields") or [])
+              if str(f).strip()]
+    if not fields:
+        return None
+    body = _canvas_body_text(canvas.get("content"))
+    if not body:
+        return None
+    entity = str(canvas.get("title") or canvas.get("name") or "draft")
+    canvas_id = str(canvas.get("canvas_id") or canvas.get("id")
+                    or "canvas-artifact")
+    observations = observations_from_key_value_text(
+        body, entity_id=entity,
+        requested_fields=list(_FIELD_ALIASES.keys()),
+        source={"source_id": canvas_id, "source_type": "artifact",
+                "version": canvas_id})
+    by_field = {
+        str(observation.get("field") or ""): observation
+        for observation in observations
+        if str(observation.get("field") or "")}
+    labels = [field.replace("_", " ") for field in fields]
+    label_text = ", ".join(labels)
+    source = str(source_label or "").strip()
+    if not source:
+        source = _display_text(
+            ((requirement.get("identity") or {}).get("file_name"))
+            or ((requirement.get("file") or {}).get("file_name"))
+            or "") or "the retrieved source"
+    text = (
+        f"I retrieved {source}, but the comparison itself was not "
+        f"recorded this turn, so I cannot confirm whether the requested "
+        f"{label_text} matches or differs.")
+    draft_bits = []
+    for field in fields:
+        observation = by_field.get(field) or by_field.get(
+            _canonical_field_name(field))
+        value = _display_text((observation or {}).get("raw_value"))
+        if value:
+            draft_bits.append(f"{field.replace('_', ' ')} is {value}")
+    if draft_bits:
+        text += " The draft's " + "; ".join(draft_bits) + "."
+    text += (
+        " Broader comparison obligation: OPEN — the source value was not "
+        "verified this turn.")
+    return text
+
 
 def verified_comparison_reply(
     *,

@@ -6362,6 +6362,32 @@ def _recorded_context_fulfillment(
     return cf
 
 
+_COMPARISON_CLAIM_RE = re.compile(
+    r"\b(?:compar(?:e|ed|ison)|match(?:es|ed)?|differ(?:s|ed|ence|ences)?|"
+    r"consistent|inconsistent|equal|same|changed)\b", re.IGNORECASE)
+
+
+def _comparison_claims_result(text: str) -> bool:
+    """True when prose asserts a comparison result/difference.
+
+    A reply that already states the comparison was not recorded is a
+    limitation, not a claim, and is left alone.
+    """
+    lower = str(text or "").casefold()
+    if any(marker in lower for marker in (
+            "not recorded", "cannot confirm", "broader comparison "
+            "obligation: open", "could not establish")):
+        return False
+    return bool(_COMPARISON_CLAIM_RE.search(str(text or "")))
+
+
+def _first_tool_source_label(tool_block: Optional[str]) -> str:
+    match = re.search(
+        r"^\s*-\s*\[[^\]]+\]\s*([^:]+):", str(tool_block or ""),
+        re.MULTILINE)
+    return str(match.group(1)).strip() if match else ""
+
+
 def _fallback_turn_outcome(
     session: Any,
     execution_id: Any,
@@ -26004,6 +26030,53 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     _content = present_answer(_content, _tool_block, message)
                 except Exception as _ab_err:  # noqa: BLE001 — never gate
                     logger.debug("[answer-boundary] skipped: %r", _ab_err)
+                # COMPARISON-MISSING LIMITATION (attempt-5 S3): the turn
+                # retrieved the source and has an attached draft, but the
+                # comparison itself was not recorded. A model reply that
+                # asserts a match/difference is unsupported; deliver the
+                # deterministic limitation (draft value + open obligation)
+                # instead of a fabricated source value. This uses the same
+                # recorded context-fulfillment verdict the settlement uses.
+                try:
+                    from core.workbook_read_artifact import (
+                        comparison_missing_limitation,
+                        comparison_request_shaped,
+                    )
+
+                    _req_for_guard = (
+                        (session or {}).get(
+                            f"_evidence_requirement_{execution_id}")
+                        if isinstance(session, dict) and execution_id
+                        else None)
+                    if (_req_for_guard
+                            and comparison_request_shaped(message)
+                            and _comparison_claims_result(_content)
+                            and not (response_data or {}).get(
+                                "verified_comparison")):
+                        _cf_guard = _context_backed_fulfillment(
+                            session, execution_id, workspace_id)
+                        if (_cf_guard
+                                and _cf_guard.get("missing_comparison")):
+                            _limitation = comparison_missing_limitation(
+                                canvas=canvas_context or {},
+                                requirement=_req_for_guard,
+                                source_label=(
+                                    _first_tool_source_label(_tool_block)
+                                    or "the retrieved source"))
+                            if _limitation:
+                                _content = _limitation
+                                response_data = dict(response_data or {})
+                                response_data["content"] = _limitation
+                                response_data["comparison_missing"] = True
+                                logger.info(
+                                    "[comparison-missing] replaced an "
+                                    "unsupported comparison claim with the "
+                                    "draft/open-obligation limitation "
+                                    "(execution=%s)",
+                                    str(execution_id)[:8])
+                except Exception as _cmp_err:  # noqa: BLE001 — never gate
+                    logger.debug(
+                        "[comparison-missing] guard skipped: %r", _cmp_err)
                 _claimed_content = await self._canvas_claim_correction(
                     _content, canvas_context, session_id, user_id,
                     async_continuation_forked,

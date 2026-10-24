@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import Iterable, Optional
 
-_INTERNAL_HEADER = "LIVE TOOL RESULTS ("
+_INTERNAL_HEADER = "LIVE TOOL RESULTS"
 
 EXPLICIT_LIMITATION = (
     "I found retrieved evidence for this request, but I could not "
@@ -58,7 +58,12 @@ def strip_internal_tool_envelope(
     if not text:
         return text
     text = _strip_exact(text, tool_block)
-    if text.startswith(_INTERNAL_HEADER):
+    # The planner emits several carrier header shapes: ``LIVE TOOL
+    # RESULTS (documents.search)``, ``LIVE TOOL RESULTS — regex scan ...``,
+    # ``LIVE TOOL RESULTS:``. They are all the same internal envelope; the
+    # answer starts after the first blank line. A sentence that merely
+    # mentions the phrase mid-answer is not a carrier.
+    if text.upper().startswith(_INTERNAL_HEADER):
         paragraphs = re.split(r"\n\s*\n", text, maxsplit=1)
         text = paragraphs[1].strip() if len(paragraphs) == 2 else ""
     return text.strip()

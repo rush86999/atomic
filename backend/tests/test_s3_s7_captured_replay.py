@@ -80,11 +80,13 @@ def test_s3_captured_attempt12_input_keeps_the_broader_obligation(monkeypatch):
     assert captured["broader_comparison"] is True
 
 
-def test_s3_captured_attempt2_narrower_interpretation_is_recorded(
+def test_s3_captured_attempt2_narrower_interpretation_recovers_the_broad_contract(
         monkeypatch):
-    """The composed attempt captured only the date. Replaying that exact
-    accepted request reproduces the observed gap; it must not be mistaken
-    for the broader obligation."""
+    """The captured attempt-2 interpretation named only the date field, but
+    the user's message explicitly said "Flag anything that differs". The
+    historical attempt-2 result remains narrow (preserved evidence); the
+    corrected scope rule consumes the message contract and recovers the
+    broader obligation instead of recording the gap as intended scope."""
     request = _captured_request(COMPOSED, "s3")
     assert request["message"] == S3_ASK
     assert request["requested_fields"] == ["Valid Until date", "differences"]
@@ -92,7 +94,7 @@ def test_s3_captured_attempt2_narrower_interpretation_is_recorded(
     req = _stash(monkeypatch, message=S3_ASK, accepted_request=request)
 
     assert req["fields"] == ["expiration_date"]
-    assert req["broader_comparison"] is False
+    assert req["broader_comparison"] is True
     assert req["required"] is True
 
 

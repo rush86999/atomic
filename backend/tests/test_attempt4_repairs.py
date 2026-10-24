@@ -24,7 +24,9 @@ ROOT = Path(__file__).resolve().parents[2]
 EVIDENCE = (ROOT / "backend/scripts/orchestration_acceptance/journey_matrix/"
             "l1_l2_l3_integrated_served_20261020")
 ATTEMPT4 = EVIDENCE / "attempt4_result.json"
+ATTEMPT5 = EVIDENCE / "attempt5_result.json"
 CAPTURED = json.loads(ATTEMPT4.read_text())
+CAPTURED5 = json.loads(ATTEMPT5.read_text())
 L3 = CAPTURED["steps"]["l3"]
 S3 = CAPTURED["steps"]["s3"]
 L3_ASK = L3["ask"]
@@ -91,6 +93,52 @@ def test_captured_l3_envelope_is_stripped_and_fact_survives():
     assert "QUARTZ-77" in clean
     assert "BASALT-13" not in clean
     assert "l3_zephyr9_fixture.txt" in clean
+
+
+def test_captured_attempt5_grep_envelope_is_stripped():
+    """Attempt 5 emitted the em-dash grep header; the boundary must remove
+    that carrier shape too, not only the parenthesis header."""
+    served = CAPTURED5["steps"]["l3"]["initial_response"]["message"]
+    assert served.startswith("LIVE TOOL RESULTS — regex scan")
+    clean = present_answer(served, None, L3_ASK)
+    assert "LIVE TOOL RESULTS" not in clean
+    assert "QUARTZ-77" in clean
+    assert "BASALT-13" not in clean
+
+
+def test_comparison_scope_contract_keeps_the_broad_instruction():
+    from core.workbook_read_artifact import accepted_comparison_scope
+
+    accepted = {
+        "requested_fields": ["Valid Until date"],
+        "constraints": [],
+    }
+    assert accepted_comparison_scope(accepted, S3_ASK) is True
+    follow = (
+        "What is the current Valid until date on the draft, and does it "
+        "still match the approved record?")
+    assert accepted_comparison_scope(
+        {"requested_fields": ["Valid until date", "match status"],
+         "constraints": []}, follow) is False
+    assert accepted_comparison_scope(
+        {"requested_fields": ["Valid Until date"],
+         "constraints": ["Only compare the date."]}, S3_ASK) is False
+
+
+def test_missing_comparison_limitation_is_draft_grounded():
+    from core.workbook_read_artifact import comparison_missing_limitation
+
+    req = CAPTURED5["steps"]["s3"]["requirement_summary"]
+    text = comparison_missing_limitation(
+        canvas={"content": CANVAS, "canvas_id": "c",
+                "title": "Quotation"},
+        requirement=dict(req, broader_comparison=True),
+        source_label="approved_records_q2026_114.txt")
+    assert "2026-12-31" in text
+    assert "2027-03-31" not in text
+    assert "comparison itself was not recorded" in text
+    assert "Broader comparison obligation: OPEN" in text
+    assert "approved_records_q2026_114.txt" in text
 
 
 def test_wrong_subject_fallback_is_a_limitation():
@@ -341,6 +389,45 @@ def test_canvas_conflicting_identities_are_not_silently_chosen():
     assert serialize_canvas_evidence(
         {"canvas_id": "a", "revision": 1, "content": CANVAS},
         {"canvas_id": "a", "revision": 2, "content": CANVAS}) == ""
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_replaces_unsupported_comparison_claim(monkeypatch):
+    import integrations.chat_orchestrator as co
+    from core.workbook_read_artifact import comparison_missing_limitation
+
+    fabricated = (
+        "Based on your uploaded Approved Records document, the Valid Until "
+        "date in the draft is 2026-12-31, while the approved record "
+        "indicates 2027-03-31. This suggests a difference.")
+    orch = co.ChatOrchestrator()
+    orch.ai_engines = {}
+    llm = MagicMock()
+    llm.generate_completion = AsyncMock(return_value={
+        "success": True, "content": fabricated,
+        "model": "llama3.1:8b", "provider": "ollama"})
+    orch.llm_service = llm
+    req = dict(CAPTURED5["steps"]["s3"]["requirement_summary"],
+               broader_comparison=True)
+    session = {
+        "id": "s-cmp",
+        "history": [],
+        "_evidence_requirement_exec-cmp": req,
+    }
+    monkeypatch.setattr(
+        co, "_context_backed_fulfillment",
+        lambda *a, **k: {"state": "partial", "missing_comparison": True,
+                         "supplied_fields": ["expiration_date"]})
+    out = await orch._get_qwen_response(
+        S3_ASK, [], execution_id="exec-cmp", workspace_id="ws-cmp",
+        session=session, canvas_context={
+            "canvas_id": "c", "title": "Quotation",
+            "content": CANVAS})
+    assert out is not None
+    assert "2027-03-31" not in out["content"]
+    assert "2026-12-31" in out["content"]
+    assert "comparison itself was not recorded" in out["content"]
+    assert "Broader comparison obligation: OPEN" in out["content"]
 
 
 # ---------------------------------------------------------------------------
