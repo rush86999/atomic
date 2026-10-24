@@ -1,8 +1,9 @@
 # Live-world release candidate — 2026-10-23
 
-**Status: live-world rehearsal PASSED 60/60 on the frozen build;
-cutover approval pending. The pilot remains the restored
-`8c593e57031e` build. No cutover has been performed.**
+**Status: DEPLOYED 2026-10-24. Served health/frontend/browser verified;
+full composed workflow passed 60/60 in the isolated live-world
+rehearsal. See `CUTOVER_2026-10-24.md` for rollback and the filtered
+BYOK note.**
 
 This supersedes the fresh-scratch release candidate identity for the
 live pilot. The prior `910bf85a6` candidate and its evidence remain
@@ -14,11 +15,12 @@ preserved as history.
 |---|---|
 | Product tree | `264677107d23196fcd77e2ccedf97c511fc6f32f` |
 | Rehearsal runtime | `06b213c79b66` clean (`dirty=false`) |
+| Served runtime | `3b6a1316f16f` clean (`dirty=false`) on `:8001` |
 | Clean export HEAD | `06b213c79b66` (product tree above); backend health 200 on `:8124` |
 | Live gate | `successor_gates_live.py` `6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2` |
 | Frozen old gate | `successor_gates.py` `a0b2f748…` unchanged for attempts 3–7 |
-| Pilot before cutover | `8c593e57031e`, backend `:8001`, frontend `:3000` |
-| Backup package | `…/opencode/atom-cutover-final-20261024/` (fresh SQLite/BYOK/env snapshot, integrity `ok`) |
+| Pilot before cutover | `8c593e57031e`, backend `:8001`, frontend `:3000` (restorable) |
+| Backup package | `…/opencode/atom-cutover-final-20261024/` (fresh 09:19 SQLite/BYOK/env snapshot, integrity `ok`) |
 
 ## Verification
 
@@ -47,7 +49,7 @@ preserved as history.
 Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 `release_evidence_20261023/live_world_rehearsal_attempt3/`.
 
-## Cutover (approval pending)
+## Cutover (deployed)
 
 1. **Fresh backup** is already staged. Re-verify integrity and record
    pilot health (`pilot_health_before.json`) immediately before the
@@ -77,8 +79,11 @@ Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 
 ## Hold
 
-The prior deployment hold remains. This package is ready for one explicit
-cutover approval for product `264677107` / export `06b213c79`. The prior
-approval named a different build and was not executed.
+Approved and deployed on 2026-10-24. The served backend is
+`3b6a1316f16f`; the frontend was rebuilt for `:8001`. The full workflow was
+rehearsed 60/60; the cutover browser smoke registered a new account and
+reached `/dashboard`, but that new account's first chat correctly asked for
+a provider. The candidate uses the filtered DeepSeek/Ollama BYOK profile;
+the original BYOK is in the backup. Rollback is in `CUTOVER_2026-10-24.md`.
 
 Support statement: `SUPPORT_STATEMENT_LIVE_WORLD_2026-10-23.md`.

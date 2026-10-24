@@ -3,8 +3,9 @@
 **Build:** `264677107d23196fcd77e2ccedf97c511fc6f32f`
 (clean export `06b213c79b66`; rehearsal runtime `06b213c79b66`)
 **Scope:** single-tenant local Atom pilot on the declared configuration
-**Status:** live-world rehearsal passed 60/60; **cutover approval
-pending**. The old pilot `8c593e57031e` remains in service.
+**Status:** DEPLOYED 2026-10-24; served runtime `3b6a1316f16f`; live-world
+rehearsal passed 60/60. The pre-cutover pilot is restorable from the final
+backup.
 
 ## Supported
 
@@ -44,7 +45,10 @@ Evidence: `LIVE_WORLD_REHEARSAL_ATTEMPT3.md`,
 
 ## Operation / recovery
 
-- Exact cutover and rollback instructions: `RELEASE_CANDIDATE_LIVE_WORLD_2026-10-23.md`.
+- Exact cutover and rollback instructions: `CUTOVER_2026-10-24.md` and
+  `RELEASE_CANDIDATE_LIVE_WORLD_2026-10-23.md`.
+- The candidate BYOK store is filtered to DeepSeek/Ollama; the original
+  multi-provider BYOK file is preserved in the final backup.
 - Fresh pre-cutover SQLite/BYOK/env backup: `…/opencode/atom-cutover-live-world-20261023/`; integrity `ok`.
 - Back up again immediately before any cutover; restore on failure.
 - One backend on `:8001`, one frontend on `:3000`; no `--reload`.
