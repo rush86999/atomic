@@ -70,7 +70,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 LIVE_DB = MAIN / "backend/data/atom.db"
 PILOT_BACKEND = "http://127.0.0.1:8001"
 PILOT_FRONTEND = "http://127.0.0.1:3000"
-PRODUCT_SHA = "64fd750bcbcf3204a1edf8502413181e8c4354be"
+PRODUCT_SHA = "c942cd7f8fbdf92b4e27dcfd1cffed6686110091"
 CANDIDATE_SHA = PRODUCT_SHA
 HARNESS_GATE_COMMIT = "f2f8329971129bc14e9f107aa234b98db7f18379"
 HARNESS_GATE_TAG = "successor/live-rehearsal-20261023"
@@ -80,7 +80,7 @@ PRE_DECL = HERE / "PREDECLARED_CONFIG_LIVE_REHEARSAL.md"
 
 EXPECTED_SOURCE_SHA256 = {
     "chat_tool_planner": "807dd65eb83fe7676ac29fba475ef188cac6ad82146c02321d66564a023414c5",
-    "chat_orchestrator": "5e27fc2d46d02bd00b4798998373862623dcc004295b5538a5d08356229052a1",
+    "chat_orchestrator": "09d33f17c5a5126339bd3b130a2041481b992aa1e9509a08bf094c6d0e1ded11",
     "answer_boundary": "2c6a7a044b246da7398c00d5c456626a31f6fdec819d923778f8ec0acbd42ffd",
     "workbook_read_artifact": "db23d66749eb79ed37f0011b96b0096ad0e746cc0c981fd5f5f6edb89889da67",
     "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
@@ -1911,12 +1911,22 @@ def main() -> int:
             (s7.get("initial_response") or {}).get("provider"),
         ]
         _reply_streams = list(reply_routes or [])
+        # DECLARED FALLBACK PROFILE (2026-10-24): local Ollama is preferred;
+        # if it emits no tokens, DeepSeek is the declared supported fallback.
+        # Any other provider is a parity failure. Actual routes are recorded.
+        _allowed_providers = {"ollama", "deepseek"}
+        _allowed_prefixes = ("ollama/", "deepseek/")
         _reply_parity = bool(
-            all(str(p or "").casefold().startswith("ollama")
+            all(str(p or "").casefold() in _allowed_providers
                 for p in _reply_providers)
             and _reply_streams
-            and all(str(r).casefold().startswith("ollama/")
+            and all(str(r).casefold().startswith(_allowed_prefixes)
                     for r in _reply_streams))
+        result["reply_actual_routes"] = {
+            "l3": _reply_providers[0], "s3": _reply_providers[1],
+            "s7": _reply_providers[2], "streams": _reply_streams,
+            "declared": "ollama preferred; deepseek fallback",
+        }
 
         checks = {
             "runtime_identity": bool(

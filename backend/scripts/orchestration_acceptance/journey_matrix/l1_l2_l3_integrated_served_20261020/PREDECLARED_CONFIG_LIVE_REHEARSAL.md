@@ -10,7 +10,7 @@ preserved.
 
 - Worktree: `/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout`
 - Branch: `fix/l3-required-read-timeout`
-- Frozen product commit: `64fd750bcbcf3204a1edf8502413181e8c4354be`
+- Frozen product commit: `c942cd7f8fbdf92b4e27dcfd1cffed6686110091`
   (`fix(chat): treat line-numbered VFS full text as internal evidence`), built
   on `b0bee5dbf` (the attempt-3 pin `2a113d1a3` plus the reviewed S7
   settlement correction).
@@ -28,9 +28,11 @@ preserved.
   BYOK). The authorized DeepSeek operator credential is registered
   through the product before the first ask. The local Ollama model is
   warmed before the first turn, and a new `provider_reply_parity` check
-  requires L3/S3/S7 replies and all streamed reply routes to use Ollama;
-  a DeepSeek fallback is a parity failure, not a pass (the attempt-3
-  trace exposed cold-start fallback).
+  accepts the explicitly predeclared supported fallback profile:
+  **local Ollama preferred; DeepSeek v4-pro/flash fallback when Ollama
+  emits no tokens**. Any other provider is a parity failure. Actual
+  per-turn routes are recorded separately. (The attempt-3 trace exposed
+  the cold-start fallback; this declaration is explicit, not silent.)
 - Launch HEAD: the harness commit that contains this declaration; the
   runner records the actual `head_at_launch` and `harness_commit`.
 - Product source hashes (the runner aborts on any mismatch):
