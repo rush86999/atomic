@@ -1470,12 +1470,20 @@ class BYOKHandler:
     Handler for LLM interactions using BYOK system with intelligent cost optimization.
     Automatically routes queries to the most cost-effective provider based on complexity.
 
+    ``provider_policy`` is normally resolved in ``__init__``. The class
+    default keeps the documented legacy behavior for bare/test handlers
+    created via ``__new__``; every real constructor replaces it with the
+    installation policy (or a fail-closed invalid policy).
+
     Phase 68-04: MiniMax M3 Integration
     - Positioned in STANDARD tier with estimated $1/M pricing
     - API access may be closed - graceful fallback to next provider
     - Quality score 92 (latest flagship, 512K context, image input)
     - Native agent support, no prompt caching
     """
+    from core.llm.provider_policy import ProviderPolicy as _ProviderPolicy
+    provider_policy = _ProviderPolicy(mode="unset")
+
     def __init__(
         self,
         workspace_id: str = "default",
@@ -4458,7 +4466,7 @@ class BYOKHandler:
                         sorted(getattr(policy, "allowed_providers", []) or []),
                         getattr(policy, "revision", "?"),
                         getattr(policy, "error", None))
-                    return []
+                    return AwaitableResult([])
 
             # EXECUTABLE-ROUTES GATE (2026-09-16): BPC consults BYOK's
             # credential and catalog state BEFORE ranking, not at dispatch.
@@ -5271,8 +5279,8 @@ class BYOKHandler:
                     "provider (allowed=%s revision=%s)",
                     sorted(getattr(policy, "allowed_providers", []) or []),
                     getattr(policy, "revision", "?"))
-                return []
-        
+                return AwaitableResult([])
+
         capability_blocked_options: List[tuple] = []
 
         # Hard-gate parity with the dynamic ranker above. The static fallback
@@ -5930,9 +5938,21 @@ class BYOKHandler:
                 if vision_options:
                     options = vision_options
                 elif not any("deepseek" in p.lower() for p, m in options):
-                    # Fallback default if no ranked vision option matches
-                    logger.warning("No standard vision models found in ranked options. Defaulting to GPT-4o.")
-                    options = [("openai", "gpt-4o")] # Panic fallback
+                    # Fallback default if no ranked vision option matches.
+                    # The panic fallback is still a provider dispatch; it
+                    # may not re-admit a provider outside the policy.
+                    policy = getattr(self, "provider_policy", None)
+                    if policy is not None and not policy.allows(
+                            "openai", "gpt-4o"):
+                        logger.warning(
+                            "[provider-policy] vision panic fallback "
+                            "openai/gpt-4o blocked by the allowed set")
+                        options = []
+                    else:
+                        logger.warning(
+                            "No standard vision models found in ranked "
+                            "options. Defaulting to GPT-4o.")
+                        options = [("openai", "gpt-4o")]
             
             if not options:
                 return "No eligible LLM providers found for your current plan."
@@ -5962,6 +5982,15 @@ class BYOKHandler:
             _pristine_messages = [dict(m) for m in messages] if messages else None
             for provider_id, model in options:
                 if provider_id in failed_providers:
+                    continue
+                # Same hard policy gate as streaming/structured. The
+                # non-streaming path previously relied on the ranker alone;
+                # a panic/fallback option could bypass it.
+                if not self._dispatch_catalog_admits(
+                        provider_id, model,
+                        options[0][0] if options else provider_id,
+                        operation="text"):
+                    failed_providers.add(provider_id)
                     continue
                 if self._model_cooldown_active(provider_id, model):
                     logger.info(
@@ -9000,10 +9029,17 @@ class BYOKHandler:
         Transcribe audio to text using OpenAI Whisper.
         Uses BYOK keys for the 'openai' provider.
         """
-        # Whisper is currently only supported via OpenAI provider in this architecture
+        # Whisper is currently only supported via OpenAI provider in this
+        # architecture. Audio is request content: a policy that excludes
+        # openai must fail closed rather than transcribe elsewhere.
         provider_id = "openai"
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None and not policy.allows(provider_id, model):
+            raise ValueError(
+                "Provider policy excludes openai, the only configured "
+                "transcription route; audio was not sent.")
         client = self.async_clients.get(provider_id) or self.clients.get(provider_id)
-        
+
         if not client:
             raise ValueError(f"OpenAI provider not configured for transcription. Please add an API key.")
 
@@ -9115,20 +9151,28 @@ class BYOKHandler:
         Calls a vision-only model to extract a semantic description of an image.
         This allows non-vision reasoning models to understand visual context.
         """
-        # Pick a vision-only model (Janus)
-        # For now, we'll try to use a specialized provider or default to a cheap vision model if Janus isn't configured
-        # 1. Try Gemini Flash (Cheapest Vision)
-        if "gemini" in self.clients:
-            provider = "gemini"
-            model = "gemini-2.0-flash-exp"  # Latest Gemini Flash model
-        # 2. Try Deepseek / Janus
-        elif "deepseek" in self.clients:
-            provider = "deepseek"
-            model = "janus-pro-7b"
-        # 3. Last resort - GPT-4o-mini
-        else:
-            provider = "openai"
-            model = "gpt-4o-mini"
+        # Pick a vision-only model (Janus). The provider must pass the same
+        # immutable policy as every other dispatch: auxiliary image content
+        # is still request content.
+        policy = getattr(self, "provider_policy", None)
+        candidates = [
+            ("gemini", "gemini-2.0-flash-exp"),
+            ("deepseek", "janus-pro-7b"),
+            ("openai", "gpt-4o-mini"),
+        ]
+        provider = model = None
+        for candidate_provider, candidate_model in candidates:
+            if candidate_provider not in self.clients:
+                continue
+            if policy is not None and not policy.allows(
+                    candidate_provider, candidate_model):
+                continue
+            provider, model = candidate_provider, candidate_model
+            break
+        if provider is None:
+            logger.warning(
+                "[provider-policy] no allowed vision auxiliary provider")
+            return None
 
         try:
             client = self.clients.get(provider)
@@ -9161,6 +9205,11 @@ class BYOKHandler:
                 }
             ]
 
+            if policy is not None and not policy.allows(provider, model):
+                logger.warning(
+                    "[provider-policy] BLOCKED vision auxiliary %s/%s",
+                    provider, model)
+                return None
             response = await _to_thread_safe(
                 client.chat.completions.create,
                 model=model,
@@ -10682,6 +10731,11 @@ class BYOKHandler:
         Returns:
             List of floats representing the embedding vector
         """
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None and not policy.allows(provider, model):
+            raise ValueError(
+                f"Provider policy excludes {provider}/{model}; text was not "
+                "sent for embedding.")
         client = self.async_clients.get(provider) or self.clients.get(provider)
         if not client:
             raise ValueError(f"No client available for provider: {provider}")
@@ -10711,6 +10765,11 @@ class BYOKHandler:
         """
         Generate embeddings for multiple texts in batch using managed clients.
         """
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None and not policy.allows(provider, model):
+            raise ValueError(
+                f"Provider policy excludes {provider}/{model}; text was not "
+                "sent for embedding.")
         client = self.async_clients.get(provider) or self.clients.get(provider)
         if not client:
             raise ValueError(f"No client available for provider: {provider}")

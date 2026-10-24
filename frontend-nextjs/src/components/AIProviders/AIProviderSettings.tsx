@@ -174,7 +174,7 @@ const AIProviderSettings: React.FC<AIProviderSettingsProps> = ({
         let workingCount = 0;
 
         payload.providers.forEach((p: any) => {
-          const check = p.usage?.last_check_at
+          const check = p.has_api_keys && p.usage?.last_check_at
             ? {
                 success: p.usage.last_check_ok === true,
                 message: p.usage.last_check_message || "",
@@ -299,7 +299,10 @@ const AIProviderSettings: React.FC<AIProviderSettingsProps> = ({
           : "Any enabled provider may receive requests.",
       });
     } catch (err) {
-      // The prior effective policy remains in place on failed saves.
+      // The prior effective policy remains in force on failed saves; put
+      // the controls back to it instead of leaving the rejected draft
+      // looking effective.
+      applyPolicy(policy);
       setPolicyError(
         err instanceof Error ? err.message : "Failed to save provider policy");
     } finally {

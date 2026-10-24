@@ -186,7 +186,12 @@ def resolve_provider_policy(
         resolved = resolve_setting_strict(PROVIDER_POLICY_KEY)
     except StrictSettingError as exc:
         logger.error("provider policy unreadable — failing closed: %s", exc)
-        return ProviderPolicy.invalid(str(exc), source="invalid")
+        # Preserve the authority signal: a malformed env override must
+        # still render as "Managed by this installation" in the UI, even
+        # though no usable policy could be parsed.
+        source = ("env" if os.environ.get(PROVIDER_POLICY_KEY) is not None
+                  else "invalid")
+        return ProviderPolicy.invalid(str(exc), source=source)
 
     raw = resolved.value
     if raw is None or raw == "":

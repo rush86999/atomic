@@ -221,6 +221,44 @@ async def test_policy_api_env_override_is_authoritative(monkeypatch):
     assert denied.value.status_code == 409
 
 
+@pytest.mark.asyncio
+async def test_vision_auxiliary_cannot_use_forbidden_provider():
+    handler = _bare_handler(ProviderPolicy(
+        mode="selected", allowed_providers=frozenset({"ollama"}),
+        revision="r1"))
+    calls = []
+
+    class VisionClient:
+        class chat:
+            class completions:
+                @staticmethod
+                async def create(**kwargs):
+                    calls.append(kwargs)
+                    raise AssertionError("forbidden vision dispatch")
+
+    handler.clients = {"gemini": VisionClient(), "openai": VisionClient()}
+    handler._capture_echoed_model = lambda *a, **k: None
+    out = await handler._get_coordinated_vision_description(
+        "abc123", "free", True)
+    assert out is None
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_transcription_and_embeddings_fail_closed():
+    handler = _bare_handler(ProviderPolicy(
+        mode="selected", allowed_providers=frozenset({"ollama"}),
+        revision="r1"))
+    handler.async_clients = {}
+    with pytest.raises(ValueError, match="policy excludes"):
+        await handler.generate_transcription(file=object(), model="whisper-1")
+    with pytest.raises(ValueError, match="policy excludes"):
+        await handler.generate_embedding("text", "text-embedding-3-small")
+    with pytest.raises(ValueError, match="policy excludes"):
+        await handler.generate_embeddings_batch(
+            ["a", "b"], "text-embedding-3-small")
+
+
 def test_forbidden_pin_is_refused_before_dispatch():
     from core.llm.pinned_planning import build_provider_model_pin
 

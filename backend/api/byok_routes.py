@@ -52,6 +52,23 @@ BYOK_ENC_KEY_FILE = os.getenv("BYOK_ENC_KEY_FILE") or os.path.join(
 )
 
 
+def _clear_provider_check(byok_manager, tenant_id: str, provider_id: str) -> None:
+    """A key change invalidates the last connection check."""
+    try:
+        usage = byok_manager.get_tenant_usage(tenant_id).get(provider_id)
+        if usage is None:
+            return
+        usage.last_check_at = None
+        usage.last_check_ok = None
+        usage.last_check_status = None
+        usage.last_check_message = None
+        usage.last_check_provider = None
+        usage.last_check_model = None
+        usage.last_check_latency_ms = None
+    except Exception as exc:  # noqa: BLE001 — best-effort status reset
+        logger.debug("provider check reset skipped: %s", exc)
+
+
 def _invalidate_provider_route_state(provider_id: Optional[str] = None) -> None:
     """Clear cached route knowledge after a credential change.
 
@@ -1542,6 +1559,7 @@ async def store_api_key(
         key_id = byok_manager.store_tenant_api_key(
             tenant.id, provider_id, api_key, key_name, environment,
             db=db, label=label)
+        _clear_provider_check(byok_manager, tenant.id, provider_id)
         return ApiResponse(success=True, data={
             "key_id": key_id,
             "message": f"API key stored successfully for {provider_id} in {tenant.name}",
@@ -1649,6 +1667,7 @@ async def delete_api_key(
     # cooldown/catalogue so the next turn re-evaluates instead of serving a
     # stale verdict about a credential that no longer exists.
     _invalidate_provider_route_state(provider_id)
+    _clear_provider_check(byok_manager, tenant.id, provider_id)
 
     return ApiResponse(success=True, message=f"API key {provider_id}/{key_name} deleted", data={"removed": removed})
 
