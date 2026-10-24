@@ -1,8 +1,9 @@
 # Live-world release candidate — 2026-10-23
 
-**Status: live-world rehearsal PASSED 59/59; cutover approval pending.
-The pilot remains the restored `8c593e57031e` build. No cutover has been
-performed.**
+**Status: cutover approval received, NOT executed — the reply-route
+parity gate failed in attempt 4 (L3/S3 fell back from Ollama to DeepSeek).
+The pilot remains the restored `8c593e57031e` build; the rollback stays in
+place.**
 
 This supersedes the fresh-scratch release candidate identity for the
 live pilot. The prior `910bf85a6` candidate and its evidence remain
@@ -22,9 +23,12 @@ preserved as history.
 
 ## Verification
 
-- **Live-world composed rehearsal: 59/59** on the verified pre-cutover
-  786 MB snapshot; fresh isolated auxiliary stores; scheduler,
-  ingestion sync, Telegram polling and org sharing disabled; port 8121.
+- **Live-world rehearsal: all 59 functional checks passed in attempt 3,
+  but the added `provider_reply_parity` check failed in attempt 4** —
+  L3/S3 Ollama streams produced no tokens and fell back to DeepSeek;
+  only S7 streamed Ollama. The declared local-Ollama reply route is NOT
+  proven. The world was the verified pre-cutover 786 MB snapshot with
+  fresh isolated auxiliary stores and writers disabled; port 8121.
   - L3 59.16 s: correct `QUARTZ-77`, verified `documents.search` receipt,
     no decoy.
   - Edit 29.70 s: one write, postcondition verified.
@@ -32,8 +36,8 @@ preserved as history.
   - S3 79.03 s: honest partial, broad obligation OPEN, truthful date,
     delivery recorded.
   - S7 79.01 s: date-only completed, settlement basis, restart agreement.
-  - Structured route `deepseek/deepseek-v4-pro`; streamed reply
-    `ollama/llama3.1:8b` — declared provider parity observed.
+  - Structured route `deepseek/deepseek-v4-pro`; L3/S3 reply fell back
+    to DeepSeek, S7 used Ollama — declared provider parity **failed**.
   - `live_db_isolated=true`, `pilot_untouched=true`; the pilot's own
     background writes account for the live DB fingerprint change.
 - **Clean export** at `1508955bf`: `git archive` → backend import/startup
@@ -47,7 +51,7 @@ preserved as history.
 Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 `release_evidence_20261023/live_world_rehearsal_attempt3/`.
 
-## Cutover (only after approval)
+## Cutover (blocked)
 
 1. **Fresh backup** is already staged. Re-verify integrity and record
    pilot health (`pilot_health_before.json`) immediately before the
@@ -77,8 +81,9 @@ Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 
 ## Hold
 
-The prior deployment hold is still in force. This package does not
-silently revoke it. Approve only this exact product/clean-export identity
-and the evidence above; no other build or configuration.
+The prior deployment hold remains. Approval was received, but the
+cutover was **not executed** because attempt 4 failed reply-route parity.
+A new decision is required: repair/declare the Ollama route, or declare a
+DeepSeek reply configuration and re-verify.
 
 Support statement: `SUPPORT_STATEMENT_LIVE_WORLD_2026-10-23.md`.

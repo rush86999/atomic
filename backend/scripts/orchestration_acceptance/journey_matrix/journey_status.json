@@ -524,7 +524,7 @@
   }
  },
  "RELEASE.pilot": {
-  "status": "live-world-rehearsal-passed-cutover-approval-pending",
+  "status": "cutover-approval-received-provider-parity-blocked",
   "candidate": "f09766d5c578d3d299a3b5c020f627ee53bfb32d",
   "export_head": "4d6aaffb14d24655311df4d42b67be4859f1799b",
   "verified_attempt": 7,
@@ -534,36 +534,25 @@
   "frontend_build": true,
   "browser_signin": true,
   "pilot_before": "8c593e57031e-dirty (backend :8001 pid 81067), frontend :3000, untouched",
-  "deployment": "hold \u2014 one explicit cutover approval required for product f09766d5c / export 1508955bf",
+  "deployment": "hold re-engaged \u2014 approval received but cutover NOT executed; reply-route parity failed",
   "release_doc": "docs/acceptance/RELEASE_CANDIDATE_LIVE_WORLD_2026-10-23.md",
   "support_statement": "docs/acceptance/SUPPORT_STATEMENT_LIVE_WORLD_2026-10-23.md",
   "evidence": "docs/acceptance/release_evidence_20261023/",
-  "notes": "Live-world composed rehearsal passed 59/59 on the isolated 786MB snapshot with product f09766d5c, live gate 6d66d0b8, runtime 1e8b5698f. All measured legs under the unchanged 95s budget; L3 no decoy; S3 honest partial/open; S7 date-only completed/settlement; restart agreement. Structured DeepSeek + reply Ollama observed. Pilot untouched; live_db_unchanged false is pilot background writes. No cutover yet; new backup/rollback package prepared; one explicit approval required.",
+  "notes": "Approval was received for product f09766d5c, but attempt 4 showed L3/S3 Ollama streams produce no tokens and fall back to DeepSeek; S7 alone used Ollama. All functional checks passed, but the declared reply route is not proven. Cutover was NOT executed; pilot remains 8c593e57031e; fresh backup package remains staged. No deadline, provider switch, corpus, or integration change was made.",
   "cutover_attempt": "docs/acceptance/CUTOVER_ATTEMPT_2026-10-23.md",
   "cutover_evidence": "docs/acceptance/release_evidence_20261023/cutover_attempt/",
   "pilot_after_rollback": "8c593e57031e clean backend :8001 health 200; main-checkout next dev :3000 /login 200; DB/BYOK restored",
   "live_rehearsal": {
-   "status": "passed",
-   "attempt": 3,
-   "checks": "59/59",
-   "first_failure": null,
+   "status": "failed_provider_parity",
+   "attempt": 4,
+   "checks": "59 functional true; provider_reply_parity false",
    "product": "f09766d5c578d3d299a3b5c020f627ee53bfb32d",
-   "runtime": "1e8b5698fb0f",
-   "gate": "successor_gates_live.py 6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2",
-   "world": "verified 786MB pre-cutover snapshot; isolated auxiliary stores; writers disabled",
-   "latencies": {
-    "l3": 59.16,
-    "edit": 29.7,
-    "reask": 37.14,
-    "comparison": 79.03,
-    "continuation": 79.01
-   },
-   "provider_routes": {
-    "structured": "deepseek/deepseek-v4-pro",
-    "reply": "ollama/llama3.1:8b"
-   },
-   "evidence": "docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md",
-   "report": "docs/acceptance/release_evidence_20261023/live_world_rehearsal_attempt3/"
+   "runtime": "9cffe4fcb8db",
+   "l3_reply": "deepseek/deepseek-v4-pro",
+   "s3_reply": "deepseek/deepseek-flash",
+   "s7_reply": "ollama/llama3.1:8b",
+   "evidence": "docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT4.md",
+   "report": "docs/acceptance/release_evidence_20261023/live_world_rehearsal_attempt4/"
   },
   "clean_export_head": "1508955bf",
   "backup_package": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/",

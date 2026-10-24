@@ -3,8 +3,9 @@
 **Build:** `f09766d5c578d3d299a3b5c020f627ee53bfb32d`
 (clean export `1508955bf`; rehearsal runtime `1e8b5698fb0f`)
 **Scope:** single-tenant local Atom pilot on the declared configuration
-**Status:** live-world rehearsal passed 59/59; **cutover approval
-pending**. The old pilot `8c593e57031e` remains in service until then.
+**Status:** cutover approval received but **not executed**; the
+reply-route parity gate failed (L3/S3 Ollama→DeepSeek fallback). The old
+pilot `8c593e57031e` remains in service; the hold is re-engaged.
 
 ## Supported
 
@@ -18,12 +19,12 @@ local Ollama reply, local fastembed, SQLite/LanceDB/BYOK):
 - ask a follow-up and reload/restart without losing or contradicting the
   saved result.
 
-The live-world composed rehearsal passed 59/59 on the verified pre-cutover
-786 MB snapshot with isolated auxiliary stores and writers disabled. It
-verified L3 answer/read, edit, re-ask, S3 comparison, S7 continuation,
-restart persistence/agreement, `live_db_isolated`, and
-`pilot_untouched`. Observed routes: `deepseek/deepseek-v4-pro` structured,
-`ollama/llama3.1:8b` streamed reply.
+The live-world rehearsal passed all 59 functional checks on the verified
+pre-cutover 786 MB snapshot with isolated auxiliary stores and writers
+disabled. The added reply-parity check then failed: L3/S3 Ollama streams
+produced no tokens and fell back to DeepSeek; only S7 streamed Ollama.
+The declared local-Ollama reply route is therefore NOT proven, and no
+cutover was executed.
 
 Evidence: `LIVE_WORLD_REHEARSAL_ATTEMPT3.md`,
 `RELEASE_CANDIDATE_LIVE_WORLD_2026-10-23.md`, and
