@@ -741,7 +741,7 @@ def main() -> int:
                          "--is-ancestor", HARNESS_GATE_COMMIT, "HEAD"])
     if gate_ancestor.returncode != 0:
         raise RuntimeError("frozen gate commit not in HEAD; no launch")
-    gate_hash = sha256_file(HERE / "successor_gates.py")
+    gate_hash = sha256_file(HERE / "successor_gates_live.py")
     if gate_hash != EXPECTED_GATES_SHA256:
         raise RuntimeError("successor gate module changed; no launch")
 
