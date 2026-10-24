@@ -70,7 +70,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 LIVE_DB = MAIN / "backend/data/atom.db"
 PILOT_BACKEND = "http://127.0.0.1:8001"
 PILOT_FRONTEND = "http://127.0.0.1:3000"
-PRODUCT_SHA = "561907d4f6e4ce13935301db83774c9b93441a0c"
+PRODUCT_SHA = "5a003c824bb52fd6b92f8a5028ecf35582c3698c"
 CANDIDATE_SHA = PRODUCT_SHA
 HARNESS_GATE_COMMIT = "f2f8329971129bc14e9f107aa234b98db7f18379"
 HARNESS_GATE_TAG = "successor/live-rehearsal-20261023"
@@ -79,11 +79,12 @@ EXPECTED_GATES_SHA256 = (
 PRE_DECL = HERE / "PREDECLARED_CONFIG_LIVE_REHEARSAL.md"
 
 EXPECTED_SOURCE_SHA256 = {
-    "chat_tool_planner": "0b6294a6c1e3493e91a94db35af0187126a870297f5e78c144472b270cda7c13",
+    "chat_tool_planner": "807dd65eb83fe7676ac29fba475ef188cac6ad82146c02321d66564a023414c5",
     "chat_orchestrator": "75b0da7dd7790d0578c2836b44a48fba72223d0281067c5ea4b60716428c8386",
     "answer_boundary": "2c6a7a044b246da7398c00d5c456626a31f6fdec819d923778f8ec0acbd42ffd",
     "workbook_read_artifact": "db23d66749eb79ed37f0011b96b0096ad0e746cc0c981fd5f5f6edb89889da67",
     "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
+    "chat_routes": "f8097f62e530bf45c08e671e9eced45e200b00021cfe228be5cc626bcdfff129",
     "turn_decision": "79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a",
 }
 
@@ -192,6 +193,8 @@ def source_hashes(cand_backend: Path) -> dict:
             cand_backend / "core" / "chat_tool_planner.py"),
         "chat_orchestrator": sha256_file(
             cand_backend / "integrations" / "chat_orchestrator.py"),
+        "chat_routes": sha256_file(
+            cand_backend / "integrations" / "chat_routes.py"),
         "answer_boundary": sha256_file(
             cand_backend / "core" / "answer_boundary.py"),
         "chat_canvas_editor": sha256_file(
