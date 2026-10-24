@@ -10,7 +10,7 @@ preserved.
 
 - Worktree: `/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout`
 - Branch: `fix/l3-required-read-timeout`
-- Frozen product commit: `241d0f8e62fa5fa3b9aadc0b056c19b07610c3c1`
+- Frozen product commit: `f09766d5c578d3d299a3b5c020f627ee53bfb32d`
   (`fix(chat): treat line-numbered VFS full text as internal evidence`), built
   on `b0bee5dbf` (the attempt-3 pin `2a113d1a3` plus the reviewed S7
   settlement correction).
