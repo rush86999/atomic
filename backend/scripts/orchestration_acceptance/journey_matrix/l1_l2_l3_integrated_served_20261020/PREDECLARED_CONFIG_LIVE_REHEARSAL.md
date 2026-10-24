@@ -16,7 +16,9 @@ preserved.
   settlement correction).
 - Frozen successor gate harness: `f2f8329971129bc14e9f107aa234b98db7f18379`
   (`acceptance: capture S7 prior identity per run and accept honest
-  restarts`).
+  restarts`), with the gate module hash
+  `6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2`
+  (dynamic captured-prior text; fixture wording remains accepted).
 - Database: the verified pre-cutover 786 MB snapshot restored into the
   isolated scratch. Auxiliary LanceDB/atom-memory stores are fresh;
   scheduler, ingestion sync, Telegram polling and org sharing are

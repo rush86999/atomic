@@ -43,7 +43,7 @@ import httpx
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
-from successor_gates import (  # noqa: E402
+from successor_gates_live import (  # noqa: E402
     all_open_work_is_prior_s3,  # noqa: F401 — re-exported for tests
     cf_completed_scope,
     continuation_source_ok,
@@ -75,7 +75,7 @@ CANDIDATE_SHA = PRODUCT_SHA
 HARNESS_GATE_COMMIT = "f2f8329971129bc14e9f107aa234b98db7f18379"
 HARNESS_GATE_TAG = "successor/live-rehearsal-20261023"
 EXPECTED_GATES_SHA256 = (
-    "a0b2f748633c21536774048b6591006aa3548b0947e62178fa6fa6142707a017")
+    "6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2")
 PRE_DECL = HERE / "PREDECLARED_CONFIG_LIVE_REHEARSAL.md"
 
 EXPECTED_SOURCE_SHA256 = {

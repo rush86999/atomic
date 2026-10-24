@@ -576,3 +576,19 @@ def test_runner_returns_none_when_no_task_record_is_available(tmp_path):
     db = tmp_path / "empty.db"
     sqlite3.connect(db).close()
     assert runner.open_task_obligations(db, CONVERSATION) is None
+
+
+def test_live_world_prior_text_matches_captured_next_action():
+    from successor_gates_live import all_open_work_is_prior_s3
+
+    prior = {"items": [{
+        "status": "open", "kind": "verification",
+        "question_id": "q-live", "source_operation": "op-live",
+        "next_action": "re-run the outlook lookup for the quote's items"}]}
+    open_item = dict(prior["items"][0])
+    assert all_open_work_is_prior_s3(
+        {"open_work": ["re-run the outlook lookup for the quote's items"]},
+        [open_item], prior) is True
+    assert all_open_work_is_prior_s3(
+        {"open_work": ["some unrelated open item"]},
+        [open_item], prior) is False
