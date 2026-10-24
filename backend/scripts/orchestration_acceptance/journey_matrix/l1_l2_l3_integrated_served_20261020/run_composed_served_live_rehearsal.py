@@ -70,7 +70,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 LIVE_DB = MAIN / "backend/data/atom.db"
 PILOT_BACKEND = "http://127.0.0.1:8001"
 PILOT_FRONTEND = "http://127.0.0.1:3000"
-PRODUCT_SHA = "a032164554cb99e927cae71924e17e0f8bc4dff3"
+PRODUCT_SHA = "cc813aeeb90b84fcb36d128fda0a3b32b255742e"
 CANDIDATE_SHA = PRODUCT_SHA
 HARNESS_GATE_COMMIT = "f2f8329971129bc14e9f107aa234b98db7f18379"
 HARNESS_GATE_TAG = "successor/live-rehearsal-20261023"
@@ -80,8 +80,8 @@ PRE_DECL = HERE / "PREDECLARED_CONFIG_LIVE_REHEARSAL.md"
 
 EXPECTED_SOURCE_SHA256 = {
     "chat_tool_planner": "807dd65eb83fe7676ac29fba475ef188cac6ad82146c02321d66564a023414c5",
-    "chat_orchestrator": "4ecab413dd16011a35c3e82a7784dfd3a68e95c216b7c2a4aec6564a7d42c5d9",
-    "answer_boundary": "c6dc85ac54c823e03711202e1f99b377e5723677d7f301ea2bf1cf21765bd522",
+    "chat_orchestrator": "7736adbf3bbf9e007087201f4e72b212a1667f7384ec44426efc915b3802d91c",
+    "answer_boundary": "5f38f51a6691bbea7cc9bf1cdb19b0efaeec0476977b59fd9fac500963dcb836",
     "workbook_read_artifact": "db23d66749eb79ed37f0011b96b0096ad0e746cc0c981fd5f5f6edb89889da67",
     "chat_canvas_editor": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
     "chat_routes": "d86d0be9334e8927c6811b998a5cc8c28a3b535d03cace57e8f9529679ffa0e0",
