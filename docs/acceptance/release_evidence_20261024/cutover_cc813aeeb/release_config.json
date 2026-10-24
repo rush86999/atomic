@@ -1,0 +1,235 @@
+{
+  "schema": "atom-cutover-config/v1",
+  "generated_at": "2026-10-24T14:48:19Z",
+  "candidate": {
+    "product_commit": "cc813aeeb90b84fcb36d128fda0a3b32b255742e",
+    "product_tree": "5e324af5297640ee11628fa755bd50c7b7307302",
+    "launch_commit": "b682d017e60ffb0f872fddba9bcf9fb648034775",
+    "launch_source_id": "b682d017e60f",
+    "launch_dirty": false,
+    "product_tree_equals_pin": true,
+    "rehearsal": {
+      "attempt": 8,
+      "checks": "60/60",
+      "classification": "verified_l1_l2_l3_composed_workflow",
+      "latencies_s": {
+        "l3": 59.1,
+        "edit": 33.99,
+        "reask": 31.04,
+        "comparison_s3": 87.53,
+        "continuation_s7": 67.46
+      },
+      "live_db_isolated": true,
+      "pilot_untouched": true,
+      "evidence": "docs/acceptance/release_evidence_20261023/live_world_rehearsal_attempt8/",
+      "checksum_file": "CHECKSUMS_ATTEMPT8.sha256",
+      "checksum_status": "5/5 verified, not rewritten"
+    }
+  },
+  "release_tree": {
+    "path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-release-cc813aeeb-20261024",
+    "head": "b682d017e60ffb0f872fddba9bcf9fb648034775",
+    "tree": "96542efeae3ff554094e58f1121396ca0f1694d7",
+    "clean": true,
+    "product_source_hashes_sha256": {
+      "backend/core/answer_boundary.py": "5f38f51a6691bbea7cc9bf1cdb19b0efaeec0476977b59fd9fac500963dcb836",
+      "backend/integrations/chat_orchestrator.py": "7736adbf3bbf9e007087201f4e72b212a1667f7384ec44426efc915b3802d91c",
+      "backend/integrations/chat_routes.py": "d86d0be9334e8927c6811b998a5cc8c28a3b535d03cace57e8f9529679ffa0e0",
+      "backend/core/chat_canvas_editor.py": "5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece",
+      "backend/core/chat_tool_planner.py": "807dd65eb83fe7676ac29fba475ef188cac6ad82146c02321d66564a023414c5",
+      "backend/core/turn_decision.py": "f5342f1d8deac03a917142d5931efec190fe58a52889e8acf9cc551963508065",
+      "backend/core/workbook_read_artifact.py": "db23d66749eb79ed37f0011b96b0096ad0e746cc0c981fd5f5f6edb89889da67"
+    },
+    "staged_health_evidence": "release_evidence_20261024/cutover_cc813aeeb/stage_backend_health.json"
+  },
+  "frontend": {
+    "path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-release-cc813aeeb-20261024/frontend-nextjs",
+    "source_tree": "0d48f0b863ba3069526006ed29441099df435c71",
+    "source_unchanged_from_product": true,
+    "build_id": "tCcJqyp6jX99CjA0eySjZ",
+    "build_id_sha256": "d50390e9253a4e2fb1db1422a84ad6eb206feb48d58fb35cb2772372d6cd993d",
+    "next_version": "16.2.2",
+    "bundler": "webpack",
+    "node_version": "20.19.6",
+    "npm_version": "10.8.2",
+    "api_url": "http://127.0.0.1:8001",
+    "allow_loopback": true,
+    "package_lock_sha256": "c4655cddccb0d05a2139b6ca70ddeb801fffd655ee2396221bd2169a84165917",
+    "build_log_sha256": "e4ffda9e6c4a5bccd21e3225e8bf5b008e33f1c7d4e93ec4d8970fc5c5bd606b",
+    "stage_login_status": "200",
+    "stage_login_evidence": "release_evidence_20261024/cutover_cc813aeeb/stage_frontend_login_status.txt"
+  },
+  "interpreter": {
+    "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "version": "Python 3.14.7",
+    "pip_freeze_sha256": "70aedee442940759490bea13dc32bc0526af274d7fd1fb13f573886df403d060"
+  },
+  "flags": {
+    "preserve_from_pilot": {
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1",
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "ATOM_STREAM_FALLBACK_RESERVE_SECONDS": "70",
+      "ATOM_OLLAYA_ENABLED": "true",
+      "ATOM_OLLAYA_SHADOW_INTENT": "true",
+      "ATOM_OLLAYA_SHADOW_TURN": "true",
+      "ATOM_OLLAYA_SHADOW_GATE": "true",
+      "ATOM_OLLAYA_GATE_SAMPLE_RATE": "0.1",
+      "ATOM_BPE_WORKSPACE_ENABLED": "true",
+      "ATOM_BPE_CONSULT_POLICY": "true",
+      "ATOM_BPE_EVOLUTION": "auto",
+      "ATOM_EDITION": "enterprise",
+      "ATOM_LOCAL_ONLY": "false",
+      "ATOM_DECISION_AUTO_ENFORCE": "approve",
+      "ENVIRONMENT": "development",
+      "EMBEDDING_PROVIDER": "fastembed",
+      "FASTEMBED_MODEL": "BAAI/bge-small-en-v1.5",
+      "EMBEDDING_DIM": "384"
+    },
+    "add": {
+      "ATOM_TURN_INTERPRETATION": "1",
+      "ATOM_TURN_INTERPRET_PIN": "deepseek:deepseek-v4-pro",
+      "ATOM_TURN_INTERPRET_CAPTURE": "1",
+      "ATOM_TURN_DECISION_ROUTING": "1",
+      "ATOM_ASYNC_EDIT_PLAN_MODEL": "deepseek/deepseek-v4-pro",
+      "ATOM_PREFERRED_LLM_PROVIDER": "ollama",
+      "ATOM_PREFERRED_LLM_MODEL": "llama3.1:8b"
+    },
+    "do_not_set": {
+      "TESTING": "would redirect the primary engine to a scratch DB",
+      "ENABLE_SCHEDULER": "false is rehearsal-only; do not disable live writers permanently",
+      "ENABLE_INGESTION_SYNC": "false is rehearsal-only; do not disable live writers permanently"
+    },
+    "rehearsal_inert_parity_flags": {
+      "ATOM_PROVIDER": "ollama",
+      "ATOM_DEFAULT_MODEL": "llama3.1:8b",
+      "PREFERRED_PROVIDER": "ollama",
+      "note": "present in the attempt-8 environment but not read by this backend tree; the cutover does not rely on them"
+    }
+  },
+  "stores": {
+    "database_url": "sqlite:////Users/rushiparikh/projects/atom/backend/data/atom.db",
+    "atom_data_dir": "/Users/rushiparikh/projects/atom/backend/data",
+    "lancedb_uri": "/Users/rushiparikh/projects/atom/backend/data/atom_memory",
+    "lancedb_uri_base": "/Users/rushiparikh/projects/atom/backend/data/atom_memory",
+    "lancedb_path": "/Users/rushiparikh/projects/atom/backend/data/lancedb",
+    "byok_config_file": "/Users/rushiparikh/projects/atom/backend/data/byok_config.json",
+    "byok_keys_file": "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json",
+    "byok_enc_key_file": "/Users/rushiparikh/projects/atom/backend/data/byok_encryption_key",
+    "byok_policy": "preserve files in place; no filtering; do not use candidate-byok/"
+  },
+  "provider_settings": {
+    "change": "none to BYOK; additive env reply preference only",
+    "byok_keys_preserved": 13,
+    "provider_definitions_preserved": 37,
+    "global_providers_reachable": [
+      "deepseek",
+      "opencode-go",
+      "openrouter",
+      "ollama (local, tenant-scoped keys plus no-key local route)"
+    ],
+    "filtered_store_used": false
+  },
+  "routes": {
+    "intended": {
+      "reply": "ollama/llama3.1:8b",
+      "structured_interpretation": "deepseek/deepseek-v4-pro",
+      "edit_planning": "deepseek/deepseek-v4-pro"
+    },
+    "allowed_fallback": [
+      "deepseek/deepseek-v4-pro",
+      "opencode-go",
+      "openrouter"
+    ],
+    "fallback_note": "allowed only because the preserved live BYOK retains those credentials; attempt 8 did not exercise them; smoke must record the actual route"
+  },
+  "backup": {
+    "staged_0919": {
+      "path": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-final-20261024/atom-pre-cutover-final-20261024-091936.db.gz",
+      "gzip_sha256": "e54d2dbb92ff43f7afa062810d204d25b690a47f775964dbb90930f4e447e5c3",
+      "quick_check": "ok",
+      "rows": {
+        "users": 48,
+        "chat_sessions": 1022,
+        "chat_messages": 5426,
+        "canvases": 197,
+        "canvas_audit": 1116,
+        "ingested_documents": 3747,
+        "agent_executions": 4254,
+        "task_operation_records": 269
+      },
+      "status": "restorable but stale; not the cutover rollback source"
+    },
+    "fresh_snapshot_required_at_cutover": true,
+    "fresh_snapshot_location": "docs/acceptance/release_evidence_20261024/cutover_execution_cc813aeeb/pre_cutover/",
+    "method": "sqlite3 backup API after quiescence; quick_check and row counts verified; BYOK/env copied unchanged with mode 600"
+  },
+  "maintenance_window": {
+    "date": "2026-10-24",
+    "local_edt": "11:30-12:30",
+    "utc": "15:30-16:30",
+    "start_deadline_edt": "11:50",
+    "rollback_deadline_edt": "12:25",
+    "attempts": 1
+  },
+  "smoke": {
+    "account": "seeded admin via real /api/auth/login; credential read only from local 0600 password file",
+    "fixture": "release_smoke_record_cc813aeeb.txt",
+    "fixture_code": "CEDAR-42",
+    "sourced_ask": "Search my uploaded documents for the release smoke code in release_smoke_record_cc813aeeb.txt and tell me the code. Name the source.",
+    "edit_ask": "Please update the payment terms in the draft to Net 30.",
+    "pass_criteria": [
+      "health 200, revision b682d017e60ffb0f872fddba9bcf9fb648034775, dirty=false, live DB/BYOK paths",
+      "/login 200 and real browser sign-in",
+      "sourced answer contains CEDAR-42 and names release_smoke_record_cc813aeeb.txt; persisted history; no provider error",
+      "edit writes exactly once and preserves all other fields",
+      "identical re-ask writes zero additional rows and leaves the body unchanged",
+      "restart preserves identity, answer, and canvas",
+      "actual reply route recorded; intended Ollama, structured DeepSeek",
+      "post-smoke user-visible DB delta equals smoke fixtures; background agent rows are attributable in logs"
+    ],
+    "artifacts_dir": "docs/acceptance/release_evidence_20261024/cutover_execution_cc813aeeb/"
+  },
+  "rollback": {
+    "triggers": [
+      "health non-200 or wrong revision/dirty state or wrong live DB/BYOK path",
+      "frontend login/browser sign-in failure not fixed in 5 minutes",
+      "sourced answer missing CEDAR-42, wrong source, provider failure, or unexplained route after two attempts",
+      "edit writes zero or more than one time, or changes another field",
+      "re-ask writes again or changes the body",
+      "restart loses history/canvas or changes identity",
+      "DB integrity failure or unexplained row delta",
+      "owner abort"
+    ],
+    "method": "stop candidate PIDs; restore fresh snapshot; restore unchanged BYOK/env; restart old backend 8c593e57031e and old frontend; verify health/login; preserve evidence",
+    "retry": "none in the same window"
+  },
+  "known_limitations": [
+    {
+      "id": "ingested-first-paragraph",
+      "severity": "user-visible text loss, no data mutation",
+      "condition": "first paragraph of a multi-paragraph non-streaming reply contains the literal [ingested]",
+      "effect": "first paragraph is dropped by the answer boundary",
+      "reproduction": "You wrote: \"[ingested] is the tag the importer adds.\" + blank line + second paragraph -> second paragraph only",
+      "review": "docs/acceptance/DELTA_REVIEW_CC813AEEB_2026-10-24.md",
+      "acceptance": "required explicitly in CUTOVER_APPROVAL_2026-10-24.md"
+    },
+    {
+      "id": "one-rehearsal",
+      "severity": "evidence scope",
+      "detail": "one attempt-8 rehearsal is not a reliability or latency-tail estimate; S3 took 87.53 s"
+    },
+    {
+      "id": "provider-universe",
+      "severity": "configuration coverage",
+      "detail": "attempt 8 used an isolated DeepSeek+Ollama credential store; live preserves all BYOK providers, so broader fallbacks are not rehearsal-covered"
+    }
+  ],
+  "approval": {
+    "status": "requested_pending_owner",
+    "document": "docs/acceptance/CUTOVER_APPROVAL_2026-10-24.md",
+    "required_reply": "APPROVE CUTOVER cc813aeeb, window 2026-10-24 11:30-12:30 EDT, accept [ingested] limitation, smoke + rollback as written."
+  },
+  "cutover_executed": false,
+  "served_runtime": null
+}
