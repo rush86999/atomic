@@ -1,0 +1,146 @@
+# Predeclared configuration — composed served attempt 6 (comparison truthfulness)
+
+Frozen: 2026-10-23, before launch. This file is the declaration; the
+runner records its sha256 and refuses to launch without it. **This
+successor has not been launched.** Attempt 5 is the last campaign and
+remains non-passing (57/59; S3 broader scope/date). Attempts 3–5 are
+preserved.
+
+## Candidate and runtime pin
+
+- Worktree: `/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout`
+- Branch: `fix/l3-required-read-timeout`
+- Frozen product commit: `e994138432164dbec1befbec17306ade21118450`
+  (`fix(chat): recover broad comparison scope and withhold unsupported comparisons`), built
+  on `b0bee5dbf` (the attempt-3 pin `2a113d1a3` plus the reviewed S7
+  settlement correction).
+- Frozen successor gate harness: `f2f8329971129bc14e9f107aa234b98db7f18379`
+  (`acceptance: capture S7 prior identity per run and accept honest
+  restarts`). The gate module is pinned by hash in the runner and
+  preflight.
+- Launch HEAD: the harness commit that contains this declaration; the
+  runner records the actual `head_at_launch` and `harness_commit`.
+- Product source hashes (the runner aborts on any mismatch):
+  - `backend/core/chat_tool_planner.py`
+    `0b6294a6c1e3493e91a94db35af0187126a870297f5e78c144472b270cda7c13`
+  - `backend/integrations/chat_orchestrator.py`
+    `8a44f874a5e51efb310652671cd86db0c3034633ba05436598f414caa75d4a97`
+  - `backend/core/answer_boundary.py`
+    `f3c0c97809d2e4a9671d8b44ef89aeac67a2dd9aad26bd4a644ea2b5f31b89ad`
+  - `backend/core/chat_canvas_editor.py`
+    `5f724ceb645cff36718c13a5c6a3cb3de2417f63f9b2e04cc5be84c55170dece`
+  - `backend/core/workbook_read_artifact.py`
+    `db23d66749eb79ed37f0011b96b0096ad0e746cc0c981fd5f5f6edb89889da67`
+  - `backend/core/turn_decision.py`
+    `79940f7b460dedd53f8d1c3fb26dbd7f153a46f078f0fae411d23473b7e5d42a`
+- The runner verifies `git diff e99413843..HEAD -- backend/core
+  backend/integrations` is empty, every source hash matches, the gate
+  module hash matches the reviewed harness, and the worktree is clean.
+  It aborts on any unexplained difference.
+
+## What changed from attempt 4
+
+The experiment is unchanged: same DeepSeek-direct structured route,
+DeepSeek edit planning, local Ollama reply, local fastembed embeddings,
+same requests, fixtures, distractor document, and deadlines. The
+successor adds only the reviewed repairs from attempt 5:
+
+- **S7 prior identity is captured per run.** Between S3 and S7 the runner
+  captures the durable open obligations from THIS run and passes them as
+  `expected_prior`; the gate matches actual S7 open questions by
+  question_id + source_operation + next_action + kind. It never derives
+  the expected identity from S7's own list. Cross-run tests use different
+  generated UUIDs.
+- **Restart agreement is partial-aware but exact.** The reload must
+  reproduce the accepted pre-restart outcome, success, content, execution
+  identity, status, and delivery record. Completed and the reviewed
+  partial are legitimate; an arbitrary partial fails because the S7 gate
+  must have accepted it.
+- **Comparison scope and truthfulness.** An explicit "flag anything
+  that differs" recovers the broad comparison obligation even when the
+  interpretation named only the primary field; explicit narrowing still
+  wins. When the comparison itself was not recorded, a reply asserting a
+  match/difference is replaced by a draft-grounded limitation naming the
+  retrieved source and leaving the broader comparison OPEN. No fabricated
+  source value ships.
+- **L3 answer boundary.** All internal `LIVE TOOL RESULTS` carrier header
+  shapes are removed (parenthesis, em-dash grep, colon). Substantive prose
+  is preserved; a fallback uses only a unique structured association or an
+  explicit limitation.
+- **S3 figure grounding.** The guard reads the passed canvas context as
+  well as the local one; empty local serializations are skipped, and
+  conflicting canvas identities/revisions are not silently chosen. The
+  figure check is attribution-aware (canvas vs tool source), and a
+  source-unsupported or misattributed figure still triggers correction.
+  The 95-second turn budget is unchanged.
+
+## Sequence (unchanged; all legs, no skipping)
+
+1. Upload `approved_records_q2026_114.txt` and
+   `l3_zephyr9_fixture.txt`; the L3 fixture carries the distractor
+   `BASALT-13`.
+2. L3 sourced answer in session A:
+   `search my uploaded documents for the launch code for project Zephyr-9 and tell me the code`.
+3. Create the draft; seed `Terms: Net 45`, `Valid until: 2026-12-31`,
+   unit price `$48,000.00`.
+4. Edit in session A: `Please update the payment terms in the draft to Net 30.`
+5. Identical re-ask in session A (no-op, zero additional writes).
+6. Comparison in fresh session B:
+   `Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.`
+7. Date-only continuation in session B:
+   `What is the current Valid until date on the draft, and does it still match the approved record?`
+8. Restart/reload both conversations, canvas, audits, and durable rows.
+
+The S3/S7 legs are not optional and are not replaced by another
+configuration. An honest S7 partial passes only under the reviewed
+prior-obligation rules and cannot compensate for S3 timing out or failing
+its comparison gates.
+
+## Isolation
+
+- Scratch root:
+  `.../l2-fix/scratch/l1-l2-l3-composed-attempt6`
+- Port: `8116` (pilot stays on `:8001`; no frontend process).
+- New artifact names: `attempt6_config.json`, `attempt6_result.json`,
+  `attempt6_summary.json`, `attempt6_run.log`,
+  `attempt6_server_pre.log`, `attempt6_server_restart.log`,
+  `attempt6_observation_pre.jsonl`,
+  `attempt6_observation_restart.jsonl`,
+  `attempt6_interpreter_freeze.txt`, `attempt6_preflight.json`.
+- All stores resolve under the scratch root; the live DB is never a
+  configured store. Pilot `:8001` must keep the same instance/PID;
+  `pilot_untouched` is a gate.
+
+## Pre-campaign requirements
+
+A future launch is allowed only after `preflight_attempt5.py` passes and
+the focused suites cover:
+
+- cross-run S7 gate tests with different generated UUIDs;
+- captured L3 output replay (served == persisted == reloaded; envelope
+  stripped; supported fact/source present; changed subject/code,
+  multiple subjects, explicit-both controls);
+- captured S3 grounding replay (draft-supported figure does not trigger
+  regeneration; source-unsupported/misattributed still does);
+- persistence/restart agreement for completed and reviewed partial;
+- zero-write controls from the captured attempt-4 result.
+
+The preflight must also prove the intended product pin is accepted, the
+obsolete attempt-4 pin/hash is rejected, artifact/scratch paths are fresh,
+the gate module hash is the reviewed one, and the pilot/credential checks
+pass. No campaign is launched by this declaration.
+
+## Assessment
+
+Attempt 5 is the last served evidence and remains non-passing (57/59;
+S3 broader scope/date). This attempt-6 declaration covers the local
+comparison-scope/truthfulness and carrier-shape repairs. A new served
+result and assessment will be recorded separately; deployment remains
+held.
+
+## Evidence to record when/if launched
+
+`attempt6_preflight.json`, `attempt6_config.json`,
+`attempt6_result.json`, `attempt6_summary.json`, `attempt6_run.log`,
+server/observation files, interpreter freeze, live-DB fingerprint/holders,
+and `CHECKSUMS_ATTEMPT5.sha256`. Attempt-4 evidence is not rewritten.

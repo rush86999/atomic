@@ -1,0 +1,98 @@
+
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_document_requirement_corrects_memory_proposal 
+-------------------------------- live log setup --------------------------------
+2026-10-18 18:37:23 [    INFO] Dev secret key loaded (persisted for restart survival). Set SECRET_KEY to override.
+2026-10-18 18:37:23 [    INFO] EscalationManager initialized
+2026-10-18 18:37:23 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:37:23 [    INFO] EscalationManager initialized
+2026-10-18 18:37:23 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:37:23 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-18 18:37:23 [    INFO] AgentTaskRegistry initialized
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:37:23 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+PASSED                                                                   [ 14%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_identical_message_requirement_changes_eligibility 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:37:23 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+2026-10-18 18:37:23 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+2026-10-18 18:37:23 [    INFO] tool planner: source-ask floor -> documents.search query='quarterly revenue'
+FAILED                                                                   [ 28%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_requirement_obligation_without_message_nouns FAILED [ 42%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_no_eligible_action_keeps_the_obligation_unresolved PASSED [ 57%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_required_comms_requirement_keeps_memory PASSED [ 71%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_sheet_requirement_excludes_recollection 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:37:23 [    INFO] tool planner: source-ask floor -> datasets.search query='the Q3 totals'
+PASSED                                                                   [ 85%]
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_planner_and_stash_share_one_requirement_authority 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:37:24 [    INFO] MCP Service initialized
+2026-10-18 18:37:24 [    INFO] ComputerUseAgent initialized for tenant default
+2026-10-18 18:37:24 [ WARNING] Initializing DEPRECATED TokenStorage. Please migrate to ConnectionService.
+2026-10-18 18:37:24 [    INFO] No token storage file found, starting empty
+2026-10-18 18:37:24 [    INFO] WorkflowScheduler using SQLAlchemyJobStore
+2026-10-18 18:37:24 [    INFO] EscalationManager initialized
+2026-10-18 18:37:24 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:37:24 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-18 18:37:24 [    INFO] EscalationManager initialized
+2026-10-18 18:37:24 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:37:24 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-18 18:37:24 [    INFO] Slack Enhanced Service initialized
+2026-10-18 18:37:24 [    INFO] Loaded 0 persisted sessions from file.
+PASSED                                                                   [100%]
+
+=================================== FAILURES ===================================
+E   AssertionError: a requirement that carries no evidence obligation does not conjure one; got 'documents'
+    assert 'documents' == 'memory'
+      
+      - memory
+      + documents
+------------------------------ Captured log call -------------------------------
+INFO     core.chat_tool_planner:chat_tool_planner.py:1670 tool planner: source-ask floor -> documents.search query='quarterly revenue'
+INFO     core.chat_tool_planner:chat_tool_planner.py:1670 tool planner: source-ask floor -> documents.search query='quarterly revenue'
+INFO     core.chat_tool_planner:chat_tool_planner.py:1670 tool planner: source-ask floor -> documents.search query='quarterly revenue'
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/tests/test_l3_requirement_eligibility.py:191: AssertionError: a requirement that carries no evidence obligation does not conjure one; got 'documents'
+E   AssertionError: the accepted requirement's obligation must drive eligibility even when the message names no source; got 'memory'
+    assert 'memory' == 'documents'
+      
+      - documents
+      + memory
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/tests/test_l3_requirement_eligibility.py:209: AssertionError: the accepted requirement's obligation must drive eligibility even when the message names no source; got 'memory'
+=============================== warnings summary ===============================
+../../../../../../../../../usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852
+  /usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; tests.e2e.fixtures.service_mock_fixtures
+    self.import_plugin(import_spec)
+
+../../../../../../../../../usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25
+  /usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+    from pydantic.v1.fields import FieldInfo as FieldInfoV1
+
+tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_planner_and_stash_share_one_requirement_authority
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/core/token_storage.py:17: DeprecationWarning: token_storage is deprecated. Use ConnectionService instead.
+    warnings.warn("token_storage is deprecated. Use ConnectionService instead.", DeprecationWarning)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== WARNING: Low Assertion Density ========================
+  tests/test_provider_registry_api.py: 0.145 (target: 0.15)
+  tests/test_round70_llm_credential_subscription.py: 0.102 (target: 0.15)
+  tests/test_notion_service.py: 0.083 (target: 0.15)
+  tests/test_canvas_training_context.py: 0.127 (target: 0.15)
+  tests/test_user_management_monitoring.py: 0.054 (target: 0.15)
+=========================== short test summary info ============================
+FAILED tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_identical_message_requirement_changes_eligibility
+FAILED tests/test_l3_requirement_eligibility.py::TestAcceptedRequirementAuthority::test_requirement_obligation_without_message_nouns
+=========================== warnings summary (final) ===========================
+<unknown>:314
+  <unknown>:314: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+
+<unknown>:6
+  <unknown>:6: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:134
+  <unknown>:134: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:944
+  <unknown>:944: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============ 2 failed, 5 passed, 6 deselected, 7 warnings in 15.00s ============

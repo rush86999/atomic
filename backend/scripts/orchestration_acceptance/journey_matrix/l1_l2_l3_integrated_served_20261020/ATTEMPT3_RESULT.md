@@ -1,0 +1,300 @@
+# Attempt 3 — composed served successor (2026-10-20)
+
+**Verdict: NOT PASSED. The L3 required-read timeout blocker is fixed and
+verified under the same declared configuration; the composed L1+L2+L3
+workflow is still unverified because S3 timed out and S7 settled
+`failed`. No promotion, no deployment.**
+
+## Run identity
+
+- Product commit: `2a113d1a3` (`fix(planner): execute accepted required
+  reads after planning timeouts`)
+- Base candidate: `ddcc404dd` (L3 `6d662abff` + L1 `aaa1169d7` + L2
+  `c0cbea9f1` + main `e6308cb54`)
+- Launch HEAD: `67b9fbc85` (acceptance harness only after the product
+  freeze)
+- Configuration: the same DeepSeek-direct / Ollama-reply / fastembed
+  configuration that failed attempt 2; predeclared in
+  `PREDECLARED_CONFIG_ATTEMPT3.md`. No model, route, workspace or
+  fixture switch mid-run.
+- Runtime identity: `dirty=false`, `candidate_commit_ok=true`,
+  `candidate_cwd_ok=true`.
+- Scratch world: `.../l2-fix/scratch/l1-l2-l3-composed-attempt3`;
+  port `8113`; pilot `:8001` untouched (`pilot_untouched=true`).
+- Result: **48/59 checks true**, first failure
+  `comparison_untruthful`; classification `comparison_untruthful`.
+
+Before this run, the exact captured S3/S7 accepted requests from the
+proven L2 attempt 12 and the failed composed attempt 2 were replayed
+through the real requirement stash in
+`backend/tests/test_s3_s7_captured_replay.py` (5 passed). The replay
+keeps the proven broad S3 obligation, records attempt 2's narrower S3
+capture without treating it as a pass, keeps the proven S7 narrow
+continuation resolved, and keeps attempt 2's S7 timeout unresolved.
+No workspace or configuration change was used to make them pass.
+
+### Rejected first launch (harness-only, no turn executed)
+
+The first launch was stopped by the declared identity gate with
+`runtime_identity_mismatch`: the runner's own `attempt3_run.log` /
+config artifacts made the candidate worktree dirty. No user, upload or
+chat turn ran. The artifacts were ignored via the committed
+`.gitignore`, the scratch world was removed, and the run was repeated
+under the same frozen product and configuration. The rejected launch
+summary is preserved outside the worktree at
+`.../opencode/attempt3-first-run/`; it is not counted as an attempt.
+
+## L3 — required read now survives the planning timeout
+
+The served L3 turn (request
+`l1l2l3-l3-40d5ddb6c39840208ca1e8fe46bb7826`) completed in **59.67 s**:
+
+- The optional structured planning call timed out after 20.0 s
+  (`attempt3_server_pre.log:1227`:
+  `optional structured planning timed out after 20.0s; required-read
+  enforcement continues`).
+- The source-ask floor selected the documents lane
+  (`source-ask floor -> documents.search query='the launch code for
+  project Zephyr-9'`), and the executor ran it
+  (`attempt3_server_pre.log:1242`:
+  `tool plan executed: documents.search:the launch code for project
+  Zephyr-9`).
+- The durable receipt is a verified complete documents read
+  (`documents.grep`, `match_count=1`, `coverage=complete`); the
+  executor normalized the action name, but the executed plan is the
+  required `documents.search` shown in the log. No receipt was
+  fabricated.
+- `l3_documents_receipt_executed`, `l3_receipt_verified_complete`,
+  `l3_receipt_bound_to_execution` and
+  `l3_receipt_bound_to_workspace` are true; `objective_met=true`,
+  settlement `completed`, fresh-history agreement true.
+- The answer is `QUARTZ-77` from the uploaded fixture and does not
+  contain the decoy `BASALT-13`; no canvas was created.
+
+This is the direct successor to the attempt-2 failure: same
+configuration, same accepted ask, but the required read now executes
+after the planning seam times out.
+
+## Edit and identical re-ask — passed
+
+- Edit: one audit write, body applied, other fields preserved, served
+  receipt `completed`/`postcondition_verified`/`updated`, durable row
+  `objective_met=true`/`mutation.readback_matched=true` (43.92 s).
+- Identical re-ask: `noop=true`, `noop_reason=already_satisfied`,
+  `updated=false`, `no_apply=true`, zero additional writes, body
+  unchanged, completed (33.22 s).
+
+## S3 comparison — failed independently (interpretation timeout)
+
+The comparison turn returned HTTP 200 after **95.03 s**, but the
+response is the time-budget message:
+
+> This turn ran past its time budget before a reply could be generated.
+> Please try again.
+
+The structured interpretation was cancelled after 64.9 s
+(`waited=64.9s`, `worker_may_still_run=true`); the turn recorded
+`interpretation_origin=unresolved`, `unresolved_reason=timeout`,
+`scope_change=unresolved`, zero actions. The requirement summary still
+shows the accepted broader obligation (`broader_comparison=true`,
+`fields=["expiration_date"]`, `sources=["document"]`), but no bound
+capture event was recorded (`comparison_requirement_captured=false`),
+and there is no comparison or truthful date in the reply.
+
+This is not the L3 control-flow blocker and it is not hidden by changing
+models or workspaces. It remains an open **provider-latency** finding
+under this configuration (DeepSeek returned after 64.9 s against the
+65 s interpretation bound); it is not evidence that the configuration
+is impossible, and it does not justify per-turn routing or user-visible
+model selection.
+
+## S7 date-only continuation — failed settlement
+
+The continuation turn returned the correct typed comparison (draft
+`2026-12-31` = approved record `2026-12-31`) with zero writes and an
+unchanged draft in **66.88 s**. The captured requirement resolves the
+source to `approved_records_q2026_114.txt`
+(`doc_3abaf0d03badbc965b0f2770`), and the continuation evidence resolves
+the antecedent. Settlement nevertheless recorded
+`turn_failed_no_result`, `final_outcome=failed`,
+`final_success=false`; the restart reload therefore also fails
+`restart_history_agreement` and `restart_execution_persists`.
+
+Harness caveat: the `continuation_source_resolved` gate is false because
+it also requires the S7 observation's execution id to equal S3's
+execution id — S3 timed out before creating an execution, so that
+comparison is impossible. The S7 requirement itself is resolved to the
+correct file. This is an over-constrained check, not evidence that S7
+used the wrong source; the settlement failure is independently real.
+
+## Live database isolation — actual store access
+
+The run replaced the unattributable mtime-only gate with
+`live_db_isolated`, and recorded the content fingerprint as an
+observation:
+
+- `live_db_isolated=true`.
+- The scratch process tree (PID `17669`) held **no** live
+  `atom.db`/WAL/SHM handle (`scratch_holders.holders=[]`).
+- Only the pilot (PID `81067`) held the live DB/WAL open.
+- All configured stores resolve under the scratch root
+  (`scratch_paths_isolated=true`); the live path does not appear in the
+  served logs.
+- Live row counts are unchanged (users 48, chat sessions 1022, chat
+  messages 5426, canvases 197, canvas audits 1116, documents 2443,
+  executions 4254, task records 269).
+- The live content/WAL hashes did change during the run
+  (`live_db_unchanged=false`, recorded as an observation). Because only
+  the pilot held the store and no scratch process did, this is
+  consistent with pilot checkpoint/maintenance activity, not a scratch
+  write. It is not promoted to a row-level attribution.
+
+## Gates that remain false
+
+`comparison_truthful_date`, `comparison_broader_obligation_open`,
+`comparison_requirement_captured`, `comparison_interpretation_deepseek`,
+`comparison_settlement_basis`, `comparison_history_agreement`,
+`continuation_date_only_completed`, `continuation_source_resolved`
+(over-constrained harness check, see above), `continuation_settlement_basis`,
+`restart_history_agreement`, `restart_execution_persists`.
+
+## Post-run correction — S7 settlement classification (2026-10-23)
+
+The captured S7 execution `f178f3ed-9c2e-4acc-a0a1-2fc657c8ea76`
+delivered the verified date comparison, but the ledger also bound a
+declined lookup (`8ebc306e-f1bc-4211-8d1c-49d9dc814e58`, outcome
+`not_dispatched`, stage `plan_relevance_declined`) and a
+receipt-less read (`923b8cd7-fb0d-4775-ae52-22c5564cc803`). The
+resolver's `failed` classification was caused by treating
+`not_dispatched` as a hard execution failure: `recorded_failure`
+overrode `validated=True`, the envelope settled `turn_failed_no_result`,
+and the durable outcome recorded `delivery.delivered=false` /
+`basis=delivery_not_confirmed`.
+
+Correction: `not_dispatched` is the task ledger's vocabulary for "the
+read never ran" and is distinct from `read_failed`/`search_failed` by
+construction. When the same turn validates a delivery (a covered
+verified comparison, a complete search, a bound delivery) and no bound
+operation has `status=failed` or a hard read/search failure, the
+delivery stands and the settlement is `partial` with the undispatched
+lookup named as open work. The declined lookup is never converted into
+a receipt and the obligation is never silently resolved.
+
+Pinned by `backend/tests/test_s3_s7_captured_replay.py` against the
+captured attempt-3 task record (`backend/tests/fixtures/
+s7_attempt3_task_record.json`) and the real verified-comparison
+producer. The replay asserts:
+
+- `delivered=true`, `state=partial`, and the prior verification
+  obligation in `open_work` — not `failed`;
+- a bound `status=failed` operation still settles `failed`;
+- the same declined lookup without a delivered result still settles
+  `failed`;
+- the route keeps `success=true` / `outcome=partial` with no error code;
+- the durable outcome records `delivery.delivered=true` and is not
+  diagnosed as a delivery failure.
+
+Mutation check: reverting only the classification block makes the
+replay's first assertion fail (`failed` instead of `partial`).
+
+### Corrected gate semantics for the successor
+
+The attempt-3 result file is preserved unchanged; its S7 `failed`
+settlement is the real pre-fix behavior. Two gates were over-constrained
+and must not be carried into the successor unchanged:
+
+- `continuation_date_only_completed` required `completed`. The truthful
+  successor settlement is `completed` only when the task has no open
+  obligations; when the only open work is the **prior S3 broader
+  verification** (S3 timed out before capturing/executing the "flag
+  anything that differs" obligation), the date-only turn settles
+  `partial`. The gate must accept that partial only when
+  `cf=completed` (the date field was supplied and the verified
+  comparison covered every requested field), `delivery.delivered=true`,
+  and no open-work entry says the turn's own comparison was not
+  recorded. A `partial` caused by a turn-own comparison gap still
+  fails.
+- `continuation_source_resolved` compared the observed source's
+  execution id to S3's **response** execution id. S3's timeout response
+  carries no execution id, so the comparison is impossible even though
+  the continuation correctly resolved the antecedent execution
+  `67d12b03-5ce0-4278-b09f-00d8f28e0e66`. The successor gate must bind
+  to the continuation's own
+  `decision_refs_after.continuation_evidence.antecedents[].execution_id`
+  (the captured S7 observation carries exactly that id and the correct
+  fixture file).
+
+Both corrections make the acceptance stricter about what is claimed
+(no completion over an unresolved prior obligation) rather than weaker.
+
+### Successor gates — post-review correction (2026-10-23)
+
+The first gate correction (`636c9c9f9`) was replayed by review and two
+false positives were reproduced on that exact commit:
+
+- `cf_completed_scope` accepted `supplied_fields=["unrelated_date"]`
+  because it searched for the substring `date`, and it never checked the
+  accepted requirement's field set.
+- `s7_settlement_ok` accepted the prior obligation **plus** "current
+  requested field could not be checked": it required one recognized
+  prior gap instead of proving every remaining gap belongs to prior work.
+
+The successor now closes both:
+
+- **Exact canonical coverage.** `cf_completed_scope` requires the
+  accepted requirement and the fulfillment carrier to name exactly
+  `expiration_date` (case/whitespace canonicalized), with the fixture
+  matched and no missing comparison/field. `unrelated_date`, extra
+  fields, duplicate fields and empty coverage are rejected.
+- **Every open obligation accounted for.** A partial is accepted only
+  when every open obligation is the identified prior S3 verification.
+  The runner prefers the structured task record
+  (`goal_runs.parameters.task_lifecycle.task_revision.unresolved`) and
+  matches `question_id` + `source_operation` + `next_action` + `kind`.
+  The resolver's text snapshot is still cross-checked, so a structured
+  record cannot hide a recorded text gap. If no structured record is
+  available, the fallback requires every `open_work` string to equal the
+  exact fixture-bounded prior obligation. **Disclosed limitation:** the
+  text fallback proves "every recorded text gap is the known prior
+  obligation", not that the text channel enumerated every obligation;
+  `gate_basis.open_work_source` records which channel was used.
+- **Antecedent attribution.** The continuation gate keeps the
+  continuation-owned antecedent link, then requires each referenced
+  execution to resolve to a durable `agent_executions` row in the same
+  conversation and workspace, and requires the antecedent bound to the
+  fixture observation to have actually supplied the fixture in its
+  durable outcome (top-level evidence or a `verified` tool outcome).
+  Two carried ids agreeing is insufficient; a missing row, wrong
+  conversation, wrong workspace, unverified evidence, or fixture-less
+  record is rejected.
+
+Permanent negatives live in
+`backend/tests/test_successor_s7_gates.py` (31 tests): the two
+reproduced false positives, wrong-conversation antecedent,
+wrong-workspace antecedent, missing record, unverified evidence, missing
+date coverage, extra/duplicate fields, unknown text and structured
+obligations, partial scope/delivery, and completed-with-open-work. The
+honest partial (captured shape + structured prior obligation) is
+accepted; the captured pre-fix `failed` settlement is still rejected;
+the captured S3 timeout still does not pass (`comparison_untruthful`
+remains the first failure), so S3's latency gate is unchanged and the
+timeout does not become a passing workflow.
+
+The attempt-3 result JSON is unchanged. Attempt 3 remains 48/59 and
+non-governing. The successor harness is frozen at tag
+`successor/s7-gates-frozen-20261023`; no campaign is launched by this
+commit. Deployment remains held.
+
+Deployment remains held.
+
+## What this establishes
+
+- The attempt-2 L3 blocker is fixed at the product level and verified in
+  the composed served path under the configuration that exposed it.
+- The L1 edit and identical re-ask legs remain green in the same world.
+- The composed workflow is **not** verified: S3 interpretation latency
+  and S7 settlement remain open. The L2 parser/continuation work stays
+  closed; whole-document comparison stays visibly open.
+- The live DB was not used by the scratch server; the mtime/hash signal
+  is pilot-owned and is not used as a write-attribution gate.
+- Deployment remains held. The pilot is still `8c593e57031e`.

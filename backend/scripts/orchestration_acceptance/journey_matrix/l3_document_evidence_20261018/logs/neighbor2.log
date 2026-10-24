@@ -1,0 +1,1173 @@
+
+----------------------------- live log collection ------------------------------
+2026-10-18 18:32:16 [    INFO] Dev secret key loaded (persisted for restart survival). Set SECRET_KEY to override.
+2026-10-18 18:32:16 [    INFO] EscalationManager initialized
+2026-10-18 18:32:16 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:16 [    INFO] EscalationManager initialized
+2026-10-18 18:32:16 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:16 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-18 18:32:16 [    INFO] MCP Service initialized
+2026-10-18 18:32:16 [    INFO] ComputerUseAgent initialized for tenant default
+2026-10-18 18:32:16 [ WARNING] Initializing DEPRECATED TokenStorage. Please migrate to ConnectionService.
+2026-10-18 18:32:16 [    INFO] No token storage file found, starting empty
+2026-10-18 18:32:16 [    INFO] WorkflowScheduler using SQLAlchemyJobStore
+2026-10-18 18:32:16 [    INFO] EscalationManager initialized
+2026-10-18 18:32:16 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:16 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-18 18:32:16 [    INFO] EscalationManager initialized
+2026-10-18 18:32:16 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:16 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-18 18:32:16 [    INFO] Slack Enhanced Service initialized
+2026-10-18 18:32:16 [    INFO] Loaded 0 persisted sessions from file.
+
+tests/test_planner_documents_vfs.py::test_normalize_vfs_path[full: knowledge/conversations/AAMk99=-knowledge/conversations/AAMk99=/content.lines] 
+-------------------------------- live log setup --------------------------------
+2026-10-18 18:32:17 [    INFO] AgentTaskRegistry initialized
+PASSED                                                                   [  0%]
+tests/test_planner_documents_vfs.py::test_normalize_vfs_path[knowledge/conversations/AAMk99=/content.lines-knowledge/conversations/AAMk99=/content.lines] PASSED [  0%]
+tests/test_planner_documents_vfs.py::test_normalize_vfs_path[open knowledge/documents/doc-1/meta.json please-knowledge/documents/doc-1/meta.json] PASSED [  0%]
+tests/test_planner_documents_vfs.py::test_normalize_vfs_path[knowledge/documents/doc-1-knowledge/documents/doc-1/content.lines] PASSED [  0%]
+tests/test_planner_documents_vfs.py::test_normalize_vfs_path[-] PASSED   [  1%]
+tests/test_planner_documents_vfs.py::test_normalize_vfs_path[no path in here at all-] PASSED [  1%]
+tests/test_planner_documents_vfs.py::test_split_vfs_grep_query[5,350.00 in knowledge/conversations-5,350.00-knowledge/conversations] PASSED [  1%]
+tests/test_planner_documents_vfs.py::test_split_vfs_grep_query["WG-350DSAV" under knowledge/documents-WG-350DSAV-knowledge/documents] PASSED [  1%]
+tests/test_planner_documents_vfs.py::test_split_vfs_grep_query[grep F-5216-F-5216-knowledge] PASSED [  1%]
+tests/test_planner_documents_vfs.py::test_split_vfs_grep_query[search for Tennsmith-Tennsmith-knowledge] PASSED [  2%]
+tests/test_planner_documents_vfs.py::test_split_vfs_grep_query[5,350.00-5,350.00-knowledge] PASSED [  2%]
+tests/test_planner_documents_vfs.py::test_split_vfs_grep_query[payment terms in conversations-payment terms-knowledge/conversations] PASSED [  2%]
+tests/test_planner_documents_vfs.py::test_cat_intent_routes_to_registry_with_normalized_path PASSED [  2%]
+tests/test_planner_documents_vfs.py::test_cat_of_a_huge_body_elides_the_middle PASSED [  3%]
+tests/test_planner_documents_vfs.py::test_read_intent_dispatches_documents_read_with_the_hints_kwargs PASSED [  3%]
+tests/test_planner_documents_vfs.py::test_read_intent_without_kwargs_reads_a_bounded_first_window PASSED [  3%]
+tests/test_planner_documents_vfs.py::test_read_intent_clamps_an_echoed_huge_max_lines PASSED [  3%]
+tests/test_planner_documents_vfs.py::test_degraded_read_is_an_error_not_end_of_artifact PASSED [  3%]
+tests/test_planner_documents_vfs.py::test_grep_intent_renders_line_citations PASSED [  4%]
+tests/test_planner_documents_vfs.py::test_cat_of_missing_id_is_honest_not_empty_success PASSED [  4%]
+tests/test_planner_documents_vfs.py::test_ls_leads_with_truncation_note PASSED [  4%]
+tests/test_planner_documents_vfs.py::test_kill_switch_returns_disabled_note PASSED [  4%]
+tests/test_planner_documents_vfs.py::test_execute_tool_plan_routes_documents_service 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=documents intent=cat caller=test_planner_documents_vfs.py:359 test_execute_tool_plan_routes_documents_service exec_id=False conv=
+PASSED                                                                   [  4%]
+tests/test_planner_documents_vfs.py::test_documents_in_planner_catalog_when_enabled PASSED [  5%]
+tests/test_planner_documents_vfs.py::test_documents_excluded_from_ingest PASSED [  5%]
+tests/test_planner_documents_vfs.py::test_search_shaped_plan_with_a_vfs_path_reroutes_to_cat PASSED [  5%]
+tests/test_planner_documents_vfs.py::test_grep_with_a_path_mention_stays_grep PASSED [  5%]
+tests/test_planner_documents_vfs.py::test_grep_narrow_result_hydrates_top_hit PASSED [  6%]
+tests/test_planner_live_search_routing.py::TestPlannerGenericRouting::test_plain_search_routes_through_search_router 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_crm intent=search caller=test_planner_live_search_routing.py:52 test_plain_search_routes_through_search_router exec_id=False conv=
+PASSED                                                                   [  6%]
+tests/test_planner_live_search_routing.py::TestPlannerGenericRouting::test_explicit_action_mapping_prefers_execute 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_inventory intent=search caller=test_planner_live_search_routing.py:67 test_explicit_action_mapping_prefers_execute exec_id=False conv=
+PASSED                                                                   [  6%]
+tests/test_planner_live_search_routing.py::TestPlannerGenericRouting::test_list_intent_uses_execute 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_crm intent=list caller=test_planner_live_search_routing.py:77 test_list_intent_uses_execute exec_id=False conv=
+PASSED                                                                   [  6%]
+tests/test_planner_live_search_routing.py::TestPlannerGenericRouting::test_unsupported_service_dead_ends_honestly 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=aws_ses intent=search caller=test_planner_live_search_routing.py:89 test_unsupported_service_dead_ends_honestly exec_id=False conv=
+2026-10-18 18:32:17 [    INFO] Creating isolated LanceDBHandler for workspace: default at ./data/atom_memory/default
+2026-10-18 18:32:17 [    INFO] Updated costs for 16 providers from dynamic pricing
+2026-10-18 18:32:17 [    INFO] EscalationManager initialized
+2026-10-18 18:32:17 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:17 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-18 18:32:17 [    INFO] LanceDBHandler initialized. ID: 6385734416. LANCEDB_AVAILABLE: True
+PASSED                                                                   [  6%]
+tests/test_planner_live_search_routing.py::TestPlannerGenericRouting::test_memory_fallback_accompanies_honest_reason 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=aws_ses intent=search caller=test_planner_live_search_routing.py:99 test_memory_fallback_accompanies_honest_reason exec_id=False conv=
+PASSED                                                                   [  7%]
+tests/test_planner_live_search_routing.py::TestPlannerRepairRungs::test_null_service_repaired_by_second_llm_pass 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: LLM repair -> zoho_inventory.search
+PASSED                                                                   [  7%]
+tests/test_planner_live_search_routing.py::TestPlannerRepairRungs::test_repair_can_decline_tool_use 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: LLM repair declined tool use
+PASSED                                                                   [  7%]
+tests/test_planner_live_search_routing.py::TestPlannerRepairRungs::test_double_failure_defaults_to_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: both passes failed — defaulting to always-available memory search
+PASSED                                                                   [  7%]
+tests/test_planner_live_search_routing.py::TestPlannerRepairRungs::test_loose_service_name_normalized 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: normalized service 'Zoho CRM' -> 'zoho_crm'
+PASSED                                                                   [  7%]
+tests/test_planner_live_search_routing.py::TestCatalogAnnotation::test_searchable_without_description_annotated_live PASSED [  8%]
+tests/test_planner_live_search_routing.py::TestCatalogAnnotation::test_unsearchable_annotated_memory_only PASSED [  8%]
+tests/test_planner_live_search_routing.py::TestCatalogAnnotation::test_described_services_unchanged PASSED [  8%]
+tests/test_planner_live_search_routing.py::TestSearchRouterCoverage::test_every_searchable_service_routes PASSED [  8%]
+tests/test_planner_live_search_routing.py::TestSearchRouterCoverage::test_finance_search_filters_client_side PASSED [  9%]
+tests/test_planner_live_search_routing.py::TestSearchRouterCoverage::test_inventory_search_delegates_to_service PASSED [  9%]
+tests/test_planner_catalog_contracts.py::test_datasets_description_names_the_spreadsheet_open_lane PASSED [  9%]
+tests/test_planner_catalog_contracts.py::test_documents_description_redirects_spreadsheet_rows PASSED [  9%]
+tests/test_planner_catalog_contracts.py::test_grounding_rule_forbids_promised_actions_and_reasking PASSED [  9%]
+tests/test_planner_natural_routing.py::TestQuoteLookupShape::test_quote_lookup_shapes_detected PASSED [ 10%]
+tests/test_planner_natural_routing.py::TestQuoteLookupShape::test_genuine_questions_are_not_quote_lookups PASSED [ 10%]
+tests/test_planner_natural_routing.py::TestQuoteLookupShape::test_quoted_content_phrases PASSED [ 10%]
+tests/test_planner_natural_routing.py::TestWhoseDataCatalog::test_inventory_framed_as_own_warehouse PASSED [ 10%]
+tests/test_planner_natural_routing.py::TestWhoseDataCatalog::test_mail_framed_as_correspondence PASSED [ 10%]
+tests/test_planner_natural_routing.py::TestProvenanceMenuPhrases::test_non_figure_quote_resolves_to_mail PASSED [ 11%]
+tests/test_planner_natural_routing.py::TestProvenanceMenuPhrases::test_no_match_keeps_menu_silent PASSED [ 11%]
+tests/test_planner_natural_routing.py::TestProvenanceFloor::test_record_app_plan_repaired_to_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: provenance repair -> memory.search
+PASSED                                                                   [ 11%]
+tests/test_planner_natural_routing.py::TestProvenanceFloor::test_model_insisting_on_record_app_gets_memory_rung 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: provenance floor -> memory.search (planned 'zoho_inventory' for a quoted-mail lookup)
+PASSED                                                                   [ 11%]
+tests/test_planner_natural_routing.py::TestProvenanceFloor::test_genuine_stock_question_passes_through PASSED [ 12%]
+tests/test_planner_natural_routing.py::TestProvenanceFloor::test_no_provenance_no_floor PASSED [ 12%]
+tests/test_planner_natural_routing.py::TestProvenanceFloor::test_local_store_plan_never_floored PASSED [ 12%]
+tests/test_planner_natural_routing.py::TestProvenanceDeterminedRoutes::test_quote_with_dataset_provenance_routes_datasets PASSED [ 12%]
+tests/test_planner_natural_routing.py::TestProvenanceDeterminedRoutes::test_genuine_inventory_question_with_stock_wording PASSED [ 12%]
+tests/test_planner_natural_routing.py::TestProvenanceDeterminedRoutes::test_unidentifiable_quote_defaults_to_memory_not_record_app PASSED [ 13%]
+tests/test_planner_natural_routing.py::TestProvenanceDeterminedRoutes::test_prompt_rule_is_provenance_scoped PASSED [ 13%]
+tests/test_planner_request_relevance.py::TestTranscriptLabels::test_current_request_is_marked PASSED [ 13%]
+tests/test_planner_request_relevance.py::TestTranscriptLabels::test_earlier_asks_are_labelled_context_with_retry_carveout PASSED [ 13%]
+tests/test_planner_request_relevance.py::TestTranscriptLabels::test_empty_history_still_marks_the_current_request PASSED [ 13%]
+tests/test_planner_request_relevance.py::TestIncidentVerdict::test_the_incident_plan_is_irrelevant PASSED [ 14%]
+tests/test_planner_request_relevance.py::TestIncidentVerdict::test_a_rewrite_that_keeps_an_identifier_is_relevant PASSED [ 14%]
+tests/test_planner_request_relevance.py::TestIncidentVerdict::test_an_empty_query_fails_open PASSED [ 14%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_off_target_plan_is_repaired_to_current_request 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: relevance repair -> datasets.search query='vendor scorecard reliability 0.87'
+PASSED                                                                   [ 14%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_a_healthy_plan_never_pays_a_second_call PASSED [ 15%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_unrepairable_plan_is_kept_for_the_consumption_gate PASSED [ 15%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_repair_declining_tool_use_is_honored 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: relevance repair declined tool use
+PASSED                                                                   [ 15%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_canvas_target_stamp_requires_edit_opt_in PASSED [ 15%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_canvas_target_is_not_used_by_an_ordinary_canvas_turn PASSED [ 15%]
+tests/test_planner_request_relevance.py::TestReplanArm::test_anaphoric_retry_is_never_gated PASSED [ 16%]
+tests/test_planner_retry.py::test_retry_repaired_to_history_service_by_llm 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: LLM repair -> outlook.search
+PASSED                                                                   [ 16%]
+tests/test_planner_retry.py::test_retry_repair_query_recovers_substantive_terms 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: LLM repair -> outlook.search
+PASSED                                                                   [ 16%]
+tests/test_planner_retry.py::test_both_passes_fail_defaults_to_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] tool planner: both passes failed — defaulting to always-available memory search
+PASSED                                                                   [ 16%]
+tests/test_planner_retry.py::test_planner_routes_via_bpc_not_a_hardcoded_model PASSED [ 16%]
+tests/test_planner_retry.py::test_planner_model_constant_is_gone PASSED  [ 17%]
+tests/test_planner_retry.py::test_memory_service_always_available PASSED [ 17%]
+tests/test_planner_storage_memory_supplement.py::TestStorageMetadataSupplement::test_storage_search_gain_ingested_copy 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=search caller=test_planner_storage_memory_supplement.py:82 test_storage_search_gain_ingested_copy exec_id=False conv=
+PASSED                                                                   [ 17%]
+tests/test_planner_storage_memory_supplement.py::TestStorageMetadataSupplement::test_storage_search_without_ingested_copy_stays_metadata 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=search caller=test_planner_storage_memory_supplement.py:94 test_storage_search_without_ingested_copy_stays_metadata exec_id=False conv=
+PASSED                                                                   [ 17%]
+tests/test_planner_storage_memory_supplement.py::TestStorageMetadataSupplement::test_failed_read_falls_back_to_ingested_copy 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=read caller=test_planner_storage_memory_supplement.py:106 test_failed_read_falls_back_to_ingested_copy exec_id=False conv=
+PASSED                                                                   [ 18%]
+tests/test_planner_storage_memory_supplement.py::TestStorageMetadataSupplement::test_successful_read_skips_supplement 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=read caller=test_planner_storage_memory_supplement.py:122 test_successful_read_skips_supplement exec_id=False conv=
+PASSED                                                                   [ 18%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_identifier_shapes_across_industries PASSED [ 18%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_non_identifiers_rejected PASSED [ 18%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_hexlike_dropped_only_where_marked PASSED [ 18%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_min_len_enforced PASSED [ 19%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_dedupe_by_document_diversity PASSED [ 19%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_coordinate_column_map_attaches PASSED [ 19%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_coordinate_map_omitted_beyond_window PASSED [ 19%]
+tests/test_planner_storage_memory_supplement.py::TestProductTokens::test_exact_token_match_against_real_store SKIPPED [ 20%]
+tests/test_planner_storage_memory_supplement.py::TestStorageQueryRewrite::test_storage_read_query_rewritten_by_llm 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=read caller=test_planner_storage_memory_supplement.py:310 test_storage_read_query_rewritten_by_llm exec_id=False conv=
+PASSED                                                                   [ 20%]
+tests/test_planner_storage_memory_supplement.py::TestStorageQueryRewrite::test_storage_query_passthrough_without_llm 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=read caller=test_planner_storage_memory_supplement.py:326 test_storage_query_passthrough_without_llm exec_id=False conv=
+PASSED                                                                   [ 20%]
+tests/test_planner_storage_memory_supplement.py::TestStorageQueryRewrite::test_rewrite_failure_keeps_draft_query 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_workdrive intent=read caller=test_planner_storage_memory_supplement.py:343 test_rewrite_failure_keeps_draft_query exec_id=False conv=
+2026-10-18 18:32:17 [ WARNING] tool planner call raised: down
+PASSED                                                                   [ 20%]
+tests/test_planner_storage_memory_supplement.py::TestStorageQueryRewrite::test_non_storage_query_not_rewritten 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=monday intent=search caller=test_planner_storage_memory_supplement.py:368 test_non_storage_query_not_rewritten exec_id=False conv=
+PASSED                                                                   [ 20%]
+tests/test_planner_storage_memory_supplement.py::TestWorkdriveReadResolution::test_list_shaped_search_resolves_the_file 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas failed on Consolidated Price List 2019.xlsx (ValueError); trying raw-XML grid
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas could not parse Consolidated Price List 2019.xlsx (File is not a zip file); no dataset
+2026-10-18 18:32:17 [    INFO] sheet datasets: skipped for Consolidated Price List 2019.xlsx (parse_failed: BadZipFile)
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas failed on Consolidated Price List 2019.xlsx (ValueError); trying raw-XML grid
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas could not parse Consolidated Price List 2019.xlsx (File is not a zip file); no dataset
+2026-10-18 18:32:17 [    INFO] sheet datasets: skipped for Consolidated Price List 2019.xlsx (parse_failed: BadZipFile)
+2026-10-18 18:32:17 [ WARNING] read-path ingest skipped for Consolidated Price List 2019.xlsx: 'types.SimpleNamespace' object is not callable
+PASSED                                                                   [ 21%]
+tests/test_planner_storage_memory_supplement.py::TestWorkdriveReadResolution::test_dict_envelope_still_accepted 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas failed on price.xlsx (ValueError); trying raw-XML grid
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas could not parse price.xlsx (File is not a zip file); no dataset
+2026-10-18 18:32:17 [    INFO] sheet datasets: skipped for price.xlsx (parse_failed: BadZipFile)
+2026-10-18 18:32:17 [ WARNING] read-path ingest skipped for price.xlsx: 'types.SimpleNamespace' object is not callable
+PASSED                                                                   [ 21%]
+------------------------------ live log teardown -------------------------------
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas failed on price.xlsx (ValueError); trying raw-XML grid
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas could not parse price.xlsx (File is not a zip file); no dataset
+
+tests/test_planner_storage_memory_supplement.py::TestWorkdriveReadResolution::test_best_name_match_wins_over_other_hits 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas failed on Consolidated Price List 2019.xlsx (ValueError); trying raw-XML grid
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas could not parse Consolidated Price List 2019.xlsx (File is not a zip file); no dataset
+2026-10-18 18:32:17 [    INFO] sheet datasets: skipped for Consolidated Price List 2019.xlsx (parse_failed: BadZipFile)
+2026-10-18 18:32:17 [ WARNING] read-path ingest skipped for Consolidated Price List 2019.xlsx: 'types.SimpleNamespace' object is not callable
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas failed on Consolidated Price List 2019.xlsx (ValueError); trying raw-XML grid
+2026-10-18 18:32:17 [    INFO] sheet datasets: pandas could not parse Consolidated Price List 2019.xlsx (File is not a zip file); no dataset
+2026-10-18 18:32:17 [    INFO] sheet datasets: skipped for Consolidated Price List 2019.xlsx (parse_failed: BadZipFile)
+PASSED                                                                   [ 21%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_rare_token_beats_boilerplate_coverage PASSED [ 21%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_frequent_token_falls_back_to_coverage PASSED [ 21%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_sheet_anchor_reaches_row_beyond_head_and_window PASSED [ 22%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_deep_anchor_keeps_column_headers PASSED [ 22%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_query_verb_does_not_hijack_a_similar_sheet_name PASSED [ 22%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_brand_line_loses_tie_to_data_row PASSED [ 22%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_services_business_ar_aging_row PASSED [ 23%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_hr_roster_row PASSED [ 23%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_text_heavy_policy_sheet_lines PASSED [ 23%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_small_fresh_install_single_sheet_book PASSED [ 23%]
+tests/test_planner_storage_memory_supplement.py::TestQueryAnchoredExcerpt::test_duplicate_adjacent_sheet_markers_are_one_body PASSED [ 23%]
+tests/test_planner_storage_memory_supplement.py::TestOutlookEmptyFallback::test_outlook_empty_returns_ingested_matches 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=search caller=test_planner_storage_memory_supplement.py:703 test_outlook_empty_returns_ingested_matches exec_id=False conv=
+2026-10-18 18:32:17 [    INFO] outlook leg: hydrated 0 full bodies (intent=search, 0 graph hits)
+2026-10-18 18:32:17 [   ERROR] No access token available for user user-1
+PASSED                                                                   [ 24%]
+tests/test_planner_storage_memory_supplement.py::TestOutlookEmptyFallback::test_outlook_empty_without_memory_keeps_dead_end 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=search caller=test_planner_storage_memory_supplement.py:716 test_outlook_empty_without_memory_keeps_dead_end exec_id=False conv=
+2026-10-18 18:32:17 [    INFO] outlook leg: hydrated 0 full bodies (intent=search, 0 graph hits)
+2026-10-18 18:32:17 [   ERROR] No access token available for user user-1
+PASSED                                                                   [ 24%]
+tests/test_planner_storage_memory_supplement.py::TestItemSearchQueryNet::test_inventory_query_gains_context_identifier 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_inventory intent=search caller=test_planner_storage_memory_supplement.py:741 test_inventory_query_gains_context_identifier exec_id=False conv=
+2026-10-18 18:32:17 [    INFO] item-search query identifier net: ['WG-350DSAV']
+PASSED                                                                   [ 24%]
+tests/test_planner_storage_memory_supplement.py::TestItemSearchQueryNet::test_inventory_query_net_drops_url_paths 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_inventory intent=search caller=test_planner_storage_memory_supplement.py:769 test_inventory_query_net_drops_url_paths exec_id=False conv=
+2026-10-18 18:32:17 [    INFO] item-search query identifier net: ['F-5216']
+PASSED                                                                   [ 24%]
+tests/test_planner_storage_memory_supplement.py::TestItemSearchQueryNet::test_inventory_query_with_identifier_untouched 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_inventory intent=search caller=test_planner_storage_memory_supplement.py:792 test_inventory_query_with_identifier_untouched exec_id=False conv=
+PASSED                                                                   [ 24%]
+tests/test_planner_storage_memory_supplement.py::TestItemSearchQueryNet::test_inventory_query_without_context_stays_clean 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_inventory intent=search caller=test_planner_storage_memory_supplement.py:805 test_inventory_query_without_context_stays_clean exec_id=False conv=
+PASSED                                                                   [ 25%]
+tests/test_planner_storage_memory_supplement.py::TestItemSearchQueryNet::test_net_covers_client_side_filtered_families 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=zoho_books intent=search caller=test_planner_storage_memory_supplement.py:823 test_net_covers_client_side_filtered_families exec_id=False conv=
+2026-10-18 18:32:17 [    INFO] item-search query identifier net: ['WG-350DSAV']
+PASSED                                                                   [ 25%]
+tests/test_planner_storage_memory_supplement.py::TestItemSearchQueryNet::test_net_off_for_provider_side_semantics 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=monday intent=search caller=test_planner_storage_memory_supplement.py:841 test_net_off_for_provider_side_semantics exec_id=False conv=
+PASSED                                                                   [ 25%]
+tests/test_tool_planner_canvas_context.py::test_string_content_never_raises_and_carries_title_only PASSED [ 25%]
+tests/test_tool_planner_canvas_context.py::test_mapping_content_merges_keys_and_content_wins PASSED [ 26%]
+tests/test_tool_planner_canvas_context.py::test_empty_or_absent_content_is_title_only PASSED [ 26%]
+tests/test_tool_planner_canvas_context.py::test_non_mapping_canvas_yields_none PASSED [ 26%]
+tests/test_tool_planner_canvas_context.py::test_both_dispatch_sites_use_the_shared_helper PASSED [ 26%]
+tests/test_tool_planner_mailbox_ingest.py::test_ingest_intent_pulls_message_into_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] EscalationManager initialized
+2026-10-18 18:32:17 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:17 [    INFO] RealAIWorkflowService modernized with unified LLMService.
+2026-10-18 18:32:17 [    INFO] RealAIWorkflowService modernized with unified LLMService.
+2026-10-18 18:32:17 [    INFO] EscalationManager initialized
+2026-10-18 18:32:17 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:17 [    INFO] Webhook processor initialized and callback registered
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=ingest caller=test_tool_planner_mailbox_ingest.py:65 test_ingest_intent_pulls_message_into_memory exec_id=False conv=
+PASSED                                                                   [ 26%]
+tests/test_tool_planner_mailbox_ingest.py::test_ingest_intent_reports_already_in_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=ingest caller=test_tool_planner_mailbox_ingest.py:87 test_ingest_intent_reports_already_in_memory exec_id=False conv=
+PASSED                                                                   [ 27%]
+tests/test_tool_planner_mailbox_ingest.py::test_ingest_intent_with_no_matching_message_is_honest 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=ingest caller=test_tool_planner_mailbox_ingest.py:103 test_ingest_intent_with_no_matching_message_is_honest exec_id=False conv=
+PASSED                                                                   [ 27%]
+tests/test_tool_planner_mailbox_ingest.py::test_ingest_intent_honors_pinned_approval 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=ingest caller=test_tool_planner_mailbox_ingest.py:122 test_ingest_intent_honors_pinned_approval exec_id=False conv=
+PASSED                                                                   [ 27%]
+tests/test_tool_planner_mailbox_ingest.py::test_ingest_intent_kill_switch 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=ingest caller=test_tool_planner_mailbox_ingest.py:142 test_ingest_intent_kill_switch exec_id=False conv=
+PASSED                                                                   [ 27%]
+tests/test_tool_planner_mailbox_ingest.py::test_gmail_ingest_intent_uses_gmail_provider 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=gmail intent=ingest caller=test_tool_planner_mailbox_ingest.py:159 test_gmail_ingest_intent_uses_gmail_provider exec_id=False conv=
+PASSED                                                                   [ 27%]
+tests/test_tool_planner_mailbox_ingest.py::test_plan_tool_use_keeps_ingest_intent_for_mailbox PASSED [ 28%]
+tests/test_tool_planner_mailbox_ingest.py::test_plan_tool_use_rejects_ingest_for_services_with_no_upstream PASSED [ 28%]
+tests/test_tool_planner_mailbox_ingest.py::test_plan_tool_use_keeps_ingest_for_record_integrations PASSED [ 28%]
+tests/test_tool_planner_styled_base.py::test_outlook_block_carries_ingested_styled_base 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:17 [    INFO] [etp-provenance] service=outlook intent=search caller=test_tool_planner_styled_base.py:117 test_outlook_block_carries_ingested_styled_base exec_id=False conv=
+2026-10-18 18:32:17 [ WARNING] outlook sender-scoped search failed (jacob@blumetric.ca): _fake_outlook_module.<locals>.search_emails() got an unexpected keyword argument 'sender'
+2026-10-18 18:32:17 [ WARNING] outlook body hydration failed (id m1…): 'MagicMock' object can't be awaited
+2026-10-18 18:32:17 [    INFO] outlook leg: hydrated 0 full bodies (intent=search, 1 graph hits)
+2026-10-18 18:32:17 [    INFO] Lazy loading LanceDB connection...
+2026-10-18 18:32:17 [    INFO] Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/data/atom_memory/default with storage_options=None
+2026-10-18 18:32:17 [    INFO] LanceDB connected successfully
+2026-10-18 18:32:17 [ WARNING] sentence_transformers not available (error: No module named 'sentence_transformers'), embeddings will be disabled
+2026-10-18 18:32:17 [ WARNING] sentence-transformers unavailable — trying FastEmbed
+2026-10-18 18:32:17 [   ERROR] No embedder available — comm vectors will be zeros: No module named 'fastembed'
+2026-10-18 18:32:17 [    INFO] Opened existing atom_communications table
+2026-10-18 18:32:17 [    INFO] FTS index enabled on 'content' column
+2026-10-18 18:32:17 [    INFO] Opened existing ingestion_metadata table
+2026-10-18 18:32:18 [    INFO] LanceDB memory manager initialized successfully
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 28%]
+tests/test_tool_planner_styled_base.py::test_outlook_falls_back_to_graph_html_body 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=outlook intent=search caller=test_tool_planner_styled_base.py:133 test_outlook_falls_back_to_graph_html_body exec_id=False conv=
+2026-10-18 18:32:18 [ WARNING] outlook body hydration failed (id m1…): 'MagicMock' object can't be awaited
+2026-10-18 18:32:18 [    INFO] outlook leg: hydrated 0 full bodies (intent=search, 1 graph hits)
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 29%]
+tests/test_tool_planner_styled_base.py::test_plain_text_only_attaches_no_styled_section 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=outlook intent=search caller=test_tool_planner_styled_base.py:147 test_plain_text_only_attaches_no_styled_section exec_id=False conv=
+2026-10-18 18:32:18 [ WARNING] outlook body hydration failed (id m1…): 'MagicMock' object can't be awaited
+2026-10-18 18:32:18 [    INFO] outlook leg: hydrated 0 full bodies (intent=search, 1 graph hits)
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 29%]
+tests/test_tool_planner_styled_base.py::test_gmail_success_with_ingested_leads_carries_styled_base 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=gmail intent=search caller=test_tool_planner_styled_base.py:166 test_gmail_success_with_ingested_leads_carries_styled_base exec_id=False conv=
+PASSED                                                                   [ 29%]
+tests/test_tool_planner_styled_base.py::test_latest_styled_ingested_prefers_newest_address_match PASSED [ 29%]
+tests/test_chat_tool_planner_address_rank.py::TestRankAddressHits::test_participant_rows_outrank_body_mentions_regardless_of_order PASSED [ 29%]
+tests/test_chat_tool_planner_address_rank.py::TestRankAddressHits::test_limit_keeps_participants_over_mentions PASSED [ 30%]
+tests/test_chat_tool_planner_address_rank.py::TestRankAddressHits::test_duplicates_collapse PASSED [ 30%]
+tests/test_chat_tool_planner_address_rank.py::TestRankAddressHits::test_reingested_copy_with_restamped_timestamp_collapses PASSED [ 30%]
+tests/test_chat_tool_planner_address_rank.py::TestRankAddressHits::test_non_matching_rows_dropped PASSED [ 30%]
+tests/test_chat_tool_planner_address_rank.py::TestRankAddressHits::test_empty_and_missing_fields_tolerated PASSED [ 30%]
+tests/test_chat_tool_planner_address_rank.py::TestToolFailureBlock::test_names_the_planned_lookup PASSED [ 31%]
+tests/test_chat_tool_planner_address_rank.py::TestToolFailureBlock::test_forbids_the_two_hallucinations PASSED [ 31%]
+tests/test_chat_tool_planner_address_rank.py::test_mailbox_lines_offload_keeps_loop_responsive 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 31%]
+tests/test_chat_tool_planner_comms_supplement.py::test_haystack_address_detects_query_and_history PASSED [ 31%]
+tests/test_chat_tool_planner_comms_supplement.py::test_mailbox_lines_dedupes_addresses_across_query_and_history 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 32%]
+tests/test_chat_tool_planner_comms_supplement.py::test_gmail_live_junk_with_ingested_hits_leads_with_mailbox 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=gmail intent=search caller=test_chat_tool_planner_comms_supplement.py:99 test_gmail_live_junk_with_ingested_hits_leads_with_mailbox exec_id=False conv=
+PASSED                                                                   [ 32%]
+tests/test_chat_tool_planner_comms_supplement.py::test_gmail_live_empty_uses_mailbox_lines_not_dead_end 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=gmail intent=search caller=test_chat_tool_planner_comms_supplement.py:115 test_gmail_live_empty_uses_mailbox_lines_not_dead_end exec_id=False conv=
+2026-10-18 18:32:18 [ WARNING] OAuth partly disabled. Missing: CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
+2026-10-18 18:32:18 [ WARNING] Gmail authentication failed during initialization: Credentials file not found: credentials.json
+2026-10-18 18:32:18 [ WARNING] Gmail service not available
+PASSED                                                                   [ 32%]
+tests/test_chat_tool_planner_comms_supplement.py::test_gmail_empty_and_no_mailbox_still_honest_dead_end 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=gmail intent=search caller=test_chat_tool_planner_comms_supplement.py:130 test_gmail_empty_and_no_mailbox_still_honest_dead_end exec_id=False conv=
+2026-10-18 18:32:18 [ WARNING] OAuth partly disabled. Missing: CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
+2026-10-18 18:32:18 [ WARNING] Gmail authentication failed during initialization: Credentials file not found: credentials.json
+2026-10-18 18:32:18 [ WARNING] Gmail service not available
+PASSED                                                                   [ 32%]
+tests/test_chat_tool_planner_comms_supplement.py::test_slack_execute_path_gets_the_same_supplement 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=slack intent=search caller=test_chat_tool_planner_comms_supplement.py:148 test_slack_execute_path_gets_the_same_supplement exec_id=False conv=
+PASSED                                                                   [ 32%]
+tests/test_chat_tool_planner_comms_supplement.py::test_non_comm_service_without_address_is_untouched 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=notion intent=search caller=test_chat_tool_planner_comms_supplement.py:164 test_non_comm_service_without_address_is_untouched exec_id=False conv=
+PASSED                                                                   [ 33%]
+tests/test_chat_tool_planner_comms_supplement.py::test_address_in_history_triggers_supplement_for_crm_service 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=zoho_crm intent=search caller=test_chat_tool_planner_comms_supplement.py:179 test_address_in_history_triggers_supplement_for_crm_service exec_id=False conv=
+PASSED                                                                   [ 33%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[search for this one: $ 5,350.00 \u2013 10 %  in stock-expected0] PASSED [ 33%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[find the email for F-5216 original cost-expected1] PASSED [ 33%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[joelseguin@seguinmach.com "$5,350.00"-expected2] PASSED [ 33%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[the invoice was CAD 7,200.50 all in-expected3] PASSED [ 34%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[il a pay\xe9 5.350,00 EUR pour la machine-expected4] PASSED [ 34%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[10 000 CAD for the pallet-expected5] PASSED [ 34%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[quote \u20b91,00,000 for the line-expected6] PASSED [ 34%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[total 1,00,00,000 INR approved-expected7] PASSED [ 35%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[\xa32,500 deposit received-expected8] PASSED [ 35%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[1,234,567 annual revenue-expected9] PASSED [ 35%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[find SAE_5216 washer stock-expected10] PASSED [ 35%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[part 1/2NPT fitting leak-expected11] PASSED [ 35%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[case CV-2026-1234 status-expected12] PASSED [ 36%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[$100 or best offer-expected13] PASSED [ 36%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[-expected14] PASSED [ 36%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[None-expected15] PASSED [ 36%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[call +1 555 123 4567 today-expected16] PASSED [ 36%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[phone 555.123.4567 after lunch-expected17] PASSED [ 37%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[dial 1,555,123,4567 please-expected18] PASSED [ 37%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[fax (555) 123-4567 ok-expected19] PASSED [ 37%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[10 000 units shipped-expected20] PASSED [ 37%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[12 345-expected21] PASSED [ 38%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[meeting 10 06 2026 confirmed-expected22] PASSED [ 38%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[date 2026.09.13 review-expected23] PASSED [ 38%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[September 13, 2026 minutes-expected24] PASSED [ 38%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[version 1.234 deployed-expected25] PASSED [ 38%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[section 3.456 amended-expected26] PASSED [ 39%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[see rev 2.345 notes-expected27] PASSED [ 39%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[per clause 4.567 of the agreement-expected28] PASSED [ 39%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases[total 5.350,00 EUR payable-expected29] PASSED [ 39%]
+tests/test_chat_tool_planner_figure_tokens.py::test_figure_phrase_limit_is_one_constant PASSED [ 40%]
+tests/test_chat_tool_planner_figure_tokens.py::test_phrase_boost_is_capped PASSED [ 40%]
+tests/test_chat_tool_planner_figure_tokens.py::test_distinctive_figure_phrases_respects_limit PASSED [ 40%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_separator_insensitive PASSED [ 40%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_cross_locale_amount_forms PASSED [ 40%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_indian_grouping PASSED [ 41%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_html_body_counts PASSED [ 41%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_requires_every_token PASSED [ 41%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_newest_first_and_limit PASSED [ 41%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_tiny_tokens_rejected PASSED [ 41%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_tolerates_broken_metadata PASSED [ 42%]
+tests/test_chat_tool_planner_figure_tokens.py::test_figure_lines_lead_and_survive_address_flood 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 42%]
+tests/test_chat_tool_planner_figure_tokens.py::test_figure_leg_skipped_without_distinctive_tokens 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 42%]
+tests/test_chat_tool_planner_figure_tokens.py::test_figure_scan_runs_off_loop 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 42%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_figure_lines_window_comes_from_current_message PASSED [ 43%]
+tests/test_chat_tool_planner_figure_tokens.py::test_ingested_mailbox_lines_threads_stated_date_window PASSED [ 43%]
+tests/test_chat_tool_planner_figure_tokens.py::test_comms_store_loaded_once_and_invalidated_on_write PASSED [ 43%]
+tests/test_chat_tool_planner_figure_tokens.py::test_grouped_token_matches_space_grouped_body PASSED [ 43%]
+tests/test_chat_tool_planner_figure_tokens.py::test_grouped_token_matches_ungrouped_body PASSED [ 43%]
+tests/test_chat_tool_planner_figure_tokens.py::test_longer_amount_is_not_the_token PASSED [ 44%]
+tests/test_chat_tool_planner_figure_tokens.py::test_field_boundary_does_not_create_a_digit_run PASSED [ 44%]
+tests/test_chat_tool_planner_figure_tokens.py::test_own_text_tier_outranks_newer_quoting_reply PASSED [ 44%]
+tests/test_chat_tool_planner_figure_tokens.py::test_truncated_line_shows_the_matched_figure PASSED [ 44%]
+tests/test_chat_tool_planner_figure_tokens.py::test_full_body_line_shows_the_matched_figure PASSED [ 44%]
+tests/test_chat_tool_planner_figure_tokens.py::test_anchor_window_prefers_the_plain_copy_when_html_lacks_it PASSED [ 45%]
+tests/test_chat_tool_planner_figure_tokens.py::test_memory_block_surfaces_figure_from_the_query 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+2026-10-18 18:32:18 [ WARNING] memory tool execution failed: Table 'documents' was not found
+PASSED                                                                   [ 45%]
+tests/test_chat_tool_planner_figure_tokens.py::test_memory_block_inherits_figure_from_last_user_turn 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+2026-10-18 18:32:18 [ WARNING] memory tool execution failed: Table 'documents' was not found
+PASSED                                                                   [ 45%]
+tests/test_chat_tool_planner_figure_tokens.py::test_memory_block_figure_lines_are_not_crowded_out 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] memory tool execution failed: Table 'documents' was not found
+PASSED                                                                   [ 45%]
+tests/test_chat_tool_planner_figure_tokens.py::test_memory_hybrid_figure_leg_beats_hybrid_document_hits 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] memory tool execution failed: Table 'documents' was not found
+PASSED                                                                   [ 46%]
+tests/test_chat_tool_planner_figure_tokens.py::test_latest_user_figure_phrases_shapes PASSED [ 46%]
+tests/test_chat_tool_planner_figure_tokens.py::test_match_rows_recency_keeps_deciding_within_tier PASSED [ 46%]
+tests/test_chat_tool_planner_figure_tokens.py::test_search_ingested_by_tokens_passes_anchors PASSED [ 46%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_lines_query_figure_wins_over_history 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [ WARNING] Embedding model not initialized, returning zero vector
+PASSED                                                                   [ 46%]
+tests/test_chat_tool_planner_figure_tokens.py::test_full_body_line_carries_attachments_footer PASSED [ 47%]
+tests/test_chat_tool_planner_figure_tokens.py::test_top_ranked_mailbox_hit_renders_the_whole_thread PASSED [ 47%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mega_thread_keeps_the_figure_visible_and_the_path_citable PASSED [ 47%]
+tests/test_chat_tool_planner_figure_tokens.py::test_deeper_rows_stay_small PASSED [ 47%]
+tests/test_chat_tool_planner_figure_tokens.py::test_figure_search_gives_the_top_row_the_full_budget PASSED [ 47%]
+tests/test_chat_tool_planner_figure_tokens.py::test_canvas_block_tells_the_planner_what_is_open PASSED [ 48%]
+tests/test_chat_tool_planner_figure_tokens.py::test_canvas_block_is_bounded_regardless_of_body_size PASSED [ 48%]
+tests/test_chat_tool_planner_figure_tokens.py::test_canvas_block_empty_for_no_canvas PASSED [ 48%]
+tests/test_chat_tool_planner_figure_tokens.py::test_token_probe_keys_avoid_the_digit_run_flood PASSED [ 48%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mail_contains_tokens_rejects_a_longer_amount PASSED [ 49%]
+tests/test_chat_tool_planner_figure_tokens.py::test_provenance_menu_names_the_ingested_mail PASSED [ 49%]
+tests/test_chat_tool_planner_figure_tokens.py::test_provenance_menu_silent_without_a_distinctive_token PASSED [ 49%]
+tests/test_chat_tool_planner_figure_tokens.py::test_provenance_menu_is_fault_isolated PASSED [ 49%]
+tests/test_chat_tool_planner_figure_tokens.py::test_planner_prompt_carries_a_provenance_rule PASSED [ 49%]
+tests/test_chat_tool_planner_figure_tokens.py::test_code_scan_reaches_a_thread_filed_under_catalogue_numbers 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] mailbox code scan: 1 line(s) for codes ['52T']
+PASSED                                                                   [ 50%]
+tests/test_chat_tool_planner_figure_tokens.py::test_code_boundary_does_not_match_inside_a_longer_code PASSED [ 50%]
+tests/test_chat_tool_planner_figure_tokens.py::test_named_person_resolves_through_the_stores_own_addresses PASSED [ 50%]
+tests/test_chat_tool_planner_figure_tokens.py::test_generic_mailbox_words_are_not_people PASSED [ 50%]
+tests/test_chat_tool_planner_figure_tokens.py::test_address_ranking_prefers_subject_overlap_over_recency PASSED [ 50%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_line_shows_the_recipient PASSED [ 51%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_line_marks_outbound_direction PASSED [ 51%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_line_without_recipient_still_renders PASSED [ 51%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_line_lists_attachments_with_openable_paths PASSED [ 51%]
+tests/test_chat_tool_planner_figure_tokens.py::test_mailbox_line_omits_attachments_when_there_are_none PASSED [ 52%]
+tests/test_chat_tool_planner_web.py::test_platform_services_present_with_key PASSED [ 52%]
+tests/test_chat_tool_planner_web.py::test_catalog_includes_web_tools_without_oauth PASSED [ 52%]
+tests/test_chat_tool_planner_web.py::test_catalog_lists_connected_and_platform PASSED [ 52%]
+tests/test_chat_tool_planner_web.py::test_plan_gate_admits_platform_service PASSED [ 52%]
+tests/test_chat_tool_planner_web.py::test_plan_gate_rejects_platform_service_without_key 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] tool planner: service not connected ('web_search'): needs fresh data
+PASSED                                                                   [ 53%]
+tests/test_chat_tool_planner_web.py::test_web_search_deep_fetches_authoritative_page_for_model_codes 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:137 test_web_search_deep_fetches_authoritative_page_for_model_codes exec_id=False conv=
+2026-10-18 18:32:18 [    INFO] search query rewritten: 'Hydmech DM10 Linmac WG-350DSAV bandsaw specifications' -> 'Hydmech DM10 DM10 Linmac WG-350DSAV Hydmech DM10 Linmac WG-350DSAV bandsaw specifications'
+2026-10-18 18:32:18 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:18 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:18 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 53%]
+tests/test_chat_tool_planner_web.py::test_comparison_fetches_one_page_per_product 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:180 test_comparison_fetches_one_page_per_product exec_id=False conv=
+2026-10-18 18:32:18 [    INFO] search query rewritten: 'Hydmech DM10 Linmac WG-350DSAV bandsaw compare' -> 'Hydmech DM10 DM10 Linmac WG-350DSAV Hydmech DM10 Linmac WG-350DSAV bandsaw compare'
+2026-10-18 18:32:18 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:18 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:18 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 53%]
+tests/test_chat_tool_planner_web.py::test_branded_product_research_fetches_without_model_codes 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:218 test_branded_product_research_fetches_without_model_codes exec_id=False conv=
+2026-10-18 18:32:18 [    INFO] tool exec query kept as planned: 'Weber Genesis grill specifications price' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:18 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:18 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:18 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 53%]
+tests/test_chat_tool_planner_web.py::test_no_authoritative_host_no_fetch 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:18 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:237 test_no_authoritative_host_no_fetch exec_id=False conv=
+2026-10-18 18:32:18 [    INFO] tool exec query kept as planned: 'Weber Genesis grill specifications price' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 53%]
+tests/test_chat_tool_planner_web.py::test_web_search_no_deep_fetch_without_model_codes 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:256 test_web_search_no_deep_fetch_without_model_codes exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] tool exec query kept as planned: 'Blumetric end user or dealer' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 54%]
+tests/test_chat_tool_planner_web.py::test_deep_fetch_failure_never_breaks_the_search_block 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:277 test_deep_fetch_failure_never_breaks_the_search_block exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] search query rewritten: 'Hydmech DM10 specifications' -> 'Hydmech DM10 Hydmech DM10 specifications'
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 54%]
+tests/test_chat_tool_planner_web.py::test_execute_web_search_formats_results 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:290 test_execute_web_search_formats_results exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] tool exec query kept as planned: 'WFS Ltd website' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 54%]
+tests/test_chat_tool_planner_web.py::test_execute_web_search_surfaces_configuration_error 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_search intent=search caller=test_chat_tool_planner_web.py:302 test_execute_web_search_surfaces_configuration_error exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] tool exec query kept as planned: 'WFS Ltd website' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 54%]
+tests/test_chat_tool_planner_web.py::test_execute_web_fetch_injects_page_content 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_fetch intent=search caller=test_chat_tool_planner_web.py:310 test_execute_web_fetch_injects_page_content exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] tool exec query kept as planned: 'WFS Ltd website' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 55%]
+tests/test_chat_tool_planner_web.py::test_execute_web_fetch_falls_back_to_search_when_site_blocked 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_fetch intent=search caller=test_chat_tool_planner_web.py:326 test_execute_web_fetch_falls_back_to_search_when_site_blocked exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] tool exec query kept as planned: 'WFS Ltd website' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 55%]
+tests/test_chat_tool_planner_web.py::test_execute_web_fetch_dead_ends_when_search_also_empty 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=web_fetch intent=search caller=test_chat_tool_planner_web.py:338 test_execute_web_fetch_dead_ends_when_search_also_empty exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] tool exec query kept as planned: 'WFS Ltd website' (canvas=MISSING, history_turns=0)
+2026-10-18 18:32:19 [   ERROR] Failed to generate embedding: FastEmbed package not installed. Run: pip install 'fastembed>=0.2.0'
+2026-10-18 18:32:19 [    INFO] Hybrid search: vector leg found 0 nodes
+2026-10-18 18:32:19 [    INFO] Hybrid search: keyword leg found 0 nodes
+PASSED                                                                   [ 55%]
+tests/test_chat_tool_planner_web.py::test_extract_first_url_full_and_bare PASSED [ 55%]
+tests/test_chat_tool_planner_web.py::test_html_to_text_strips_scripts_and_tags PASSED [ 55%]
+tests/test_chat_tool_planner_web.py::test_invalid_service_with_no_history_falls_back_to_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] tool planner: both passes failed — defaulting to always-available memory search
+PASSED                                                                   [ 56%]
+tests/test_chat_tool_planner_web.py::test_named_unavailable_service_still_dead_ends 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] tool planner: service not connected ('web_search'): needs fresh data
+PASSED                                                                   [ 56%]
+tests/test_chat_tool_planner_web.py::test_retry_repaired_to_history_service_over_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] tool planner: LLM repair -> outlook.search
+2026-10-18 18:32:19 [ WARNING] tool planner call raised: 
+FAILED                                                                   [ 56%]
+tests/test_chat_tool_planner_web.py::test_best_content_excerpt_centers_on_query_terms PASSED [ 56%]
+tests/test_chat_tool_planner_web.py::test_best_content_excerpt_short_content_untouched PASSED [ 56%]
+tests/test_chat_tool_planner_web.py::test_best_content_excerpt_marks_skipped_regions PASSED [ 57%]
+tests/test_chat_tool_planner_web.py::test_empty_integration_search_falls_back_to_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] [etp-provenance] service=zoho_workdrive intent=search caller=test_chat_tool_planner_web.py:477 test_empty_integration_search_falls_back_to_memory exec_id=False conv=
+2026-10-18 18:32:19 [    INFO] Loaded service class for zoho_workdrive: integrations.zoho_workdrive_service:ZohoWorkDriveService
+2026-10-18 18:32:19 [ WARNING] memory tool execution failed: Table 'documents' was not found
+FAILED                                                                   [ 57%]
+tests/test_chat_tool_planner_web.py::test_doc_hit_excerpt_joins_chunk_family PASSED [ 57%]
+tests/test_turn_decision.py::test_transition_research_plus_learning PASSED [ 57%]
+tests/test_turn_decision.py::test_transition_cross_source_confirmation PASSED [ 58%]
+tests/test_turn_decision.py::test_transition_retry_after_failure PASSED  [ 58%]
+tests/test_turn_decision.py::test_transition_accepted_proposal_edit PASSED [ 58%]
+tests/test_turn_decision.py::test_learned_clause_never_grounds_an_edit PASSED [ 58%]
+tests/test_turn_decision.py::test_transition_formatting PASSED           [ 58%]
+tests/test_turn_decision.py::test_transition_ambiguous_reference PASSED  [ 59%]
+tests/test_turn_decision.py::test_decision_is_pure_and_shadow_shaped PASSED [ 59%]
+tests/test_turn_decision.py::test_learning_without_agent_resolves_a_destination PASSED [ 59%]
+tests/test_turn_decision.py::test_research_backstop_routes_ask_lane 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] EscalationManager initialized
+2026-10-18 18:32:19 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:19 [    INFO] ChatOrchestrator initialized with LLMService for tenant: default
+2026-10-18 18:32:19 [    INFO] EscalationManager initialized
+2026-10-18 18:32:19 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:19 [    INFO] NaturalLanguageEngine initialized with LLMService for tenant: default
+2026-10-18 18:32:19 [    INFO] Slack Enhanced Service initialized
+2026-10-18 18:32:19 [    INFO] Loaded 0 persisted sessions from file.
+2026-10-18 18:32:19 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-18 18:32:19 [    INFO] EscalationManager initialized
+2026-10-18 18:32:19 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:19 [ WARNING] No LLM clients available
+2026-10-18 18:32:19 [    INFO] [turn-interpretation] empty 
+2026-10-18 18:32:19 [    INFO] [turn-decision] research action routed the ask lane (file='consolidated price list 2019.xlsx')
+2026-10-18 18:32:19 [    INFO] [job-work-ledger] settled run=4ebdbeaf op=53b3c0ec added=0 resolved_total=0 open(actions=0 owner=0 exhausted=0)
+2026-10-18 18:32:19 [ WARNING] [r4-latch][direct] diagnostic latch failed: NameError("name 'execution_id' is not defined")
+2026-10-18 18:32:19 [    INFO] [pending-file-task] confirmed read delivered directly without planner or narration
+2026-10-18 18:32:19 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-18 18:32:19 [    INFO] EscalationManager initialized
+2026-10-18 18:32:19 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:19 [   ERROR] Error processing chat message: resolvers failed and flag off: no read
+Traceback (most recent call last):
+  File "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/integrations/chat_orchestrator.py", line 12202, in process_chat_message
+    _direct_result = await self._direct_confirmed_file_read(
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<9 lines>...
+    )
+    ^
+  File "/usr/local/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py", line 2333, in _execute_mock_call
+    raise effect
+AssertionError: resolvers failed and flag off: no read
+PASSED                                                                   [ 59%]
+tests/test_turn_decision.py::test_presentation_only_predicate_over_an_attached_canvas PASSED [ 60%]
+tests/test_turn_decision.py::test_explicit_edit_is_never_presentation_only PASSED [ 60%]
+tests/test_turn_decision.py::test_presentation_naming_a_live_source_is_not_presentation_only PASSED [ 60%]
+tests/test_turn_decision.py::test_absent_decision_is_never_presentation_only PASSED [ 60%]
+tests/test_action_program.py::test_sheet_ref_resolves_real_identity_from_phrase PASSED [ 60%]
+tests/test_action_program.py::test_sheet_ref_resolves_exact_name_without_sheet_word PASSED [ 61%]
+tests/test_action_program.py::test_unknown_sheet_is_explicitly_unresolved_never_guessed PASSED [ 61%]
+tests/test_action_program.py::test_short_mention_below_floor_does_not_resolve PASSED [ 61%]
+tests/test_action_program.py::test_scope_reorders_before_window_so_asked_sheet_leads PASSED [ 61%]
+tests/test_action_program.py::test_receipt_counts_in_scope_rows_the_window_hides PASSED [ 61%]
+tests/test_action_program.py::test_empty_scope_is_stated_not_substituted PASSED [ 62%]
+tests/test_action_program.py::test_execution_never_mutates_input_evidence PASSED [ 62%]
+tests/test_action_program.py::test_displaying_a_match_creates_no_binding_and_no_edit_grant PASSED [ 62%]
+tests/test_action_program.py::test_search_again_compiles_to_fresh_read PASSED [ 62%]
+tests/test_action_program.py::test_decision_reason_maps_to_serve_previous_for_read_verdict PASSED [ 63%]
+tests/test_action_program.py::test_compound_request_is_two_actions_two_outcomes PASSED [ 63%]
+tests/test_action_program.py::test_ops_have_no_authorization_field_and_reject_self_grants PASSED [ 63%]
+tests/test_action_program.py::test_patch_authorization_comes_from_policy_facts_only PASSED [ 63%]
+tests/test_action_program.py::test_validate_program_flags_structure_and_fabricated_references PASSED [ 63%]
+tests/test_action_program.py::test_receipts_stay_lean_ranked_lists_not_serialized PASSED [ 64%]
+tests/test_action_program.py::test_decision_persists_typed_program_with_sheet_constraint PASSED [ 64%]
+tests/test_action_program.py::test_render_seam_attaches_receipt_and_matches_direct_ranking PASSED [ 64%]
+tests/test_action_program.py::test_render_seam_scopeless_read_keeps_scan_order_with_no_scope_receipt PASSED [ 64%]
+tests/test_action_program.py::test_render_seam_does_not_mutate_the_scan_outcomes PASSED [ 64%]
+tests/test_action_program.py::test_source_ask_compiles_to_source_read_not_workbook PASSED [ 65%]
+tests/test_action_program.py::test_compound_workbook_plus_email_is_two_read_nodes PASSED [ 65%]
+tests/test_action_program.py::test_service_ref_resolves_only_against_catalog PASSED [ 65%]
+tests/test_action_program.py::test_validate_flags_fabricated_service PASSED [ 65%]
+tests/test_action_program.py::test_filter_evidence_deterministic_over_any_data_type PASSED [ 66%]
+tests/test_action_program.py::test_filter_evidence_empty_is_explicit_never_widened PASSED [ 66%]
+tests/test_action_program.py::test_filter_evidence_is_immutable_and_side_effect_free PASSED [ 66%]
+tests/test_action_program.py::test_filter_evidence_missing_pool_and_missing_field_are_no_match PASSED [ 66%]
+tests/test_action_program.py::test_unknown_source_kind_rejected_at_parse PASSED [ 66%]
+tests/test_action_program.py::test_patch_target_kinds_expressible_canvas_only_wired PASSED [ 67%]
+tests/test_action_program.py::TestIncidentCorpusOmissionsAndWrongActions::test_no_omitted_sheet_constraints PASSED [ 67%]
+tests/test_action_program.py::TestIncidentCorpusOmissionsAndWrongActions::test_no_invented_sheet_constraints PASSED [ 67%]
+tests/test_action_program.py::TestIncidentCorpusOmissionsAndWrongActions::test_edit_turn_compiles_to_patch_not_read PASSED [ 67%]
+tests/test_context_backed_fulfillment.py::test_matching_source_with_supported_finding_completes PASSED [ 67%]
+tests/test_context_backed_fulfillment.py::test_prior_turn_observations_cannot_promote PASSED [ 68%]
+tests/test_context_backed_fulfillment.py::test_wrong_kind_cannot_promote PASSED [ 68%]
+tests/test_context_backed_fulfillment.py::test_wrong_workspace_cannot_promote PASSED [ 68%]
+tests/test_context_backed_fulfillment.py::test_unscoped_observation_cannot_promote PASSED [ 68%]
+tests/test_context_backed_fulfillment.py::test_matching_source_without_the_finding_cannot_certify PASSED [ 69%]
+tests/test_context_backed_fulfillment.py::test_partial_coverage_maps_to_partial_and_names_the_gap PASSED [ 69%]
+tests/test_context_backed_fulfillment.py::test_open_obligation_keeps_partial PASSED [ 69%]
+tests/test_context_backed_fulfillment.py::test_assembly_failure_donates_nothing PASSED [ 69%]
+tests/test_context_backed_fulfillment.py::test_builder_consumption_binds_execution_and_delivery PASSED [ 69%]
+tests/test_context_backed_fulfillment.py::test_wrong_named_document_cannot_complete PASSED [ 70%]
+tests/test_context_backed_fulfillment.py::test_matching_named_document_completes PASSED [ 70%]
+tests/test_context_backed_fulfillment.py::test_ambiguous_and_unresolved_identity_are_partial_with_the_question PASSED [ 70%]
+tests/test_context_backed_fulfillment.py::test_mention_filename_token_extraction PASSED [ 70%]
+tests/test_context_backed_fulfillment.py::test_wrong_subject_cannot_complete PASSED [ 70%]
+tests/test_context_backed_fulfillment.py::test_correct_subject_completes PASSED [ 71%]
+tests/test_context_backed_fulfillment.py::test_unknown_field_with_unrelated_value_cannot_fill PASSED [ 71%]
+tests/test_context_backed_fulfillment.py::test_fragments_never_combine_across_observations PASSED [ 71%]
+tests/test_context_backed_fulfillment.py::test_association_span_does_not_cross_the_next_field_anchor PASSED [ 71%]
+tests/test_context_backed_fulfillment.py::test_comparison_inputs_available_without_result_stays_partial PASSED [ 72%]
+tests/test_context_backed_fulfillment.py::test_comparison_with_complete_recorded_result_completes PASSED [ 72%]
+tests/test_context_backed_fulfillment.py::test_comparison_with_incomplete_carrier_cannot_complete PASSED [ 72%]
+tests/test_context_backed_fulfillment.py::test_knowledge_leg_persists_association_grade_evidence PASSED [ 72%]
+tests/test_context_backed_fulfillment.py::test_knowledge_leg_unknown_field_persists_no_association PASSED [ 72%]
+tests/test_context_backed_fulfillment.py::test_subject_extraction_drops_field_like_targets PASSED [ 73%]
+tests/test_context_backed_fulfillment.py::test_anchor_word_boundaries_pinned PASSED [ 73%]
+tests/test_context_backed_fulfillment.py::test_assembler_subject_gate_pinned PASSED [ 73%]
+tests/test_context_backed_fulfillment.py::test_stash_seeds_identity_from_the_file_reference PASSED [ 73%]
+tests/test_context_backed_fulfillment.py::test_catalog_resolution_against_real_rows PASSED [ 73%]
+tests/test_context_backed_fulfillment.py::test_understated_carrier_count_cannot_complete PASSED [ 74%]
+tests/test_context_backed_fulfillment.py::test_stash_records_the_request_requirement_from_the_real_decision PASSED [ 74%]
+tests/test_context_backed_fulfillment.py::test_stash_resolves_a_named_source PASSED [ 74%]
+tests/test_context_backed_fulfillment.py::test_builder_carries_the_fulfillment_decision_durably 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] EscalationManager initialized
+2026-10-18 18:32:19 [    INFO] CognitiveTierService initialized for workspace: default
+PASSED                                                                   [ 74%]
+tests/test_context_backed_fulfillment.py::test_not_required_requirement_never_completes PASSED [ 75%]
+tests/test_context_backed_fulfillment.py::test_fields_empty_is_retrieval_only_never_completed PASSED [ 75%]
+tests/test_context_backed_fulfillment.py::test_empty_preview_hit_donates_nothing PASSED [ 75%]
+tests/test_documents_search_workspace_scope.py::test_vector_leg_uses_the_workspace_handler PASSED [ 75%]
+tests/test_documents_search_workspace_scope.py::test_documents_search_action_passes_context_workspace PASSED [ 75%]
+tests/test_documents_search_workspace_scope.py::test_documents_search_falls_back_to_request_scope PASSED [ 76%]
+tests/test_documents_search_workspace_scope.py::test_zero_match_grep_falls_back_to_hybrid_search PASSED [ 76%]
+tests/test_documents_search_workspace_scope.py::test_legacy_path_filters_to_the_workspace PASSED [ 76%]
+tests/test_documents_search_workspace_scope.py::test_upload_route_resolves_the_fk_first PASSED [ 76%]
+tests/test_documents_search_workspace_scope.py::test_upsert_document_forwards_the_freshness_stamp PASSED [ 76%]
+tests/test_memory_context_assembler.py::test_flag_defaults_on PASSED     [ 77%]
+tests/test_memory_context_assembler.py::test_flag_off PASSED             [ 77%]
+tests/test_memory_context_assembler.py::test_bounded_lines_respects_cap PASSED [ 77%]
+tests/test_memory_context_assembler.py::test_bounded_lines_skips_empty PASSED [ 77%]
+tests/test_memory_context_assembler.py::test_all_legs_rendered PASSED    [ 78%]
+tests/test_memory_context_assembler.py::test_leg_failure_isolated 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:19 [    INFO] memory assembler: knowledge leg failed: store down
+2026-10-18 18:32:19 [    INFO] memory assembler: episodes leg failed: store down
+2026-10-18 18:32:19 [    INFO] memory assembler: facts leg failed: store down
+PASSED                                                                   [ 78%]
+tests/test_memory_context_assembler.py::test_leg_timeout_isolated 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] memory assembler: graph leg timed out
+PASSED                                                                   [ 78%]
+tests/test_memory_context_assembler.py::test_no_memory_returns_none PASSED [ 78%]
+tests/test_memory_context_assembler.py::test_empty_message_short_circuits PASSED [ 78%]
+tests/test_memory_context_assembler.py::test_total_budget_enforced PASSED [ 79%]
+tests/test_memory_context_assembler.py::TestCommunicationRecordClassifier::test_known_comm_integration_always_routes PASSED [ 79%]
+tests/test_memory_context_assembler.py::TestCommunicationRecordClassifier::test_message_shaped_record_from_unknown_integration_routes PASSED [ 79%]
+tests/test_memory_context_assembler.py::TestCommunicationRecordClassifier::test_non_conversational_record_does_not_route PASSED [ 79%]
+tests/test_memory_context_assembler.py::TestCommunicationRecordClassifier::test_text_without_actor_or_time_does_not_route PASSED [ 80%]
+tests/test_memory_context_assembler.py::TestCommunicationRecordClassifier::test_non_dict_is_safe PASSED [ 80%]
+tests/test_memory_context_assembler.py::test_integration_records_leg_rendered PASSED [ 80%]
+tests/test_memory_context_assembler.py::test_knowledge_leg_renders_documents_and_conversations PASSED [ 80%]
+tests/test_memory_context_assembler.py::test_knowledge_leg_fault_isolated PASSED [ 80%]
+tests/test_memory_context_assembler.py::test_rerank_lines_flag_off_noop PASSED [ 81%]
+tests/test_memory_context_assembler.py::test_rerank_lines_below_min_noop PASSED [ 81%]
+tests/test_memory_context_assembler.py::test_rerank_lines_fastembed_orders_by_similarity PASSED [ 81%]
+tests/test_memory_context_assembler.py::test_rerank_lines_cross_encoder_unavailable_falls_back PASSED [ 81%]
+tests/test_memory_context_assembler.py::test_rerank_lines_cached_cross_encoder_used PASSED [ 81%]
+tests/test_memory_context_assembler.py::test_rerank_phase_reorders_knowledge_block PASSED [ 82%]
+tests/test_memory_context_assembler.py::test_rerank_phase_skipped_when_flag_off PASSED [ 82%]
+tests/test_memory_context_assembler.py::test_integration_leg_initializes_lazy_handler 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] integration records leg: ws=ws role=None tables=['integration_zoho'] (1 total)
+2026-10-18 18:32:21 [    INFO] integration records leg: integration_zoho filter=none search returned 1 hits
+PASSED                                                                   [ 82%]
+tests/test_memory_context_assembler.py::test_integration_leg_uses_connection_directly 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] integration records leg: ws=ws role=None tables=['integration_zoho'] (1 total)
+2026-10-18 18:32:21 [    INFO] integration records leg: integration_zoho filter=none search returned 0 hits
+PASSED                                                                   [ 82%]
+tests/test_memory_context_assembler.py::test_get_qwen_response_receives_user_id 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] [DBG4] continuation-detection reached; bare=False
+2026-10-18 18:32:21 [    INFO] EscalationManager initialized
+2026-10-18 18:32:21 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:32:21 [ WARNING] No LLM clients available
+2026-10-18 18:32:21 [    INFO] [turn-interpretation] empty 
+2026-10-18 18:32:21 [    INFO] [deadline] chat-request stage=legacy-features dur=0.0s turn_offset=0.0s elapsed=0.0s remaining=95.0s budget=95.0s
+2026-10-18 18:32:21 [ WARNING] [fallback-honesty] template completion claim replaced with the recorded unconfirmed outcome (canvas=None, execution=exec-t)
+2026-10-18 18:32:21 [   ERROR] Error processing chat message: 'ChatOrchestrator' object has no attribute '_budget_exceeded_runs'
+Traceback (most recent call last):
+  File "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/integrations/chat_orchestrator.py", line 16444, in process_chat_message
+    if _execution_id and _execution_id in self._budget_exceeded_runs:
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'ChatOrchestrator' object has no attribute '_budget_exceeded_runs'
+PASSED                                                                   [ 83%]
+------------------------------ live log teardown -------------------------------
+2026-10-18 18:32:21 [    INFO] [timeline] chat planner finished: 0.0s after the turn's canvas-edit clock started
+
+tests/test_memory_context_assembler.py::test_integration_leg_role_scoped_first_then_general_topup 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] integration records leg: ws=ws role=finance tables=['integration_zoho'] (1 total)
+2026-10-18 18:32:21 [    INFO] integration records leg: integration_zoho filter=none search returned 2 hits
+PASSED                                                                   [ 83%]
+tests/test_memory_context_assembler.py::test_integration_leg_without_role_single_unfiltered_pass 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] integration records leg: ws=ws role=None tables=['integration_zoho'] (1 total)
+2026-10-18 18:32:21 [    INFO] integration records leg: integration_zoho filter=none search returned 1 hits
+PASSED                                                                   [ 83%]
+tests/test_memory_context_assembler.py::test_resolve_agent_role_maps_category_lowercased PASSED [ 83%]
+tests/test_memory_context_assembler.py::test_lessons_leg_rendered_first PASSED [ 83%]
+tests/test_memory_context_assembler.py::test_lessons_leg_failure_isolated 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] memory assembler: lessons leg failed: registry down
+PASSED                                                                   [ 84%]
+tests/test_memory_context_assembler.py::test_lessons_leg_skipped_without_agent PASSED [ 84%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_none_returns_unverified_false PASSED [ 84%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_verified_true PASSED [ 84%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_verified_false PASSED [ 84%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_no_verified_key_unverified PASSED [ 85%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_success_false PASSED [ 85%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_evidence_list_jsonified PASSED [ 85%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_evidence_dict_jsonified PASSED [ 85%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_dict_verification_evidence_fallback PASSED [ 86%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_json_string_dict PASSED [ 86%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_python_repr_string_normalized PASSED [ 86%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_python_repr_none_value PASSED [ 86%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_plain_string_unverified PASSED [ 86%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_empty_string_success_false PASSED [ 87%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_non_string_object PASSED [ 87%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_never_raises_on_bad_json PASSED [ 87%]
+tests/test_covpush_w41_outcome_verifier.py::TestParseToolOutcome::test_python_repr_unparseable_after_normalize PASSED [ 87%]
+tests/test_covpush_w41_outcome_verifier.py::TestCoerceForStorage::test_valid_states_pass_through PASSED [ 87%]
+tests/test_covpush_w41_outcome_verifier.py::TestCoerceForStorage::test_invalid_defaults_unverified PASSED [ 88%]
+tests/test_covpush_w41_outcome_verifier.py::TestVerifiedOutcomeProperty::test_is_verified PASSED [ 88%]
+tests/test_covpush_w41_outcome_verifier.py::TestAgentContextResolverRemaining::test_heals_legacy_agent_scope 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] Backfilled workspace/tenant scope on system default agent: a1
+2026-10-18 18:32:21 [   ERROR] Error creating system default agent: 'types.SimpleNamespace' object has no attribute 'status'
+FAILED                                                                   [ 88%]
+tests/test_covpush_w41_outcome_verifier.py::TestAgentContextResolverRemaining::test_exception_returns_none 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [   ERROR] Error creating system default agent: db down
+PASSED                                                                   [ 88%]
+tests/test_outcome_resolution.py::test_earlier_findings_do_not_certify_a_later_failed_turn 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:21 [    INFO] [job-work-ledger] settled run=b2610201 op=08232fb6 added=0 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+2026-10-18 18:32:21 [    INFO] [job-work-ledger] settled run=b2610201 op=d13af0ca added=0 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+PASSED                                                                   [ 89%]
+tests/test_outcome_resolution.py::test_discovery_only_receipt_never_validates 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:22 [    INFO] [job-work-ledger] settled run=74c2aaaf op=faebafed added=0 resolved_total=0 open(actions=0 owner=0 exhausted=0)
+PASSED                                                                   [ 89%]
+tests/test_outcome_resolution.py::test_findings_with_owner_decision_is_partial 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:22 [    INFO] [job-work-ledger] settled run=1a2f3523 op=fc5d106b added=0 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+PASSED                                                                   [ 89%]
+tests/test_outcome_resolution.py::test_findings_with_exhausted_read_is_partial 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:22 [    INFO] [job-work-ledger] settled run=96da826c op=81155c9f added=0 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+PASSED                                                                   [ 89%]
+tests/test_outcome_resolution.py::test_successful_current_read_is_completed 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:22 [    INFO] [job-work-ledger] settled run=e96e2c70 op=10ae18dc added=0 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+PASSED                                                                   [ 89%]
+tests/test_outcome_resolution.py::test_foreign_continuation_never_certifies 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:23 [    INFO] [job-work-ledger] settled run=86ca410a op=79f04461 added=0 resolved_total=0 open(actions=1 owner=0 exhausted=0)
+PASSED                                                                   [ 90%]
+tests/test_outcome_resolution.py::test_own_continuation_is_queued_with_identity PASSED [ 90%]
+tests/test_outcome_resolution.py::test_authorized_noop_is_not_manufactured_into_failure 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:23 [ WARNING] [apply-dbg] state=unconfirmed work_turn=True noop=True success_in=True
+PASSED                                                                   [ 90%]
+tests/test_outcome_resolution.py::test_presentation_only_canvas_turn_is_completed PASSED [ 90%]
+tests/test_outcome_resolution.py::test_presentation_flag_never_certifies_without_the_artifact_read PASSED [ 90%]
+tests/test_outcome_resolution.py::test_presentation_flag_never_overrides_a_recorded_failure 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:24 [    INFO] [job-work-ledger] settled run=39079041 op=58528dc0 added=0 resolved_total=0 open(actions=0 owner=0 exhausted=0)
+PASSED                                                                   [ 91%]
+tests/test_search_outcome_contracts.py::test_raising_vector_leg_is_partial_not_silently_lexical_only 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:24 [ WARNING] DocumentsHybridSearch vector leg failed (unknown): RuntimeError('index gone')
+PASSED                                                                   [ 91%]
+tests/test_search_outcome_contracts.py::test_error_category_never_leaks_the_raw_message 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:24 [ WARNING] DocumentsHybridSearch vector leg failed (unknown): RuntimeError('postgres://user:hunter2@10.0.0.5/atom refused')
+PASSED                                                                   [ 91%]
+tests/test_search_outcome_contracts.py::test_both_legs_failing_is_failed_and_forbids_absence 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:24 [ WARNING] DocumentsHybridSearch lexical leg failed (unknown): RuntimeError('lexical index unavailable')
+2026-10-18 18:32:24 [ WARNING] DocumentsHybridSearch vector leg failed (unknown): RuntimeError('vector gone')
+PASSED                                                                   [ 91%]
+tests/test_search_outcome_contracts.py::test_legitimate_zero_matches_is_success_and_absence_claimable PASSED [ 92%]
+tests/test_search_outcome_contracts.py::test_kill_switched_leg_is_skipped_never_failed PASSED [ 92%]
+tests/test_search_outcome_contracts.py::test_hydration_failure_is_recorded_because_it_costs_source_identity 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:25 [ WARNING] DocumentsHybridSearch lexical leg failed (unknown): RuntimeError('pg unavailable')
+2026-10-18 18:32:25 [ WARNING] DocumentsHybridSearch hydration lookup failed: RuntimeError('pg unavailable')
+PASSED                                                                   [ 92%]
+tests/test_search_outcome_contracts.py::test_ranking_degradation_is_not_coverage PASSED [ 92%]
+tests/test_search_outcome_contracts.py::test_backward_compatible_fields_survive PASSED [ 92%]
+tests/test_search_outcome_contracts.py::test_identifiers_keep_requested_order_and_original_spelling PASSED [ 93%]
+tests/test_search_outcome_contracts.py::test_hyphen_compound_is_one_identifier_not_its_halves PASSED [ 93%]
+tests/test_search_outcome_contracts.py::test_bounded_variants_cover_every_identifier_a_head_cut_would_drop PASSED [ 93%]
+tests/test_search_outcome_contracts.py::test_identifier_straddling_a_window_boundary_survives PASSED [ 93%]
+tests/test_search_outcome_contracts.py::test_over_cap_reports_what_it_did_not_reach_instead_of_pretending PASSED [ 93%]
+tests/test_search_outcome_contracts.py::test_query_coverage_detects_a_head_cut PASSED [ 94%]
+tests/test_search_outcome_contracts.py::test_short_query_is_a_single_unchanged_variant PASSED [ 94%]
+tests/test_search_outcome_contracts.py::test_planner_adapter_never_drops_a_tail_identifier PASSED [ 94%]
+tests/test_search_outcome_contracts.py::test_planner_adapter_reports_the_worst_window_status PASSED [ 94%]
+tests/test_search_outcome_contracts.py::test_planner_adapter_merges_and_dedupes_across_windows PASSED [ 95%]
+tests/test_search_outcome_contracts.py::test_empty_query_is_failed_not_a_successful_zero PASSED [ 95%]
+tests/test_search_outcome_contracts.py::test_embedding_checkpoint_is_rejected_as_a_reranker 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:26 [    INFO] PyTorch not available, will use CPU for reranking
+2026-10-18 18:32:26 [   ERROR] Reranker checkpoint BAAI/bge-reranker-base rejected: single_logit_encoder_without_classification_head. A bi-encoder embedding checkpoint ranks by cosine geometry, not by trained relevance; set ATOM_RERANK_MODEL to a trained cross-encoder, or ATOM_RERANK_ALLOW_EMBEDDING_CHECKPOINT=1 to accept the degraded ordering deliberately.
+PASSED                                                                   [ 95%]
+tests/test_search_outcome_contracts.py::test_no_model_download_at_request_time 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:26 [    INFO] Cross-encoder loaded: BAAI/bge-reranker-base (device=cpu, trained_reranker=True, local_only=True)
+PASSED                                                                   [ 95%]
+tests/test_search_outcome_contracts.py::test_default_reranker_is_a_trained_cross_encoder PASSED [ 95%]
+tests/test_search_outcome_contracts.py::test_short_score_vector_cannot_reorder_records PASSED [ 96%]
+tests/test_search_outcome_contracts.py::test_non_finite_scores_cannot_reorder_records PASSED [ 96%]
+tests/test_search_outcome_contracts.py::test_scores_stay_on_the_model_scale_and_are_not_normalised PASSED [ 96%]
+tests/test_search_outcome_contracts.py::test_blocking_inference_does_not_block_the_event_loop PASSED [ 96%]
+tests/test_search_outcome_contracts.py::test_timed_out_inference_is_bounded_not_accumulated PASSED [ 96%]
+tests/test_search_outcome_contracts.py::test_ranking_degradation_is_observable_and_not_a_retrieval_failure 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:27 [    INFO] [HYBRID] Stage 1: Coarse search (top-100)
+2026-10-18 18:32:27 [    INFO] [HYBRID] Coarse search: 2 results in 0.1ms
+2026-10-18 18:32:27 [ WARNING] [HYBRID] Reranking unavailable (checkpoint_not_local); coarse order kept
+PASSED                                                                   [ 97%]
+tests/test_search_outcome_contracts.py::test_rerank_timing_reports_measurements_not_targets PASSED [ 97%]
+tests/test_search_outcome_contracts.py::test_module_no_longer_advertises_unmeasured_targets PASSED [ 97%]
+tests/test_pinned_planning_scope.py::test_startup_lacks_provider_requested_workspace_has_it_pin_retained 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:27 [    INFO] LocalOnlyGuard initialized
+PASSED                                                                   [ 97%]
+tests/test_pinned_planning_scope.py::test_startup_has_provider_requested_workspace_lacks_it_pin_refused PASSED [ 98%]
+tests/test_pinned_planning_scope.py::test_two_overlapping_workspaces_retain_their_respective_scopes PASSED [ 98%]
+tests/test_pinned_planning_scope.py::test_unresolved_scope_cannot_borrow_another_handler PASSED [ 98%]
+tests/test_pinned_planning_scope.py::test_local_only_policy_still_blocks_cloud_pins 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:27 [ WARNING] LOCAL-ONLY: pin opencode-go/deepseek-v4-pro refused — cloud dispatch is blocked; the call routes locally instead
+PASSED                                                                   [ 98%]
+tests/test_pinned_planning_scope.py::test_unpinned_fallback_behavior_unchanged 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:27 [    INFO] test pinned call (('opencode-go', 'deepseek-v4-pro')) returned no result — retrying unpinned across the workspace's configured providers
+PASSED                                                                   [ 98%]
+tests/test_pinned_planning_scope.py::test_resolve_pinned_provider_model_threads_scope PASSED [ 99%]
+tests/test_pinned_planning_scope.py::test_plan_structured_threads_turn_scope_into_the_gate PASSED [ 99%]
+tests/test_pinned_planning_transport.py::test_constructed_client_carries_go_url_and_required_headers 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:27 [    INFO] Initialized opencode-go client using BYOK credential
+2026-10-18 18:32:27 [    INFO] EscalationManager initialized
+2026-10-18 18:32:27 [    INFO] CognitiveTierService initialized for workspace: ws-transport
+PASSED                                                                   [ 99%]
+tests/test_pinned_planning_transport.py::test_pinned_dispatch_reaches_go_url_with_intended_model 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:27 [    INFO] Initialized opencode-go client using BYOK credential
+2026-10-18 18:32:27 [    INFO] EscalationManager initialized
+2026-10-18 18:32:27 [    INFO] CognitiveTierService initialized for workspace: ws-transport
+2026-10-18 18:32:27 [    INFO] Auto-populating pricing cache synchronously...
+2026-10-18 18:32:27 [    INFO] Using cached pricing data
+2026-10-18 18:32:27 [    INFO] Pricing cache populated with 4708 models
+2026-10-18 18:32:27 [    INFO] Created OpencodeModelLimits singleton instance
+2026-10-18 18:32:27 [    INFO] BPC Ranking Successful for simple: Top model glm-5.3-flash (Value: 9712.17)
+2026-10-18 18:32:27 [ WARNING] no ranked route is verified against a provider catalogue (12 candidate(s) checked); using the unreconciled ranking — support is UNKNOWN, not confirmed: opencode-go/glm-5.3-flash: provider_catalog_unknown; opencode-go/minimax-m3: provider_catalog_unknown; opencode-go/minimax-m2.7: provider_catalog_unknown; opencode-go/deepseek-v4.1-flash: provider_catalog_unknown
+2026-10-18 18:32:27 [    INFO] [LearningRouter] auto-mode readiness: 0 verdict row(s) in the last 7d, 0 model(s) with >= 8 observations -> re-ranking not yet (static BPC ordering) (thresholds: >=30 rows, >=2 models)
+2026-10-18 18:32:27 [    INFO] Structured generation (free, Managed): opencode-go/deepseek-v4-pro
+2026-10-18 18:32:27 [    INFO] [structured-dispatch] opencode-go/deepseek-v4-pro route=structured-0590c313e166 attempt=1 prompt_chars=22 cap=1000 instructor_retries=2
+2026-10-18 18:32:27 [    INFO] HTTP Request: POST https://opencode.ai/inference/go/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-10-18 18:32:27 [    INFO] [inflight] opencode-go/deepseek-v4-pro released by 'completion2:planning' after 0.0s
+2026-10-18 18:32:27 [    INFO] [structured-trace] opencode-go/deepseek-v4-pro cap=1000 dur=0.0s finish=tool_calls content_present=True tool_calls_present=True result_type=_Out route=structured-0590c313e166 attempt=1
+2026-10-18 18:32:29 [    INFO] Initialized router with 30 models
+2026-10-18 18:32:29 [    INFO] Learning router hydrated 0 feedback rows from DB
+2026-10-18 18:32:29 [    INFO] Learning router singleton initialized
+PASSED                                                                   [ 99%]
+tests/test_pinned_planning_transport.py::test_failed_pin_fallback_does_not_disguise_an_incompatible_route 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:32:29 [    INFO] Initialized opencode-go client using BYOK credential
+2026-10-18 18:32:29 [    INFO] EscalationManager initialized
+2026-10-18 18:32:29 [    INFO] CognitiveTierService initialized for workspace: ws-transport
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gemini-3-flash excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.1 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.3 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gpt-5.3-codex-spark excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.5 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.7-code excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] BPC Ranking Successful for simple: Top model glm-5.3-flash (Value: 9549.97)
+2026-10-18 18:32:29 [    INFO] Structured generation (free, Managed): opencode-go/deepseek-v4-pro
+2026-10-18 18:32:29 [    INFO] [structured-dispatch] opencode-go/deepseek-v4-pro route=structured-1cc96a30556a attempt=1 prompt_chars=22 cap=6000 instructor_retries=2
+2026-10-18 18:32:29 [    INFO] HTTP Request: POST https://opencode.ai/inference/go/openai/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-10-18 18:32:29 [   ERROR] API call failed on attempt 1: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [   ERROR] Max retries exceeded. Total attempts: 1, Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [    INFO] [inflight] opencode-go/deepseek-v4-pro released by 'completion2:general' after 0.0s
+2026-10-18 18:32:29 [ WARNING] Structured attempt failed for opencode-go/deepseek-v4-pro: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [ WARNING] [structured-pool] depth=0 candidates=[('opencode-go', 'deepseek-v4-pro')] attempted=True credit_failed=[]
+2026-10-18 18:32:29 [ WARNING] structured cascade exhausted on cost-priority rungs — one value-ranked sweep over untried healthy providers
+2026-10-18 18:32:29 [    INFO] [route-exclusions] {"classification": {"pre_pool_catalog_not_in_provider": 6}, "dispatched": true, "event": "structured_cascade_exhausted", "exclusions": [], "interactive": false, "pool": {"families": {"opencode-go": 1}, "size": 1}, "pre_pool_skips": [{"reason": "catalog_not_in_provider", "route": "opencode-go/gemini-3-flash", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/glm-5.1", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/glm-5.3", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/gpt-5.3-codex-spark", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/kimi-k2.5", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/kimi-k2.7-code", "stage": "ranking"}], "providers_on_cooldown": {}, "refresh": "not_eligible", "refresh_providers": [], "trace_id": "structured-1cc96a30556a"}
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gemini-3-flash excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.1 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.3 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gpt-5.3-codex-spark excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.5 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.7-code excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] BPC Ranking Successful for simple: Top model glm-5.3-flash (Value: 4774.99)
+2026-10-18 18:32:29 [    INFO] Structured generation (free, Managed): opencode-go/glm-5.3-flash
+2026-10-18 18:32:29 [    INFO] [structured-dispatch] opencode-go/glm-5.3-flash route=structured-1cc96a30556a attempt=1 prompt_chars=22 cap=6000 instructor_retries=2
+2026-10-18 18:32:29 [    INFO] HTTP Request: POST https://opencode.ai/inference/go/openai/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-10-18 18:32:29 [   ERROR] API call failed on attempt 1: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [   ERROR] Max retries exceeded. Total attempts: 1, Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [    INFO] [inflight] opencode-go/glm-5.3-flash released by 'completion2:general' after 0.0s
+2026-10-18 18:32:29 [ WARNING] Structured attempt failed for opencode-go/glm-5.3-flash: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [ WARNING] [structured-pool] depth=1 candidates=[('opencode-go', 'glm-5.3-flash'), ('opencode-go', 'minimax-m3'), ('opencode-go', 'minimax-m2.7'), ('opencode-go', 'deepseek-v4.1-flash'), ('opencode-go', 'minimax-m2.5'), ('opencode-go', 'mistral-large-4')] attempted=True credit_failed=[]
+2026-10-18 18:32:29 [   ERROR] All structured providers failed after 1 attempt(s). Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [   ERROR] All structured providers failed after 1 attempt(s). Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [    INFO] transport-fallback pinned call (('opencode-go', 'deepseek-v4-pro')) returned no result — retrying unpinned across the workspace's configured providers
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gemini-3-flash excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.1 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.3 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gpt-5.3-codex-spark excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.5 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.7-code excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] BPC Ranking Successful for simple: Top model glm-5.3-flash (Value: 4774.99)
+2026-10-18 18:32:29 [    INFO] Structured generation (free, Managed): opencode-go/glm-5.3-flash
+2026-10-18 18:32:29 [    INFO] [structured-dispatch] opencode-go/glm-5.3-flash route=structured-73d88bd92ab9 attempt=1 prompt_chars=22 cap=6000 instructor_retries=2
+2026-10-18 18:32:29 [    INFO] HTTP Request: POST https://opencode.ai/inference/go/openai/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-10-18 18:32:29 [   ERROR] API call failed on attempt 1: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [   ERROR] Max retries exceeded. Total attempts: 1, Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [    INFO] [inflight] opencode-go/glm-5.3-flash released by 'completion2:general' after 0.0s
+2026-10-18 18:32:29 [ WARNING] Structured attempt failed for opencode-go/glm-5.3-flash: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [ WARNING] [structured-pool] depth=0 candidates=[('opencode-go', 'glm-5.3-flash'), ('opencode-go', 'minimax-m3'), ('opencode-go', 'minimax-m2.7'), ('opencode-go', 'deepseek-v4.1-flash'), ('opencode-go', 'minimax-m2.5'), ('opencode-go', 'mistral-large-4')] attempted=True credit_failed=[]
+2026-10-18 18:32:29 [ WARNING] structured cascade exhausted on cost-priority rungs — one value-ranked sweep over untried healthy providers
+2026-10-18 18:32:29 [    INFO] [route-exclusions] {"classification": {"pre_pool_catalog_not_in_provider": 6, "prior_attempt_failed": 5}, "dispatched": true, "event": "structured_cascade_exhausted", "exclusions": [{"reason": "already_failed_provider", "route": "opencode-go/minimax-m3"}, {"reason": "already_failed_provider", "route": "opencode-go/minimax-m2.7"}, {"reason": "already_failed_provider", "route": "opencode-go/deepseek-v4.1-flash"}, {"reason": "already_failed_provider", "route": "opencode-go/minimax-m2.5"}, {"reason": "already_failed_provider", "route": "opencode-go/mistral-large-4"}], "interactive": false, "pool": {"families": {"opencode-go": 6}, "size": 6}, "pre_pool_skips": [{"reason": "catalog_not_in_provider", "route": "opencode-go/gemini-3-flash", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/glm-5.1", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/glm-5.3", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/gpt-5.3-codex-spark", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/kimi-k2.5", "stage": "ranking"}, {"reason": "catalog_not_in_provider", "route": "opencode-go/kimi-k2.7-code", "stage": "ranking"}], "providers_on_cooldown": {}, "refresh": "not_eligible", "refresh_providers": [], "trace_id": "structured-73d88bd92ab9"}
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gemini-3-flash excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.1 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/glm-5.3 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/gpt-5.3-codex-spark excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.5 excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] structured gate: opencode-go/kimi-k2.7-code excluded — not_in_provider_catalog (fresh, identifier not present in opencode-go's discovered catalogue (7 identifiers))
+2026-10-18 18:32:29 [    INFO] BPC Ranking Successful for simple: Top model glm-5.3-flash (Value: 4774.99)
+2026-10-18 18:32:29 [    INFO] Structured generation (free, Managed): opencode-go/glm-5.3-flash
+2026-10-18 18:32:29 [    INFO] [structured-dispatch] opencode-go/glm-5.3-flash route=structured-73d88bd92ab9 attempt=1 prompt_chars=22 cap=6000 instructor_retries=2
+2026-10-18 18:32:29 [    INFO] HTTP Request: POST https://opencode.ai/inference/go/openai/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-10-18 18:32:29 [   ERROR] API call failed on attempt 1: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [   ERROR] Max retries exceeded. Total attempts: 1, Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [    INFO] [inflight] opencode-go/glm-5.3-flash released by 'completion2:general' after 0.0s
+2026-10-18 18:32:29 [ WARNING] Structured attempt failed for opencode-go/glm-5.3-flash: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [ WARNING] [structured-pool] depth=1 candidates=[('opencode-go', 'glm-5.3-flash'), ('opencode-go', 'minimax-m3'), ('opencode-go', 'minimax-m2.7'), ('opencode-go', 'deepseek-v4.1-flash'), ('opencode-go', 'minimax-m2.5'), ('opencode-go', 'mistral-large-4')] attempted=True credit_failed=[]
+2026-10-18 18:32:29 [   ERROR] All structured providers failed after 1 attempt(s). Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+2026-10-18 18:32:29 [   ERROR] All structured providers failed after 1 attempt(s). Last error: Error code: 400 - {'error': {'type': 'invalid_request_error', 'message': 'model not supported on this route'}}
+PASSED                                                                   [100%]
+
+=================================== FAILURES ===================================
+______________ test_retry_repaired_to_history_service_over_memory ______________
+tests/test_chat_tool_planner_web.py:426: in test_retry_repaired_to_history_service_over_memory
+    assert llm.generate_structured_response.await_count == 2
+E   AssertionError: assert 3 == 2
+E    +  where 3 = <AsyncMock name='mock.generate_structured_response' id='6390143968'>.await_count
+E    +    where <AsyncMock name='mock.generate_structured_response' id='6390143968'> = <MagicMock id='6390147328'>.generate_structured_response
+------------------------------ Captured log call -------------------------------
+INFO     core.chat_tool_planner:chat_tool_planner.py:1710 tool planner: LLM repair -> outlook.search
+WARNING  core.llm.pinned_planning:pinned_planning.py:334 tool planner call raised:
+______________ test_empty_integration_search_falls_back_to_memory ______________
+tests/test_chat_tool_planner_web.py:479: in test_empty_integration_search_falls_back_to_memory
+    assert "Ingested-workspace matches" in block
+E   assert 'Ingested-workspace matches' in "LIVE TOOL RESULTS (zoho_workdrive.search, query='Full Cost formula Consolidated Price List 2019'): returned nothing usable (no data).\n(on-demand pull ran but found nothing upstream to ingest for this query)\n\nGROUNDING RULE: specific facts (names, figures, prices, dates, quotations) must come from the evidence above. If the exact value the user asks about is not visible in this evidence, say what was found and that the source itself must be opened for the exact value — do not fill the gap from memory and do not present recalled values as if read from the source. BEFORE concluding anything is missing: mailbox/document lines are EXCERPTS and long quoted threads run to tens of thousands of chars. Every [ingested mailbox] line carries 'full: knowledge/conversations/<id>' — the COMPLETE line-numbered message. Open it with documents.cat(path + '/content.lines') (skim with documents.head / documents.tail); to search EVERY stored message use documents.grep with path_prefix 'knowledge/conversations'. Only after that may you say a value is not in the mailbox. An absence claim may only be as wide as the search performed: an 'emails we sent' question includes internal forwards, and one match never shows there were no others. If the evidence shows a source the user asked for was NOT found: state what was searched (which store, which query) and what came back — scoped, not global. NEVER promise an action in this reply ('I will open it now') — the lookups above already ran; you cannot run more mid-reply. And do not ask permission for something the user's current message already authorized: if they told you to open or check a source and it was not retrieved, say exactly that and offer the NEXT concrete search (a different store or query), not a repeat of their instruction as a question."
+----------------------------- Captured stdout call -----------------------------
+{"level": "INFO", "message": "Loaded service class for zoho_workdrive: integrations.zoho_workdrive_service:ZohoWorkDriveService", "timestamp": "2026-10-18T22:32:19.175222+00:00", "logger": "core.integration_registry", "module": "structured_logger", "function": "_log", "line": 118}
+------------------------------ Captured log call -------------------------------
+INFO     core.chat_tool_planner:chat_tool_planner.py:9238 [etp-provenance] service=zoho_workdrive intent=search caller=test_chat_tool_planner_web.py:477 test_empty_integration_search_falls_back_to_memory exec_id=False conv=
+INFO     core.integration_registry:structured_logger.py:118 Loaded service class for zoho_workdrive: integrations.zoho_workdrive_service:ZohoWorkDriveService
+WARNING  core.chat_tool_planner:chat_tool_planner.py:5938 memory tool execution failed: Table 'documents' was not found
+_______ TestAgentContextResolverRemaining.test_heals_legacy_agent_scope ________
+tests/test_covpush_w41_outcome_verifier.py:129: in test_heals_legacy_agent_scope
+    assert out is agent
+E   AssertionError: assert None is namespace(id='a1', workspace_id='default', tenant_id='default')
+------------------------------ Captured log call -------------------------------
+INFO     core.agent_context_resolver:agent_context_resolver.py:164 Backfilled workspace/tenant scope on system default agent: a1
+ERROR    core.agent_context_resolver:agent_context_resolver.py:226 Error creating system default agent: 'types.SimpleNamespace' object has no attribute 'status'
+=============================== warnings summary ===============================
+../../../../../../../../../usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852
+  /usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; tests.e2e.fixtures.service_mock_fixtures
+    self.import_plugin(import_spec)
+
+../../../../../../../../../usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25
+  /usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+    from pydantic.v1.fields import FieldInfo as FieldInfoV1
+
+core/token_storage.py:17
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/core/token_storage.py:17: DeprecationWarning: token_storage is deprecated. Use ConnectionService instead.
+    warnings.warn("token_storage is deprecated. Use ConnectionService instead.", DeprecationWarning)
+
+tests/test_turn_decision.py::test_research_backstop_routes_ask_lane
+  /usr/local/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_context_backed_fulfillment.py::test_builder_carries_the_fulfillment_decision_durably
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/integrations/chat_orchestrator.py:8782: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.completed_at = _dt.utcnow()
+
+tests/test_pinned_planning_transport.py: 48 warnings
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/core/llm/byok_handler.py:2152: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(
+
+tests/test_pinned_planning_transport.py::test_pinned_dispatch_reaches_go_url_with_intended_model
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-doc-evidence/backend/core/llm/learning_router_registry.py:87: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(days=_LR_AUTO_WINDOW_DAYS)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== WARNING: Low Assertion Density ========================
+  tests/test_provider_registry_api.py: 0.145 (target: 0.15)
+  tests/test_round70_llm_credential_subscription.py: 0.102 (target: 0.15)
+  tests/test_notion_service.py: 0.083 (target: 0.15)
+  tests/test_canvas_training_context.py: 0.127 (target: 0.15)
+  tests/test_user_management_monitoring.py: 0.054 (target: 0.15)
+=========================== short test summary info ============================
+FAILED tests/test_chat_tool_planner_web.py::test_retry_repaired_to_history_service_over_memory
+FAILED tests/test_chat_tool_planner_web.py::test_empty_integration_search_falls_back_to_memory
+FAILED tests/test_covpush_w41_outcome_verifier.py::TestAgentContextResolverRemaining::test_heals_legacy_agent_scope
+=========================== warnings summary (final) ===========================
+<unknown>:314
+  <unknown>:314: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+
+<unknown>:6
+  <unknown>:6: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:134
+  <unknown>:134: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:944
+  <unknown>:944: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============ 3 failed, 461 passed, 1 skipped, 58 warnings in 45.68s ============

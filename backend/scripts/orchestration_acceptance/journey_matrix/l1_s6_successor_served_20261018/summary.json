@@ -1,0 +1,78 @@
+{
+  "record": "L1/S6 served verification on the scope-repair successor",
+  "date": "2026-10-18",
+  "claim": "L1 verified through served API on aaa1169d7, configuration X",
+  "candidate": {
+    "commit": "aaa1169d7dc1a2e511bce9b81c33ee85f58982eb",
+    "parent": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+    "scope_repair_only": true,
+    "pilot_deployed": false
+  },
+  "configuration": {
+    "openode_base_url": "https://opencode.ai/inference/go/openai/v1",
+    "edit_plan_pin": "opencode-go/deepseek-v4-pro",
+    "flags": {
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1",
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1"
+    },
+    "interpreter": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "isolation": "scratch DB/LanceDB/BYOK stores; fresh port; one authorized operator credential via scratch product API; pilot untouched",
+    "runtime_identity": {
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/reask-current-artifact/backend",
+      "git_commit": "aaa1169d7dc1",
+      "dirty": false
+    }
+  },
+  "request": {
+    "message": "Please also update the payment terms in the draft to Net 45.",
+    "artifact": "draft created through the product API carrying 'Terms: Net 45'"
+  },
+  "observed": {
+    "structured_noop_receipt": {
+      "noop": true,
+      "noop_reason": "already_satisfied",
+      "background_started": false,
+      "persistence": "persisted"
+    },
+    "receipt_derived_reply": "Verified on the current draft: payment terms in the draft already set to Net 45. No changes were needed, and nothing was sent.",
+    "zero_added_writes": true,
+    "body_unchanged": true,
+    "completed_response": {"outcome": "completed", "success": true},
+    "fresh_history_reload": {"outcome": "completed", "success": true, "non_null": true, "agrees_with_persisted_row": true},
+    "intended_vs_actual": {
+      "intended_model": "opencode-go/deepseek-v4-pro",
+      "intended_endpoint": "https://opencode.ai/inference/go/openai/v1",
+      "dispatch_models": ["opencode-go/deepseek-v4-pro"],
+      "go_chat_posts": 1,
+      "zen_chat_posts": 0,
+      "pin_fell_back_to_unpinned": false
+    }
+  },
+  "runs": {
+    "run1": "aborted evidence assembly after a completed served turn (missing 'import re' in the driver); preserved as run1_aborted_driver_*; assistant row completed/true",
+    "run2": "clean attempt; verdict re-scored deterministically from the same raw evidence after fixing the scoring path (metadata.canvas_edit vs data.canvas_edit); no new request"
+  },
+  "checks_all_true": [
+    "structured_noop_receipt",
+    "zero_additional_writes",
+    "body_unchanged_and_holds_net45",
+    "completed_response",
+    "receipt_derived_reply",
+    "history_nonnull_agreement",
+    "pin_dispatched_no_fallback",
+    "go_endpoint_used"
+  ],
+  "pass": true,
+  "promotion": {
+    "l1_verified_served": true,
+    "bound_to": "aaa1169d7 + declared Go configuration",
+    "pilot_deployment": false,
+    "row43_exclusions_unchanged": true,
+    "funding_performed": false
+  },
+  "followups": [
+    "Go base URL '/models' 404s; documented models endpoint is /inference/go/v1/models — future integration point",
+    "Go DeepSeek rejects instructor tool_choice in thinking mode; handler JSON-mode retry + memo handles it"
+  ]
+}

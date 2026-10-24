@@ -29,12 +29,19 @@ import re
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 from html import unescape
-from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, model_validator
 
 from core import log_redaction
 from core.evidence_grounding import CANVAS_ARTIFACT_GROUNDING_RULE
+# Strict primitives borrowed for the assignment-satisfaction relation
+# (L1/S6 repair 2026-10-18). Aliased so the borrowing is explicit and no
+# local definition can silently shadow them.
+from core.factual_change_validation import (
+    _decimal as _assignment_decimal,
+    _norm as _assignment_norm,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -462,8 +469,15 @@ async def _plan_structured(
     _pin_spec = (_os.getenv("ATOM_ASYNC_EDIT_PLAN_MODEL") or "").strip()
     if _pin_spec and "/" in _pin_spec:
         _prov, _mod = _pin_spec.split("/", 1)
-        _pin = build_provider_model_pin(llm_service, _prov.strip(),
-                                        _mod.strip())
+        # THE GATE MUST RESOLVE THE SAME SCOPE AS THE CALL (owner-approved
+        # repair 2026-10-18): BYOK providers are loaded per (workspace,
+        # tenant). Gating against the service's unscoped constructor
+        # handler silently dropped this pin for workspace-registered
+        # providers (live attempt 7: pin never dispatched; the unpinned
+        # fallback sent a different model to a different gateway).
+        _pin = build_provider_model_pin(
+            llm_service, _prov.strip(), _mod.strip(),
+            workspace_id=workspace_id, tenant_id=tenant_id)
 
     # THE TURN'S OWN SCOPE (J6 draft finding, j6_draft_*8961ec.json):
     # without it the structured call resolves the SERVICE's frozen
@@ -1916,6 +1930,424 @@ def _comparison_verified_local(observation: Dict[str, Any]) -> bool:
         "verified", "stored", "calculated"}
 
 
+#: Location/navigation words in an assignment target ("... in the draft")
+#: name the ARTIFACT, not the field — never used as field-binding tokens.
+_ASSIGNMENT_LOCATION_TOKENS = {
+    "the", "a", "an", "in", "on", "of", "to", "for", "this", "that",
+    "these", "those", "its", "it", "and", "or", "draft", "canvas",
+    "document", "email",
+}
+
+#: REVIEWED COMPLETION-field equivalences (owner review 2026-10-18,
+#: defect class 4). Deliberately SEPARATE from the retrieval-oriented
+#: registry (``workbook_read_artifact._FIELD_ALIASES``): discovery may
+#: be broad, but certification must preserve field distinctions — net
+#: weight never borrows gross weight, dealer cost never borrows retail.
+#: Each pair is an explicit statement that the qualified request phrase
+#: and the artifact's BARE label denote the same field for completion on
+#: artifacts that carry no richer schema. The bare side is accepted only
+#: when it is UNAMBIGUOUS in the artifact (no sibling label carrying the
+#: same bare token with a different qualifier — "Warranty terms" next to
+#: "Terms" keeps the payment-terms ask unresolved). This mapping is not
+#: a retrieval expansion and must never be fed back into one.
+_COMPLETION_FIELD_EQUIVALENCES = (
+    ("payment terms", "terms"),
+)
+
+
+class _AssignmentRecord(NamedTuple):
+    """One field record of the artifact body, with its section subject.
+
+    ``section`` is the heading text in force above the record ("" when
+    the document carries no heading). The satisfaction check binds a
+    requested subject to THIS record — a generic field under another
+    section can never absorb it (owner review 2026-10-18, defect class 2:
+    requested identity constraints were being dropped)."""
+    section: str
+    label: str
+    value: str
+    line: str
+
+
+def _assignment_artifact_lines(current: Any) -> List[_AssignmentRecord]:
+    """The artifact's records with their section context, line by line.
+
+    HTML headings (<h1>…<h6>) and Markdown ATX/bold headings set the
+    SECTION for the records that follow; the label parser is the
+    factual-change validator's own (``_label_values``), so the
+    satisfaction check and the patch validator agree on what a
+    "Label: value" line is. Unlabeled non-heading lines stay as records
+    with an empty label (they never bind a field)."""
+    from core.factual_change_validation import _label_values
+
+    body = str(_body_from_content(current) or "")
+    # HTML headings become ATX lines BEFORE the block-boundary pass, so
+    # their text survives tag stripping AS a heading (not as an
+    # anonymous line whose subject association would be lost).
+    body = re.sub(
+        r"<\s*h([1-6])[^>]*>(.*?)<\s*/\s*h\1\s*>",
+        lambda m: "\n" + "#" * int(m.group(1)) + " " + m.group(2) + "\n",
+        body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<\s*br\s*/?\s*>", "\n", body, flags=re.IGNORECASE)
+    body = re.sub(
+        r"</\s*(?:p|div|li|tr|h[1-6])\s*>", "\n", body,
+        flags=re.IGNORECASE)
+    records: List[_AssignmentRecord] = []
+    section = ""
+    for raw in body.splitlines():
+        line = _html_text(raw)
+        if not line.strip():
+            continue
+        heading = re.match(r"^\s*#{1,6}\s+(.*?)\s*#*\s*$", line)
+        if heading is None and ":" not in line:
+            heading = re.match(r"^\s*\*\*(.+?)\*\*\s*$", line)
+        if heading:
+            section = heading.group(1).strip()
+            continue
+        labels = _label_values(line)
+        if labels:
+            label, value_part = labels[0]
+        else:
+            label, value_part = "", line
+        records.append(_AssignmentRecord(section, label, value_part, line))
+    return records
+
+
+#: A value beyond this many words is PROSE: the satisfaction check
+#: refuses to adjudicate its equivalence and leaves the obligation
+#: unresolved. Scalar-shaped values (numbers, codes, short phrases like
+#: "Net 45" / "On track" / "3–4 weeks") compare completely.
+_ASSIGNMENT_SCALAR_MAX_WORDS = 8
+
+
+def _assignment_value_text(value: Any) -> str:
+    """Conservative whole-value normalization: casefold, collapse
+    whitespace, strip symmetric surrounding quotes and trailing sentence
+    punctuation. Deliberately NO substring or word-containment matching —
+    that acceptance is what let 'Net 45' satisfy 'not Net 45'."""
+    text = _assignment_norm(value).strip("\"'“”‘’ \t")
+    return re.sub(r"[.,;:!?]+$", "", text).strip()
+
+
+def _assignment_value_is_prose(text: str) -> bool:
+    return len(re.findall(r"[a-z0-9]+", text)) > _ASSIGNMENT_SCALAR_MAX_WORDS
+
+
+def _assignment_value_relation(assigned: Any, observed: Any) -> str:
+    """The strict relation between the request's assigned value and the
+    artifact record's complete value — 'satisfied', 'unsatisfied', or
+    'unresolved' (prose the check refuses to adjudicate). Numbers compare
+    by the existing whole-value decimal equality; text compares by
+    complete normalized equality. Containment is never equivalence."""
+    assigned_text = _assignment_value_text(assigned)
+    observed_text = _assignment_value_text(observed)
+    if not assigned_text or not observed_text:
+        return "unresolved"
+    assigned_number = _assignment_decimal(assigned)
+    observed_number = _assignment_decimal(observed)
+    if assigned_number is not None and observed_number is not None:
+        return ("satisfied" if assigned_number == observed_number
+                else "unsatisfied")
+    if assigned_text == observed_text:
+        return "satisfied"
+    if (_assignment_value_is_prose(assigned_text)
+            or _assignment_value_is_prose(observed_text)):
+        return "unresolved"
+    return "unsatisfied"
+
+
+class _AssignmentTargetBinding(NamedTuple):
+    """How one assignment target binds to the artifact's records.
+
+    ``field_resolved`` — the target contains a span that CERTIFIES field
+    identity with a record's label (the label's own phrase, or a
+    reviewed completion mapping; discovery-only related fields do not
+    count). ``subject_resolved`` — every remaining target word (location
+    words excluded) is named by a candidate record's SECTION. ``record``
+    is set only when EXACTLY ONE record resolves both; every other state
+    refuses completion (owner corrections 2026-10-18, defect classes 3-4:
+    no capitalization/leftover-count authority, no related-field
+    borrowing, no silently discarded words)."""
+    field_resolved: bool
+    subject_resolved: bool
+    reason: str
+    record: Optional[_AssignmentRecord]
+    candidates: Tuple[_AssignmentRecord, ...]
+
+
+def _assignment_phrase_spans(
+    target_tokens: List[str], words: List[str],
+) -> List[Tuple[int, int]]:
+    """Every contiguous occurrence of ``words`` in the target tokens."""
+    if not words or len(words) > len(target_tokens):
+        return []
+    return [
+        (start, start + len(words))
+        for start in range(len(target_tokens) - len(words) + 1)
+        if target_tokens[start:start + len(words)] == words
+    ]
+
+
+def _assignment_field_spans(
+    target_tokens: List[str], label: str,
+) -> List[Tuple[int, int]]:
+    """BROAD DISCOVERY: contiguous target spans of the retrieval
+    registry's alias family for this record's label.
+
+    ``_field_aliases`` groups RELATED fields for retrieval and column
+    selection (weight: net+gross; price: dealer+retail). Discovery may
+    be broad — certification is NOT (see
+    ``_assignment_completion_field_spans``): a discovered span alone
+    never establishes field equivalence."""
+    try:
+        from core.workbook_read_artifact import _field_aliases
+
+        family = [str(alias) for alias in _field_aliases(label)
+                  if str(alias or "").strip()]
+    except Exception:  # noqa: BLE001 — registry unavailable: label only
+        family = [str(label or "")]
+    spans: List[Tuple[int, int]] = []
+    for alias in sorted(family, key=lambda item: len(item.split()),
+                        reverse=True):
+        spans.extend(_assignment_phrase_spans(
+            target_tokens, alias.split()))
+    return spans
+
+
+def _assignment_bare_label_unambiguous(
+    bare: str, label: str, all_labels: Sequence[str],
+) -> bool:
+    """Whether the BARE label (e.g. "terms") is unambiguous in the
+    artifact: no OTHER record label carries one of its tokens with a
+    different qualifier ("warranty terms", "terms and conditions").
+    Duplicate identical labels are left to the unique-record rule."""
+    bare_tokens = bare.split()
+    if not bare_tokens:
+        return False
+    label_norm = _assignment_norm(label)
+    for other in all_labels:
+        other_norm = _assignment_norm(other)
+        if not other_norm or other_norm == label_norm:
+            continue
+        if any(re.search(
+                rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])",
+                other_norm) for token in bare_tokens):
+            return False
+    return True
+
+
+def _assignment_completion_field_spans(
+    target_tokens: List[str], label: str, all_labels: Sequence[str],
+) -> List[Tuple[int, int]]:
+    """CERTIFICATION: the maximal target spans that establish field
+    identity with this record's label.
+
+    Identity is the label's own normalized phrase appearing verbatim in
+    the target, or a reviewed COMPLETION mapping pair (separate in
+    meaning from retrieval expansion) whose bare side is unambiguous in
+    the artifact. Registry family members that are merely related never
+    certify."""
+    label_words = _assignment_norm(label).split()
+    spans = _assignment_phrase_spans(target_tokens, label_words)
+    for qualified, bare in _COMPLETION_FIELD_EQUIVALENCES:
+        if _assignment_norm(label) != bare:
+            continue
+        if not _assignment_bare_label_unambiguous(bare, label, all_labels):
+            continue
+        spans.extend(_assignment_phrase_spans(
+            target_tokens, qualified.split()))
+    if not spans:
+        return []
+    max_len = max(end - start for start, end in spans)
+    return [(start, end) for start, end in spans
+            if end - start == max_len]
+
+
+def _resolve_assignment_target(
+    target: str, records: List[_AssignmentRecord],
+) -> _AssignmentTargetBinding:
+    """Bind one assignment target to at most ONE artifact record.
+
+    Discovery is broad (retrieval registry families); CERTIFICATION
+    preserves field distinctions (the label's own phrase, or a reviewed
+    completion mapping). Every remaining target word is a MANDATORY
+    subject constraint, regardless of case, resolved on the record's
+    section; related-but-not-equal, ambiguous and multiple records all
+    refuse completion — never through ``any()``."""
+    target_tokens = re.findall(r"[a-z0-9]+", _assignment_norm(target))
+    if not target_tokens:
+        return _AssignmentTargetBinding(False, False, "empty_target",
+                                        None, ())
+    all_labels = [record.label for record in records]
+    discovered = 0
+    field_records: List[Tuple[_AssignmentRecord, List[str]]] = []
+    for record in records:
+        if not _assignment_field_spans(target_tokens, record.label):
+            continue
+        discovered += 1
+        spans = _assignment_completion_field_spans(
+            target_tokens, record.label, all_labels)
+        if not spans:
+            continue
+        covered = set()
+        for start, end in spans:
+            covered.update(range(start, end))
+        leftover = [word for index, word in enumerate(target_tokens)
+                    if index not in covered
+                    and word not in _ASSIGNMENT_LOCATION_TOKENS]
+        field_records.append((record, leftover))
+    if not field_records:
+        reason = ("related_field_not_equivalent" if discovered
+                  else "field_unresolved")
+        return _AssignmentTargetBinding(False, False, reason, None, ())
+    candidates: List[_AssignmentRecord] = []
+    for record, leftover in field_records:
+        section_words = set(_assignment_label_words(record.section))
+        if set(leftover) <= section_words:
+            candidates.append(record)
+    if not candidates:
+        return _AssignmentTargetBinding(True, False, "subject_unresolved",
+                                        None, ())
+    if len(candidates) != 1:
+        return _AssignmentTargetBinding(True, True, "multiple_records",
+                                        None, tuple(candidates))
+    return _AssignmentTargetBinding(True, True, "resolved",
+                                    candidates[0], tuple(candidates))
+
+
+def _assignment_label_words(label: str) -> List[str]:
+    return [word for word in re.findall(r"[a-z0-9]+", _assignment_norm(label))
+            if word not in _ASSIGNMENT_LOCATION_TOKENS]
+
+
+def _assignment_postcondition_obligations(
+    message: str,
+    current: Any,
+) -> List[Dict[str, Any]]:
+    """The request's OWN explicit assignments checked against the
+    CURRENT authoritative artifact (L1/S6 owner assignment 2026-10-18).
+
+    An explicit "update X to Y" instruction authorizes Y for X; the
+    artifact proves whether X already carries Y. The check binds the
+    target to EXACTLY ONE artifact record: the FIELD must CERTIFY
+    identity with the record's label (its own normalized phrase, or a
+    reviewed completion mapping kept separate from the retrieval
+    registry — related registry family members such as net/gross weight
+    or dealer cost/retail never certify), every remaining target word is
+    a MANDATORY subject constraint that must be named by that record's
+    section (case never decides authority; no word is silently
+    discarded), and related-but-not-equal, ambiguous or multiple records
+    bind nothing. The record's COMPLETE value is then compared with the
+    assigned value under conservative normalization (whole-token decimal
+    equality for numbers; no substring/containment). Values the shared
+    extractor recorded as source references never arrive here (they are
+    unresolved obligations); an "add ..." obligation the artifact check
+    cannot confirm blocks completion with its own record.
+
+    Returns [] when the request carries nothing assignable — the
+    caller's pre-existing guards then behave exactly as before. Any
+    internal failure returns at most the blocking record: the check
+    never asserts completion it could not establish."""
+    try:
+        from core.turn_decision import extract_request_assignments
+
+        parsed = extract_request_assignments(str(message or ""))
+    except Exception:  # noqa: BLE001 — never assert on failure
+        return []
+    blocker: List[Dict[str, Any]] = []
+    if parsed.get("unresolved_additions"):
+        blocker.append({
+            "kind": "unresolved_obligations",
+            "disposition": "unresolved",
+            "detail": ("the request also asks for content the artifact "
+                       "check cannot confirm")[:160],
+        })
+    assignments = [
+        entry for entry in (parsed.get("assignments") or [])
+        if isinstance(entry, dict)
+        and str(entry.get("target") or "").strip()
+        and str(entry.get("value") or "").strip()]
+    # HEADER FIELDS ARE THE HEADER OBLIGATION'S POSTCONDITIONS (owner
+    # closeout): a subject/to/cc assignment is checked against the
+    # artifact's headers — never re-judged against body lines, which
+    # would contradict the header check the receipt already carries.
+    header_targets: set = set()
+    try:
+        if _extract_requested_subject(message):
+            header_targets.add("subject")
+        if _extract_requested_cc(message):
+            header_targets.add("cc")
+        if _extract_requested_to(message):
+            header_targets.add("to")
+    except Exception:  # noqa: BLE001 — additive
+        header_targets = set()
+    if not assignments:
+        return blocker
+    try:
+        lines = _assignment_artifact_lines(current)
+        built: List[Dict[str, Any]] = []
+        for entry in assignments[:6]:
+            target = str(entry.get("target") or "").strip()
+            value = str(entry.get("value") or "").strip()
+            target_tokens = set(re.findall(r"[a-z0-9]+", target.lower()))
+            if target_tokens & header_targets:
+                continue
+            # RESOLVE THE TARGET FIRST (owner correction 2026-10-18,
+            # defect class 3): the field binds through the canonical
+            # field vocabulary; every remaining word is a MANDATORY
+            # subject constraint (case is never authority); zero/ambiguous
+            # bindings are UNRESOLVED — never satisfied through any().
+            binding = _resolve_assignment_target(target, lines)
+            if binding.record is None:
+                disposition = "unresolved"
+                if binding.reason == "subject_unresolved":
+                    detail = (f"{target}: the record names the field but "
+                              "not the requested subject")
+                elif binding.reason == "multiple_records":
+                    detail = (f"{target}: {len(binding.candidates)} "
+                              "records match this target — the value "
+                              "cannot be bound uniquely")
+                elif binding.reason == "related_field_not_equivalent":
+                    detail = (f"{target}: the draft names a RELATED "
+                              "field, not this one — related fields do "
+                              "not certify each other")
+                elif binding.reason == "empty_target":
+                    detail = f"{target}: the target names no field"
+                else:
+                    detail = (f"{target}: the requested field does not "
+                              "resolve through the field vocabulary")
+                summary = ""
+            else:
+                relation = _assignment_value_relation(
+                    value, binding.record.value)
+                disposition = relation
+                if relation == "satisfied":
+                    detail = (f"{target}: already holds on the current "
+                              "draft")
+                    summary = f"{target} already set to {value[:60]}"
+                elif relation == "unsatisfied":
+                    detail = (f"{target}: not already applied on the "
+                              "current draft")
+                    summary = ""
+                else:
+                    detail = (f"{target}: the current record's value is "
+                              "prose the check refuses to judge")
+                    summary = ""
+            obligation: Dict[str, Any] = {
+                "kind": "assignment_postconditions",
+                "disposition": disposition,
+                "detail": detail[:160],
+                "summary": summary,
+            }
+            span = entry.get("span")
+            if isinstance(span, (list, tuple)) and len(span) == 2:
+                obligation["_span"] = list(span)
+            built.append(obligation)
+    except Exception:  # noqa: BLE001 — never assert on failure
+        return blocker
+    return blocker + built
+
+
 def requirement_check(
     *,
     message: str,
@@ -1991,6 +2423,17 @@ def requirement_check(
             return None
         if str(expected_prior_audit_id) != observed:
             return None
+    # EXPLICIT REQUEST ASSIGNMENTS (L1/S6 owner assignment 2026-10-18):
+    # the request's own "update X to Y" assignments are evaluated
+    # against THIS authoritative revision — the artifact is the evidence
+    # of whether X already carries Y, resolved to one unique record and
+    # compared as a complete value. (Source-reference values never
+    # arrive here; unresolved additions block.)
+    assignment_obligations = _assignment_postcondition_obligations(
+        message, current)
+    has_assignments = any(
+        o.get("kind") == "assignment_postconditions"
+        for o in assignment_obligations)
     # OBLIGATION DISPOSITIONS (owner work order 2026-10-10): every
     # requirement the request names gets an explicit disposition —
     # satisfied / unsatisfied / unresolved — and completion REQUIRES all
@@ -2022,20 +2465,35 @@ def requirement_check(
             "disposition": ("unsatisfied" if violation else "satisfied"),
             "detail": str(violation or "scope obligations hold")[:120],
         })
-        if not _has_concrete_scope_obligations(scope_text) and not header_present:
+        if (not _has_concrete_scope_obligations(scope_text)
+                and not header_present and not has_assignments):
             # Scope-shaped wording with no concrete obligations (a bare
-            # "update the draft") certifies nothing.
+            # "update the draft") certifies nothing — unless the request
+            # carries explicit assignments, which the artifact check
+            # below evaluates.
             return None
-    elif not header_present:
-        # Neither a scope-bearing request nor a header obligation: the
-        # check cannot parse this into postconditions. Unconfirmed.
+    elif not header_present and not has_assignments:
+        # Neither a scope-bearing request nor a header obligation nor an
+        # explicit assignment: the check cannot parse this into
+        # postconditions. Unconfirmed.
         return None
     # VALUE OBLIGATIONS (owner work order 2026-10-10): a value-shaped
     # request is satisfied only from the AUTHORIZED evidence contract —
     # never from table structure. Without a contract the obligation is
     # UNRESOLVED, which blocks completion exactly like unsatisfied.
     value_dispositions: List[Dict[str, Any]] = []
-    if _VALUE_REQUEST_RE.search(message):
+    _value_matches = list(_VALUE_REQUEST_RE.finditer(str(message or "")))
+    if _value_matches:
+        _assignment_spans = [
+            (int(o["_span"][0]), int(o["_span"][1]))
+            for o in assignment_obligations
+            if o.get("kind") == "assignment_postconditions"
+            and isinstance(o.get("_span"), (list, tuple))
+            and len(o["_span"]) == 2]
+        _covered_by_assignments = bool(_assignment_spans) and all(
+            any(start <= m.start() and m.end() <= end
+                for start, end in _assignment_spans)
+            for m in _value_matches)
         if isinstance(evidence_contract, dict) and (
                 evidence_contract.get("evidence")
                 or evidence_contract.get("actions")):
@@ -2060,6 +2518,13 @@ def requirement_check(
                         f"{d['disposition']} ({d.get('detail') or ''})"
                         for d in failing[:4]))[:300],
             })
+        elif _covered_by_assignments:
+            # EXPLICITLY SUPPLIED VALUES (L1/S6 owner assignment
+            # 2026-10-18): when the value words sit inside the request's
+            # own assignments, the artifact-native assignment check IS
+            # the evidence — the source-contract requirement stays for
+            # value-shaped requests whose values live in records.
+            pass
         else:
             obligations.append({
                 "kind": "value_obligations",
@@ -2067,6 +2532,12 @@ def requirement_check(
                 "detail": ("no authorized evidence contract carried the "
                            "approved values")[:120],
             })
+    # EXPLICIT ASSIGNMENT POSTCONDITIONS (L1/S6 owner assignment
+    # 2026-10-18): recorded after the scope/header/value obligations so
+    # the receipt names them; the private span helper is stripped.
+    for _ob in assignment_obligations:
+        _ob.pop("_span", None)
+    obligations.extend(assignment_obligations)
     unsatisfied = [o for o in obligations
                    if o["disposition"] != "satisfied"]
     receipt = {
@@ -2130,11 +2601,25 @@ def noop_completion_reply(
             f"Verified on the current draft{rev_tag}: {listed}. "
             "No changes were needed, and nothing was sent.")
     else:
-        named = [f"{o.get('kind')}" for o in obligations][:4]
-        sentence = (
-            f"Verified on the current draft{rev_tag}: "
-            f"{', '.join(named)} hold. No changes were needed, and "
-            "nothing was sent.")
+        # ASSIGNMENT SUMMARIES (L1/S6 owner assignment 2026-10-18): when
+        # the receipt carries human summaries (the explicit assignments
+        # it verified against the current draft), they ARE the
+        # confirmation sentence; the internal obligation kinds stay in
+        # the receipt, never in the user's sentence.
+        summaries = [str(o.get("summary") or "").strip()
+                     for o in obligations if isinstance(o, dict)]
+        named_summaries = [s for s in summaries if s][:4]
+        if named_summaries:
+            sentence = (
+                f"Verified on the current draft{rev_tag}: "
+                f"{', '.join(named_summaries)}. No changes were needed, "
+                "and nothing was sent.")
+        else:
+            named = [f"{o.get('kind')}" for o in obligations][:4]
+            sentence = (
+                f"Verified on the current draft{rev_tag}: "
+                f"{', '.join(named)} hold. No changes were needed, and "
+                "nothing was sent.")
     return sentence
 
 

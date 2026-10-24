@@ -1,0 +1,70 @@
+{
+  "assessment_type": "corrected_stage_labels_post_hoc",
+  "attempt": "2",
+  "corrected_diagnosis": "The interpreter dispatched; completion within the 12-second deadline failed. Provider latency is involved, but the application request settings also matter: model=\"fast\" did not pin a model (task_type=\"planning\" did), and the call omitted disable_reasoning and an explicit max_tokens. The producer correction remains unverified through the served path.",
+  "isolation": {
+    "classification": "proven_scratch_isolation_for_attempt_writes__unrelated_live_activity",
+    "live_db_guard_unchanged": false,
+    "note": "Attempt identities are present in the scratch DB and absent from the live DB; the live DB changed during the window, consistent with unrelated pilot activity. The guard boolean is not discarded.",
+    "scratch_stores": [
+      "DATABASE_URL",
+      "ATOM_DATA_DIR",
+      "LANCEDB_URI",
+      "LANCEDB_URI_BASE",
+      "BYOK_CONFIG_FILE",
+      "BYOK_KEYS_FILE",
+      "BYOK_ENC_KEY_FILE"
+    ],
+    "verification": {
+      "lancedb_resolved": "attempt-2 scratch atom_memory paths (server log)",
+      "live_rows_same_identities": {
+        "agent_executions": 0,
+        "chat_messages": 0,
+        "users": 0
+      },
+      "open_file_probe": {
+        "engine_url": "sqlite:///.../l2-fix/scratch/l2-isolation-diagnostic-wal/atom.db",
+        "method": "same-env core.database engine, WAL write, lsof (no model call)",
+        "open_files": [
+          "atom.db",
+          "atom.db-wal",
+          "atom.db-shm"
+        ]
+      },
+      "scratch_rows": {
+        "agent_executions": 2,
+        "chat_messages": 4,
+        "users": 1
+      }
+    }
+  },
+  "new_request_issued": false,
+  "raw_evidence_preserved": [
+    "attempt2_result.json",
+    "attempt2_observation.jsonl",
+    "attempt2_server.log",
+    "attempt2_config.json"
+  ],
+  "scope": "No promotion. L2 remains open. L1/L3 and pilot untouched.",
+  "stage_notes": {
+    "completed_within_deadline": "Both interpretation calls raised [turn-interpretation] timeout at the 12 s asyncio.wait_for deadline; no [structured-trace] for those route ids.",
+    "dispatch_attempted": "Structured dispatch lines for glm-5.3-flash and qwen3.8-flash; 8 Zen posts, 0 Go-inference posts.",
+    "producer_output_valid": "Not reached: interpretation origin unresolved, reason timeout, sources empty.",
+    "source_identity_resolved": "Not reached: S7 requirement required=false, sources=[], identity kind_only."
+  },
+  "stages": {
+    "completed_within_deadline": false,
+    "dispatch_attempted": true,
+    "producer_output_valid": false,
+    "source_identity_resolved": false
+  },
+  "superseded_label": "real_interpretation_dispatched",
+  "wrong_date": {
+    "disposition": "Separate user-visible correctness failure. No retrieval repair and no date-specific regex; the repeated served job must pass truthful content, and a recurrence is a separate narration repair.",
+    "draft_value": "2026-12-31",
+    "first_divergence": "narration_fidelity",
+    "fixture_value": "2026-12-31",
+    "observed_reply": "2026-12-30",
+    "retrieved_excerpt_value": "2026-12-31"
+  }
+}

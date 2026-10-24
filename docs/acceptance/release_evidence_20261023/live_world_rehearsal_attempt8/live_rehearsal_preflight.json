@@ -1,0 +1,48 @@
+{
+  "pass": true,
+  "failures": [],
+  "checks": {
+    "product_pin": {
+      "ok": true,
+      "detail": null
+    },
+    "source_hashes": {
+      "ok": true,
+      "detail": null
+    },
+    "source_builder_complete": {
+      "ok": true,
+      "detail": null
+    },
+    "gate_hash": {
+      "ok": true,
+      "detail": null
+    },
+    "snapshot": {
+      "ok": true,
+      "detail": null
+    },
+    "port_free": {
+      "ok": true,
+      "detail": null
+    },
+    "scratch_fresh": {
+      "ok": true,
+      "detail": null
+    },
+    "worktree_clean": {
+      "ok": true,
+      "detail": null
+    },
+    "product_tree": {
+      "ok": true,
+      "detail": null
+    },
+    "pilot_health": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "product": "cc813aeeb90b84fcb36d128fda0a3b32b255742e",
+  "head": "b682d017e60ffb0f872fddba9bcf9fb648034775"
+}

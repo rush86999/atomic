@@ -1488,6 +1488,42 @@ def _persist_finalized_outcome(
         return _outcome("failed", reason=f"{type(persist_error).__name__}")
 
 
+def _lifecycle_scope_for_run(
+    run_id: str,
+    response: Dict[str, Any],
+    row: Any = None,
+) -> tuple:
+    """Tenant/workspace for a delivery ledger bound to THIS run.
+
+    The response payload is not guaranteed to carry workspace_id (the
+    live-world diagnosis: it did not, so the lifecycle was built with the
+    "default" workspace and GoalRunService.get_run correctly hid the run
+    in the user's workspace -> TaskLifecycleError). Resolve from the
+    response, then the supplied row (execution or chat-message scope),
+    then the run row itself; never guess "default" when the run names a
+    scope. ChatMessage carries tenant_id but no workspace_id, so the
+    GoalRun fallback is load-bearing for the chat route.
+    """
+    data = response.get("data") if isinstance(response, dict) else None
+    data = data if isinstance(data, dict) else {}
+    tenant = data.get("tenant_id") or getattr(row, "tenant_id", None)
+    workspace = data.get("workspace_id") or getattr(row, "workspace_id", None)
+    if run_id and (not tenant or not workspace):
+        try:
+            from core.database import get_db_session
+            from core.models import GoalRun
+
+            with get_db_session() as db:
+                run = db.query(GoalRun).filter(
+                    GoalRun.id == str(run_id)).first()
+                if run is not None:
+                    tenant = tenant or getattr(run, "tenant_id", None)
+                    workspace = workspace or getattr(run, "workspace_id", None)
+        except Exception:  # noqa: BLE001 — caller reports the delivery failure
+            pass
+    return tenant, workspace
+
+
 def _record_lifecycle_delivery(
     response: Dict[str, Any],
     message_id: str,
@@ -1519,9 +1555,10 @@ def _record_lifecycle_delivery(
         from integrations.chat_orchestrator import _task_lifecycle_for
 
         content = str(response.get("message") or "")
+        _tenant, _workspace = _lifecycle_scope_for_run(
+            str(run_id), response, row)
         lifecycle = _task_lifecycle_for(
-            (response.get("data") or {}).get("tenant_id") or "default",
-            (response.get("data") or {}).get("workspace_id") or "default")
+            _tenant or "default", _workspace or "default")
         if lifecycle is None:
             return
         try:

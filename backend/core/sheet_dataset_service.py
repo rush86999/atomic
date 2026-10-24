@@ -2505,6 +2505,11 @@ async def answer_from_datasets(
     # provider fallback — a transient 429 then became fatal (2026-09-10).
     #
     # ``ATOM_SHEET_SQL_MODEL`` remains an OPTIONAL operator override.
+    # SCOPE AUDIT (owner-approved repair 2026-10-18): this seam carries no
+    # request workspace/tenant (answer_from_datasets receives none), so the
+    # pin stays scope-less — established behavior preserved. Scoped pin
+    # sites pass workspace_id/tenant_id so the gate resolves the SAME
+    # handler as the dispatch.
     from core.llm.pinned_planning import resolve_pinned_provider_model
 
     llm_kwargs: Dict[str, Any] = resolve_pinned_provider_model(

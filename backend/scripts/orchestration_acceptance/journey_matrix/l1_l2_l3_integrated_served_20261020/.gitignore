@@ -1,0 +1,65 @@
+# Attempt-3 run artifacts are written by the runner while the server is
+# serving the frozen candidate. Keep them out of the candidate's clean
+# identity check; the committed evidence copy is checksummed separately.
+attempt3_config.json
+attempt3_result.json
+attempt3_summary.json
+attempt3_run.log
+attempt3_server_*.log
+attempt3_observation_*.jsonl
+attempt3_interpreter_freeze.txt
+attempt3_*.tmp
+
+# Attempt-4 artifacts are new names so the controlled run cannot
+# overwrite the preserved attempt-3 evidence. They are archived after the
+# single run (git add -f) and checksummed separately.
+attempt4_config.json
+attempt4_result.json
+attempt4_summary.json
+attempt4_run.log
+attempt4_server_*.log
+attempt4_observation_*.jsonl
+attempt4_interpreter_freeze.txt
+attempt4_preflight.json
+attempt4_*.tmp
+# Attempt-5 successor artifacts (unlaunched). New names again so the
+# corrected harness cannot overwrite attempt 3/4 evidence.
+attempt5_config.json
+attempt5_result.json
+attempt5_summary.json
+attempt5_run.log
+attempt5_server_*.log
+attempt5_observation_*.jsonl
+attempt5_interpreter_freeze.txt
+attempt5_preflight.json
+attempt5_*.tmp
+# Attempt-6 successor artifacts (comparison truthfulness).
+attempt6_config.json
+attempt6_result.json
+attempt6_summary.json
+attempt6_run.log
+attempt6_server_*.log
+attempt6_observation_*.jsonl
+attempt6_interpreter_freeze.txt
+attempt6_preflight.json
+attempt6_*.tmp
+# Attempt-7 successor artifacts (line-numbered carrier removal).
+attempt7_config.json
+attempt7_result.json
+attempt7_summary.json
+attempt7_run.log
+attempt7_server_*.log
+attempt7_observation_*.jsonl
+attempt7_interpreter_freeze.txt
+attempt7_preflight.json
+attempt7_*.tmp
+# Live-world rehearsal artifacts (not fresh scratch).
+live_rehearsal_config.json
+live_rehearsal_result.json
+live_rehearsal_summary.json
+live_rehearsal_run.log
+live_rehearsal_server_*.log
+live_rehearsal_observation_*.jsonl
+live_rehearsal_interpreter_freeze.txt
+live_rehearsal_preflight.json
+live_rehearsal_*.tmp

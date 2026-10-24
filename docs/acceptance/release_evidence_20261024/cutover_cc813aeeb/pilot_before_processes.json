@@ -1,0 +1,15 @@
+{
+  "captured_at": "2026-10-24T14:39:25.993323+00:00",
+  "processes": [
+    {
+      "pid": 16055,
+      "ps": "16055     1 15979 01:03:59 /Users/rushiparikh/projects/atom/backend/venv314/bin/python -m uvicorn main_api_app:app --host 0.0.0.0 --port 8001",
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-rollback-8c593e/backend"
+    },
+    {
+      "pid": 16488,
+      "ps": "16488     1 16487 01:03:12 next-server (v16.2.2)",
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-release-910bf85a6/frontend-nextjs"
+    }
+  ]
+}

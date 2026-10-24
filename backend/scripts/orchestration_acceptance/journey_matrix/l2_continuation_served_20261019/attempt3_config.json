@@ -1,0 +1,113 @@
+{
+  "attempt": "3",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "10982e8390815ee394c853284d5accfd3e3ddee7",
+    "parent": "ddab120c43333efdc219098cba35fdecd9a0988f",
+    "source_sha256_chat_orchestrator": "4e860e7950cf13149772c95c391428a44db46931034c16d75af53dccb30e2287",
+    "source_sha256_turn_decision": "ed9ec40b9a6d0c413bcce5ba13ce027483663b8500abe8b19f4d423400ab2596",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "declared_at": "2026-10-19T10:35:07",
+  "embeddings": {
+    "dim": 384,
+    "model": "BAAI/bge-small-en-v1.5",
+    "provider": "fastembed"
+  },
+  "flags": {
+    "declared": {
+      "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+      "ATOM_TURN_DECISION_ROUTING": "1",
+      "ATOM_TURN_INTERPRETATION": "1",
+      "CHAT_FINALIZATION_M1": "1",
+      "CHAT_FINALIZATION_M2": "1"
+    }
+  },
+  "interpreter": {
+    "absolute_path": "/Users/rushiparikh/projects/atom/backend/venv314/bin/python",
+    "version": "Python 3.14.7"
+  },
+  "isolation": {
+    "credential_vault_copied": false,
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend",
+    "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-continuation-served-attempt3/atom.db",
+    "live_env_copied_wholesale": false,
+    "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-continuation-served-attempt3",
+    "stores": [
+      "DATABASE_URL",
+      "ATOM_DATA_DIR",
+      "LANCEDB_URI",
+      "LANCEDB_URI_BASE",
+      "BYOK_CONFIG_FILE",
+      "BYOK_KEYS_FILE",
+      "BYOK_ENC_KEY_FILE"
+    ]
+  },
+  "job": {
+    "draft_body": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "draft_title": "Quotation Q-2026-114 (DRAFT)",
+    "fixture": "approved_records_q2026_114.txt",
+    "s3_ask": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+    "s3_first": true,
+    "s7_ask": "What is the current Valid until date on the draft, and does it still match the approved record?",
+    "s7_original_continuation": true,
+    "upload_route": "POST /api/documents/upload"
+  },
+  "live_db_guard": {
+    "mtime_before": 1792419551.3619027,
+    "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+    "sha256_before": "5b263806d7f12893aa56e1f743509eb6aa6827855badb02b3a23e7f81b9b076a"
+  },
+  "model": {
+    "cloud_route": "https://opencode.ai/zen/go/v1",
+    "credentials": [
+      {
+        "environment": "production",
+        "key_name": "default",
+        "provider": "opencode-go",
+        "source": "authorized operator/global vault entry",
+        "value_recorded": false,
+        "vault_copied_wholesale": false
+      }
+    ],
+    "interpretation": "real, unpinned (BPC-ranked fast/planning); actual origin/model recorded",
+    "provider": "opencode-go (only)",
+    "reply": "product-selected; actual route/model recorded; no gate depends on it"
+  },
+  "observation_harness": {
+    "candidate_source_edited": false,
+    "hooks": [
+      "interpret_turn_request",
+      "apply_interpretation_references",
+      "_stash_evidence_requirement",
+      "_context_backed_fulfillment",
+      "_fallback_turn_outcome"
+    ],
+    "launcher": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/server_observe.py",
+    "log": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/attempt3_observation.jsonl"
+  },
+  "pilot_before": {
+    "backend_8001_listening": true,
+    "frontend_3000_listening": true,
+    "health_http": 200,
+    "identity": {
+      "cwd": "/Users/rushiparikh/projects/atom/backend",
+      "database": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "git_commit": "8c593e57031e",
+      "instance_id": "8c593e57031e-dirty.4f091b0e6ee2.81067.1792291183",
+      "pid": 81067,
+      "revision": "8c593e57031ebfea08dac81bbc2b4d78e47d8559",
+      "source_id": "8c593e57031e-dirty.4f091b0e6ee2",
+      "started_at": "2026-10-18T02:39:37.985639+00:00"
+    }
+  },
+  "ports": {
+    "backend": 8097,
+    "frontend": null
+  },
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG_ATTEMPT3.md",
+    "sha256": "92bb39c8341d0e2233859a6892593e1dda49fa0517a0c5aa227677a7b1ac9e54"
+  }
+}

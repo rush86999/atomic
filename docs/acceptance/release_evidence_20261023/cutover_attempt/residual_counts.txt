@@ -1,0 +1,2 @@
+candidate_users=0
+candidate_documents=0

@@ -1,0 +1,41 @@
+{
+  "cutover_attempt": "2026-10-23T21:45-04:00",
+  "candidate_product": "910bf85a6dd32f7026f28df2e4380110bd463c50",
+  "candidate_runtime": "d7d90648ae8e (clean integrated worktree)",
+  "approved_by_user": true,
+  "candidate_backend_health": "200; pilot DB/BYOK paths",
+  "candidate_frontend": "200 /login; Chromium signup/dashboard passed",
+  "live_sourced_question": {
+    "http": 200,
+    "attempts": [
+      {
+        "phase": "before declared DeepSeek credential registration",
+        "elapsed_s": 43.6,
+        "success": false,
+        "model": "glm-5.3-flash",
+        "provider": "opencode-go",
+        "message": "[Error: All LLM providers failed. Please check your API key configuration and try again.]"
+      },
+      {
+        "phase": "after registering the authorized DeepSeek operator credential",
+        "elapsed_s": 77.8,
+        "success": false,
+        "model": "deepseek-v4-pro",
+        "provider": "deepseek",
+        "message": "[Error: All LLM providers failed. Please check your API key configuration and try again.]",
+        "observed_turn": "77.7s legacy features; 17.3s remaining; reply leg provider failure"
+      }
+    ],
+    "sourced_answer_verified": false
+  },
+  "decision": "rollback on failed live sourced answer",
+  "rollback": {
+    "backend": "8c593e57031e clean (pre-cutover backend code), :8001 health 200",
+    "frontend": "main checkout next dev :3000 login 200",
+    "database": "restored from pre-cutover sqlite backup; integrity ok",
+    "byok": "restored pre-cutover files",
+    "candidate_test_user_and_doc_removed": true
+  },
+  "deployment": "not deployed; pilot restored; hold re-engaged",
+  "reason": "the verified scratch-latency did not hold on the live 786MB corpus/integration-heavy world; no deadline increase or gate relaxation attempted"
+}

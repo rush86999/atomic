@@ -1,0 +1,13 @@
+{
+  "checked_date": "2026-10-18",
+  "runtime_default_file": "backend/core/llm/byok_handler.py",
+  "runtime_default": "https://opencode.ai/zen/v1",
+  "runtime_env_override": "OPENCODE_BASE_URL",
+  "actual_post": "https://opencode.ai/zen/v1/chat/completions",
+  "actual_model": "qwen3.8-flash",
+  "actual_status": 402,
+  "intended_model": "deepseek-v4-pro",
+  "official_documentation": "https://opencode.ai/v2/docs/console/go/#endpoints",
+  "official_deepseek_go_endpoint": "https://opencode.ai/inference/go/openai/v1/chat/completions",
+  "causality": "Not tested; no second attempt or endpoint change authorized in this run"
+}

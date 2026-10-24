@@ -1,0 +1,20 @@
+{
+  "files": {
+    "/Users/rushiparikh/projects/atom/backend/data/atom.db": {
+      "sha256": "1fe241fd31cb7428486d35c926e4d88b63da1d722808f8a514e6aa39336d69a4",
+      "mtime_ns": 1792352020729781189,
+      "size": 811085824
+    },
+    "/Users/rushiparikh/projects/atom/backend/data/byok_keys.json": {
+      "sha256": "0c721c625c02b32037c8da63fde0ea1f828d7bf308add8032f9f9e4f06ee3ebc",
+      "mtime_ns": 1792291970440535868,
+      "size": 8232
+    },
+    "/Users/rushiparikh/projects/atom/backend/data/byok_encryption_key": {
+      "sha256": "fdb201a6283ff5ea120b423cbe9f22600b32c580d35fccf2cc8575c2be170ca9",
+      "mtime_ns": 1788034507000000000,
+      "size": 44
+    }
+  },
+  "unchanged": true
+}

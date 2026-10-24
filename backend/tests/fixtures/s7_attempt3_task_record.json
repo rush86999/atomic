@@ -1,0 +1,229 @@
+{
+  "conversation_id": "a7fde1c5-a41d-40ba-9b19-ed66a6762db9",
+  "deliveries": [],
+  "operations": [
+    {
+      "authorization": "authorized",
+      "evidence_revision": null,
+      "execution": {
+        "at": "2026-10-20T11:00:28.634426+00:00",
+        "attempted_candidates": null,
+        "evidence": null,
+        "executor_inputs": null,
+        "failure_stage": "plan_relevance_declined",
+        "findings": null,
+        "freshness_status": null,
+        "identity_context": null,
+        "inventory_error": null,
+        "inventory_receipt": null,
+        "invoked": false,
+        "items": {},
+        "outcome": "not_dispatched",
+        "planning": {
+          "recovered": true,
+          "source": "required_read_floor"
+        },
+        "raw_outcome": "not_dispatched",
+        "requested_fields": null,
+        "served_basis": "none",
+        "source_version": null,
+        "stored_inputs": null,
+        "structured": null
+      },
+      "execution_id": "67d12b03-5ce0-4278-b09f-00d8f28e0e66",
+      "idempotency_key": null,
+      "objective_id": "adfc7f24-c4f4-4677-8092-0edf6761f3c6",
+      "objective_revision": 1,
+      "operation_id": "a6413371-6e42-4ea1-8a9c-5bb0447dbac0",
+      "operation_type": "retrieve",
+      "parent_operation_id": null,
+      "requested_change": "declined lookup: documents.search:expiration_date",
+      "schema_version": 1,
+      "status": "running"
+    },
+    {
+      "authorization": "authorized",
+      "evidence_revision": null,
+      "execution": {
+        "at": "2026-10-20T11:00:28.693763+00:00",
+        "attempted_candidates": null,
+        "evidence": null,
+        "executor_inputs": null,
+        "failure_stage": null,
+        "findings": null,
+        "freshness_status": null,
+        "identity_context": null,
+        "inventory_error": null,
+        "inventory_receipt": null,
+        "invoked": true,
+        "items": {
+          "Valid Until": ""
+        },
+        "outcome": "read_returned_no_receipt",
+        "planning": null,
+        "raw_outcome": "read_returned_no_receipt",
+        "requested_fields": [
+          "expiration_date"
+        ],
+        "served_basis": "live",
+        "source_version": null,
+        "stored_inputs": null,
+        "structured": null
+      },
+      "execution_id": "67d12b03-5ce0-4278-b09f-00d8f28e0e66",
+      "idempotency_key": null,
+      "objective_id": "adfc7f24-c4f4-4677-8092-0edf6761f3c6",
+      "objective_revision": 4,
+      "operation_id": "25509689-6112-494f-b238-34b327498836",
+      "operation_type": "retrieve",
+      "parent_operation_id": null,
+      "requested_change": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+      "schema_version": 1,
+      "status": "running"
+    },
+    {
+      "authorization": "authorized",
+      "evidence_revision": null,
+      "execution": {
+        "at": "2026-10-20T11:09:12.452104+00:00",
+        "attempted_candidates": null,
+        "evidence": null,
+        "executor_inputs": null,
+        "failure_stage": "plan_relevance_declined",
+        "findings": null,
+        "freshness_status": null,
+        "identity_context": null,
+        "inventory_error": null,
+        "inventory_receipt": null,
+        "invoked": false,
+        "items": {},
+        "outcome": "not_dispatched",
+        "planning": {
+          "recovered": true,
+          "source": "required_read_floor"
+        },
+        "raw_outcome": "not_dispatched",
+        "requested_fields": null,
+        "served_basis": "none",
+        "source_version": null,
+        "stored_inputs": null,
+        "structured": null
+      },
+      "execution_id": "f178f3ed-9c2e-4acc-a0a1-2fc657c8ea76",
+      "idempotency_key": null,
+      "objective_id": "adfc7f24-c4f4-4677-8092-0edf6761f3c6",
+      "objective_revision": 5,
+      "operation_id": "8ebc306e-f1bc-4211-8d1c-49d9dc814e58",
+      "operation_type": "retrieve",
+      "parent_operation_id": null,
+      "requested_change": "declined lookup: documents.search:approved_records_q2026_114.txt expiration_date",
+      "schema_version": 1,
+      "status": "running"
+    },
+    {
+      "authorization": "authorized",
+      "evidence_revision": null,
+      "execution": {
+        "at": "2026-10-20T11:09:12.464821+00:00",
+        "attempted_candidates": null,
+        "evidence": null,
+        "executor_inputs": null,
+        "failure_stage": null,
+        "findings": null,
+        "freshness_status": null,
+        "identity_context": null,
+        "inventory_error": null,
+        "inventory_receipt": null,
+        "invoked": true,
+        "items": {
+          "current Valid": ""
+        },
+        "outcome": "read_returned_no_receipt",
+        "planning": null,
+        "raw_outcome": "read_returned_no_receipt",
+        "requested_fields": [
+          "expiration_date"
+        ],
+        "served_basis": "live",
+        "source_version": null,
+        "stored_inputs": null,
+        "structured": null
+      },
+      "execution_id": "f178f3ed-9c2e-4acc-a0a1-2fc657c8ea76",
+      "idempotency_key": null,
+      "objective_id": "adfc7f24-c4f4-4677-8092-0edf6761f3c6",
+      "objective_revision": 6,
+      "operation_id": "923b8cd7-fb0d-4775-ae52-22c5564cc803",
+      "operation_type": "retrieve",
+      "parent_operation_id": null,
+      "requested_change": "What is the current Valid until date on the draft, and does it still match the approved record?",
+      "schema_version": 1,
+      "status": "running"
+    }
+  ],
+  "task_revision": {
+    "authorized_actions": [],
+    "clarifications": [],
+    "completion_criteria": [],
+    "entities": [
+      {
+        "aliases": [],
+        "id": "Q-2026-114",
+        "inferred": false,
+        "label": "Q-2026-114",
+        "provenance_turn": null
+      },
+      {
+        "aliases": [],
+        "id": "Valid Until",
+        "inferred": false,
+        "label": "Valid Until",
+        "provenance_turn": null
+      }
+    ],
+    "evidence": [],
+    "goal_text": "declined lookup: documents.search:expiration_date",
+    "invalidated_evidence_ids": [],
+    "last_transition": {
+      "kind": "research_and_present",
+      "requested_change": "What is the current Valid until date on the draft, and does it still match the approved record?"
+    },
+    "new_attempt_required": true,
+    "objective_id": "adfc7f24-c4f4-4677-8092-0edf6761f3c6",
+    "objective_text": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+    "output_preferences": {
+      "field": null,
+      "style": "default"
+    },
+    "provenance": {
+      "canvas_id": "d2d7d981-4262-460f-bc1f-e864148316ce",
+      "requested_change": "declined lookup: documents.search:expiration_date"
+    },
+    "requested_fields": [
+      "expiration_date"
+    ],
+    "revision": 6,
+    "schema_version": 1,
+    "source_requirements": {},
+    "supersedes_revision": 5,
+    "unresolved": [
+      {
+        "attempts": 0,
+        "decision_owner": null,
+        "evidence": "planned documents.search:expiration_date; declined as not addressing the current request",
+        "inputs": null,
+        "item": "",
+        "kind": "verification",
+        "next_action": "re-run the workbook verification for the quote's items",
+        "opened_at": "2026-10-20T11:00:28.636216+00:00",
+        "question": "the taught source lookup did not run (planner relevance decline)",
+        "question_id": "2ff5c959-a082-4320-837e-3d83b42663c0",
+        "resolution": null,
+        "resolved_at": null,
+        "source_operation": "a6413371-6e42-4ea1-8a9c-5bb0447dbac0",
+        "status": "open"
+      }
+    ]
+  },
+  "task_version": 20
+}

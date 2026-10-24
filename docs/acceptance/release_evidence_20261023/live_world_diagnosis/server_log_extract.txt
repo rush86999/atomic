@@ -1,0 +1,22 @@
+INFO:main_api_app:Python path: ['/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout/backend', '', '/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-live-diagnosis']...
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout/backend/api/episode_routes.py:386: FastAPIDeprecationWarning: `regex` has been deprecated, please use `pattern` instead
+INFO:main_api_app:✓ documents.search FTS index ready
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-live-diagnosis/atom_memory/default_shared with storage_options=None
+INFO:core.runtime_identity:runtime identity: source_id=ff601821274f revision=ff601821274f dirty=False (0 modified, 0 untracked)
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:8ce9cc43-7c8b-437f-a269-20051f6c660f attempt=1 prompt_chars=2621 cap=5500 instructor_retries=2
+INFO:core.turn_decision:[turn-interpretation] ok latency_ms=43747.0
+INFO:core.llm.byok_handler:[structured-dispatch] openrouter/qwen/qwen3.8-flash route=structured-2c8f1eb57c47 attempt=1 prompt_chars=14579 cap=6000 instructor_retries=2
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-live-diagnosis/atom_memory/20f264b3-184d-48e2-a1e9-5418772359a0 with storage_options=None
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-live-diagnosis/atom_memory with storage_options=None
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-live-diagnosis/atom_memory with storage_options=None
+INFO:core.lancedb_handler:Connecting to LanceDB at /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-live-diagnosis/atom_memory/default with storage_options=None
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-flash route=structured-2c8f1eb57c47 attempt=1 prompt_chars=14579 cap=6000 instructor_retries=2
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=44.5s elapsed=44.5s remaining=50.5s budget=95.0s
+INFO:integrations.chat_orchestrator:[stage-timing] tool plan (overlapped=True): 4.9s
+INFO:integrations.chat_orchestrator:[stage-timing] tool exec: 0.0s
+INFO:integrations.chat_orchestrator:tool plan executed: documents.search:release smoke
+INFO:integrations.chat_orchestrator:[stage-timing] reply STREAMED: 1.6s to full text (openrouter/deepseek/deepseek-v4-pro, 63 chunks)
+INFO:integrations.chat_orchestrator:[stage-timing] reply generation: 6.6s (incl. tool plan + exec above)
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=6.6s turn_offset=44.5s elapsed=51.1s remaining=43.9s budget=95.0s
+INFO:integrations.chat_orchestrator:[feature-routing] document-only required read owns the turn; skipped ['search', 'ai_analytics']
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=51.2s elapsed=51.2s remaining=43.8s budget=95.0s

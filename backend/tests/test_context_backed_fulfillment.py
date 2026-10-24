@@ -72,8 +72,12 @@ def _observation(excerpt, associations=None, source="ingested",
 
 
 def _complete_carrier():
-    return {"coverage": {"outcome_count": 1, "outcomes": [
-        {"status": "covered", "reasons": []}]}}
+    return {"coverage": {"outcome_count": 1, "complete": True,
+                         "request_complete": True,
+                         "requested_fields": ["expiration_date"],
+                         "outcomes": [
+                             {"field": "expiration_date",
+                              "status": "covered", "reasons": []}]}}
 
 
 def _session(observations=None, requirement=None, **extra):
@@ -106,6 +110,123 @@ def test_matching_source_with_supported_finding_completes():
     assert out["context_fulfillment"]["state"] == "completed"
     assert "expiration_date" in out["context_fulfillment"]["supplied_fields"]
     assert EXEC in out["execution_ids"]
+
+
+def _complete_search_receipt():
+    return {"tool": "documents.grep", "verified": True,
+            "outcome": "status=ok match_count=1",
+            "evidence_refs": [{
+                "coverage": "complete", "match_count": 1,
+                "query": "Approved Records"}]}
+
+
+def _partial_comparison_carrier():
+    return {"coverage": {
+        "outcome_count": 3,
+        "request_complete": False,
+        "outcomes": [
+            {"entity_id": "Quotation Q-2026-114 (DRAFT)",
+             "field": "expiration_date", "status": "comparable_match",
+             "reasons": []},
+            {"entity_id": "Quotation Q-2026-114 (DRAFT)",
+             "field": "payment_terms", "status": "field_missing",
+             "reasons": ["field_missing"]},
+            {"entity_id": "Quotation Q-2026-114 (DRAFT)",
+             "field": "price", "status": "field_missing",
+             "reasons": ["field_missing"]},
+        ]}}
+
+
+def _comparable_carrier():
+    return {"coverage": {
+        "outcome_count": 1,
+        "request_complete": True,
+        "outcomes": [
+            {"entity_id": "Quotation Q-2026-114 (DRAFT)",
+             "field": "expiration_date", "status": "comparable_match",
+             "reasons": []},
+        ]}}
+
+
+def test_complete_search_receipt_does_not_erase_comparison_gaps():
+    """A search receipt validates DELIVERY; it must not swallow the
+    comparison gaps that belong to the same request. Mutation control:
+    restoring ``and not validated`` on the context-fulfillment block makes
+    this resolve ``completed`` with empty open_work."""
+    req = _requirement(artifact_attached=True)
+    req["broader_comparison"] = True
+    session = _session(
+        requirement=req,
+        **{
+            f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
+            f"_planner_tool_receipts_{EXEC}": [_complete_search_receipt()],
+        })
+    out = _resolve(session)
+    assert out["delivered"] is True
+    assert out["state"] == "partial", out
+    assert any("comparison" in item for item in out["open_work"]), out
+    assert out["context_fulfillment"]["state"] == "partial", out
+
+
+def test_all_current_request_criteria_satisfied_completes():
+    session = _session(
+        requirement=_requirement(artifact_attached=True),
+        **{
+            f"_objective_evidence_{EXEC}": _comparable_carrier(),
+            f"_planner_tool_receipts_{EXEC}": [_complete_search_receipt()],
+        })
+    out = _resolve(session)
+    assert out["state"] == "completed", out
+    assert out["open_work"] == []
+    assert out["context_fulfillment"]["state"] == "completed", out
+
+
+def test_date_only_followup_completes_while_prior_broader_job_stays_open():
+    broad_req = _requirement(artifact_attached=True)
+    broad_req["broader_comparison"] = True
+    broad_session = _session(
+        requirement=broad_req,
+        **{f"_objective_evidence_{EXEC}": _partial_comparison_carrier()})
+    broad_out = _resolve(broad_session)
+    assert broad_out["state"] == "partial", broad_out
+    assert any("comparison fields" in item
+               for item in broad_out["open_work"]), broad_out
+
+    narrow_req = _requirement(artifact_attached=True)
+    narrow_req["broader_comparison"] = False
+    narrow_session = _session(
+        requirement=narrow_req,
+        **{f"_objective_evidence_{EXEC}": _comparable_carrier()})
+    narrow_out = _resolve(narrow_session)
+    assert narrow_out["state"] == "completed", narrow_out
+    assert narrow_out["open_work"] == []
+
+
+def test_explicitly_broad_followup_remains_partial_when_terms_price_missing():
+    req = _requirement(artifact_attached=True)
+    req["broader_comparison"] = True
+    session = _session(
+        requirement=req,
+        **{
+            f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
+            f"_planner_tool_receipts_{EXEC}": [_complete_search_receipt()],
+        })
+    out = _resolve(session)
+    assert out["state"] == "partial", out
+    gap = next(item for item in out["open_work"]
+               if "comparison fields" in item)
+    assert "payment_terms" in gap and "price" in gap, gap
+
+
+def test_unrelated_or_stale_evidence_cannot_fill_the_current_request():
+    session = _session(
+        requirement=_requirement(artifact_attached=True),
+        **{
+            f"_objective_evidence_{OTHER}": _comparable_carrier(),
+            f"_planner_tool_receipts_{OTHER}": [_complete_search_receipt()],
+        })
+    out = _resolve(session)
+    assert out["state"] != "completed", out
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +614,136 @@ def test_stash_seeds_identity_from_the_file_reference(monkeypatch):
     assert identity["file_id"] == "doc-B", identity
 
 
+def test_stash_uses_accepted_constraints_for_broader_comparison():
+    from integrations import chat_orchestrator as co
+
+    decision = {"references": {"sources": ["document"]}}
+    narrow_message = (
+        "What is the current Valid until date on the draft, and does it "
+        "still match the approved record?")
+    narrow = co._stash_evidence_requirement(
+        {"id": "s-narrow"}, EXEC, decision, narrow_message, True,
+        workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test",
+            "scope_change": "continue",
+            "constraints": ["Do not change anything yet"],
+            "requested_fields": [
+                "current Valid until date on the draft",
+                "approved record Valid until date",
+                "match status", "differences"],
+        })
+    assert narrow["fields"] == ["expiration_date"], narrow
+    assert narrow["broader_comparison"] is False, narrow
+
+    broad_message = (
+        "Compare the draft quotation with my uploaded Approved Records "
+        "document. Does the Valid Until date match? Flag anything that "
+        "differs.")
+    broad = co._stash_evidence_requirement(
+        {"id": "s-broad"}, OTHER, decision, broad_message, True,
+        workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not change anything yet.",
+                            "Flag anything that differs."],
+            "requested_fields": ["Valid Until date",
+                                 "all comparable quotation fields"],
+        })
+    assert broad["fields"] == ["expiration_date"], broad
+    assert broad["broader_comparison"] is True, broad
+
+    broad_fields_only = co._stash_evidence_requirement(
+        {"id": "s-broad-fields"}, "exec-broad-fields", decision,
+        broad_message, True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not change anything yet."],
+            "requested_fields": ["all comparable quotation fields"],
+        })
+    assert broad_fields_only["broader_comparison"] is True, broad_fields_only
+
+    narrowed = co._stash_evidence_requirement(
+        {"id": "s-narrowed"}, "exec-narrowed", decision, narrow_message, True,
+        workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not compare anything else; just tell me "
+                            "whether the date matches."],
+            "requested_fields": ["Valid until date"],
+        })
+    assert narrowed["broader_comparison"] is False, narrowed
+
+    just_broad = co._stash_evidence_requirement(
+        {"id": "s-just-broad"}, "exec-just-broad", decision, broad_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Just flag anything that differs."],
+            "requested_fields": ["Valid until date", "any differing fields"],
+        })
+    assert just_broad["broader_comparison"] is True, just_broad
+
+    differences = co._stash_evidence_requirement(
+        {"id": "s-differences"}, "exec-differences", decision, broad_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Flag differences."],
+            "requested_fields": ["Valid until date", "any differing fields"],
+        })
+    assert differences["broader_comparison"] is True, differences
+
+    mixed = co._stash_evidence_requirement(
+        {"id": "s-mixed"}, "exec-mixed", decision, broad_message, True,
+        workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Flag anything that differs.",
+                            "Only compare the valid until date."],
+            "requested_fields": ["Valid until date"],
+        })
+    assert mixed["broader_comparison"] is False, mixed
+
+    # The served attempt-10 S7 contract: the model kept the prior turn's
+    # generic "flag anything that differs" constraint, but its requested
+    # fields are date-scoped. That is a date-only request, not a broad
+    # field expansion.
+    date_scoped = co._stash_evidence_requirement(
+        {"id": "s-date-scoped"}, "exec-date-scoped", decision, narrow_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not change anything yet.",
+                            "Flag anything that differs."],
+            "requested_fields": [
+                "current Valid until date on the draft",
+                "approved record Valid Until date",
+                "whether the draft date still matches the approved record",
+                "any date difference"],
+        })
+    assert date_scoped["broader_comparison"] is False, date_scoped
+
+    s3_served = co._stash_evidence_requirement(
+        {"id": "s-s3-served"}, "exec-s3-served", decision, broad_message,
+        True, workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "llm:test", "scope_change": "continue",
+            "constraints": ["Do not change anything yet."],
+            "requested_fields": ["Valid Until date",
+                                 "any differing fields"],
+        })
+    assert s3_served["broader_comparison"] is True, s3_served
+
+    degraded = co._stash_evidence_requirement(
+        {"id": "s-degraded"}, "exec-degraded", decision, broad_message, True,
+        workspace_id=WS, canvas_attached=True,
+        accepted_request={
+            "origin": "unresolved", "scope_change": "unresolved",
+            "constraints": [], "requested_fields": []})
+    assert degraded["broader_comparison"] is True, degraded
+
+
 def test_catalog_resolution_against_real_rows():
     from core.models import IngestedDocument
     from integrations.chat_orchestrator import _resolve_requirement_identity
@@ -693,9 +944,251 @@ def test_builder_carries_the_fulfillment_decision_durably():
         engine.dispose()
 
 
-# ---------------------------------------------------------------------------
-# F5 — the small guards, mutation-sensitively
-# ---------------------------------------------------------------------------
+def test_builder_does_not_certify_a_comparison_from_a_search_receipt():
+    """The durable builder consumes the SAME partial settlement: a
+    completed search receipt cannot set objective_met=True while the
+    comparison carrier has unmet criteria. The envelope, criteria,
+    persisted row, and a fresh row read all agree."""
+    import integrations.chat_orchestrator as co
+    from core.models import AgentExecution
+    from core.llm_service import LLMService
+
+    TestSession, original, db_module, engine = _scratch_db()
+    try:
+        _req = _requirement(artifact_attached=True)
+        _req["broader_comparison"] = True
+        session = _session(
+            requirement=_req,
+            **{
+                f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
+                f"_planner_tool_receipts_{EXEC}": [
+                    _complete_search_receipt()],
+            })
+        recorded = co._fallback_turn_outcome(
+            session, EXEC, feature_responses=None, context={},
+            workspace_id=WS)
+        assert recorded["state"] == "partial", recorded
+        assert recorded["open_work"], recorded
+        response = {"_recorded_outcome": recorded,
+                    "message": "The dates match; terms and price were not "
+                               "verified."}
+        db = TestSession()
+        try:
+            db.add(AgentExecution(id=EXEC, status="success",
+                                  triggered_by="chat"))
+            db.commit()
+        finally:
+            db.close()
+
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        orch.llm_service = LLMService(tenant_id="default")
+        orch._finish_chat_execution(
+            EXEC, "partial", "summary", task_outcome=None,
+            session=session, message=PINNED_ASK, response=response,
+            ai_response=None, deadline=None, pending_task=None,
+            user_id="u-fc2", workspace_id=WS,
+            allow_persisted_evidence=False)
+
+        def _read():
+            db = TestSession()
+            try:
+                row = (db.query(AgentExecution)
+                       .filter(AgentExecution.id == EXEC).first())
+                meta = (row.metadata_json
+                        if isinstance(row.metadata_json, dict) else {})
+                return meta.get("task_outcome") or {}
+            finally:
+                db.close()
+
+        oc = _read()
+        assert oc.get("objective_met") is not True, oc.get("objective_met")
+        criteria = oc.get("criterion_results") or []
+        assert criteria, criteria
+        assert any(c.get("met") is False for c in criteria), criteria
+        # The envelope and the durable decision agree: the context verdict
+        # is partial, the persisted criteria include unmet rows, and
+        # objective_met never becomes True from the search receipt. The
+        # raw context_fulfillment verdict is carried on the resolver
+        # envelope; the durable row carries its criteria/objective result.
+        assert recorded["context_fulfillment"]["state"] == "partial"
+        fresh = _read()
+        assert fresh.get("objective_met") == oc.get("objective_met")
+        assert fresh.get("criterion_results") == criteria
+        assert fresh.get("completion_criteria") == oc.get(
+            "completion_criteria")
+    finally:
+        db_module.engine, db_module.SessionLocal, db_module.get_db = original
+        engine.dispose()
+
+def test_builder_rejects_completed_envelope_with_partial_comparison():
+    """Mutation-sensitive builder control: even if an older resolver handed
+    the builder a completed envelope, a request-bound partial comparison
+    cannot make objective_met True. This exercises the builder guard
+    independently of the resolver gap fix."""
+    import integrations.chat_orchestrator as co
+    from core.models import AgentExecution
+    from core.llm_service import LLMService
+
+    TestSession, original, db_module, engine = _scratch_db()
+    try:
+        _req = _requirement(artifact_attached=True)
+        _req["broader_comparison"] = True
+        session = _session(
+            requirement=_req,
+            **{
+                f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
+                f"_planner_tool_receipts_{EXEC}": [
+                    _complete_search_receipt()],
+            })
+        recorded = {"state": "completed", "delivered": True,
+                    "execution_ids": [EXEC], "open_work": []}
+        response = {"_recorded_outcome": recorded,
+                    "message": "Completed."}
+        db = TestSession()
+        try:
+            db.add(AgentExecution(id=EXEC, status="success",
+                                  triggered_by="chat"))
+            db.commit()
+        finally:
+            db.close()
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        orch.llm_service = LLMService(tenant_id="default")
+        orch._finish_chat_execution(
+            EXEC, "completed", "summary", task_outcome=None,
+            session=session, message=PINNED_ASK, response=response,
+            ai_response=None, deadline=None, pending_task=None,
+            user_id="u-fc2", workspace_id=WS,
+            allow_persisted_evidence=False)
+        db = TestSession()
+        try:
+            row = (db.query(AgentExecution)
+                   .filter(AgentExecution.id == EXEC).first())
+            meta = row.metadata_json if isinstance(
+                row.metadata_json, dict) else {}
+            oc = meta.get("task_outcome") or {}
+        finally:
+            db.close()
+        assert oc.get("objective_met") is not True, oc.get("objective_met")
+        assert any(c.get("met") is False
+                   for c in (oc.get("criterion_results") or [])), oc
+    finally:
+        db_module.engine, db_module.SessionLocal, db_module.get_db = original
+        engine.dispose()
+
+
+def test_builder_deterministic_retrieval_requires_completed_recorded_outcome():
+    """A partial context verdict with no comparison carrier must not be
+    certified by the deterministic-retrieval shortcut."""
+    import integrations.chat_orchestrator as co
+    from core.models import AgentExecution
+    from core.llm_service import LLMService
+
+    TestSession, original, db_module, engine = _scratch_db()
+    try:
+        session = _session(requirement=_requirement(artifact_attached=True))
+        session["_pending_file_result"] = {
+            "status": "delivered", "coverage_complete": True,
+            "execution_id": EXEC}
+        recorded = co._fallback_turn_outcome(
+            session, EXEC, feature_responses=None, context={},
+            workspace_id=WS)
+        assert recorded["state"] == "partial", recorded
+        response = {"_recorded_outcome": recorded,
+                    "message": "Partial.", "model": "deterministic"}
+        db = TestSession()
+        try:
+            db.add(AgentExecution(id=EXEC, status="success",
+                                  triggered_by="chat"))
+            db.commit()
+        finally:
+            db.close()
+        orch = co.ChatOrchestrator.__new__(co.ChatOrchestrator)
+        orch.tenant_id = "default"
+        orch._cancelled_sessions = set()
+        orch._budget_exceeded_runs = set()
+        orch.llm_service = LLMService(tenant_id="default")
+        orch._finish_chat_execution(
+            EXEC, "partial", "summary", task_outcome=None,
+            session=session, message=PINNED_ASK, response=response,
+            ai_response=None, deadline=None, pending_task=None,
+            user_id="u-fc2", workspace_id=WS,
+            allow_persisted_evidence=False)
+        db = TestSession()
+        try:
+            row = (db.query(AgentExecution)
+                   .filter(AgentExecution.id == EXEC).first())
+            meta = row.metadata_json if isinstance(
+                row.metadata_json, dict) else {}
+            oc = meta.get("task_outcome") or {}
+        finally:
+            db.close()
+        assert oc.get("objective_met") is not True, oc.get("objective_met")
+    finally:
+        db_module.engine, db_module.SessionLocal, db_module.get_db = original
+        engine.dispose()
+
+
+def test_extra_unrequested_field_gap_does_not_make_a_narrow_request_partial():
+    req = _requirement(artifact_attached=True)
+    carrier = {"coverage": {
+        "outcome_count": 2, "request_complete": False, "complete": False,
+        "requested_fields": ["expiration_date", "price"],
+        "outcomes": [
+            {"field": "expiration_date", "status": "comparable_match",
+             "reasons": []},
+            {"field": "price", "status": "field_missing",
+             "reasons": ["field_missing"]},
+        ]}}
+    session = _session(
+        requirement=req,
+        **{f"_objective_evidence_{EXEC}": carrier})
+    out = _resolve(session)
+    assert out["state"] == "completed", out
+    assert out["open_work"] == []
+
+
+def test_price_only_comparison_cannot_satisfy_a_date_request():
+    req = _requirement(artifact_attached=True)
+    price_only = {"coverage": {
+        "outcome_count": 1, "request_complete": True, "complete": True,
+        "requested_fields": ["price"],
+        "outcomes": [{"field": "price", "status": "comparable_match",
+                      "reasons": []}]}}
+    session = _session(
+        requirement=req,
+        **{f"_objective_evidence_{EXEC}": price_only})
+    out = _resolve(session)
+    assert out["state"] == "partial", out
+    assert any("comparison" in item for item in out["open_work"]), out
+
+
+def test_malformed_comparison_carrier_does_not_drop_the_gap():
+    req = _requirement(artifact_attached=True)
+    session = _session(
+        requirement=req,
+        **{f"_objective_evidence_{EXEC}": "malformed"})
+    out = _resolve(session)
+    assert out["state"] == "partial", out
+    assert any("comparison" in item for item in out["open_work"]), out
+
+
+def test_incidental_partial_carrier_does_not_block_a_non_comparison_search():
+    session = _session(
+        requirement=_requirement(required=False),
+        **{
+            f"_objective_evidence_{EXEC}": _partial_comparison_carrier(),
+            f"_planner_tool_receipts_{EXEC}": [_complete_search_receipt()],
+        })
+    out = _resolve(session)
+    assert out["state"] == "completed", out
+
+
 def test_not_required_requirement_never_completes():
     s = _session(requirement=_requirement(required=False))
     out = _resolve(s)

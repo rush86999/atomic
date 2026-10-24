@@ -1,0 +1,460 @@
+{
+  "attempt": "5",
+  "classification": "comparison_broader_not_open",
+  "pass": false,
+  "checks": {
+    "runtime_identity": true,
+    "auth_user_resolved": true,
+    "deepseek_credential_active": true,
+    "fixture_uploaded_through_product": true,
+    "l3_http_ok": true,
+    "l3_answer_correct": true,
+    "l3_documents_receipt_executed": true,
+    "l3_receipt_verified_complete": true,
+    "l3_receipt_bound_to_execution": true,
+    "l3_receipt_bound_to_workspace": true,
+    "l3_objective_met": true,
+    "l3_settlement_completed": true,
+    "l3_no_canvas_created": true,
+    "l3_interpretation_deepseek": true,
+    "l3_history_agreement": true,
+    "draft_created_through_product": true,
+    "edit_http_ok": true,
+    "edit_body_applied": true,
+    "edit_audit_exactly_one": true,
+    "edit_settled_completed": true,
+    "edit_other_fields_preserved": true,
+    "reask_http_ok": true,
+    "reask_noop_receipt": true,
+    "reask_zero_additional_writes": true,
+    "reask_body_unchanged": true,
+    "reask_completed": true,
+    "reask_receipt_reply": true,
+    "reask_history_agreement": true,
+    "comparison_http_ok": true,
+    "comparison_truthful_date": true,
+    "comparison_no_false_date": true,
+    "comparison_no_global_claim": true,
+    "comparison_broader_obligation_open": false,
+    "comparison_zero_writes": true,
+    "comparison_draft_unchanged": true,
+    "comparison_settlement_basis": true,
+    "comparison_requirement_captured": false,
+    "comparison_interpretation_deepseek": true,
+    "comparison_history_agreement": true,
+    "continuation_http_ok": true,
+    "continuation_truthful_date": true,
+    "continuation_zero_writes": true,
+    "continuation_draft_unchanged": true,
+    "continuation_date_only_completed": true,
+    "continuation_source_resolved": true,
+    "continuation_actions_proposed": true,
+    "continuation_capture_archived": true,
+    "continuation_requirement_captured": true,
+    "continuation_settlement_basis": true,
+    "continuation_interpretation_deepseek": true,
+    "continuation_history_agreement": true,
+    "restart_runtime_identity": true,
+    "restart_history_agreement": true,
+    "restart_zero_new_writes": true,
+    "restart_canvas_unchanged": true,
+    "restart_execution_persists": true,
+    "provider_structured_deepseek": true,
+    "live_db_isolated": true,
+    "pilot_untouched": true
+  },
+  "first_failure": "comparison_broader_not_open",
+  "stage_summary": {
+    "l3_sourced_answer": {
+      "request_id": "l1l2l3-l3-dcb62607ff844048939c4312ebf5049b",
+      "outcome": "completed",
+      "success": true,
+      "message": "LIVE TOOL RESULTS \u2014 regex scan over the WHOLE stored tree (1 match line(s)); open a hit's region with its [read: documents.read(...)] hint (bounded window at the cited line), or the whole artifact with documents.cat(path + '/content.lines'):\n- knowledge/documents/doc_ee4153d4a4ff67b28359e186:L3: The launch code for project Zephyr-9 is QUARTZ-77.\n\nThe launch code for project Zephyr-9 is QUARTZ-77. This information comes from the document \"ATOM PHASE D FIXTURE \u2014 internal notes\" in your uploaded do",
+      "expected_code": "QUARTZ-77",
+      "decoy_present": false,
+      "documents_receipts": [
+        {
+          "tool": "documents.grep",
+          "verified": true,
+          "refs": [
+            {
+              "coverage": "complete",
+              "match_count": 1
+            }
+          ]
+        }
+      ],
+      "planning_timeout_seen": false,
+      "old_plan_none_seen": false,
+      "required_read_after_timeout": false,
+      "route": {
+        "request_id": "l1l2l3-l3-dcb62607ff844048939c4312ebf5049b",
+        "dispatch_attempted": true,
+        "dispatch_models": [
+          "deepseek/deepseek-v4-pro"
+        ],
+        "interpretation_origin": "llm:deepseek-v4-pro",
+        "interpretation_unresolved_reason": "",
+        "scope_change": "replace",
+        "action_count": 1,
+        "action_kinds": [
+          "research"
+        ],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation",
+          "pre_validation"
+        ],
+        "total_turn_latency_s": 46.61
+      }
+    },
+    "edit": {
+      "request_id": "l1l2l3-edit-245eafc25bb940dbb32dcc5257701fa4",
+      "outcome": null,
+      "success": true,
+      "audit_delta": 1,
+      "canvas_edit": {
+        "canvas_id": "56e7351f-ec3c-4d22-989a-148a260f82ac",
+        "updated": true,
+        "execution_id": "fac333ea-5e95-433a-9412-ef161e992b19",
+        "operation_id": "fac333ea-5e95-433a-9412-ef161e992b19",
+        "outcome": "completed",
+        "postcondition_verified": true,
+        "audit_id": "7e2ba0f1-ed51-46c3-b6e6-331eea33e495",
+        "review_status": "accepted",
+        "evidence_refs": [
+          {
+            "kind": "canvas_mutation",
+            "canvas_id": "56e7351f-ec3c-4d22-989a-148a260f82ac",
+            "audit_id": "7e2ba0f1-ed51-46c3-b6e6-331eea33e495",
+            "operation_id": "fac333ea-5e95-433a-9412-ef161e992b19",
+            "execution_id": "fac333ea-5e95-433a-9412-ef161e992b19"
+          }
+        ]
+      },
+      "route": {
+        "request_id": "l1l2l3-edit-245eafc25bb940dbb32dcc5257701fa4",
+        "dispatch_attempted": true,
+        "dispatch_models": [
+          "deepseek/deepseek-v4-pro"
+        ],
+        "interpretation_origin": "llm:deepseek-v4-pro",
+        "interpretation_unresolved_reason": "",
+        "scope_change": "replace",
+        "action_count": 1,
+        "action_kinds": [
+          "canvas_edit"
+        ],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation",
+          "pre_validation"
+        ],
+        "total_turn_latency_s": 17.68
+      }
+    },
+    "identical_reask": {
+      "request_id": "l1l2l3-reask-deb9c6e290434ee09b6ea9a1f6931d36",
+      "outcome": "completed",
+      "success": true,
+      "canvas_edit": {
+        "canvas_id": "56e7351f-ec3c-4d22-989a-148a260f82ac",
+        "updated": false,
+        "no_apply": true,
+        "reason": "planner_declined",
+        "background_started": false,
+        "continuation_id": null,
+        "execution_id": "a10d26b3-6de7-419c-b283-62feb0f150ba",
+        "operation_id": "d1513f7f-18e4-47a7-8758-f50d91a50574",
+        "task_run_id": "1e89363f-386e-45ba-871e-b743a559d631",
+        "outcome": "refused",
+        "planner_outcome": "declined",
+        "noop": true,
+        "noop_reason": "already_satisfied"
+      },
+      "audit_delta": 0,
+      "message": "Verified on the current draft: payment terms in the draft already set to Net 30. No changes were needed, and nothing was sent.",
+      "route": {
+        "request_id": "l1l2l3-reask-deb9c6e290434ee09b6ea9a1f6931d36",
+        "dispatch_attempted": true,
+        "dispatch_models": [
+          "deepseek/deepseek-v4-pro"
+        ],
+        "interpretation_origin": "llm:deepseek-v4-pro",
+        "interpretation_unresolved_reason": "",
+        "scope_change": "replace",
+        "action_count": 1,
+        "action_kinds": [
+          "canvas_edit"
+        ],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation",
+          "pre_validation"
+        ],
+        "total_turn_latency_s": 18.61
+      }
+    },
+    "comparison": {
+      "request_id": "l1l2l3-s3-663d6daed64a4313a493a352b89ed291",
+      "outcome": "partial",
+      "success": true,
+      "context_fulfillment_state": "partial",
+      "missing_comparison": true,
+      "missing_fields": null,
+      "broader_comparison_requirement": false,
+      "message_has_open": false,
+      "message": "Based on your uploaded Approved Records document (approved_records_q2026_114.txt) for Quotation Q-2026-114, I have compared it with the current draft quotation on this canvas.\n\nThe Valid Until date in the draft is 2026-12-31, while the approved record indicates a valid until date of 2027-03-31. This suggests a difference between the two dates.",
+      "route": {
+        "request_id": "l1l2l3-s3-663d6daed64a4313a493a352b89ed291",
+        "dispatch_attempted": true,
+        "dispatch_models": [
+          "deepseek/deepseek-v4-pro"
+        ],
+        "interpretation_origin": "llm:deepseek-v4-pro",
+        "interpretation_unresolved_reason": "",
+        "scope_change": "replace",
+        "action_count": 2,
+        "action_kinds": [
+          "research",
+          "presentation"
+        ],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation",
+          "pre_validation"
+        ],
+        "total_turn_latency_s": 61.64
+      }
+    },
+    "date_only_continuation": {
+      "request_id": "l1l2l3-s7-34a66bd1a10942dfac868dfea7ed8cf0",
+      "outcome": "partial",
+      "success": true,
+      "context_fulfillment_state": "completed",
+      "fields": [
+        "expiration_date"
+      ],
+      "broader_comparison": false,
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: all requested typed fields below are compared.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\nNo canvas change was made by this comparison.",
+      "route": {
+        "request_id": "l1l2l3-s7-34a66bd1a10942dfac868dfea7ed8cf0",
+        "dispatch_attempted": true,
+        "dispatch_models": [
+          "deepseek/deepseek-v4-pro"
+        ],
+        "interpretation_origin": "llm:deepseek-v4-pro",
+        "interpretation_unresolved_reason": "",
+        "scope_change": "continue",
+        "action_count": 1,
+        "action_kinds": [
+          "research"
+        ],
+        "capture_archived": true,
+        "capture_phases": [
+          "post_validation",
+          "pre_validation"
+        ],
+        "total_turn_latency_s": 49.85
+      }
+    },
+    "restart": {
+      "session_a_assistant_count": 3,
+      "session_a_pre_count": 3,
+      "session_b_assistant_count": 2,
+      "session_b_pre_count": 2,
+      "session_a_noop": true,
+      "session_a_noop_reason": "already_satisfied",
+      "session_b_outcome": "partial",
+      "session_b_success": true,
+      "executions": {
+        "edit": {
+          "found": true,
+          "execution_id": "fac333ea-5e95-433a-9412-ef161e992b19",
+          "status": "success",
+          "outcome": null,
+          "success": null,
+          "objective_met": true,
+          "mutation": {
+            "requested": true,
+            "readback_matched": true,
+            "status": true
+          },
+          "delivery": {
+            "delivered": true,
+            "channel": "chat",
+            "model": null,
+            "deterministic": false
+          }
+        },
+        "reask": {
+          "found": true,
+          "execution_id": "a10d26b3-6de7-419c-b283-62feb0f150ba",
+          "status": "success",
+          "outcome": null,
+          "success": null,
+          "objective_met": null,
+          "mutation": {
+            "requested": true,
+            "readback_matched": false,
+            "status": null
+          },
+          "delivery": {
+            "delivered": true,
+            "channel": "chat",
+            "model": null,
+            "deterministic": false
+          }
+        },
+        "s7": {
+          "found": true,
+          "execution_id": "859ebebd-02b1-4de5-827f-3af6813cb94e",
+          "status": "success",
+          "outcome": null,
+          "success": null,
+          "objective_met": true,
+          "mutation": {
+            "requested": false,
+            "readback_matched": false,
+            "status": null
+          },
+          "delivery": {
+            "delivered": true,
+            "channel": "chat",
+            "model": "llama3.1:8b",
+            "deterministic": false
+          }
+        }
+      },
+      "route": {
+        "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout/backend",
+        "git_commit": "8528ad03c8aa",
+        "dirty": false,
+        "candidate_cwd_ok": true,
+        "candidate_commit_ok": true
+      }
+    },
+    "total_turn_latency_s": {
+      "l3": 46.61,
+      "edit": 17.68,
+      "reask": 18.61,
+      "comparison": 61.64,
+      "continuation": 49.85
+    }
+  },
+  "provider_routes": {
+    "structured_dispatch_models": [
+      "deepseek/deepseek-v4-pro"
+    ],
+    "deepseek_chat_posts": 16,
+    "reply_streamed_routes": [
+      "ollama/llama3.1:8b"
+    ],
+    "interpretation_lines": [
+      "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l1l2l3-l3-dcb62607ff844048939c4312ebf5049b attempt=1 prompt_chars=2602 cap=5500 instructor_retries=2",
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=12.6s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:l1l2l3-l3-dcb62607ff844048939c4312ebf5",
+      "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l1l2l3-edit-245eafc25bb940dbb32dcc5257701fa4 attempt=1 prompt_chars=3047 cap=5500 instructor_retries=2",
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=11.8s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:l1l2l3-edit-245eafc25bb940dbb32dcc5257",
+      "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l1l2l3-reask-deb9c6e290434ee09b6ea9a1f6931d36 attempt=1 prompt_chars=3159 cap=5500 instructor_retries=2",
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=14.8s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:l1l2l3-reask-deb9c6e290434ee09b6ea9a1f",
+      "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l1l2l3-s3-663d6daed64a4313a493a352b89ed291 attempt=1 prompt_chars=2949 cap=5500 instructor_retries=2",
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=27.2s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:l1l2l3-s3-663d6daed64a4313a493a352b89e",
+      "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:l1l2l3-s7-34a66bd1a10942dfac868dfea7ed8cf0 attempt=1 prompt_chars=3258 cap=5500 instructor_retries=2",
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=19.8s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:l1l2l3-s7-34a66bd1a10942dfac868dfea7ed"
+    ],
+    "edit_plan_lines": [
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=2000 dur=5.6s finish=stop content_present=True tool_calls_present=False result_type=CanvasEditPlan route=canvas_edit_plan:fac333ea-5e95-433a-9412-ef161e992b19 attemp",
+      "INFO:core.chat_canvas_editor:[plan-stage] eid=fac333ea-5e95-433a-9412-ef161e992b19 stage=canvas_edit_plan outcome=edit attempts=1 contract=valid detail=prompt_chars=3261 ops_match_current_content=true",
+      "INFO:integrations.chat_orchestrator:[lane-stage-end] eid=fac333ea-5e95-433a-9412-ef161e992b19 stage=edit_plan elapsed=5.7s",
+      "INFO:integrations.chat_orchestrator:[stage-timing] canvas-edit plan: 5.8s",
+      "INFO:integrations.chat_orchestrator:[lane-stage-begin] eid=a10d26b3-6de7-419c-b283-62feb0f150ba stage=edit_plan",
+      "INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=canvas_edit_plan:a10d26b3-6de7-419c-b283-62feb0f150ba attempt=1 prompt_chars=3541 cap=2000 instructor_retries=2",
+      "INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=2000 dur=3.5s finish=stop content_present=True tool_calls_present=False result_type=CanvasEditPlan route=canvas_edit_plan:a10d26b3-6de7-419c-b283-62feb0f150ba attemp",
+      "INFO:core.chat_canvas_editor:[plan-stage] eid=a10d26b3-6de7-419c-b283-62feb0f150ba stage=canvas_edit_plan outcome=declined attempts=1 contract=valid detail=served decline",
+      "INFO:core.chat_canvas_editor:[plan-stage] eid=a10d26b3-6de7-419c-b283-62feb0f150ba stage=canvas_edit_plan outcome=edit attempts=1 contract=valid detail=schema+scope valid on attempt 1",
+      "INFO:integrations.chat_orchestrator:[lane-stage-end] eid=a10d26b3-6de7-419c-b283-62feb0f150ba stage=edit_plan elapsed=3.6s",
+      "INFO:integrations.chat_orchestrator:[stage-timing] canvas-edit plan: 3.7s",
+      "INFO:integrations.chat_orchestrator:[stage-timing] canvas-action plan: 0.0s (overlapped with canvas-edit plan)"
+    ],
+    "source_ask_lines": [
+      "WARNING:core.chat_tool_planner:tool planner: optional structured planning timed out after 20.0s; required-read enforcement continues",
+      "INFO:core.chat_tool_planner:tool planner: source-ask floor -> documents.search query='the launch code for project Zephyr-9'",
+      "WARNING:core.chat_tool_planner:tool planner: optional structured planning timed out after 20.0s; required-read enforcement continues",
+      "INFO:core.chat_tool_planner:tool planner: source-ask floor -> documents.search query='expiration_date'",
+      "INFO:core.chat_tool_planner:tool planner: required-read enforcement -> documents.search query='expiration_date' (optional proposal: none)",
+      "WARNING:core.chat_tool_planner:tool planner: optional structured planning timed out after 20.0s; required-read enforcement continues",
+      "INFO:core.chat_tool_planner:tool planner: source-ask floor -> documents.search query='approved_records_q2026_114.txt expiration_date'",
+      "INFO:core.chat_tool_planner:tool planner: required-read enforcement -> documents.search query='approved_records_q2026_114.txt expiration_date' (optional proposal: none)"
+    ]
+  },
+  "runtime_identity": {
+    "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout/backend",
+    "git_commit": "8528ad03c8aa",
+    "dirty": false,
+    "source_id": "8528ad03c8aa",
+    "revision": "8528ad03c8aa49d1d6fac7019d3c12d99099cf71",
+    "candidate_cwd_ok": true,
+    "candidate_commit_ok": true
+  },
+  "live_db_unchanged": true,
+  "live_db_isolated": true,
+  "live_db_guard_after": {
+    "fingerprint": {
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "exists": true,
+      "size_bytes": 823709696,
+      "mtime": 1792797672.180953,
+      "sha256": "5dcd034cdea5819902564e5bff30aa6c69a334bd346336b53943b8b58b739cac",
+      "wal_size_bytes": 309618032,
+      "wal_sha256": "59e0c21dc8f521873a75ba29c84a55d21f2879d2ce5555a9f5a20702cd3ab764",
+      "quick_check": "ok",
+      "row_counts": {
+        "users": 48,
+        "agents": null,
+        "chat_sessions": 1022,
+        "chat_messages": 5426,
+        "agent_executions": 4254,
+        "canvases": 197,
+        "canvas_audit": 1116,
+        "ingested_documents": 2443,
+        "task_operation_records": 269,
+        "tool_mutations": 0
+      }
+    },
+    "holders": {
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "holders": [
+        {
+          "pid": 81067,
+          "command": "python3.14",
+          "names": [
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+            "/Users/rushiparikh/projects/atom/backend/data/atom.db"
+          ]
+        }
+      ],
+      "lsof_rc": 0
+    },
+    "scratch_holders": {
+      "path": "/Users/rushiparikh/projects/atom/backend/data/atom.db",
+      "holders": [],
+      "pid_tree": [
+        32539
+      ],
+      "lsof_rc": 0
+    },
+    "scratch_paths_isolated": true,
+    "unchanged": true,
+    "isolated": true,
+    "live_db_path_in_server_logs": false
+  },
+  "pilot_untouched": true
+}

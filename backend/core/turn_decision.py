@@ -42,8 +42,9 @@ import json
 import logging
 import os
 import re
+import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 # Reference detector: ONE shared constant with the validator — the
 # round-2 independent review (2026-10-15) found the two hand-mirrored
@@ -96,6 +97,12 @@ INTERPRETATION_SCHEMA = "turn-interpretation-1"
 #: output, no available model). An unresolved interpretation NEVER
 #: authorizes guessed work — callers keep the deterministic floor.
 SCOPE_CHANGES = ("replace", "extend", "subset", "continue", "unresolved")
+#: The authoritative interpretation action vocabulary (same kinds the
+#: authorization policy and prompt already use).
+INTERPRETATION_ACTION_KINDS = (
+    "research", "learning", "canvas_edit", "calculation",
+    "presentation", "conversation",
+)
 
 # A negated edit command. "Research this; don't change the draft" carries
 # an edit verb + artifact and would ground an instruction by the verb
@@ -343,6 +350,419 @@ def _task_objective(session: Optional[Dict[str, Any]]) -> Dict[str, Any]:
                 out["row_bindings"] = len(bindings)
             return out
     return {}
+
+
+#: L2 (2026-10-18; corrected 2026-10-18 after owner review) — continuation
+#: evidence references. REQUESTED sources (the F-C2 requirement carriers)
+#: only NOMINATE candidates; OBSERVED sources (the supplied retrieval
+#: observations) are the only prior evidence. The composer resolves the
+#: async interpretation's proposed reference against the observed pool —
+#: all eligible matches collected first — and preserves resolved /
+#: ambiguous / unresolved states explicitly. Never substring donation,
+#: never insertion-order selection.
+_EVIDENCE_REQ_PREFIX = "_evidence_requirement_"
+_EVIDENCE_OBS_PREFIX = "_retrieval_source_observations_"
+
+#: Observation source families -> the program kind vocabulary.
+_OBSERVED_FAMILY_KINDS = {
+    "ingested": "document",
+    "vector": "document",
+    "communication": "email",
+    "communications": "email",
+    "comms": "email",
+}
+
+
+def _source_identity_key(kind: Any, file_name: Any) -> tuple:
+    """Dedupe key by STABLE source identity: the kind plus the complete
+    filename (case-folded, whitespace-trimmed, separators preserved).
+
+    The previous alphanumeric-only key concatenated away separators, so
+    `approved_records_AB-12.txt` and `approved_records_AB12.txt` merged
+    before ambiguity detection and one was silently chosen (owner review
+    2026-10-18). Without a stable source ID, the full filename IS the
+    identity."""
+    return (str(kind or "").strip().lower(),
+            str(file_name or "").strip().casefold())
+
+
+#: Descriptive glue words that carry no identity constraint (articles,
+#: prepositions, possessives). Dropped from references; a source NAME is
+#: matched on its remaining tokens.
+_REFERENCE_STOPWORDS = frozenset({
+    "the", "a", "an", "of", "and", "or", "for", "with", "in", "on", "at",
+    "to", "from", "by", "my", "our", "your", "their", "its", "this",
+    "that", "these", "those",
+})
+
+#: EXPLICITLY SUPPORTED descriptive equivalents (owner review 2026-10-18:
+#: "restrict any descriptive-word normalization to explicitly supported
+#: equivalents, such as record/records"). Nothing else is normalized —
+#: identifiers are compared exactly, never stemmed.
+_DESCRIPTIVE_EQUIVALENTS = {
+    "record": "record", "records": "record",
+    "document": "document", "documents": "document",
+    "file": "file", "files": "file",
+    "report": "report", "reports": "report",
+    "sheet": "sheet", "sheets": "sheet",
+    "note": "note", "notes": "note",
+}
+
+
+def _is_identifier_token(token: str) -> bool:
+    """A token acting as an IDENTIFIER: it carries digits (order number,
+    code, version) or is a single character ("A", "7") — its characters
+    are part of the identity. Identifier-shaped tokens are never dropped
+    as stopwords and always compare exactly (owner review 2026-10-18:
+    "A" was deleted by the stopword list and "approved record A" resolved
+    to a different file)."""
+    return len(token) == 1 or any(ch.isdigit() for ch in token)
+
+
+def _descriptive_canon(token: str) -> str:
+    return _DESCRIPTIVE_EQUIVALENTS.get(token, token)
+
+
+def _reference_tokens(text: Any) -> List[str]:
+    """Token-boundary tokens of a reference.
+
+    Every token is preserved except pure glue words — and a word that
+    could act as a source identifier is NEVER dropped merely because it
+    also appears in the stopword list ("A"). When the grammatical role is
+    uncertain the token stays as a constraint (owner review 2026-10-18)."""
+    return [t for t in re.findall(r"[a-z0-9]+", str(text or "").lower())
+            if _is_identifier_token(t) or t not in _REFERENCE_STOPWORDS]
+
+
+def _token_matches(proposed: str, name_token: str) -> bool:
+    """Boundary-preserving token comparison.
+
+    Identifiers (tokens carrying digits) compare EXACTLY — "ab12" never
+    matches "ab12s"; "381" never matches "6603". Descriptive words
+    compare through the explicit equivalence table only ("record" matches
+    "records"); no stemming, no plural stripping of arbitrary tokens."""
+    if _is_identifier_token(proposed) or _is_identifier_token(name_token):
+        return proposed == name_token
+    return _descriptive_canon(proposed) == _descriptive_canon(name_token)
+
+
+def session_observed_sources(
+    session: Optional[Dict[str, Any]], limit: int = 8,
+) -> List[Dict[str, Any]]:
+    """The conversation's OBSERVED evidence sources — supplied retrieval
+    observations only (never requirement carriers; a request nominates,
+    it does not establish evidence). Bounded and deduped."""
+    if not isinstance(session, dict):
+        return []
+    entries: List[Dict[str, Any]] = []
+    for key in [k for k in session
+                if str(k).startswith(_EVIDENCE_OBS_PREFIX)][-8:]:
+        try:
+            value = session.get(key)
+        except Exception:  # noqa: BLE001 — carriers are best-effort
+            continue
+        if not isinstance(value, list):
+            continue
+        execution_id = str(key)[len(_EVIDENCE_OBS_PREFIX):]
+        for obs in value:
+            if not isinstance(obs, dict):
+                continue
+            kind = _OBSERVED_FAMILY_KINDS.get(
+                str(obs.get("source") or "").strip().lower(), "")
+            name = str(obs.get("file_name")
+                       or obs.get("title") or "").strip()
+            if kind and name:
+                entries.append({"kind": kind, "file_name": name,
+                                "execution_id": execution_id})
+    out: List[Dict[str, Any]] = []
+    seen = set()
+    for entry in reversed(entries):
+        dedupe_key = _source_identity_key(entry["kind"],
+                                          entry["file_name"])
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        out.append(entry)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def session_requested_sources(
+    session: Optional[Dict[str, Any]], limit: int = 8,
+) -> List[Dict[str, Any]]:
+    """The conversation's REQUESTED sources (requirement carriers) —
+    nominations for the interpreter, never prior evidence."""
+    if not isinstance(session, dict):
+        return []
+    out: List[Dict[str, Any]] = []
+    seen = set()
+    for key in [k for k in session
+                if str(k).startswith(_EVIDENCE_REQ_PREFIX)][-8:]:
+        try:
+            value = session.get(key)
+        except Exception:  # noqa: BLE001
+            continue
+        if not isinstance(value, dict):
+            continue
+        execution_id = str(key)[len(_EVIDENCE_REQ_PREFIX):]
+        identity = value.get("identity") if isinstance(
+            value.get("identity"), dict) else {}
+        name = str(identity.get("file_name") or "").strip()
+        kinds = [str(k or "").strip().lower()
+                 for k in (value.get("sources") or [])
+                 if str(k or "").strip()]
+        for kind in (kinds or [""]):
+            dedupe_key = _source_identity_key(kind, name)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            out.append({"kind": kind, "file_name": name,
+                        "execution_id": execution_id})
+            if len(out) >= limit:
+                return out
+    return out
+
+
+def session_evidence_sources(
+    session: Optional[Dict[str, Any]], limit: int = 8,
+) -> List[Dict[str, Any]]:
+    """Combined view for the INTERPRETATION PROMPT only: observed sources
+    first (``observed: True``), then requested nominations
+    (``observed: False``). Never used for resolution."""
+    observed = [dict(e, observed=True)
+                for e in session_observed_sources(session, limit)]
+    requested = [dict(e, observed=False)
+                 for e in session_requested_sources(session, limit)]
+    seen = {_source_identity_key(e["kind"], e["file_name"])
+            for e in observed}
+    combined = list(observed)
+    for entry in requested:
+        key = _source_identity_key(entry["kind"], entry["file_name"])
+        if key in seen:
+            continue
+        seen.add(key)
+        combined.append(entry)
+        if len(combined) >= limit:
+            break
+    return combined
+
+
+def _reference_candidates(
+    proposed: str, observed: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """ALL observed sources a reference could mean — collected before any
+    decision (zero / one / many). A canonical kind resolves to the
+    observed sources of that family; a name resolves by boundary-
+    preserving token containment: EVERY reference token (short names and
+    identifiers included) must match a distinct name token."""
+    from core.action_program import normalize_source_kind
+
+    text = str(proposed or "").strip()
+    if not text:
+        return []
+    # EXACT FULL IDENTITY first (owner review 2026-10-18): a proposal that
+    # IS a source's complete filename resolves to it directly — no token
+    # games, separators and identifiers preserved.
+    exact = [e for e in observed or []
+             if str(e.get("file_name") or "").strip().casefold()
+             == text.casefold()]
+    if exact:
+        return exact
+    kind = normalize_source_kind(text)
+    if kind:
+        return [e for e in observed or []
+                if str(e.get("kind") or "") == kind]
+    tokens = _reference_tokens(text)
+    if not tokens:
+        return []
+    matches: List[Dict[str, Any]] = []
+    for entry in observed or []:
+        name_tokens = _reference_tokens(entry.get("file_name"))
+        if len(name_tokens) < len(tokens):
+            continue
+        available = list(name_tokens)
+        ok = True
+        for token in tokens:
+            hit = next((nt for nt in available
+                        if _token_matches(token, nt)), None)
+            if hit is None:
+                ok = False
+                break
+            available.remove(hit)
+        if ok:
+            matches.append(entry)
+    return matches
+
+
+def apply_interpretation_references(
+    decision: Optional[Dict[str, Any]],
+    interpretation: Optional[Dict[str, Any]],
+    session: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Compose the resolved interpretation's source reference into the
+    accepted decision (L2 repair; corrected after owner review).
+
+    The reference is resolved against the conversation's OBSERVED sources
+    (supplied retrieval observations). Requirements nominate candidates;
+    they are never prior evidence. Decision pattern:
+
+    * one candidate -> adopt its identity (the stash re-resolves it
+      against the catalog for the exact identity);
+    * several candidates -> preserve the AMBIGUITY (candidates recorded;
+      never insertion-order selection);
+    * no candidate, name proposal, observed evidence context present ->
+      preserve the UNRESOLVED reference (kinds grounded in the observed
+      families; the settlement reports the honest non-match);
+    * no candidate otherwise (no observed context, or generic-kind-only
+      proposals) -> the decision is UNCHANGED: a generic kind describes a
+      proposed lookup and cannot prove which record the reference means.
+
+    Guards unchanged: only a RESOLVED interpretation composes; the
+    deterministic floor's own references always win; degraded
+    interpretations and unresolvable references never invent anything.
+    """
+    if not isinstance(decision, dict) or not isinstance(
+            interpretation, dict):
+        return decision
+    origin = str(interpretation.get("origin") or "")
+    scope_change = str(interpretation.get("scope_change") or "")
+    if origin == "unresolved" or scope_change == "unresolved":
+        return decision  # degraded: the deterministic floor stays in charge
+    refs = decision.get("references")
+    if not isinstance(refs, dict):
+        refs = {}
+    if refs.get("sources") or refs.get("file"):
+        return decision  # the floor already carries references
+    proposed = [str(s).strip()
+                for s in (interpretation.get("sources") or [])
+                if str(s or "").strip()][:4]
+    if not proposed:
+        return decision
+    observed = session_observed_sources(session)
+    if not observed:
+        return decision  # no observed evidence context: nothing to resolve
+    from core.action_program import normalize_source_kind
+
+    # RESOLVE EACH PROPOSAL BEFORE AGGREGATING (owner review 2026-10-18):
+    # a union that drops an unmatched proposal whenever another proposal
+    # resolves silently discards a requested source. Per-proposal states:
+    #   resolved      — exactly one observed candidate
+    #   ambiguous     — several observed candidates
+    #   unresolved    — a NAME proposal with no candidate
+    #   no_antecedent — a generic-kind proposal with no candidate
+    resolutions: List[Dict[str, Any]] = []
+    for proposal in proposed:
+        kind = normalize_source_kind(proposal)
+        candidates_for = _reference_candidates(proposal, observed)
+        if kind:
+            state = ("resolved" if len(candidates_for) == 1
+                     else "ambiguous" if len(candidates_for) > 1
+                     else "no_antecedent")
+        else:
+            state = ("resolved" if len(candidates_for) == 1
+                     else "ambiguous" if len(candidates_for) > 1
+                     else "unresolved")
+        resolutions.append({"proposal": proposal, "kind": kind,
+                            "state": state,
+                            "candidates": candidates_for})
+    marker: Dict[str, Any] = {
+        "origin": "interpretation",
+        "proposed": proposed,
+    }
+    missing_proposals = [r["proposal"] for r in resolutions
+                         if r["state"] in ("unresolved", "no_antecedent")]
+    unresolved_proposals = [r["proposal"] for r in resolutions
+                            if r["state"] == "unresolved"]
+    no_antecedent_proposals = [r["proposal"] for r in resolutions
+                               if r["state"] == "no_antecedent"]
+    # Kinds: proposal kinds + the observed families (grounding for the
+    # unresolved obligation's identity).
+    kinds: List[str] = []
+    for r in resolutions:
+        kind = str(r.get("kind") or "")
+        if kind and kind not in kinds:
+            kinds.append(kind)
+    for entry in observed:
+        kind = str(entry.get("kind") or "")
+        if kind and kind not in kinds:
+            kinds.append(kind)
+
+    def _candidate_records(cands: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        seen = set()
+        for entry in cands:
+            key = _source_identity_key(entry.get("kind"),
+                                       entry.get("file_name"))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append({"kind": entry.get("kind"),
+                        "file_name": entry.get("file_name"),
+                        "execution_id": entry.get("execution_id")})
+        return out
+
+    if missing_proposals:
+        # A MISSING PROPOSAL NEVER DISAPPEARS (owner review 2026-10-18): an
+        # unmatched named source (`unresolved`) AND a requested kind with
+        # no observed antecedent (`no_antecedent`, e.g. `email` when only
+        # documents were observed) both block adoption — the composition
+        # preserves the missing obligation instead of silently resolving
+        # to whatever another proposal matched.
+        if not kinds:
+            return decision
+        marker.update({
+            "state": "unresolved",
+            "resolved_kinds": kinds,
+            "resolved_file": "",
+            "names": missing_proposals,
+            "no_antecedent": no_antecedent_proposals,
+        })
+        new_refs = dict(refs)
+        new_refs["sources"] = kinds
+        new_refs["continuation_evidence"] = marker
+        composed = dict(decision)
+        composed["references"] = new_refs
+        return composed
+    # No unresolved proposal: the distinct candidate files decide.
+    # Several distinct files (from ambiguous proposals or from several
+    # resolved proposals) must CLARIFY — the downstream contract carries
+    # one file, so nothing is collapsed to a first filename.
+    candidate_files = _candidate_records(
+        [c for r in resolutions for c in r["candidates"]])
+    if len(candidate_files) == 1:
+        candidate = candidate_files[0]
+        kinds_resolved = [str(candidate.get("kind") or "document")]
+        file_name = str(candidate.get("file_name") or "")
+        marker.update({
+            "state": "resolved",
+            "resolved_kinds": kinds_resolved,
+            "resolved_file": file_name,
+            "antecedents": [candidate],
+        })
+        new_refs = dict(refs)
+        new_refs["sources"] = kinds_resolved
+        new_refs["file"] = {"file_name": file_name}
+        new_refs["continuation_evidence"] = marker
+        composed = dict(decision)
+        composed["references"] = new_refs
+        return composed
+    if len(candidate_files) > 1:
+        marker.update({
+            "state": "ambiguous",
+            "resolved_kinds": kinds,
+            "resolved_file": "",
+            "candidates": candidate_files[:4],
+        })
+        new_refs = dict(refs)
+        new_refs["sources"] = kinds or ["document"]
+        new_refs["continuation_evidence"] = marker
+        composed = dict(decision)
+        composed["references"] = new_refs
+        return composed
+    # No candidates anywhere: generic-kind-only proposals never nominate
+    # an antecedent; the decision is unchanged.
+    return decision
 
 
 def build_turn_decision(
@@ -896,13 +1316,135 @@ def _scope_constraints(message: str) -> List[str]:
 # trip on a credit-dead ranked route BEFORE the healthy gateway answers
 # (live 2026-10-08: interpretation dispatched to opencode-go at ~6s and
 # timed out at the wall). Still far under the turn's reply budget.
-_INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "12"))
+# 12s was the original bound. The 2026-10-19 diagnostic (scratch replay of
+# the actual S3/S7 payloads on the frozen route) measured the first valid
+# S7 interpretation record at ~58s on the BPC-selected compatible route
+# (qwen3.8-flash; reasoning switch accepted, though the route still
+# reported hidden reasoning tokens), while the reasoning-mandatory
+# glm-5.3-flash path never validated within a 90s window. This is a
+# BOUNDED, EVALUATED increase (65s) that fits the ordinary 95s turn budget
+# with ~30s left for the reply leg; the served attempt measures total turn
+# latency against the user-usable goal.
+_INTERPRET_TIMEOUT_S = float(os.getenv("ATOM_TURN_INTERPRET_TIMEOUT_S", "65"))
 _INTERPRET_BREAKER_MAX = int(os.getenv("ATOM_TURN_INTERPRET_BREAKER", "3"))
+
+#: Structured-output budget for the turn interpretation. Derived from
+#: REPRESENTATIVE valid records, not a tiny arbitrary cap: the attempt-1
+#: S7 record (2 sources, 2 actions, 2 subjects, 1 field) is ~1,163
+#: cl100k tokens; a multiple-source/long-filename record (8 sources incl.
+#: a 512-char filename, 8 subjects, 3 actions with 4 subjects each,
+#: 8 requested fields, 8 constraints) is ~3,385 cl100k tokens. 5,500
+#: leaves ~1.6x headroom over the larger representative record. This is
+#: a ceiling, not a target; other structured callers keep the handler's
+#: 6,000 default. The intended latency lever on reasoning-capable routes
+#: is disable_reasoning; providers that mandate reasoning keep the
+#: bounded recovery and are measured by the served run.
+_INTERPRET_OUTPUT_BUDGET_TOKENS = 5500
 _interpret_failures = 0
 _interpret_breaker_until = 0.0
 _interpret_metrics: Dict[str, Any] = {
     "ok": 0, "unresolved": 0, "timeout": 0, "error": 0, "skipped": 0,
-    "max_ms": 0.0, "sum_ms": 0.0}
+    "stage_budget_exhausted": 0, "max_ms": 0.0, "sum_ms": 0.0}
+_interpretation_metrics_lock = threading.Lock()
+
+#: Scratch-only capture of the producer's raw scope/action shape before
+#: normalization (enabled by ATOM_TURN_INTERPRET_CAPTURE=1). Records no
+#: message/source content and no credentials.
+_interpret_capture: List[Dict[str, Any]] = []
+_interpret_capture_request_id = ""
+_last_interpret_capture: Dict[str, Any] = {}
+_interpret_capture_lock = threading.Lock()
+
+
+def _capture_enabled() -> bool:
+    return os.getenv("ATOM_TURN_INTERPRET_CAPTURE", "0").lower() in (
+        "1", "on", "true", "yes")
+
+
+def reset_interpret_capture(request_id: str = "") -> None:
+    global _interpret_capture_request_id, _last_interpret_capture
+    with _interpret_capture_lock:
+        _interpret_capture.clear()
+        _interpret_capture_request_id = str(request_id or "")
+        _last_interpret_capture = {}
+
+
+def _record_interpret_capture(
+    data: Any, *, phase: str, rejection_reason: str = "",
+) -> None:
+    """Record a content-free shape sample for the current attempt.
+
+    The last record is always kept in memory so validation failures can
+    be classified even when archival capture is disabled. Only recognized
+    enum values and placeholders are stored; arbitrary model text never
+    enters the record or the log.
+    """
+    if not isinstance(data, dict):
+        return
+    scope_present = "scope_change" in data
+    raw_scope = data.get("scope_change")
+    scope_text = (str(raw_scope).strip().lower()
+                  if raw_scope is not None else None)
+    if not scope_present:
+        scope_value = None
+    elif scope_text in SCOPE_CHANGES:
+        scope_value = scope_text
+    else:
+        scope_value = "<invalid>"
+
+    actions = data.get("actions")
+    action_list = actions if isinstance(actions, list) else []
+    kinds: List[str] = []
+    has_missing_kind = False
+    has_invalid_kind = False
+    for action in action_list[:8]:
+        raw_kind = (action.get("kind")
+                    if isinstance(action, dict) else None)
+        kind = str(raw_kind or "").strip().lower()
+        if not kind:
+            has_missing_kind = True
+            kinds.append("<missing>")
+        elif kind in INTERPRETATION_ACTION_KINDS:
+            kinds.append(kind)
+        else:
+            has_invalid_kind = True
+            kinds.append("<invalid>")
+    record = {
+        "request_id": _interpret_capture_request_id,
+        "phase": phase,
+        "scope_present": scope_present,
+        "scope_raw": scope_value,
+        "action_count": len(action_list),
+        "action_kinds": kinds,
+        "has_missing_action_kind": has_missing_kind,
+        "has_invalid_action_kind": has_invalid_kind,
+        "rejection_reason": rejection_reason,
+    }
+    global _last_interpret_capture
+    with _interpret_capture_lock:
+        _last_interpret_capture = dict(record)
+        if not _capture_enabled():
+            return
+        _interpret_capture.append(record)
+    try:
+        logger.info(
+            "[turn-interpretation-capture] %s",
+            json.dumps(record, sort_keys=True))
+    except Exception:  # noqa: BLE001 — telemetry never raises
+        pass
+
+
+def _last_capture_for(request_id: str) -> Dict[str, Any]:
+    with _interpret_capture_lock:
+        record = dict(_last_interpret_capture)
+    if record and record.get("request_id") == request_id:
+        return record
+    return {}
+
+
+def get_interpret_capture() -> List[Dict[str, Any]]:
+    with _interpret_capture_lock:
+        return [dict(item) for item in _interpret_capture]
 
 
 def interpretation_enabled() -> bool:
@@ -915,7 +1457,8 @@ def reset_interpretation_for_tests() -> None:
     global _interpret_failures, _interpret_breaker_until
     _interpret_failures = 0
     _interpret_breaker_until = 0.0
-    for k in ("ok", "unresolved", "timeout", "error", "skipped"):
+    for k in ("ok", "unresolved", "timeout", "error", "skipped",
+              "stage_budget_exhausted"):
         _interpret_metrics[k] = 0
     _interpret_metrics.update({"max_ms": 0.0, "sum_ms": 0.0})
 
@@ -944,6 +1487,25 @@ def _interpretation_unresolved(
     }
 
 
+def interpretation_budget_unresolved(
+    message: str,
+    request_id: str = "",
+    deterministic: Optional[Dict[str, Any]] = None,
+    reason: str = "stage_budget_exhausted",
+) -> Dict[str, Any]:
+    """Request-bound degraded interpretation when the stage has no budget.
+
+    No provider call is made, no action or source is invented, and the
+    deterministic decision remains the floor. This is the explicit record
+    the outer deadline/caller must preserve instead of ``None``.
+    """
+    with _interpretation_metrics_lock:
+        _interpret_metrics["skipped"] += 1
+        _interpret_metrics["stage_budget_exhausted"] += 1
+    return _interpretation_unresolved(
+        reason, message, request_id, deterministic)
+
+
 def _interpretation_prompt(
     message: str,
     history: Optional[List[Dict[str, Any]]],
@@ -970,10 +1532,6 @@ def _interpretation_prompt(
     if unfinished:
         parts.append(
             "PERSISTED UNFINISHED WORK: " + json.dumps(unfinished)[:600])
-    if context.get("canvas_summary"):
-        parts.append(
-            "ACTIVE DOCUMENT (summary): "
-            + str(context["canvas_summary"])[:600])
     if context.get("applicable_teaching"):
         parts.append(
             "APPLICABLE TEACHING: "
@@ -981,21 +1539,99 @@ def _interpretation_prompt(
     if context.get("catalog_files"):
         names = [str(n) for n in context["catalog_files"]][:40]
         parts.append("SOURCE CATALOG (names): " + "; ".join(names))
+    # L2 (2026-10-18; producer contract corrected 2026-10-19): the
+    # conversation's OWN verified evidence sources — the antecedents a
+    # continuation ask ("does it still match the approved record?")
+    # refers to. Observed evidence, requested nominations and the attached
+    # artifact are SEPARATE structured entries: only observed evidence is
+    # an antecedent; the attached canvas is the comparison subject/input,
+    # never an external lookup.
+    attached_artifact: Dict[str, Any] = {}
+    _canvas = context.get("canvas") if isinstance(
+        context.get("canvas"), dict) else {}
+    canvas_id = (context.get("canvas_id") or _canvas.get("canvas_id")
+                 or _canvas.get("id"))
+    canvas_title = (context.get("canvas_title") or _canvas.get("title")
+                    or _canvas.get("name"))
+    canvas_summary = context.get("canvas_summary") or _canvas.get("summary")
+    if canvas_id:
+        attached_artifact["canvas_id"] = str(canvas_id)[:120]
+    if canvas_title:
+        attached_artifact["title"] = str(canvas_title)[:200]
+    if canvas_summary:
+        attached_artifact["summary"] = str(canvas_summary)[:600]
+    if attached_artifact:
+        attached_artifact["role"] = (
+            "attached comparison artifact/input; not an external evidence "
+            "source")
+    prior_sources = session_evidence_sources(session)
+    observed_sources = [e for e in prior_sources if e.get("observed")]
+    requested_sources = [e for e in prior_sources if not e.get("observed")]
+
+    def _source_entry(entry: Dict[str, Any]) -> Dict[str, str]:
+        return {"kind": str(entry.get("kind") or ""),
+                "file_name": str(entry.get("file_name") or "")}
+
+    source_references = {
+        "observed_evidence": [
+            _source_entry(e) for e in observed_sources[:6]],
+        "requested_sources": [
+            _source_entry(e) for e in requested_sources[:6]],
+        "attached_artifact": attached_artifact or None,
+    }
+    if (source_references["observed_evidence"]
+            or source_references["requested_sources"]
+            or attached_artifact):
+        parts.append(
+            "SOURCE REFERENCES (structured JSON): "
+            + json.dumps(source_references, ensure_ascii=False))
+    try:
+        from core.action_program import SOURCE_KINDS
+
+        supported_kinds = ", ".join(SOURCE_KINDS)
+    except Exception:  # noqa: BLE001 — vocabulary hint is best-effort
+        supported_kinds = (
+            "spreadsheet, email, inbox, thread, chat, message, text, "
+            "calendar, ticket, note, memo, letter, comment, post, "
+            "document, canvas, record, task, web, agent")
+    parts.append("SUPPORTED SOURCE KINDS: " + supported_kinds)
     parts.append(
         "Interpret the REQUEST. Propose: actions (research / learning / "
         "canvas_edit / calculation / presentation / conversation — more "
-        "than one allowed), the FULL subject names exactly as the user "
-        "means them, source references by the names the user used, the "
-        "data fields wanted, output format, explicit constraints "
-        "(including things the user said NOT to do), and how the "
-        "requested scope relates to the persisted unfinished work: "
-        "replace (new subject supersedes), extend (adds items), subset "
-        "(narrows to some items), continue (resume the persisted work), "
-        "or unresolved. A request that names its own subjects when "
-        "there is NO persisted unfinished work is 'replace' (it "
-        "establishes the scope). 'unresolved' is only for requests you "
-        "genuinely cannot establish. Copy constraint wording from the "
-        "request; never invent subjects.")
+        "than one allowed). Questions and follow-up comparisons are actions "
+        "too: propose the applicable read-only action for answering, "
+        "presenting, or consulting evidence (research/presentation/"
+        "conversation as appropriate). 'continue' describes the relationship "
+        "to prior work; it does not replace the action list. If the request "
+        "cannot be interpreted, return explicit unresolved scope. A "
+        "resolved scope must include at least one action; use an empty "
+        "actions list only when scope_change is 'unresolved'. Specify "
+        "the FULL subject names exactly as the user "
+        "means them, EXTERNAL evidence sources requiring consultation "
+        "(if the request names a specific source, copy that source's "
+        "complete filename/name exactly; for a prior observed source, copy "
+        "the observed filename exactly; only when the request asks for a "
+        "source kind without naming a specific source, use one of the "
+        "SUPPORTED SOURCE KINDS — prefer the kind shown on the matching "
+        "SOURCE REFERENCES observed entry; if several observed sources "
+        "could match the request's wording, do not choose one — preserve "
+        "the wording; never append explanations, parentheses, or "
+        "uncertainty notes; never include the attached draft/canvas as an "
+        "external source), the data fields wanted, output format, explicit "
+        "constraints (including things the user said NOT to do), and the "
+        "requested scope: replace (a new subject supersedes the current "
+        "conversation/work), extend (adds items), subset (narrows to some "
+        "items), continue (FOLLOW UP on an established conversation "
+        "subject — even when the prior turn completed — or resume "
+        "persisted unfinished work), or unresolved (the reference is "
+        "genuinely ambiguous or cannot be established). A request that "
+        "names its own NEW subject unrelated to the established "
+        "conversation is 'replace'; a follow-up that refers to the "
+        "established subject/antecedent is 'continue' even if no "
+        "unfinished work remains. scope_change is REQUIRED and must be "
+        "exactly one of those five values; do not map uncertainty to "
+        "'continue'. Copy constraint wording from the request; never "
+        "invent subjects.")
     return "\n\n".join(parts)
 
 
@@ -1043,24 +1679,62 @@ async def interpret_turn_request(
         return _unresolved("breaker_open")
 
     try:
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, ConfigDict, Field, model_validator
     except ImportError:  # pragma: no cover — pydantic always present
         return _unresolved("pydantic_unavailable")
 
     class _ProposedAction(BaseModel):
-        kind: str = "conversation"
+        model_config = ConfigDict(hide_input_in_errors=True)
+        kind: Literal[
+            "research", "learning", "canvas_edit", "calculation",
+            "presentation", "conversation",
+        ]
         subjects: List[str] = Field(default_factory=list)
         note: str = ""
 
     class _Interpretation(BaseModel):
-        actions: List[_ProposedAction] = Field(default_factory=list)
+        model_config = ConfigDict(hide_input_in_errors=True)
+        actions: List[_ProposedAction]
         subjects: List[str] = Field(default_factory=list)
-        sources: List[str] = Field(default_factory=list)
+        sources: List[str] = Field(
+            default_factory=list,
+            description=(
+                "External evidence sources requiring consultation. If the "
+                "request names a specific source, copy that source's "
+                "complete filename/name exactly; for a prior observed "
+                "source, copy the observed filename exactly. Only when the "
+                "request asks for a source kind without naming a specific "
+                "source, use a supported canonical source kind — prefer "
+                "the kind shown on the matching observed entry. If several "
+                "observed sources could match the request's wording, do "
+                "not choose one — preserve the wording. Do not append "
+                "explanations, parentheses, or uncertainty notes. Do not "
+                "include the attached draft/canvas as an external source."),
+        )
         requested_fields: List[str] = Field(default_factory=list)
         output_format: str = ""
         constraints: List[str] = Field(default_factory=list)
-        scope_change: str = "unresolved"
+        scope_change: Literal[
+            "replace", "extend", "subset", "continue", "unresolved"
+        ]
         confidence: float = 0.0
+
+        @model_validator(mode="before")
+        @classmethod
+        def _capture_before_validation(cls, data):
+            try:
+                _record_interpret_capture(
+                    data, phase="pre_validation")
+            except Exception:  # noqa: BLE001 — capture is additive
+                pass
+            return data
+
+        @model_validator(mode="after")
+        def _require_action_for_resolved_scope(self):
+            if self.scope_change != "unresolved" and not self.actions:
+                raise ValueError(
+                    "Resolved interpretation requires an explicit action.")
+            return self
 
     if llm_service is None:
         try:
@@ -1074,20 +1748,98 @@ async def interpret_turn_request(
 
     started = time.perf_counter()
     try:
+        from core.llm.pinned_planning import (
+            LAST_FAILURE,
+            pinned_structured_call,
+            resolve_pinned_provider_model,
+        )
+
+        # The wrapper converts provider errors to None by contract; keep
+        # the interpretation's explicit reason by reading ITS OWN call's
+        # published failure (a unique label avoids the shared-dict race
+        # with the canvas editor).
+        _interpret_label = (
+            f"turn interpretation:{request_id or session_id or '-'}")
+        LAST_FAILURE.update(kind=None, detail="", label="")
+        try:
+            reset_interpret_capture(_interpret_label)
+        except Exception:  # noqa: BLE001 — capture is additive
+            pass
+
+        def _schema_rejection(reason: str) -> Dict[str, Any]:
+            _interpret_metrics["unresolved"] += 1
+            _emit_interpret(
+                "empty" if reason == "no_actions_proposed"
+                else "unparseable", reason=reason)
+            return _unresolved(reason)
+
+        # ROUTE SELECTION FROM THE 2026-10-19 DIAGNOSTIC: the measured
+        # compatible interpretation route accepts the reasoning-disable
+        # switch and produced a schema-valid record (the cheap
+        # reasoning-mandatory candidate rejected the switch and never
+        # validated within 90s). The pin is a preference only — the
+        # existing wrapper retries unpinned (excluding the failed pin)
+        # when this route yields nothing. Operators can override the
+        # measured default through ATOM_TURN_INTERPRET_PIN.
+        _interpret_pin = resolve_pinned_provider_model(
+            llm_service, "ATOM_TURN_INTERPRET_PIN", "qwen3.8-flash",
+            provider="opencode-go")
         result = await asyncio.wait_for(
-            llm_service.generate_structured_response(
+            pinned_structured_call(
+                llm_service,
                 prompt=_interpretation_prompt(
                     message, history,
                     session if isinstance(session, dict) else {},
                     context if isinstance(context, dict) else {}),
                 response_model=_Interpretation,
                 system_instruction=_INTERPRET_SYSTEM,
-                model="fast",
                 task_type="planning",
                 temperature=0.0,
+                disable_reasoning=True,
+                call_kwargs=_interpret_pin or None,
+                extra_kwargs={
+                    "max_tokens": _INTERPRET_OUTPUT_BUDGET_TOKENS,
+                    # MoA would multiply one small interpretation into N
+                    # samples + an aggregator when a long prompt is
+                    # classified COMPLEX/ADVANCED and ATOM_MOA_ENABLED is
+                    # on. This call opts out explicitly; the shared
+                    # handler default is unchanged.
+                    "allow_moa": False,
+                },
+                log_label=_interpret_label,
+                stage="turn_interpretation",
+                execution_id=request_id or session_id or "-",
             ),
             timeout=_INTERPRET_TIMEOUT_S,
         )
+        if result is None:
+            try:
+                _last = _last_capture_for(_interpret_label)
+            except Exception:  # noqa: BLE001
+                _last = {}
+            if _last:
+                if not _last.get("scope_present"):
+                    return _schema_rejection("missing_scope")
+                _captured_scope = str(
+                    _last.get("scope_raw") or "").strip().lower()
+                if _captured_scope == "unresolved":
+                    return _schema_rejection("scope_unresolved")
+                if _captured_scope not in SCOPE_CHANGES:
+                    return _schema_rejection("invalid_scope")
+                if _last.get("has_missing_action_kind"):
+                    return _schema_rejection("missing_action_kind")
+                if _last.get("has_invalid_action_kind"):
+                    return _schema_rejection("invalid_action_kind")
+                if not _last.get("action_count"):
+                    return _schema_rejection("no_actions_proposed")
+        if (result is None
+                and LAST_FAILURE.get("label") == _interpret_label
+                and LAST_FAILURE.get("kind")):
+            if LAST_FAILURE.get("kind") == "deadline_cancelled":
+                raise asyncio.TimeoutError()
+            raise RuntimeError(
+                "structured interpretation failed: "
+                f"{LAST_FAILURE.get('kind')}")
     except asyncio.TimeoutError:
         _interpret_failures += 1
         _interpret_metrics["timeout"] += 1
@@ -1109,7 +1861,13 @@ async def interpret_turn_request(
 
     data = result if isinstance(result, dict) else (
         getattr(result, "model_dump", lambda: {})())
-    scope_change = str(data.get("scope_change") or "").strip().lower()
+    try:
+        _record_interpret_capture(data, phase="post_validation")
+    except Exception:  # noqa: BLE001 — capture is additive
+        pass
+    _scope_present = "scope_change" in data
+    _scope_raw_text = str(data.get("scope_change") or "").strip().lower()
+    scope_change = _scope_raw_text
     # Near-miss normalization (live 2026-10-08: v4-flash served
     # "replacement"/"narrow" against the enumerated enum): map the
     # obvious variants, everything else stays unresolved — never a
@@ -1123,22 +1881,52 @@ async def interpret_turn_request(
     }
     if scope_change not in SCOPE_CHANGES:
         scope_change = _SCOPE_NEAR_MISSES.get(scope_change, "unresolved")
-    raw_actions = [
+    _raw_action_value = data.get("actions")
+    _all_raw_actions = [
         a if isinstance(a, dict)
         else getattr(a, "model_dump", lambda: {})()
-        for a in (data.get("actions") or [])
-    ][:8]
-    if not raw_actions or scope_change == "unresolved":
+        for a in (_raw_action_value
+                  if isinstance(_raw_action_value, list) else [])
+    ]
+    _action_kinds = [
+        str(a.get("kind") or "").strip().lower()
+        for a in _all_raw_actions]
+    _bad_action_reason = ""
+    if any(not kind for kind in _action_kinds):
+        _bad_action_reason = "missing_action_kind"
+    elif any(kind not in INTERPRETATION_ACTION_KINDS
+             for kind in _action_kinds):
+        _bad_action_reason = "invalid_action_kind"
+    raw_actions = _all_raw_actions[:8]
+    if _bad_action_reason or not raw_actions or scope_change == "unresolved":
+        if not _scope_present:
+            reason = "missing_scope"
+        elif _scope_raw_text == "unresolved":
+            reason = "scope_unresolved"
+        elif (_scope_raw_text not in SCOPE_CHANGES
+              and scope_change == "unresolved"):
+            reason = "invalid_scope"
+        elif _bad_action_reason:
+            reason = _bad_action_reason
+        elif not raw_actions:
+            reason = "no_actions_proposed"
+        else:
+            reason = "scope_unresolved"
+        try:
+            _record_interpret_capture(
+                data, phase="normalized", rejection_reason=reason)
+        except Exception:  # noqa: BLE001
+            pass
         _interpret_metrics["unresolved"] += 1
-        _emit_interpret("unparseable" if raw_actions else "empty")
-        return _unresolved("malformed_output" if raw_actions
-                           else "no_actions_proposed")
+        _emit_interpret(
+            "unparseable" if raw_actions else "empty", reason=reason)
+        return _unresolved(reason)
 
     canvas_id = (context or {}).get("canvas_id") or (
         (context or {}).get("canvas") or {}).get("canvas_id")
     actions_out: List[Dict[str, Any]] = []
     for a in raw_actions:
-        kind = str(a.get("kind") or "").strip().lower() or "conversation"
+        kind = str(a.get("kind") or "").strip().lower()
         actions_out.append({
             "kind": kind,
             "subjects": [
@@ -1172,7 +1960,7 @@ async def interpret_turn_request(
             str(s)[:200] for s in (data.get("subjects") or [])[:16]
             if str(s).strip()],
         "sources": [
-            str(s)[:160] for s in (data.get("sources") or [])[:8]
+            str(s)[:512] for s in (data.get("sources") or [])[:8]
             if str(s).strip()],
         "requested_fields": [
             str(f)[:80] for f in (data.get("requested_fields") or [])[:8]

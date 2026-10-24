@@ -1,0 +1,166 @@
+{
+  "attempt": "6",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "c6d89011ba2481ff0e6a26db1e07160abfe6579c",
+    "parent": "ddab120c43333efdc219098cba35fdecd9a0988f",
+    "source_sha256_chat_orchestrator": "5b4fe13466fb199d238cbf4784fab2d361e9ba83c9c9f04e6e0a43ba9db24007",
+    "source_sha256_turn_decision": "aa765dc5d25be6278399c6dea2090ab11dcc919edd0d615a2dc2d041270642ff",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "checks": {
+    "draft_created_through_product": true,
+    "fixture_uploaded_through_product": true,
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "prior_evidence_observed": true,
+    "real_interpretation_dispatched": true,
+    "response_persisted_fresh_history_agreement": true,
+    "runtime_identity": true,
+    "s3_draft_unchanged": true,
+    "s3_no_global_consistency_claim": true,
+    "s3_reply_received": true,
+    "s3_requirement_captured": true,
+    "s3_settlement_basis": true,
+    "s3_verified_narration": true,
+    "s3_zero_canvas_writes": true,
+    "s7_draft_unchanged": true,
+    "s7_reply_received": true,
+    "s7_requirement_captured": true,
+    "s7_resolved_source_identity": true,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "s7_settlement_basis": true,
+    "s7_truthful_comparison": true,
+    "s7_zero_new_writes": true,
+    "total_turn_latency_within_budget": true
+  },
+  "classification": "verified_l2_continuation_evidence",
+  "first_failure": "s3_untruthful_comparison",
+  "observed": {
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "s3": {
+      "execution_id": "47a7e868-be58-40bc-9c99-afefdd32b87c",
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: all requested typed fields below are compared.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\nNo canvas change was made by this comparison.",
+      "outcome": "completed",
+      "requirement": {
+        "artifact_attached": true,
+        "broader_comparison": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "s7": {
+      "context_fulfillment": {
+        "matched": [
+          {
+            "content_hash": "",
+            "file_name": "approved_records_q2026_114.txt",
+            "source": "ingested"
+          }
+        ],
+        "state": "completed",
+        "supplied_fields": [
+          "expiration_date"
+        ]
+      },
+      "execution_id": "c0bde225-96bb-4293-b110-286ece6db39b",
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: all requested typed fields below are compared.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\nNo canvas change was made by this comparison.",
+      "outcome": "completed",
+      "requirement": {
+        "artifact_attached": true,
+        "broader_comparison": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": {
+          "file_name": "approved_records_q2026_114.txt"
+        },
+        "identity": {
+          "file_id": "doc_3abaf0d03badbc965b0f2770",
+          "file_name": "approved_records_q2026_114.txt",
+          "state": "resolved"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "served_log_evidence": {
+      "go_inference_chat_posts": 0,
+      "interpretation_log_lines": [
+        "INFO:core.turn_decision:[turn-interpretation] ok latency_ms=20168.5",
+        "INFO:core.turn_decision:[turn-interpretation] ok latency_ms=40756.1"
+      ],
+      "structured_dispatch_models": [
+        "opencode-go/deepseek-v4.1-flash",
+        "opencode-go/glm-5.3-flash",
+        "opencode-go/minimax-m3",
+        "opencode-go/qwen3.8-flash"
+      ],
+      "zen_chat_posts": 12
+    }
+  },
+  "pass": true,
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG_ATTEMPT6.md",
+    "sha256": "30162405f7fb26172d983aaa969a99275b8e0397f8435ae70c3fbce820d70f48"
+  },
+  "scope": "Candidate/configuration-bound served claim only; no pilot deployment, no general NL reference-resolution claim, no restart-durability claim.",
+  "stages": {
+    "s3_no_global_consistency_claim": true,
+    "s3_reply": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: all requested typed fields below are compared.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\nNo canvas change was made by this comparison.",
+    "s3_terms_recorded": false,
+    "s3_verified_narration": true,
+    "stage_summary": {
+      "completed_within_deadline": true,
+      "dispatch_attempted": true,
+      "producer_output_valid": true,
+      "source_identity_resolved": true
+    },
+    "total_turn_latency_ok": true,
+    "turns": {
+      "s3": {
+        "completed_within_deadline": true,
+        "dispatch_attempted": true,
+        "interpretation_origin": "llm:qwen3.8-flash",
+        "interpretation_sources": [
+          "Approved Records document"
+        ],
+        "interpretation_unresolved_reason": "",
+        "producer_output_valid": true,
+        "request_id": "l2-s3-34cfd94ca0974c1a985298f489569112",
+        "total_turn_latency_s": 51.49
+      },
+      "s7": {
+        "completed_within_deadline": true,
+        "dispatch_attempted": true,
+        "interpretation_origin": "llm:qwen3.8-flash",
+        "interpretation_sources": [
+          "approved_records_q2026_114.txt"
+        ],
+        "interpretation_unresolved_reason": "",
+        "producer_output_valid": true,
+        "request_id": "l2-s7-30f12fba6e0f4a71b51b2456e302b9a5",
+        "total_turn_latency_s": 79.55
+      }
+    }
+  },
+  "status": "PASSED"
+}

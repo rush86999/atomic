@@ -120,12 +120,13 @@ class _DeclinedPlan:
 
 
 def _run_lane(canvas, contract, expected_prior=None,
-              current_revision="rev-A"):
+              current_revision="rev-A", message=None):
     """Drive the production decline path. Returns the shared blackboard
     the lane wrote (the receipt must be produced — or refused — there).
     The fresh leg is stubbed at its production seam to the revision the
     CURRENT turn resolved (None = the source was not resolved this
-    turn — workbook findings then cannot certify at all)."""
+    turn — workbook findings then cannot certify at all). ``message``
+    defaults to the Brennan approved-values ask."""
     async def _plan_ok(*a, **k):
         return _DeclinedPlan()
 
@@ -152,8 +153,9 @@ def _run_lane(canvas, contract, expected_prior=None,
         shared["objective_evidence"] = contract
     try:
         asyncio.run(co_mod.chat_orchestrator._try_canvas_edit(
-            "Update the draft for rows 1-5 with the approved prices and "
-            "delivery times. Don't send.",
+            message if message is not None else (
+                "Update the draft for rows 1-5 with the approved prices and "
+                "delivery times. Don't send."),
             [], canvas, "user_1", "sess-auth", "exec-auth", None,
             shared_tool_state=shared,
             expected_prior_audit_id=expected_prior))
@@ -744,3 +746,886 @@ class TestCatalogResolutionScoping:
                 "quote.xlsx", workspace_id="ws-A") is None, (
                 "two distinct active sources for one identity: no "
                 "version is the answer")
+
+
+# ---------------------------------------------------------------------------
+# L1 / S6 — idempotent re-ask (owner assignment 2026-10-18)
+#
+# An authorized edit whose desired result already holds on the CURRENT
+# authoritative artifact must settle as a VERIFIED no-op (receipt-derived
+# reply, zero writes) — the request's own explicit assignment is the
+# authorization for the target value; the artifact proves whether it
+# already holds, bound per line. Reverted values, other artifacts, other
+# fields, mixed obligations and unsupported requests must NOT complete.
+# ---------------------------------------------------------------------------
+
+_REASK_ASK = "Please also update the payment terms in the draft to Net 45."
+
+#: Subject-binding ask (owner review 2026-10-18, defect class 2): the
+#: requested subject must resolve on the same record as the field/value.
+_ALPHA_ASK = ("Please update Alpha project status in the draft to "
+              "On track.")
+
+#: Exact-field ask for the strict-binding controls: the requested field
+#: phrase must equal the artifact label ('delivery' vs 'Delivery').
+_DELIVERY_ASK = ("Please also update the delivery in the draft to "
+                 "In Stock.")
+
+
+def _reask_body(terms="Net 45", valid_until="2026-12-31"):
+    return (
+        "# Quotation Q-2026-114 (DRAFT)\n\n"
+        "Client: Dunmore Fabrication LLC\n"
+        "Prepared for: Elena Sorokina, Operations\n"
+        "Item: CNC press brake, 50-ton\n"
+        "Unit price: $48,000.00\n"
+        "Subtotal: $48,000.00\n"
+        f"Terms: {terms}\n"
+        f"Valid until: {valid_until}\n"
+    )
+
+
+def _reask_canvas(terms="Net 45", valid_until="2026-12-31",
+                  canvas_id="cv-reask-1", body=None):
+    return {"canvas_id": canvas_id, "canvas_type": "document",
+            "content": {"body": body if body is not None
+                        else _reask_body(terms, valid_until)}}
+
+
+def _run_reask(canvas=None, message=_REASK_ASK, expected_prior=None):
+    return _run_lane(canvas if canvas is not None else _reask_canvas(),
+                     None, expected_prior=expected_prior, message=message)
+
+
+class TestExplicitAssignmentArtifactNoop:
+    """The S6 re-ask through the PRODUCTION decline path (no contract is
+    supplied — an explicitly supplied value needs none; the artifact is
+    the evidence)."""
+
+    def test_a_already_satisfied_reask_completes_on_current_artifact(self):
+        """S6 positive, original inputs at every casing: 'payment terms'
+        binds to the 'Terms' record through the reviewed COMPLETION
+        mapping (separate from the retrieval registry, ambiguity-
+        guarded); the value already holds and the no-op completes."""
+        for ask in (
+                _REASK_ASK,
+                "Please also update the Payment terms in the draft to "
+                "Net 45.",
+                "Please also update the PAYMENT TERMS in the draft to "
+                "Net 45."):
+            shared = _run_reask(message=ask)
+            check = _check(shared)
+            assert shared.get("canvas_edit_decline_noop") is True, (
+                f"the S6 re-ask must complete: {ask!r} check={check!r}")
+            assert check and check.get("satisfied") is True
+            rows = [o for o in check.get("obligations") or []
+                    if o.get("kind") == "assignment_postconditions"]
+            assert rows and rows[0].get("disposition") == "satisfied", (
+                ask, rows)
+            reply = shared.get("canvas_edit_decline_reply") or ""
+            assert "already set to Net 45" in reply, (ask, reply)
+            assert "nothing was sent" in reply, (ask, reply)
+
+    def test_a3_ambiguous_bare_terms_is_not_mapped(self):
+        """'Terms' next to 'Warranty terms' is ambiguous: the reviewed
+        mapping must not fire, and the leftover 'payment' word cannot
+        silently become an alias — unresolved, no completion."""
+        body = _reask_body().replace(
+            "Terms: Net 45", "Terms: Net 45\nWarranty terms: 12 months")
+        shared = _run_reask(canvas=_reask_canvas(body=body))
+        check = _check(shared)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            f"ambiguous 'Terms' must not be mapped: check={check!r}")
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    def test_a2_exact_field_matches_complete_at_every_casing(self):
+        """Same execution path, different domains — EXACT field identity
+        only (case-insensitive): 'delivery', 'unit price' and
+        'expiration date' against their own labels. Case is never
+        authority: each casing triple must agree."""
+        cases = [
+            (("Please update the delivery in the draft to In Stock.",
+              "Please update the Delivery in the draft to In Stock.",
+              "Please update the DELIVERY in the draft to In Stock."),
+             "Delivery: In Stock\n", "In Stock"),
+            (("Please update the unit price in the draft to $48,000.00.",
+              "Please update the Unit Price in the draft to $48,000.00.",
+              "Please update the UNIT PRICE in the draft to $48,000.00."),
+             "Unit price: $48,000.00\n", "$48,000.00"),
+            (("Please update the expiration date in the draft to "
+              "2027-01-31.",
+              "Please update the Expiration Date in the draft to "
+              "2027-01-31.",
+              "Please update the EXPIRATION DATE in the draft to "
+              "2027-01-31."),
+             "Expiration date: 2027-01-31\n", "2027-01-31"),
+        ]
+        for asks, body, value in cases:
+            for ask in asks:
+                shared = _run_reask(
+                    canvas={"canvas_id": "cv-dom",
+                            "content": {"body": body}},
+                    message=ask)
+                assert shared.get("canvas_edit_decline_noop") is True, (
+                    f"{ask!r} over its already-satisfied artifact must "
+                    f"complete; check={_check(shared)!r}")
+                reply = shared.get("canvas_edit_decline_reply") or ""
+                assert value in reply, (ask, reply)
+
+    def test_b_reverted_value_is_not_completed(self):
+        """An EXACT field match with the wrong value (delivery ->
+        Delivery): the target certifies, the COMPLETE value differs, and
+        the receipt says 'not already applied' — satisfaction is
+        value-bound, not presence-bound."""
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-delivery",
+                    "content": {"body": "Delivery: 2 weeks\n"}},
+            message=_DELIVERY_ASK)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a value reverted after an earlier success must not certify")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+        rows = [o for o in (check or {}).get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unsatisfied", rows
+        assert "not already applied" in (rows[0].get("detail") or "")
+
+    def test_c_other_artifact_holding_the_value_cannot_certify(self):
+        """The value-holding artifact EXISTS — and certifies for ITSELF —
+        and its record is physically carried into the current artifact
+        (a quoted prior revision). Donation through the carried record
+        would certify the current artifact's unsatisfied ask; binding
+        must refuse. (Owner review 2026-10-18: the earlier control
+        supplied only the unsatisfied current artifact and never
+        introduced the other artifact — it proved ordinary
+        non-satisfaction, not resistance to cross-artifact evidence
+        donation. An EXACT field match makes the donation path actually
+        reachable.)"""
+        other = {"canvas_id": "cv-other",
+                 "content": {"body": "Delivery: In Stock\n"}}
+        other_shared = _run_reask(canvas=other, message=_DELIVERY_ASK)
+        assert other_shared.get("canvas_edit_decline_noop") is True, (
+            "premise of the control: the value-holding artifact certifies "
+            f"for itself; check={_check(other_shared)!r}")
+        body = (
+            "# Quotation Q-2026-115 (DRAFT)\n\n"
+            "Client: Dunmore Fabrication LLC\n"
+            "Carried from Q-2026-114:\n"
+            "Delivery: In Stock\n"
+            "Delivery: 2 weeks\n")
+        current = {"canvas_id": "cv-current", "content": {"body": body}}
+        shared = _run_reask(canvas=current, message=_DELIVERY_ASK)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "the other artifact's carried record must not certify the "
+            "current artifact's unsatisfied ask")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", (
+            "both carried records bind the field — the value cannot be "
+            f"bound uniquely: {rows!r}")
+
+    def test_d_value_elsewhere_in_same_artifact_not_at_the_target(self):
+        body = _reask_body(terms="Net 30").replace(
+            "Subtotal: $48,000.00",
+            "Subtotal: $48,000.00\nNote: the template example uses Net 45")
+        assert "Net 45" in body, "the value IS present in the artifact"
+        shared = _run_reask(canvas=_reask_canvas(body=body))
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "an occurrence under another field/target must not certify "
+            "the requested assignment")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+
+    def test_e_mixed_obligations_cannot_complete_the_whole_request(self):
+        ask = ("Update the expiration date in the draft to 2026-12-31. "
+               "Also update the payment terms in the draft to Net 45.")
+        shared = _run_reask(message=ask)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a satisfied half must not certify a request whose other "
+            "half is unresolved")
+        check = _check(shared)
+        assert not (check or {}).get("satisfied")
+        dispositions = [o.get("disposition")
+                        for o in (check or {}).get("obligations") or []
+                        if o.get("kind") == "assignment_postconditions"]
+        assert "satisfied" in dispositions, dispositions
+        assert any(d != "satisfied" for d in dispositions), dispositions
+
+    def test_f_revision_conflict_cannot_certify(self):
+        canvas = _reask_canvas()
+        canvas["latest_audit_id"] = "audit-4"
+        shared = _run_reask(canvas=canvas, expected_prior="audit-9")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a revision the caller did not expect cannot certify")
+        check = _check(shared)
+        assert check is None or check.get("satisfied") is not True
+
+    def test_g_source_backed_request_still_requires_its_evidence(self):
+        shared = _run_lane(
+            _brennan_canvas(), None,
+            message=("Update the draft with the approved prices and "
+                     "delivery times."))
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a request whose values live in records needs those records — "
+            "table preservation is not satisfaction")
+        check = _check(shared)
+        assert check is None or check.get("satisfied") is not True
+
+    def test_h_unsupported_request_never_completes(self):
+        shared = _run_lane(
+            _brennan_canvas(), None, message="Update the draft.")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "a request with no concrete supported postcondition must not "
+            "complete merely because no violation was found")
+        check = _check(shared)
+        assert check is None or check.get("satisfied") is not True
+
+    def test_i_value_word_inside_an_explicit_assignment(self):
+        """'update the unit price ... to $48,000.00' — a value WORD
+        ("price") sits inside the request's own assignment, so the
+        artifact is the evidence (the source-contract requirement is for
+        values that live in records); the reverted artifact must not
+        certify."""
+        ask = "Please update the unit price in the draft to $48,000.00."
+        shared = _run_reask(message=ask)
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            f"explicitly supplied price already on the draft must "
+            f"complete; check={_check(shared)!r}")
+        reverted = _reask_body().replace(
+            "Unit price: $48,000.00", "Unit price: $50,000.00")
+        shared2 = _run_reask(canvas=_reask_canvas(body=reverted),
+                             message=ask)
+        assert not shared2.get("canvas_edit_decline_noop"), (
+            "a price that does not match must never certify")
+
+    # ------------------------------------------------------------------
+    # OWNER-REPRODUCED FALSE COMPLETIONS (2026-10-18). The first two
+    # cases below are the owner's exact reproducers against the frozen
+    # candidate 182bf57e1: both produced the confirmation 'already set
+    # to ...' while the requested value did NOT hold. They are permanent
+    # negative regressions. Under the field-alias correction (defect
+    # class 3) the S6 field itself binds only through an explicit alias,
+    # so reproducer 1's honest blocking disposition is 'unresolved'; the
+    # value-level pins live on supported bindings (test_b).
+    # ------------------------------------------------------------------
+
+    def test_j_negated_value_is_not_the_assigned_value(self):
+        """Reproducer 1, EXACT owner inputs at the layer the owner drove
+        (``requirement_check`` + ``noop_completion_reply``): the artifact
+        holds 'not Net 45'. Word-bounded containment ('Net 45' inside
+        'not Net 45') must never certify. The field binds through the
+        reviewed completion mapping; the VALUE differs, so the blocking
+        record must say unsatisfied — and no confirmation may render."""
+        from core.chat_canvas_editor import noop_completion_reply
+        check = requirement_check(
+            message="Set payment terms to Net 45",
+            canvas={"canvas_id": "cv-repro-n1",
+                    "content": {"body": "Terms: not Net 45\n"}},
+            authorized=True, expected_prior_audit_id=None)
+        assert check is not None, "the assignment obligation is recorded"
+        assert check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unsatisfied", (
+            "the target resolves; the VALUE differs — the blocking "
+            f"record must say unsatisfied: {rows!r}")
+        assert noop_completion_reply(check) is None, (
+            "no confirmation may render for the negated value")
+
+    def test_k_wrong_subject_record_cannot_certify(self):
+        """Reproducer 2, EXACT owner inputs at the layer the owner drove
+        (``requirement_check`` + ``noop_completion_reply``): the request
+        names Alpha; the value 'On track' sits on Beta's record; Alpha's
+        own record says Blocked. Shared field words ('project status')
+        must never substitute for subject identity, and the value of one
+        record must not donate to another. The lane-eligible phrasing of
+        the same case runs through the real lane in the finalizer
+        class."""
+        from core.chat_canvas_editor import noop_completion_reply
+        body = ("Beta project status: On track\n"
+                "Alpha project status: Blocked\n")
+        check = requirement_check(
+            message="Set Alpha project status to On track",
+            canvas={"canvas_id": "cv-repro-n2",
+                    "content": {"body": body}},
+            authorized=True, expected_prior_audit_id=None)
+        assert check is not None
+        assert check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unsatisfied", (
+            "Alpha's record resolves the target; its value differs — "
+            f"the blocking record must say unsatisfied: {rows!r}")
+        assert noop_completion_reply(check) is None, (
+            "no confirmation may render for the wrong subject's value")
+
+    def test_k2_other_subject_record_alone_cannot_absorb_the_request(self):
+        """Strongest cross-donor control: the artifact contains ONLY
+        Beta's record, and it holds the requested value. No record names
+        Alpha — shared field words ('project status') must not let the
+        Beta record absorb a request naming Alpha; the target is
+        unresolved, never satisfied."""
+        body = "Beta project status: On track\n"
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-beta-only", "content": {"body": body}},
+            message=("Please also update the Alpha project status in the "
+                     "draft to On track."))
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "the only record names Beta — it must not certify Alpha")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", (
+            "no record names Alpha — unresolved target, not a value "
+            f"mismatch and never satisfied: {rows!r}")
+
+    def test_l_alpha_subject_already_on_track_completes(self):
+        """Positive direction of reproducer 2 through the real decline
+        lane (the command names the draft, as the lane's edit gate
+        requires): with Alpha's own record holding the value (and Beta's
+        conflicting), the same code path must complete — and the reply
+        must name Alpha."""
+        body = ("Beta project status: Blocked\n"
+                "Alpha project status: On track\n")
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-alpha", "content": {"body": body}},
+            message=("Please also update the Alpha project status in the "
+                     "draft to On track."))
+        check = _check(shared)
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            "Alpha's own record already holds On track; the sibling "
+            f"Beta record must not block it; check={check!r}")
+        reply = shared.get("canvas_edit_decline_reply") or ""
+        assert ("alpha project status in the draft already set to On track"
+                in reply), reply
+
+    # ------------------------------------------------------------------
+    # OWNER REVIEW (2026-10-18, after f988fb697) — DEFECT CLASS 2:
+    # requested subject constraints were dropped. A generic field
+    # ("Status") absorbed a request naming a subject ("Alpha project")
+    # whenever no record carried the requested identity; and a record
+    # under the WRONG heading satisfied it. Controls below are permanent.
+    # ------------------------------------------------------------------
+
+    def test_m_beta_section_generic_status_cannot_certify_alpha(self):
+        """Defect reproducer: the record under '# Beta project' holds
+        the value, but nothing in that record or its section names
+        Alpha. The requested subject must stay unresolved."""
+        body = "# Beta project\nStatus: On track\n"
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-beta-heading",
+                    "content": {"body": body}},
+            message=_ALPHA_ASK)
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "the Beta section's generic Status must not certify Alpha; "
+            f"check={_check(shared)!r}")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", (
+            "the requested subject is unresolved on the record — never "
+            f"satisfied: {rows!r}")
+
+    def test_m2_one_word_subject_refuses_at_every_casing(self):
+        """The owner's table, through the real decline lane: 'alpha
+        status' over Beta's generic Status must refuse at lower, title
+        and UPPER casing alike — the one-word subject is mandatory
+        (this exact lowercase form was the false completion)."""
+        for ask in (
+                "Please update alpha status in the draft to On track.",
+                "Please update Alpha status in the draft to On track.",
+                "Please update ALPHA status in the draft to On track."):
+            shared = _run_reask(
+                canvas={"canvas_id": "cv-beta-heading",
+                        "content": {"body": "# Beta project\n"
+                                            "Status: On track\n"}},
+                message=ask)
+            check = _check(shared)
+            assert not shared.get("canvas_edit_decline_noop"), (
+                ask, check)
+            assert check is not None and check.get("satisfied") is not True
+            rows = [o for o in check.get("obligations") or []
+                    if o.get("kind") == "assignment_postconditions"]
+            assert rows and rows[0].get("disposition") == "unresolved", (
+                ask, rows)
+
+    def test_n_generic_status_without_subject_evidence_stays_unresolved(
+            self):
+        """A generic field with an unresolved requested subject stays
+        unresolved — even if it is the ONLY matching field."""
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-generic-only",
+                    "content": {"body": "Status: On track\n"}},
+            message=_ALPHA_ASK)
+        assert not shared.get("canvas_edit_decline_noop")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    # ------------------------------------------------------------------
+    # OWNER REVIEW (2026-10-18, defect class 4): the borrowed registry
+    # families support RETRIEVAL; they group RELATED fields and cannot
+    # certify equivalence for completion. Net vs gross weight, dealer
+    # cost vs retail: discovery may be broad, certification must keep
+    # the field distinction.
+    # ------------------------------------------------------------------
+
+    def test_n2_net_weight_cannot_borrow_gross_weight(self):
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-weight",
+                    "content": {"body": "Gross weight: 10\n"}},
+            message="Please update the net weight in the draft to 10.")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "net weight must not be certified by gross weight — related "
+            f"registry fields are not completion-equivalent: "
+            f"check={_check(shared)!r}")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    def test_n3_dealer_cost_cannot_borrow_retail(self):
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-price",
+                    "content": {"body": "Retail: 100\n"}},
+            message="Please update the dealer cost in the draft to 100.")
+        assert not shared.get("canvas_edit_decline_noop"), (
+            "dealer cost must not be certified by retail price — related "
+            f"registry fields are not completion-equivalent: "
+            f"check={_check(shared)!r}")
+        check = _check(shared)
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    def test_n4_exact_fields_still_complete_at_every_casing(self):
+        """Exact field identity is preserved (case-insensitive only)."""
+        for ask in ("Please update the gross weight in the draft to 10.",
+                    "Please update the Gross Weight in the draft to 10.",
+                    "Please update the GROSS WEIGHT in the draft to 10.",
+                    "Please update the retail in the draft to 100.",
+                    "Please update the Retail in the draft to 100.",
+                    "Please update the RETAIL in the draft to 100."):
+            body = ("Gross weight: 10\n" if "weight" in ask.lower()
+                    else "Retail: 100\n")
+            target = ("cv-weight" if "weight" in ask.lower() else "cv-price")
+            shared = _run_reask(
+                canvas={"canvas_id": target,
+                        "content": {"body": body}},
+                message=ask)
+            assert shared.get("canvas_edit_decline_noop") is True, (
+                f"an exact field match must complete: {ask!r} "
+                f"check={_check(shared)!r}")
+
+    def test_o_sections_select_only_the_requested_subject(self):
+        """Two sections, both with a generic 'Status': the request must
+        bind to the Alpha section's record and compare ITS value only."""
+        body = ("# Alpha project\nStatus: On track\n\n"
+                "# Beta project\nStatus: Blocked\n")
+        shared = _run_reask(
+            canvas={"canvas_id": "cv-two-sections",
+                    "content": {"body": body}},
+            message=_ALPHA_ASK)
+        check = _check(shared)
+        assert shared.get("canvas_edit_decline_noop") is True, (
+            "Alpha's section holds On track; the selection must be by "
+            f"section identity; check={check!r}")
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "satisfied", rows
+        # Inverse: Beta holds the value, Alpha's own section does not —
+        # the Beta value must not donate through section-blind matching.
+        body2 = ("# Alpha project\nStatus: Blocked\n\n"
+                 "# Beta project\nStatus: On track\n")
+        shared2 = _run_reask(
+            canvas={"canvas_id": "cv-two-sections-2",
+                    "content": {"body": body2}},
+            message=_ALPHA_ASK)
+        assert not shared2.get("canvas_edit_decline_noop"), (
+            "Alpha's own section says Blocked — no completion")
+        check2 = _check(shared2)
+        assert check2 is not None and check2.get("satisfied") is not True
+        rows2 = [o for o in check2.get("obligations") or []
+                 if o.get("kind") == "assignment_postconditions"]
+        assert rows2 and rows2[0].get("disposition") == "unsatisfied", (
+            "Alpha's record resolves; its value differs — unsatisfied, "
+            f"not unresolved: {rows2!r}")
+
+    def test_p_explicit_alpha_record_with_matching_value_satisfies(self):
+        """The explicit-record shape (subject+field in one label) stays
+        satisfied with the matching value."""
+        check = requirement_check(
+            message=_ALPHA_ASK,
+            canvas={"canvas_id": "cv-explicit-alpha",
+                    "content": {"body": "Alpha project status: On track\n"}},
+            authorized=True, expected_prior_audit_id=None)
+        from core.chat_canvas_editor import noop_completion_reply
+        assert check is not None and check.get("satisfied") is True, check
+        assert noop_completion_reply(check)
+
+
+class TestFinalizerConsumesOnlyTheReceipt:
+    """The unattended finalizer (``run_canvas_edit_continuation``)
+    completes a re-run ONLY when the lane's requirement-check receipt is
+    satisfied on the artifact it read — never from the planner's prose.
+    The owner-reproduced negatives (2026-10-18) must finalize
+    unconfirmed on a FRESH blackboard; the receipt-bearing positive must
+    finalize ``already_applied`` with the receipt's reply."""
+
+    @staticmethod
+    def _finalize(canvas, message):
+        """Drive the REAL decline lane under the REAL finalizer. Returns
+        (outcome, summary, fresh blackboard)."""
+        import core.async_turn_continuation as atc
+
+        class _DeclinedPlan:
+            wants_edit = False
+            reply = "The draft already reflects the approved values."
+
+        async def _plan_ok(*a, **k):
+            return _DeclinedPlan()
+
+        async def _fresh_none(*a, **k):
+            from core.chat_canvas_editor import FreshDataResult
+            return FreshDataResult("", False, True)
+
+        captured = {}
+
+        async def _real_lane(message_, history, canvas_, user_id,
+                             session_id, execution_id, agent_id, **kwargs):
+            captured["blackboard"] = kwargs.get("shared_tool_state")
+            return await co.chat_orchestrator._try_canvas_edit(
+                message_, history, canvas_, user_id, session_id,
+                execution_id, agent_id, **kwargs)
+
+        orch = MagicMock()
+        orch._try_canvas_edit = _real_lane
+        orch.conversation_sessions = {}
+        cont = atc.AsyncTurnContinuation(
+            continuation_id="cont-reask-review", user_id="user_1",
+            session_id="sess-auth", message=message, canvas=canvas,
+            execution_id="exec-auth", agent_id=None, history_snapshot=[])
+        original_plan = cce.plan_canvas_edit
+        original_fresh = cce.fetch_fresh_data_section
+        cce.plan_canvas_edit = _plan_ok
+        cce.fetch_fresh_data_section = _fresh_none
+        try:
+            with patch.object(
+                    atc, "_classify_preapply", return_value=None), patch.object(
+                    atc, "_latest_audit", return_value=None), patch.object(
+                    atc, "_ASYNC_CONTINUATION_ATTEMPTS", 1):
+                outcome, summary = asyncio.run(
+                    atc.run_canvas_edit_continuation(orch, cont))
+        finally:
+            cce.plan_canvas_edit = original_plan
+            cce.fetch_fresh_data_section = original_fresh
+        return outcome, summary, captured.get("blackboard") or {}
+
+    def test_negated_value_finalizes_unconfirmed(self):
+        outcome, _summary, shared = self._finalize(
+            _reask_canvas(body="Terms: not Net 45\n"),
+            "Please also update the payment terms in the draft to "
+            "Net 45.")
+        assert outcome != "already_applied", (
+            "a value the artifact negates must not finalize as "
+            "already-applied")
+        assert not shared.get("canvas_edit_decline_noop")
+        assert not shared.get("canvas_edit_decline_reply")
+        check = shared.get("canvas_decline_requirement_check")
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unsatisfied", (
+            "the fresh receipt says WHY: the field binds via the "
+            f"reviewed mapping and the value differs: {rows!r}")
+
+    def test_wrong_subject_finalizes_unconfirmed(self):
+        body = ("Beta project status: On track\n"
+                "Alpha project status: Blocked\n")
+        outcome, _summary, shared = self._finalize(
+            {"canvas_id": "cv-alpha", "content": {"body": body}},
+            "Please also update the Alpha project status in the draft "
+            "to On track.")
+        assert outcome != "already_applied", (
+            "the Beta record's value must not finalize Alpha's ask")
+        assert not shared.get("canvas_edit_decline_noop")
+        assert not shared.get("canvas_edit_decline_reply")
+        check = shared.get("canvas_decline_requirement_check")
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unsatisfied", (
+            "the fresh receipt says WHY: Alpha resolved, value differs — "
+            f"{rows!r}")
+
+    def test_beta_section_heading_finalizes_unconfirmed(self):
+        """Defect class 2 through the real lane + finalizer: the only
+        record sits under '# Beta project'; nothing names Alpha. The
+        fresh receipt must be unresolved and the finalizer must not
+        report already-applied."""
+        outcome, _summary, shared = self._finalize(
+            {"canvas_id": "cv-beta-heading",
+             "content": {"body": "# Beta project\nStatus: On track\n"}},
+            _ALPHA_ASK)
+        assert outcome != "already_applied", (
+            "the Beta section's Status must not finalize Alpha's ask")
+        assert not shared.get("canvas_edit_decline_noop")
+        assert not shared.get("canvas_edit_decline_reply")
+        check = shared.get("canvas_decline_requirement_check")
+        assert check is not None and check.get("satisfied") is not True
+        rows = [o for o in check.get("obligations") or []
+                if o.get("kind") == "assignment_postconditions"]
+        assert rows and rows[0].get("disposition") == "unresolved", rows
+
+    def test_sections_selecting_alpha_finalize_from_the_receipt(self):
+        body = ("# Alpha project\nStatus: On track\n\n"
+                "# Beta project\nStatus: Blocked\n")
+        outcome, summary, shared = self._finalize(
+            {"canvas_id": "cv-two-sections", "content": {"body": body}},
+            _ALPHA_ASK)
+        assert outcome == "already_applied", (
+            f"Alpha's section holds On track: {outcome!r} {summary!r}")
+        assert "Verified on the current draft" in summary
+        assert "alpha project status in the draft already set to On track" \
+            in summary
+        check = shared.get("canvas_decline_requirement_check") or {}
+        assert check.get("satisfied") is True, check
+
+    def test_satisfied_reask_finalizes_from_the_receipt(self):
+        """The finalizer's positive rides an EXACT field match
+        (delivery -> Delivery); case never changes it."""
+        outcome, summary, shared = self._finalize(
+            {"canvas_id": "cv-delivery",
+             "content": {"body": "Delivery: In Stock\n"}},
+            "Please update the Delivery in the draft to In Stock.")
+        assert outcome == "already_applied", (
+            "the satisfied receipt must finalize already_applied: "
+            f"{outcome!r} {summary!r}")
+        assert "Verified on the current draft" in summary
+        assert "In Stock" in summary
+        assert shared.get("canvas_edit_decline_noop") is True
+        check = shared.get("canvas_decline_requirement_check") or {}
+        assert check.get("satisfied") is True, (
+            "the finalizer's outcome rides a fresh satisfied receipt, "
+            f"not the planner's prose: {check!r}")
+
+
+class TestStrictAssignmentSatisfactionPrimitives:
+    """Unit pins for the narrowly named satisfaction helpers (owner
+    repair 2026-10-18). These are the primitives the decline lane calls;
+    they are deliberately NOT the shared grounding helpers (whose
+    broad-match, recall-oriented behavior other callers depend on)."""
+
+    def test_whole_value_equality_after_conservative_normalization(self):
+        from core.chat_canvas_editor import _assignment_value_relation
+        assert _assignment_value_relation(
+            "Net 45", "  Net 45. ") == "satisfied"
+        assert _assignment_value_relation(
+            "\"On track\"", "On track") == "satisfied"
+        # numbers: the existing WHOLE-value decimal equality
+        assert _assignment_value_relation(
+            "$48,000.00", "48,000") == "satisfied"
+        # containment is not equivalence — the false completion's core
+        assert _assignment_value_relation(
+            "Net 45", "not Net 45") == "unsatisfied"
+        assert _assignment_value_relation(
+            "45", "450") == "unsatisfied"
+        assert _assignment_value_relation(
+            "On track", "Blocked") == "unsatisfied"
+
+    def test_prose_is_unresolved_not_unsatisfied(self):
+        from core.chat_canvas_editor import _assignment_value_relation
+        assert _assignment_value_relation(
+            "the payment schedule agreed with the supplier in the last "
+            "call",
+            "payment schedule to be confirmed by the supplier later",
+        ) == "unresolved"
+
+    def test_related_family_field_discovers_but_does_not_certify(self):
+        """The retrieval family finds 'delivery time' as RELATED to the
+        'Delivery' label — discovery only. Certification is exact field
+        identity: 'delivery' binds, 'delivery time' does not."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "Delivery: In Stock\n"})
+        exact = _resolve_assignment_target("delivery", records)
+        assert exact.field_resolved and exact.subject_resolved, exact
+        assert exact.record is not None
+        assert exact.record.value == "In Stock"
+        related = _resolve_assignment_target("delivery time", records)
+        assert related.record is None, related
+
+    def test_net_weight_does_not_match_gross_weight(self):
+        """Defect class 4: 'net weight' discovers 'Gross weight' through
+        the weight family, but related fields never certify."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "Gross weight: 10\n"})
+        binding = _resolve_assignment_target("net weight", records)
+        assert binding.record is None, binding
+        assert binding.reason == "related_field_not_equivalent", binding
+        exact = _resolve_assignment_target("gross weight", records)
+        assert exact.record is not None
+
+    def test_dealer_cost_does_not_match_retail(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines({"body": "Retail: 100\n"})
+        binding = _resolve_assignment_target("dealer cost", records)
+        assert binding.record is None, binding
+        assert binding.reason == "related_field_not_equivalent", binding
+        exact = _resolve_assignment_target("retail", records)
+        assert exact.record is not None
+
+    def test_cross_family_alias_is_not_completion_identity(self):
+        """'expiration date' and 'Valid until' share a retrieval family;
+        completion identity requires the reviewed mapping, which does
+        not cover this pair — unresolved."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "Valid until: 2027-01-31\n"})
+        binding = _resolve_assignment_target("expiration date", records)
+        assert binding.record is None, binding
+        assert binding.reason == "related_field_not_equivalent", binding
+
+    def test_case_is_never_binding_authority(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        # Wrong-subject negatives: every casing refuses.
+        beta = _assignment_artifact_lines(
+            {"body": "# Beta project\nStatus: On track\n"})
+        for target in ("alpha status", "Alpha status", "ALPHA status"):
+            binding = _resolve_assignment_target(target, beta)
+            assert binding.record is None, target
+            assert binding.reason == "subject_unresolved", target
+        # Exact-field positives: every casing binds.
+        delivery = _assignment_artifact_lines(
+            {"body": "Delivery: In Stock\n"})
+        for target in ("delivery", "Delivery", "DELIVERY"):
+            binding = _resolve_assignment_target(target, delivery)
+            assert binding.record is not None, target
+
+    def test_reviewed_completion_mapping_resolves_payment_terms(self):
+        """The one reviewed completion pair: 'payment terms' -> the bare
+        'Terms' label — no retrieval alias involved."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines({"body": "Terms: Net 45\n"})
+        binding = _resolve_assignment_target("payment terms", records)
+        assert binding.field_resolved and binding.subject_resolved, binding
+        assert binding.record is not None
+        assert binding.record.value == "Net 45"
+        # The bare label alone is an exact match as well.
+        bare = _resolve_assignment_target("terms", records)
+        assert bare.record is not None
+
+    def test_completion_mapping_rejects_ambiguous_bare_label(self):
+        """'Terms' next to 'Warranty terms' is ambiguous: the mapping
+        does not fire and the leftover 'payment' word cannot silently
+        become an alias — unresolved."""
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "Terms: Net 45\nWarranty terms: 12 months\n"})
+        binding = _resolve_assignment_target("payment terms", records)
+        assert binding.record is None, binding
+        assert binding.reason == "subject_unresolved", binding
+
+    def test_section_resolves_the_requested_subject(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines({"body": (
+            "# Alpha project\nStatus: On track\n\n"
+            "# Beta project\nStatus: Blocked\n")})
+        binding = _resolve_assignment_target(
+            "alpha project status", records)
+        assert binding.record is not None, binding
+        assert binding.record.value == "On track"
+
+    def test_beta_section_cannot_absorb_alpha(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "# Beta project\nStatus: On track\n"})
+        binding = _resolve_assignment_target(
+            "alpha project status", records)
+        assert binding.record is None
+        assert binding.reason == "subject_unresolved"
+
+    def test_records_carry_sections_and_explicit_labels(self):
+        """Parser pins retained: explicit subject+field labels, Markdown
+        headings, and HTML headings all reach the resolver."""
+        from core.chat_canvas_editor import _assignment_artifact_lines
+        records = _assignment_artifact_lines({"body": (
+            "Beta project status: On track\n"
+            "Alpha project status: Blocked\n")})
+        assert records == [
+            ("", "Beta project status", "On track",
+             "Beta project status: On track"),
+            ("", "Alpha project status", "Blocked",
+             "Alpha project status: Blocked")]
+        html_records = _assignment_artifact_lines(
+            {"body": "<h1>Beta project</h1><p>Status: On track</p>"})
+        assert html_records == [(
+            "Beta project", "Status", "On track",
+            "Status: On track")], html_records
+
+    def test_conflicting_duplicates_leave_no_unique_record(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines(
+            {"body": "Terms: Net 45\nTerms: Net 30\n"})
+        binding = _resolve_assignment_target("payment terms", records)
+        assert binding.record is None
+        # Duplicate SUPPORTED fields are ambiguous as well — no any().
+        dup = _assignment_artifact_lines(
+            {"body": "Delivery: 2 weeks\nDelivery: In Stock\n"})
+        binding2 = _resolve_assignment_target("delivery", dup)
+        assert binding2.record is None
+        assert binding2.reason == "multiple_records"
+
+    def test_unknown_field_vocabulary_stays_unresolved(self):
+        from core.chat_canvas_editor import (
+            _assignment_artifact_lines,
+            _resolve_assignment_target,
+        )
+        records = _assignment_artifact_lines({"body": "Notes: all good\n"})
+        binding = _resolve_assignment_target(
+            "alpha project status", records)
+        assert binding.record is None
+        assert binding.field_resolved is False
+        assert binding.reason == "field_unresolved"

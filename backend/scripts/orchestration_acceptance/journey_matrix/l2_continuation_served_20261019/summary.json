@@ -1,0 +1,237 @@
+{
+  "attempt": "1",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "a6cd2c8baecc2976d3c8021861f804117d1aa036",
+    "parent": "ddab120c43333efdc219098cba35fdecd9a0988f",
+    "source_sha256_chat_orchestrator": "4e860e7950cf13149772c95c391428a44db46931034c16d75af53dccb30e2287",
+    "source_sha256_turn_decision": "0096a26bc2a140de9f1fbeca2ff9d4cdc468a0e0ea82f3c5bb231c13ae045fd0",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "checks": {
+    "draft_created_through_product": true,
+    "fixture_uploaded_through_product": true,
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "prior_evidence_observed": true,
+    "real_interpretation_dispatched": true,
+    "response_persisted_fresh_history_agreement": true,
+    "runtime_identity": true,
+    "s3_draft_unchanged": true,
+    "s3_reply_received": true,
+    "s3_requirement_captured": true,
+    "s3_settlement_basis": true,
+    "s3_truthful_comparison": true,
+    "s3_zero_canvas_writes": true,
+    "s7_draft_unchanged": true,
+    "s7_reply_received": true,
+    "s7_requirement_captured": false,
+    "s7_resolved_source_identity": false,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "s7_settlement_basis": false,
+    "s7_truthful_comparison": true,
+    "s7_zero_new_writes": true
+  },
+  "classification": "s7_requirement_missing",
+  "configuration": {
+    "cloud_route": "https://opencode.ai/zen/go/v1",
+    "embeddings": {
+      "dim": 384,
+      "model": "BAAI/bge-small-en-v1.5",
+      "provider": "fastembed"
+    },
+    "flags": {
+      "declared": {
+        "ATOM_TASK_LIFECYCLE_ENABLED": "1",
+        "ATOM_TURN_DECISION_ROUTING": "1",
+        "ATOM_TURN_INTERPRETATION": "1",
+        "CHAT_FINALIZATION_M1": "1",
+        "CHAT_FINALIZATION_M2": "1"
+      }
+    },
+    "isolation": {
+      "credential_vault_copied": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence/backend",
+      "database_url": "sqlite:////private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-continuation-served/atom.db",
+      "live_env_copied_wholesale": false,
+      "scratch_dir": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-fix/scratch/l2-continuation-served",
+      "stores": [
+        "DATABASE_URL",
+        "ATOM_DATA_DIR",
+        "LANCEDB_URI",
+        "LANCEDB_URI_BASE",
+        "BYOK_CONFIG_FILE",
+        "BYOK_KEYS_FILE",
+        "BYOK_ENC_KEY_FILE"
+      ]
+    },
+    "observation_harness": {
+      "candidate_source_edited": false,
+      "hooks": [
+        "interpret_turn_request",
+        "apply_interpretation_references",
+        "_stash_evidence_requirement",
+        "_context_backed_fulfillment",
+        "_fallback_turn_outcome"
+      ],
+      "launcher": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/server_observe.py",
+      "log": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/attempt1_observation.jsonl"
+    },
+    "port": 8095,
+    "provider": "opencode-go (only)"
+  },
+  "files": [
+    "PREDECLARED_CONFIG.md",
+    "README.md",
+    "attempt1_config.json",
+    "attempt1_interpreter_freeze.txt",
+    "attempt1_observation.jsonl",
+    "attempt1_result.json",
+    "attempt1_server.log",
+    "run_l2_served.py",
+    "server_observe.py"
+  ],
+  "finding": "The real S7 interpreter proposed annotated source descriptions instead of clean identities; the owner-approved composer preserved the reference as unresolved. The reply was correct, zero-write and partially settled (success=true, outcome=partial), but the requirement identity / F-C2 basis is unresolved, so the resolved-source certification target was not met.",
+  "first_failure": "s7_requirement_missing",
+  "job": {
+    "draft_body": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+    "draft_title": "Quotation Q-2026-114 (DRAFT)",
+    "fixture": "approved_records_q2026_114.txt",
+    "s3_ask": "Compare the draft quotation with my uploaded Approved Records document. Does the Valid Until date in the draft match the approved record? Flag anything that differs. Do not change anything yet.",
+    "s3_first": true,
+    "s7_ask": "What is the current Valid until date on the draft, and does it still match the approved record?",
+    "s7_original_continuation": true,
+    "upload_route": "POST /api/documents/upload"
+  },
+  "observed": {
+    "canvas": {
+      "canvas_id": "e50d4a4b-fa2c-4ad4-9b48-dd36726295dd",
+      "create_http": 200,
+      "seed_exact": true,
+      "seed_http": 200,
+      "seeded_body": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nPrepared for: Elena Sorokina, Operations\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nSubtotal: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n"
+    },
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "s3": {
+      "audit_counts": [
+        2,
+        2
+      ],
+      "context_fulfillment": {
+        "matched": [
+          {
+            "content_hash": "",
+            "file_name": "approved_records_q2026_114.txt",
+            "source": "ingested"
+          }
+        ],
+        "missing_comparison": true,
+        "state": "partial",
+        "supplied_fields": [
+          "expiration_date"
+        ]
+      },
+      "draft_unchanged": true,
+      "execution_id": "33504f89-0866-4ffa-bf00-5f219ce3a3ae",
+      "interpretation_origin": "llm:glm-5.3-flash",
+      "message": "Let's compare the draft quotation with the uploaded Approved Records document.\n\nThe draft quotation has a \"Valid until\" date of 2026-12-31, whereas the Approved Record (Quotation Q-2026-114) has an approved valid until date of also 2026-12-31. These dates match.\n\nHowever, I notice that the Approved Record specifies payment terms as Net 30, but the draft quotation lists them as Net 45. This is a difference between the two documents.\n\nWould you like to proceed with updating the draft quotation or investigate further?",
+      "outcome": "partial",
+      "reply_model": "llama3.1:8b",
+      "requirement": {
+        "artifact_attached": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "s7": {
+      "audit_counts": [
+        2,
+        2
+      ],
+      "context_fulfillment": {
+        "names": [
+          "approved_records_q2026_114.txt (the user's uploaded Approved Records document)",
+          "draft quotation (source not yet named by the user)"
+        ],
+        "state": "unresolved"
+      },
+      "draft_unchanged": true,
+      "execution_id": "eed57d97-219b-4f32-afed-c6d9b1cb82ee",
+      "interpretation_origin": "llm:glm-5.3-flash",
+      "interpretation_sources": [
+        "approved_records_q2026_114.txt (the user's uploaded Approved Records document)",
+        "draft quotation (source not yet named by the user)"
+      ],
+      "message": "The current \"Valid Until\" date on the draft is 2026-12-31. This matches the \"Approved valid until\" date in the Approved Records document for Quotation Q-2026-114, which is also 2026-12-31. There is no discrepancy in this field.",
+      "outcome": "partial",
+      "prior_source_execution_id": "33504f89-0866-4ffa-bf00-5f219ce3a3ae",
+      "reply_model": "llama3.1:8b",
+      "requirement": {
+        "artifact_attached": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "names": [
+            "approved_records_q2026_114.txt (the user's uploaded Approved Records document)",
+            "draft quotation (source not yet named by the user)"
+          ],
+          "state": "unresolved"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "served_log_evidence": {
+      "go_inference_chat_posts": 0,
+      "interpretation_log_lines": [
+        "INFO:core.turn_decision:[turn-interpretation] ok latency_ms=9622.9",
+        "INFO:core.turn_decision:[turn-interpretation] ok latency_ms=9202.2"
+      ],
+      "structured_dispatch_models": [
+        "opencode-go/glm-5.3-flash"
+      ],
+      "zen_chat_posts": 7
+    },
+    "upload": {
+      "chunk_count": 1,
+      "doc_id": "doc_3abaf0d03badbc965b0f2770",
+      "http": 200,
+      "row": {
+        "file_name": "approved_records_q2026_114.txt",
+        "id": "doc_3abaf0d03badbc965b0f2770",
+        "preview_has_date": true,
+        "size": 279,
+        "workspace_id": "7b26a0d6-e950-4aad-8aad-4ae6e3fa2cfb"
+      },
+      "title": "approved_records_q2026_114.txt"
+    }
+  },
+  "pass": false,
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG.md",
+    "sha256": "ba316cfcb40fc60bfddddb4eab2091f5ac9759812a3153d64bb18ccbdd1f208f"
+  },
+  "recorded_at": "2026-10-19T12:20:31Z",
+  "scope": "No promotion. The attempt is candidate/configuration-bound and does not certify general natural-language reference resolution, restart durability, or pilot deployment. L1/L3 and the pilot are untouched.",
+  "status": "NOT_PASSED"
+}

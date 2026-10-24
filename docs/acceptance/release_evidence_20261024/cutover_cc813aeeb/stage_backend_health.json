@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-10-24T14:43:52Z",
+  "purpose": "staged release tree identity/frontend boot check before cutover",
+  "backend": {
+    "http": 200,
+    "mode": "TESTING=1 scratch DB; no live DB handle",
+    "identity": {
+      "pid": 24555,
+      "revision": "b682d017e60ffb0f872fddba9bcf9fb648034775",
+      "source_id": "b682d017e60f",
+      "dirty": false,
+      "cwd": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-release-cc813aeeb-20261024/backend"
+    }
+  },
+  "frontend": {
+    "http_login": 200,
+    "build_id": "tCcJqyp6jX99CjA0eySjZ",
+    "next_version": "16.2.2",
+    "port": 3011,
+    "note": "started with NEXT_PUBLIC_API_URL=http://127.0.0.1:8001 and NEXT_PUBLIC_ALLOW_LOOPBACK=1"
+  },
+  "stopped_after_check": true
+}

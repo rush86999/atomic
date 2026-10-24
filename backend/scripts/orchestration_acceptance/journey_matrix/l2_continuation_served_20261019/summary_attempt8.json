@@ -1,0 +1,147 @@
+{
+  "attempt": "8",
+  "candidate": {
+    "branch": "codex/l2-continuation-evidence",
+    "commit": "23f3455f717e479ee3fa4b98a024e07baa212834",
+    "parent": "ddab120c43333efdc219098cba35fdecd9a0988f",
+    "source_sha256_chat_orchestrator": "5b4fe13466fb199d238cbf4784fab2d361e9ba83c9c9f04e6e0a43ba9db24007",
+    "source_sha256_turn_decision": "6696bf2e0db0005e09d1f1f55a78528ae6811831001d87024960c3ecf9d26fa4",
+    "tree_clean": true,
+    "worktree": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l2-continuation-evidence"
+  },
+  "checks": {
+    "draft_created_through_product": true,
+    "fixture_uploaded_through_product": true,
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "prior_evidence_observed": true,
+    "real_interpretation_dispatched": false,
+    "response_persisted_fresh_history_agreement": true,
+    "runtime_identity": true,
+    "s3_draft_unchanged": true,
+    "s3_no_global_consistency_claim": true,
+    "s3_reply_received": true,
+    "s3_requirement_captured": true,
+    "s3_settlement_basis": true,
+    "s3_terms_limitation_named": true,
+    "s3_verified_narration": true,
+    "s3_zero_canvas_writes": true,
+    "s7_draft_unchanged": true,
+    "s7_reply_received": true,
+    "s7_requirement_captured": false,
+    "s7_resolved_source_identity": false,
+    "s7_response_persisted_fresh_history_agreement": true,
+    "s7_settlement_basis": false,
+    "s7_truthful_comparison": true,
+    "s7_zero_new_writes": true,
+    "total_turn_latency_within_budget": true
+  },
+  "classification": "interpretation_not_real_or_not_dispatched",
+  "first_failure": "interpretation_not_real_or_not_dispatched",
+  "observed": {
+    "live_db_unchanged": true,
+    "pilot_untouched": true,
+    "s3": {
+      "execution_id": "3c805677-95c6-4e92-b8ce-251394998f1a",
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\n- Quotation Q-2026-114 (DRAFT) / payment terms: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\n- Quotation Q-2026-114 (DRAFT) / price: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\nNo canvas change was made by this comparison.\nBroader comparison obligation: OPEN \u2014 the unassessed fields above remain to be verified.",
+      "outcome": "partial",
+      "requirement": {
+        "artifact_attached": true,
+        "broader_comparison": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": true,
+        "sources": [
+          "document"
+        ],
+        "subjects": []
+      },
+      "success": true
+    },
+    "s7": {
+      "context_fulfillment": null,
+      "execution_id": "80f42fd3-f30b-400e-9279-14dc1671ae48",
+      "message": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\n- Quotation Q-2026-114 (DRAFT) / payment terms: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\n- Quotation Q-2026-114 (DRAFT) / price: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\nNo canvas change was made by this comparison.\nBroader comparison obligation: OPEN \u2014 the unassessed fields above remain to be verified.",
+      "outcome": "completed",
+      "requirement": {
+        "artifact_attached": true,
+        "broader_comparison": true,
+        "fields": [
+          "expiration_date"
+        ],
+        "file": null,
+        "identity": {
+          "candidates": [],
+          "state": "kind_only"
+        },
+        "required": false,
+        "sources": [],
+        "subjects": []
+      },
+      "success": true
+    },
+    "served_log_evidence": {
+      "go_inference_chat_posts": 0,
+      "interpretation_log_lines": [
+        "INFO:core.turn_decision:[turn-interpretation] ok latency_ms=36919.8",
+        "INFO:core.turn_decision:[turn-interpretation] empty reason=no_actions_proposed"
+      ],
+      "structured_dispatch_models": [
+        "opencode-go/minimax-m3",
+        "opencode-go/qwen3.8-flash"
+      ],
+      "zen_chat_posts": 7
+    }
+  },
+  "pass": false,
+  "predeclared_config": {
+    "path": "/Users/rushiparikh/projects/atom/backend/scripts/orchestration_acceptance/journey_matrix/l2_continuation_served_20261019/PREDECLARED_CONFIG_ATTEMPT8.md",
+    "sha256": "a6ee11f1739a68ca7dddfdb80a1647b44cdfab1e7e0c683987b725b09d050a93"
+  },
+  "scope": "Candidate/configuration-bound served claim only; no pilot deployment, no general NL reference-resolution claim, no restart-durability claim.",
+  "stages": {
+    "s3_no_global_consistency_claim": true,
+    "s3_reply": "Verified comparison (the values below are read directly from the retrieved source; wording does not replace them):\nScope: the fields below are compared; named gaps remain and the broader comparison is open.\n- Quotation Q-2026-114 (DRAFT) / expiration date: draft 2026-12-31 = approved_records_q2026_114.txt 2026-12-31 (match)\n- Quotation Q-2026-114 (DRAFT) / payment terms: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\n- Quotation Q-2026-114 (DRAFT) / price: no verified value from approved_records_q2026_114.txt \u2014 a match or difference cannot be claimed.\nNo canvas change was made by this comparison.\nBroader comparison obligation: OPEN \u2014 the unassessed fields above remain to be verified.",
+    "s3_terms_limitation_named": true,
+    "s3_terms_recorded": true,
+    "s3_verified_narration": true,
+    "stage_summary": {
+      "completed_within_deadline": false,
+      "dispatch_attempted": true,
+      "producer_output_valid": false,
+      "source_identity_resolved": false
+    },
+    "total_turn_latency_ok": true,
+    "turns": {
+      "s3": {
+        "completed_within_deadline": true,
+        "dispatch_attempted": true,
+        "interpretation_origin": "llm:qwen3.8-flash",
+        "interpretation_sources": [
+          "Approved Records document"
+        ],
+        "interpretation_unresolved_reason": "",
+        "producer_output_valid": true,
+        "request_id": "l2-s3-67f806f3768441a6a693b934fa52c72e",
+        "total_turn_latency_s": 75.0
+      },
+      "s7": {
+        "completed_within_deadline": false,
+        "dispatch_attempted": true,
+        "interpretation_origin": "unresolved",
+        "interpretation_sources": [],
+        "interpretation_unresolved_reason": "no_actions_proposed",
+        "producer_output_valid": false,
+        "request_id": "l2-s7-c1ab6ae4f41e404e8c674283759344ea",
+        "total_turn_latency_s": 52.14
+      }
+    }
+  },
+  "status": "NOT_PASSED"
+}

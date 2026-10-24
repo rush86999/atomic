@@ -1,0 +1,104 @@
+
+tests/test_chat_tool_planner_web.py::test_retry_repaired_to_history_service_over_memory 
+-------------------------------- live log setup --------------------------------
+2026-10-18 18:33:08 [    INFO] Dev secret key loaded (persisted for restart survival). Set SECRET_KEY to override.
+2026-10-18 18:33:09 [    INFO] EscalationManager initialized
+2026-10-18 18:33:09 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:33:09 [    INFO] EscalationManager initialized
+2026-10-18 18:33:09 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:33:09 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-18 18:33:09 [    INFO] AgentTaskRegistry initialized
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:33:09 [    INFO] tool planner: LLM repair -> outlook.search
+2026-10-18 18:33:09 [ WARNING] tool planner call raised: 
+FAILED                                                                   [ 33%]
+tests/test_chat_tool_planner_web.py::test_empty_integration_search_falls_back_to_memory 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:33:09 [    INFO] [etp-provenance] service=zoho_workdrive intent=search caller=test_chat_tool_planner_web.py:477 test_empty_integration_search_falls_back_to_memory exec_id=False conv=
+2026-10-18 18:33:10 [    INFO] Loaded service class for zoho_workdrive: integrations.zoho_workdrive_service:ZohoWorkDriveService
+2026-10-18 18:33:10 [    INFO] Creating isolated LanceDBHandler for workspace: default at ./data/atom_memory/default
+2026-10-18 18:33:10 [    INFO] EscalationManager initialized
+2026-10-18 18:33:10 [    INFO] CognitiveTierService initialized for workspace: default
+2026-10-18 18:33:10 [    INFO] Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+2026-10-18 18:33:10 [    INFO] LanceDBHandler initialized. ID: 6346881168. LANCEDB_AVAILABLE: True
+2026-10-18 18:33:10 [ WARNING] memory tool execution failed: Table 'documents' was not found
+FAILED                                                                   [ 66%]
+tests/test_covpush_w41_outcome_verifier.py::TestAgentContextResolverRemaining::test_heals_legacy_agent_scope 
+-------------------------------- live log call ---------------------------------
+2026-10-18 18:33:10 [    INFO] Backfilled workspace/tenant scope on system default agent: a1
+2026-10-18 18:33:10 [   ERROR] Error creating system default agent: 'types.SimpleNamespace' object has no attribute 'status'
+FAILED                                                                   [100%]
+
+=================================== FAILURES ===================================
+E   AssertionError: assert 3 == 2
+     +  where 3 = <AsyncMock name='mock.generate_structured_response' id='6320398288'>.await_count
+     +    where <AsyncMock name='mock.generate_structured_response' id='6320398288'> = <MagicMock id='6338326752'>.generate_structured_response
+------------------------------ Captured log setup ------------------------------
+INFO     core.auth:auth.py:56 Dev secret key loaded (persisted for restart survival). Set SECRET_KEY to override.
+INFO     core.llm.escalation_manager:escalation_manager.py:165 EscalationManager initialized
+INFO     core.llm.cognitive_tier_service:cognitive_tier_service.py:64 CognitiveTierService initialized for workspace: default
+INFO     core.llm.escalation_manager:escalation_manager.py:165 EscalationManager initialized
+INFO     core.llm.cognitive_tier_service:cognitive_tier_service.py:64 CognitiveTierService initialized for workspace: default
+INFO     core.embedding_service:embedding_service.py:131 Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+INFO     core.agent_task_registry:agent_task_registry.py:64 AgentTaskRegistry initialized
+------------------------------ Captured log call -------------------------------
+INFO     core.chat_tool_planner:chat_tool_planner.py:1652 tool planner: LLM repair -> outlook.search
+WARNING  core.llm.pinned_planning:pinned_planning.py:334 tool planner call raised:
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-parent/backend/tests/test_chat_tool_planner_web.py:426: AssertionError: assert 3 == 2
+E   assert 'Ingested-workspace matches' in "LIVE TOOL RESULTS (zoho_workdrive.search, query='Full Cost formula Consolidated Price List 2019'): returned nothing usable (no data).\n(on-demand pull ran but found nothing upstream to ingest for this query)\n\nGROUNDING RULE: specific facts (names, figures, prices, dates, quotations) must come from the evidence above. If the exact value the user asks about is not visible in this evidence, say what was found and that the source itself must be opened for the exact value — do not fill the gap from memory and do not present recalled values as if read from the source. BEFORE concluding anything is missing: mailbox/document lines are EXCERPTS and long quoted threads run to tens of thousands of chars. Every [ingested mailbox] line carries 'full: knowledge/conversations/<id>' — the COMPLETE line-numbered message. Open it with documents.cat(path + '/content.lines') (skim with documents.head / documents.tail); to search EVERY stored message use documents.grep with path_prefix 'knowledge/conversations'. Only after that may you say a value is not in the mailbox. An absence claim may only be as wide as the search performed: an 'emails we sent' question includes internal forwards, and one match never shows there were no others. If the evidence shows a source the user asked for was NOT found: state what was searched (which store, which query) and what came back — scoped, not global. NEVER promise an action in this reply ('I will open it now') — the lookups above already ran; you cannot run more mid-reply. And do not ask permission for something the user's current message already authorized: if they told you to open or check a source and it was not retrieved, say exactly that and offer the NEXT concrete search (a different store or query), not a repeat of their instruction as a question."
+----------------------------- Captured stdout call -----------------------------
+{"level": "INFO", "message": "Loaded service class for zoho_workdrive: integrations.zoho_workdrive_service:ZohoWorkDriveService", "timestamp": "2026-10-18T22:33:10.043752+00:00", "logger": "core.integration_registry", "module": "structured_logger", "function": "_log", "line": 118}
+------------------------------ Captured log call -------------------------------
+INFO     core.chat_tool_planner:chat_tool_planner.py:9180 [etp-provenance] service=zoho_workdrive intent=search caller=test_chat_tool_planner_web.py:477 test_empty_integration_search_falls_back_to_memory exec_id=False conv=
+INFO     core.integration_registry:structured_logger.py:118 Loaded service class for zoho_workdrive: integrations.zoho_workdrive_service:ZohoWorkDriveService
+INFO     core.lancedb_handler:lancedb_handler.py:2242 Creating isolated LanceDBHandler for workspace: default at ./data/atom_memory/default
+INFO     core.llm.escalation_manager:escalation_manager.py:165 EscalationManager initialized
+INFO     core.llm.cognitive_tier_service:cognitive_tier_service.py:64 CognitiveTierService initialized for workspace: default
+INFO     core.embedding_service:embedding_service.py:131 Initialized EmbeddingService: provider=fastembed, model=BAAI/bge-small-en-v1.5, workspace=default
+INFO     core.lancedb_handler:lancedb_handler.py:221 LanceDBHandler initialized. ID: 6346881168. LANCEDB_AVAILABLE: True
+WARNING  core.chat_tool_planner:chat_tool_planner.py:5880 memory tool execution failed: Table 'documents' was not found
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-parent/backend/tests/test_chat_tool_planner_web.py:479: assert 'Ingested-workspace matches' in "LIVE TOOL RESULTS (zoho_workdrive.search, query='Full Cost formula Consolidated Price List 2019'): returned nothing usable (no data).\n(on-demand pull ran but found nothing upstream to ingest for this query)\n\nGROUNDING RULE: specific facts (names, figures, prices, dates, quotations) must come from the evidence above. If the exact value the user asks about is not visible in this evidence, say what was found and that the source itself must be opened for the exact value — do not fill the gap from memory and do not present recalled values as if read from the source. BEFORE concluding anything is missing: mailbox/document lines are EXCERPTS and long quoted threads run to tens of thousands of chars. Every [ingested mailbox] line carries 'full: knowledge/conversations/<id>' — the COMPLETE line-numbered message. Open it with documents.cat(path + '/content.lines') (skim with documents.head / documents.tail); to search EVERY stored message use documents.grep with path_prefix 'knowledge/conversations'. Only after that may you say a value is not in the mailbox. An absence claim may only be as wide as the search performed: an 'emails we sent' question includes internal forwards, and one match never shows there were no others. If the evidence shows a source the user asked for was NOT found: state what was searched (which store, which query) and what came back — scoped, not global. NEVER promise an action in this reply ('I will open it now') — the lookups above already ran; you cannot run more mid-reply. And do not ask permission for something the user's current message already authorized: if they told you to open or check a source and it was not retrieved, say exactly that and offer the NEXT concrete search (a different store or query), not a repeat of their instruction as a question."
+E   AssertionError: assert None is namespace(id='a1', workspace_id='default', tenant_id='default')
+------------------------------ Captured log call -------------------------------
+INFO     core.agent_context_resolver:agent_context_resolver.py:164 Backfilled workspace/tenant scope on system default agent: a1
+ERROR    core.agent_context_resolver:agent_context_resolver.py:226 Error creating system default agent: 'types.SimpleNamespace' object has no attribute 'status'
+/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-parent/backend/tests/test_covpush_w41_outcome_verifier.py:129: AssertionError: assert None is namespace(id='a1', workspace_id='default', tenant_id='default')
+=============================== warnings summary ===============================
+../../../../../../../../../usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852
+  /usr/local/lib/python3.14/site-packages/_pytest/config/__init__.py:852: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; tests.e2e.fixtures.service_mock_fixtures
+    self.import_plugin(import_spec)
+
+../../../../../../../../../usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25
+  /usr/local/lib/python3.14/site-packages/langchain_core/_api/deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+    from pydantic.v1.fields import FieldInfo as FieldInfoV1
+
+tests/test_chat_tool_planner_web.py::test_retry_repaired_to_history_service_over_memory
+  /private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-parent/backend/core/graphrag_engine.py:203: SyntaxWarning: "\%" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\%"? A raw string is also an option.
+    Escaped pattern where % and _ are escaped to \%
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== WARNING: Low Assertion Density ========================
+  tests/test_provider_registry_api.py: 0.145 (target: 0.15)
+  tests/test_round70_llm_credential_subscription.py: 0.102 (target: 0.15)
+  tests/test_notion_service.py: 0.083 (target: 0.15)
+  tests/test_canvas_training_context.py: 0.127 (target: 0.15)
+  tests/test_user_management_monitoring.py: 0.054 (target: 0.15)
+=========================== short test summary info ============================
+FAILED tests/test_chat_tool_planner_web.py::test_retry_repaired_to_history_service_over_memory
+FAILED tests/test_chat_tool_planner_web.py::test_empty_integration_search_falls_back_to_memory
+FAILED tests/test_covpush_w41_outcome_verifier.py::TestAgentContextResolverRemaining::test_heals_legacy_agent_scope
+=========================== warnings summary (final) ===========================
+<unknown>:314
+  <unknown>:314: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+
+<unknown>:6
+  <unknown>:6: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:134
+  <unknown>:134: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+
+<unknown>:944
+  <unknown>:944: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 3 failed, 7 warnings in 15.70s ========================

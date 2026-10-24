@@ -1,0 +1,47 @@
+{
+  "artifact_body": "# Quotation Q-2026-114 (DRAFT)\n\nClient: Dunmore Fabrication LLC\nItem: CNC press brake, 50-ton\nUnit price: $48,000.00\nTerms: Net 45\nValid until: 2026-12-31\n",
+  "assertions": {
+    "completed": true,
+    "history_agrees": true,
+    "receipt_derived_reply": true,
+    "zero_writes": true
+  },
+  "candidate_commit": "b96dec60a46dea72af73fd1cdcd4a7a1ff94fe01",
+  "captured_at": "2026-10-18T13:22:47",
+  "history_reload": {
+    "agrees_with_response": true,
+    "served_outcome": "completed",
+    "served_success": true
+  },
+  "pass": true,
+  "persisted": {
+    "assistant_row_count": 1,
+    "assistant_row_present": true,
+    "metadata_keys": [
+      "_pending_file_task",
+      "assistant_message_id",
+      "execution_id",
+      "outcome",
+      "success",
+      "turn_decision"
+    ],
+    "metadata_outcome": "completed",
+    "metadata_success": true,
+    "raw_assistant_metadata": [
+      "{\"assistant_message_id\": \"0149e5bd-e273-477e-8135-f357c0cebbea\", \"execution_id\": \"exec-reask-route\", \"_pending_file_task\": null, \"turn_decision\": {\"schema\": \"turn-decision-1\", \"session_id\": \"0ef89e9a-532e-4773-a75a-66f3200a7eb1\", \"created_at\": 1792344167.820159, \"message\": \"Please also update the payment terms in the draft to Net 45.\", \"requested_actions\": [{\"kind\": \"canvas_edit\", \"target_canvas\": \"2233f463-6fad-443a-959d-e6088e1bb784\", \"nomination\": true, \"user_grounded_instruction\": \"Please also update the payment terms in the draft to Net 45.\", \"authorization\": \"granted\"}], \"action_program\": {\"schema_version\": \"action-program-1\", \"session_id\": \"0ef89e9a-532e-4773-a75a-66f3200a7eb1\", \"message_excerpt\": \"Please also update the payment terms in the draft to Net 45.\", \"compiled_from\": \"turn-decision-1\", \"actions\": [{\"action_id\": \"patch1\", \"depends_on\": [], \"op\": \"propose_patch\", \"target_kind\": \"canvas\", \"target_canvas\": \"2233f463-6fad-443a-959d-e6088e1bb784\", \"nomination\": true, \"user_grounded_instruction\": \"Please also update the payment terms in the draft to Net 45.\"}]}, \"references\": {\"sources\": [], \"file\": null}, \"task_state_view\": {\"active_objective\": null, \"revision_proposed\": false}, \"policy\": {\"reasoning_available\": null}, \"provenance\": {\"signals\": [\"continuation_decision\", \"edit_shape_nomination\", \"user_grounded_edit_instruction\"]}, \"routed_lane\": null}, \"success\": true, \"outcome\": \"completed\"}"
+    ]
+  },
+  "request": "Please also update the payment terms in the draft to Net 45.",
+  "response": {
+    "message": "Verified on the current draft: payment terms in the draft already set to Net 45. No changes were needed, and nothing was sent.",
+    "outcome": "completed",
+    "session_id": "0ef89e9a-532e-4773-a75a-66f3200a7eb1",
+    "success": true
+  },
+  "zero_additional_writes": {
+    "audits_after": 1,
+    "audits_before": 1,
+    "saved_body_carries_value": true,
+    "unchanged": true
+  }
+}

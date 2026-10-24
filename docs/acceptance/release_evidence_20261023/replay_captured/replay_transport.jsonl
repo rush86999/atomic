@@ -1,0 +1,38 @@
+INFO:httpx:HTTP Request: GET https://api.deepseek.com/v1/models "HTTP/1.1 200 OK"
+INFO:integrations.chat_orchestrator:[turn-interpretation] bounded wait=59.9s (remaining=94.9s reserve=35.0s)
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:replay-l3-e80e6dd5f48647eea88f21ad0a166f54 attempt=1 prompt_chars=2602 cap=5500 instructor_retries=2
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:core.turn_decision:[turn-interpretation-capture] {"action_count": 2, "action_kinds": ["research", "conversation"], "has_invalid_action_kind": false, "has_missing_action_kind": false, "phase": "pre_validation", "rejection_reason": "", "request_id": "turn interpretation:replay-l3-e80e6dd5f48647eea88f21ad0a166f54", "scope_present": true, "scope_raw": "replace"}
+INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=26.5s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:replay-l3-e80e6dd5f48647eea88f21ad0a166f54 attempt=1
+INFO:core.turn_decision:[turn-interpretation-capture] {"action_count": 2, "action_kinds": ["research", "conversation"], "has_invalid_action_kind": false, "has_missing_action_kind": false, "phase": "post_validation", "rejection_reason": "", "request_id": "turn interpretation:replay-l3-e80e6dd5f48647eea88f21ad0a166f54", "scope_present": true, "scope_raw": "replace"}
+INFO:core.turn_decision:[turn-interpretation] ok latency_ms=32971.1
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=structured-5e31a599854f attempt=1 prompt_chars=14329 cap=6000 instructor_retries=2
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=33.4s elapsed=33.4s remaining=61.6s budget=95.0s
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING:core.llm.byok_handler:[structured-cancelled] deepseek/deepseek-v4-pro route=structured-5e31a599854f attempt=1 waited=20.0s reservation_released=true worker_may_still_run=true
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=33.5s turn_offset=33.4s elapsed=66.9s remaining=28.1s budget=95.0s
+INFO:integrations.chat_orchestrator:[verify-panel] state: mode=enforce tool_block=True content=True mission=False
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=67.0s elapsed=67.0s remaining=28.0s budget=95.0s
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:integrations.chat_orchestrator:[turn-interpretation] bounded wait=60.0s (remaining=95.0s reserve=35.0s)
+INFO:httpx:HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=turn_interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55 attempt=1 prompt_chars=2949 cap=5500 instructor_retries=2
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 400 Bad Request"
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:core.turn_decision:[turn-interpretation-capture] {"action_count": 1, "action_kinds": ["research"], "has_invalid_action_kind": false, "has_missing_action_kind": false, "phase": "pre_validation", "rejection_reason": "", "request_id": "turn interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55", "scope_present": true, "scope_raw": "replace"}
+INFO:core.llm.byok_handler:[structured-trace] deepseek/deepseek-v4-pro cap=5500 dur=39.1s finish=stop content_present=True tool_calls_present=False result_type=_Interpretation route=turn_interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55 attempt=1
+INFO:core.turn_decision:[turn-interpretation-capture] {"action_count": 1, "action_kinds": ["research"], "has_invalid_action_kind": false, "has_missing_action_kind": false, "phase": "post_validation", "rejection_reason": "", "request_id": "turn interpretation:replay-s3-365aa8f72b124409a54ab794a92a6e55", "scope_present": true, "scope_raw": "replace"}
+INFO:core.turn_decision:[turn-interpretation] ok latency_ms=39170.2
+INFO:core.llm.byok_handler:[structured-dispatch] deepseek/deepseek-v4-pro route=structured-1b35e3120a37 attempt=1 prompt_chars=14840 cap=6000 instructor_retries=2
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg-START dur=0.0s turn_offset=39.5s elapsed=39.5s remaining=55.5s budget=95.0s
+INFO:httpx:HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+WARNING:core.llm.byok_handler:[structured-cancelled] deepseek/deepseek-v4-pro route=structured-1b35e3120a37 attempt=1 waited=20.0s reservation_released=true worker_may_still_run=true
+INFO:httpx:HTTP Request: POST http://localhost:11434/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=reply-leg dur=29.6s turn_offset=39.5s elapsed=69.1s remaining=25.9s budget=95.0s
+INFO:integrations.chat_orchestrator:[verify-panel] state: mode=enforce tool_block=True content=True mission=False
+INFO:integrations.chat_orchestrator:[deadline] chat-request stage=legacy-features dur=0.0s turn_offset=69.1s elapsed=69.1s remaining=25.9s budget=95.0s

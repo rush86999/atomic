@@ -10,6 +10,7 @@ This module provides a unified chat interface that connects all ATOM capabilitie
 """
 import asyncio
 import contextlib
+import sys
 import time
 from core.turn_learning import get_turn_learning
 from core import log_redaction
@@ -18,7 +19,7 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Sequence, Tuple
 from datetime import datetime, timezone
 from services.agent_service import agent_service
 
@@ -400,6 +401,21 @@ _CANVAS_EDIT_DERIVATION_WAIT_SECONDS = float(
 #: chance to answer.
 _CANVAS_LEG_MAX_SECONDS = float(
     os.getenv("ATOM_CANVAS_LEG_MAX_SECONDS", "45") or 45)
+
+#: Interactive planner wait for an ordinary turn. Kept as a module constant
+#: (env-overridable) so focused timeout regressions can exercise the real
+#: outer wait without sleeping 25 seconds; the resume path raises this
+#: locally as before.
+_TOOL_PLAN_WAIT_SECONDS = float(
+    os.getenv("ATOM_TOOL_PLAN_WAIT_SECONDS", "25") or 25)
+
+#: Share of the planner wait reserved for deterministic enforcement and
+#: dispatch. The optional structured call gets (wait - reserve); if it
+#: still overruns, the outer wait catches the cancellation and the caller
+#: fallback below runs the accepted required read through the normal
+#: executor. This is time reserved for the work, not a latency target.
+_REQUIRED_READ_PLAN_RESERVE_SECONDS = float(
+    os.getenv("ATOM_REQUIRED_READ_PLAN_RESERVE_SECONDS", "5") or 5)
 
 #: Operator brake on the extended-class canvas-leg cap. The DEFAULT (0)
 #: DERIVES the cap per turn as (budget − reply floor) — on an edit-shaped
@@ -1095,6 +1111,29 @@ _LEGACY_TAIL_RESERVE_SECONDS = float(
 
 #: Longest a single feature-routing pass may take, capped further by whatever
 #: the request has left.
+# Turn-stage allocation: the interpretation leg must not consume the
+# reply/finalization reserve. The reserve was measured on the isolated
+# live-world rehearsal (interpretation 50.7s; total S3 83.9s; reply/finish
+# ~33s). This is a cap, not a longer deadline.
+_INTERPRETATION_MAX_SECONDS = float(
+    os.getenv("ATOM_INTERPRETATION_MAX_SECONDS", "75") or 75)
+_TURN_REPLY_RESERVE_SECONDS = float(
+    os.getenv("ATOM_TURN_REPLY_RESERVE_SECONDS", "35") or 35)
+
+
+def _interpretation_wait_seconds(remaining: float) -> float:
+    """One bounded interpretation window, preserving the reply reserve."""
+    try:
+        remaining = float(remaining)
+    except (TypeError, ValueError):
+        remaining = 0.0
+    return max(0.0, min(
+        _INTERPRETATION_MAX_SECONDS,
+        remaining - _TURN_REPLY_RESERVE_SECONDS))
+
+
+_SEARCH_HANDLER_TIMEOUT_SECONDS = float(
+    os.getenv("ATOM_SEARCH_HANDLER_TIMEOUT_SECONDS", "5") or 5)
 _FEATURE_ROUTING_MAX_SECONDS = float(
     os.getenv("ATOM_FEATURE_ROUTING_MAX_SECONDS", "45") or 45)
 
@@ -1106,6 +1145,15 @@ _FEATURE_ROUTING_MAX_SECONDS = float(
 #: 0 falls back to "whatever the turn has left".
 _VERIFY_PANEL_MAX_SECONDS = float(
     os.getenv("ATOM_VERIFY_PANEL_MAX_SECONDS", "30") or 30)
+# The verify panel is provenance, not a gate. It must never consume the
+# finalization/reply-delivery reserve; when less than this remains, skip it
+# and ship the reply unverified. Measured live (S3 replay): the panel started
+# with 15.7s left, made three 1200-cap judge attempts, and the turn hit the
+# clock without a reply.
+_VERIFY_PANEL_RESERVE_SECONDS = float(
+    os.getenv("ATOM_VERIFY_PANEL_RESERVE_SECONDS", "10") or 10)
+_VERIFY_PANEL_MIN_REMAINING_SECONDS = float(
+    os.getenv("ATOM_VERIFY_PANEL_MIN_REMAINING_SECONDS", "15") or 15)
 
 #: Same deadline for a DERIVATION ask — tighter, and for a different reason.
 #: A derivation answer is a few hundred tokens of transcription from the row
@@ -1476,6 +1524,47 @@ def _references_conversation(message: str) -> bool:
 # a workbook search unresolved, "go ahead" produced the open email draft —
 # the canvas supplied context and this rule's old wording supplied the
 # artifact pressure.
+def _answer_scope_instruction(
+    requirement: Optional[Dict[str, Any]],
+) -> str:
+    """The answer-scope instruction derived from THIS turn's accepted scope.
+
+    The accepted request supplies the subjects and fields. A request that
+    explicitly asks about conflicts, differences, decoys, or alternatives
+    gets a comparison-scope instruction instead of the exclusion. No
+    fixture names or values are embedded here.
+    """
+    if not isinstance(requirement, dict):
+        return ""
+    scope = requirement.get("scope") if isinstance(
+        requirement.get("scope"), dict) else {}
+    subjects = [
+        str(item).strip() for item in (scope.get("subjects") or [])
+        if str(item).strip()][:4]
+    fields = [
+        str(item).strip() for item in (scope.get("fields") or [])
+        if str(item).strip()][:4]
+    if not subjects and not fields:
+        return ""
+    subject_text = ", ".join(subjects) or "(the requested source)"
+    field_text = ", ".join(fields) or "(the requested field)"
+    if scope.get("explicit_conflict") is True:
+        return (
+            "ANSWER SCOPE: the user explicitly asked about conflicting, "
+            "differing, decoy, or alternative material. Address the "
+            f"requested subject(s) {subject_text} and field(s) {field_text}, "
+            "explain the differences the user asked about, and include the "
+            "supporting source. Do not introduce unrelated subjects the "
+            "user did not ask about.")
+    return (
+        "ANSWER SCOPE: answer only the requested subject(s) "
+        f"{subject_text} and field(s) {field_text}. Include the supporting "
+        "source. Do not volunteer facts about other subjects, including "
+        "explanations that distinguish unrelated examples or decoys. If "
+        "the requested value is absent, say it is not supported; do not "
+        "list alternatives.")
+
+
 _APPROVAL_EXECUTION_RULE = (
     "APPROVAL MEANS EXECUTE: when the user says \"go ahead\", \"proceed\", "
     "\"yes\", \"do it\", or otherwise approves something you proposed or "
@@ -5871,6 +5960,137 @@ def _resolve_requirement_identity(
         return {"state": "ambiguous", "candidates": candidates[:4]}
     return {"state": "unresolved", "names": sorted(norm)[:4]}
 
+def _catalog_title_match(
+    message: str, rows: Any,
+) -> Dict[str, Any]:
+    """Resolve a document mention against the ACTUAL uploaded catalog.
+
+    A user may name an uploaded record without its extension
+    ("my uploaded release smoke record"). The accepted interpretation can
+    miss that source; this deterministic identity resolver matches the
+    canonical title stem (separators/extension removed) against the
+    message. It never invents a source: exactly one distinct catalog row
+    must match, otherwise the result is ``none``/``ambiguous``.
+    """
+    def _canon(value: Any) -> str:
+        return re.sub(r"[\s_\-]+", "", str(value or "").casefold())
+
+    text = _canon(message)
+    if len(text) < 5:
+        return {"state": "none"}
+    hits: Dict[str, Dict[str, Any]] = {}
+    for row in rows or []:
+        if isinstance(row, dict):
+            rid = str(row.get("id") or
+                      row.get("doc_id") or row.get("file_id") or "")
+            name = str(row.get("file_name") or row.get("title") or "")
+        else:
+            rid = str(getattr(row, "id", "") or "")
+            name = str(getattr(row, "file_name", None)
+                       or getattr(row, "title", None) or "")
+        if not rid or not name:
+            continue
+        stem = name.rsplit(".", 1)[0] if "." in name else name
+        canon = _canon(stem)
+        if len(canon) < 5:
+            continue
+        # Require at least two strong tokens (or a long single token) so a
+        # generic one-word title does not capture an unrelated question.
+        tokens = [t for t in re.split(r"[^a-z0-9]+", stem.casefold())
+                  if len(t) >= 3]
+        if len(tokens) < 2 and len(canon) < 10:
+            continue
+        if canon in text:
+            hits[rid] = {
+                "file_id": rid,
+                "file_name": name,
+                "state": "resolved",
+            }
+    if len(hits) == 1:
+        return next(iter(hits.values()))
+    if len(hits) > 1:
+        return {"state": "ambiguous",
+                "candidates": list(hits.values())[:4]}
+    return {"state": "none"}
+
+
+def _resolve_catalog_mention(
+    message: str, workspace_id: Any,
+) -> Dict[str, Any]:
+    """Catalog-backed identity for an uploaded-document mention."""
+    try:
+        from core.database import get_db_session
+        from core.models import IngestedDocument
+
+        with get_db_session() as db:
+            q = db.query(IngestedDocument)
+            if workspace_id:
+                q = q.filter(IngestedDocument.workspace_id == workspace_id)
+            rows = q.all()
+    except Exception:  # noqa: BLE001 — lookup failure never completes
+        return {"state": "none"}
+    return _catalog_title_match(message, rows)
+
+
+def _comparison_carrier_covers_fields(
+    carrier: Any, requested_fields: Sequence[str],
+) -> bool:
+    """Whether the carrier covers every field the request requires.
+
+    Field coverage is request-bound: a complete carrier for a different
+    field (for example an incidental price comparison) must not satisfy a
+    date-only request.
+    """
+    if not isinstance(carrier, dict) or not requested_fields:
+        return True
+    coverage = carrier.get("coverage") or {}
+    carrier_fields = {
+        str(f).strip().lower()
+        for f in (coverage.get("requested_fields") or [])
+        if str(f or "").strip()}
+    if not carrier_fields:
+        carrier_fields = {
+            str(o.get("field") or "").strip().lower()
+            for o in (coverage.get("outcomes") or [])
+            if isinstance(o, dict) and str(o.get("field") or "").strip()}
+    wanted = {str(f).strip().lower() for f in requested_fields
+              if str(f or "").strip()}
+    return bool(wanted) and wanted <= carrier_fields
+
+
+def _comparison_carrier_request_complete(
+    carrier: Any, requested_fields: Sequence[str],
+) -> bool:
+    """Whether the carrier delivered every requested field's outcome.
+
+    Unlike ``_comparison_carrier_complete``, extra unrequested fields do
+    not make a narrow request partial. The carrier must still bind the
+    requested fields (``_comparison_carrier_covers_fields``) and every
+    requested field's outcome must be covered.
+    """
+    if not isinstance(carrier, dict) or not requested_fields:
+        return False
+    if not _comparison_carrier_covers_fields(carrier, requested_fields):
+        return False
+    coverage = carrier.get("coverage") or {}
+    outcomes = [o for o in (coverage.get("outcomes") or [])
+                if isinstance(o, dict)]
+    by_field = {
+        str(o.get("field") or "").strip().lower(): o
+        for o in outcomes if str(o.get("field") or "").strip()}
+    for field in requested_fields:
+        key = str(field).strip().lower()
+        outcome = by_field.get(key)
+        if not outcome:
+            return False
+        status = str(outcome.get("status") or "unresolved")
+        reasons = {str(r) for r in (outcome.get("reasons") or [])}
+        if (status in _COMPARISON_UNCOVERED_STATUSES
+                or ({"field_missing", "evidence_missing"} & reasons)):
+            return False
+    return True
+
+
 def _comparison_carrier_complete(carrier: Any) -> bool:
     """Whether a recorded comparison carrier covers every compared field.
 
@@ -5886,6 +6106,13 @@ def _comparison_carrier_complete(carrier: Any) -> bool:
                 if isinstance(o, dict)]
     total = int(coverage.get("outcome_count") or 0)
     if not outcomes or total != len(outcomes):
+        return False
+    # REQUEST COVERAGE (L2 correctness, 2026-10-19): a complete typed-field
+    # comparison does not fulfill a broader "flag any other differences"
+    # request. Older workbook carriers predate request_complete and fall
+    # back to their field-level complete flag.
+    if not coverage.get(
+            "request_complete", coverage.get("complete", False)):
         return False
     covered = sum(
         1 for o in outcomes
@@ -5915,28 +6142,36 @@ def _observation_satisfies_kind(obs: Dict[str, Any],
     return any(str(k).strip().lower() in allowed for k in kinds if k)
 
 
-def _stash_evidence_requirement(
-    session: Any,
-    execution_id: Any,
+def _build_evidence_requirement(
     decision: Any,
     message: Any,
     evidence_required: Any,
     workspace_id: Any = None,
     canvas_attached: bool = False,
-) -> Optional[Dict[str, Any]]:
-    """Record the accepted request's evidence requirement for THIS execution.
+    accepted_request: Any = None,
+) -> Dict[str, Any]:
+    """(Pure) The accepted request's evidence requirement — source kinds,
+    file reference, deterministic typed-field requests, subject
+    identities, the RESOLVED named-source identity (catalog, exact
+    normalized name), and whether an artifact was attached
+    (both-inputs-available).
 
-    F-C2 (2026-10-17; extracted so the production stash is directly
-    testable): source kinds, file reference, deterministic typed-field
-    requests, subject identities, the RESOLVED named-source identity
-    (catalog, exact normalized name), and whether an artifact was attached
-    (both-inputs-available). Execution-keyed: another turn's requirement
-    can never donate. Returns the recorded requirement (or None).
+    L3 repair (2026-10-18): extracted from ``_stash_evidence_requirement``
+    so BOTH the execution-keyed stash (the outcome resolver's record) and
+    the tool planner's eligibility input are built from the SAME accepted
+    decision — one authority, two consumers. No I/O beyond the catalog
+    identity resolution the stash already performed; never raises for an
+    unreadable addendum (fields/subjects degrade to empty).
+
+    ``accepted_request`` (L2, 2026-10-19) is the structured interpretation
+    that was actually accepted for this turn. When present and resolved,
+    the comparison scope comes from its constraints/requested fields (the
+    request contract), not from merely matching comparison vocabulary in
+    the raw message: a date-only follow-up ("does it still match?") must
+    not inherit the earlier turn's "flag anything that differs" breadth.
     """
-    if (not isinstance(session, dict) or not execution_id
-            or not isinstance(decision, dict)):
-        return None
-    refs = decision.get("references") or {}
+    refs = (decision.get("references") or {}
+            if isinstance(decision, dict) else {})
     fields: List[str] = []
     try:
         from core.workbook_read_artifact import extract_field_requests
@@ -5960,6 +6195,9 @@ def _stash_evidence_requirement(
         mentions = detect_file_mentions(str(message or "")) or []
     except Exception:  # noqa: BLE001
         mentions = []
+    _cont = refs.get("continuation_evidence") if isinstance(
+        refs.get("continuation_evidence"), dict) else None
+    _cont_state = str((_cont or {}).get("state") or "")
     if file_ref and (file_ref.get("file_name") or file_ref.get("name")
                      or file_ref.get("resource_id")):
         identity = _resolve_requirement_identity(
@@ -5973,9 +6211,77 @@ def _stash_evidence_requirement(
                 "file_name": (file_ref.get("file_name")
                               or file_ref.get("name")),
             }
+    elif _cont is not None and _cont_state in ("ambiguous", "unresolved"):
+        # L2 correction (2026-10-18, owner review): the reference
+        # resolution preserved an AMBIGUOUS or UNRESOLVED antecedent —
+        # carry that state into the requirement's identity verbatim
+        # (the settlement reports the clarification / the honest
+        # non-match; never a silently chosen source).
+        if _cont_state == "ambiguous":
+            identity = {
+                "state": "ambiguous",
+                "candidates": [
+                    {"file_name": c.get("file_name"),
+                     "file_id": c.get("file_id")}
+                    for c in (_cont.get("candidates") or [])
+                    if isinstance(c, dict)][:4],
+            }
+        else:
+            identity = {
+                "state": "unresolved",
+                "names": [str(n)[:120]
+                          for n in (_cont.get("names") or [])][:4],
+            }
     elif mentions:
         identity = _resolve_requirement_identity(
             _mentions_to_filename_candidates(mentions), workspace_id)
+    # A document-scoped ask may name an uploaded record without its
+    # extension and without a source noun the interpretation recognised
+    # ("my uploaded release smoke record"). Resolve that mention against
+    # the actual catalog; a unique match becomes the accepted source, not
+    # a filename rule and not a blanket message noun scan.
+    if not refs.get("sources") and not file_ref and not mentions:
+        _cat = _resolve_catalog_mention(str(message or ""), workspace_id)
+        if _cat.get("state") == "resolved":
+            refs = dict(refs)
+            refs["sources"] = ["document"]
+            file_ref = {"file_name": _cat.get("file_name"),
+                        "resource_id": _cat.get("file_id")}
+            identity = {
+                "state": "resolved",
+                "file_id": _cat.get("file_id"),
+                "file_name": _cat.get("file_name"),
+            }
+            evidence_required = True
+    try:
+        from core.workbook_read_artifact import (
+            accepted_comparison_scope,
+            comparison_request_shaped,
+        )
+
+        _accepted = (
+            accepted_request
+            if isinstance(accepted_request, dict)
+            and str(accepted_request.get("origin") or "") != "unresolved"
+            and str(accepted_request.get("scope_change") or "") != "unresolved"
+            else None)
+        _has_contract = bool(
+            _accepted and (
+                _accepted.get("constraints")
+                or _accepted.get("requested_fields")))
+        if _accepted and _has_contract:
+            # The accepted request's constraints/requested fields are the
+            # request contract. A degraded/unresolved interpretation falls
+            # back to the message shape so a broad obligation is not lost.
+            broader_comparison = accepted_comparison_scope(
+                _accepted, str(message or ""))
+        else:
+            # Legacy/direct callers and degraded interpretations retain
+            # the message-shaped contract.
+            broader_comparison = comparison_request_shaped(
+                str(message or ""))
+    except Exception:  # noqa: BLE001 — flag is additive
+        broader_comparison = False
     requirement = {
         "required": evidence_required is True,
         "sources": [
@@ -5987,7 +6293,60 @@ def _stash_evidence_requirement(
         "subjects": subjects,
         "identity": identity,
         "artifact_attached": bool(canvas_attached),
+        "broader_comparison": broader_comparison,
     }
+    _scope = accepted_request if isinstance(accepted_request, dict) else {}
+    _scope_subjects = [
+        str(item).strip() for item in (_scope.get("subjects") or [])
+        if str(item).strip()][:4] or subjects
+    _scope_fields = [
+        str(item).strip() for item in (_scope.get("requested_fields") or [])
+        if str(item).strip()][:4] or fields
+    _scope_text = " ".join(
+        [*_scope_subjects, *_scope_fields,
+         *[str(c) for c in (_scope.get("constraints") or [])]])
+    requirement["scope"] = {
+        "subjects": _scope_subjects,
+        "fields": _scope_fields,
+        "explicit_conflict": bool(
+            broader_comparison or re.search(
+                r"\b(?:conflict|contradict|decoy|differ|discrepan|"
+                r"alternative|comparison)\w*", _scope_text,
+                re.IGNORECASE)),
+    }
+    return requirement
+
+
+def _stash_evidence_requirement(
+    session: Any,
+    execution_id: Any,
+    decision: Any,
+    message: Any,
+    evidence_required: Any,
+    workspace_id: Any = None,
+    canvas_attached: bool = False,
+    accepted_request: Any = None,
+) -> Optional[Dict[str, Any]]:
+    """Record the accepted request's evidence requirement for THIS execution.
+
+    F-C2 (2026-10-17; extracted so the production stash is directly
+    testable): the requirement built by ``_build_evidence_requirement``
+    (source kinds, file reference, deterministic typed-field requests,
+    subject identities, the RESOLVED named-source identity, and whether
+    an artifact was attached). Execution-keyed: another turn's requirement
+    can never donate. Returns the recorded requirement (or None).
+
+    ``accepted_request`` is the structured interpretation accepted for
+    THIS turn; it supplies the request-bound comparison scope (L2,
+    2026-10-19). Absent/unresolved interpretations keep the message shape.
+    """
+    if (not isinstance(session, dict) or not execution_id
+            or not isinstance(decision, dict)):
+        return None
+    requirement = _build_evidence_requirement(
+        decision, message, evidence_required,
+        workspace_id=workspace_id, canvas_attached=canvas_attached,
+        accepted_request=accepted_request)
     session[f"_evidence_requirement_{execution_id}"] = requirement
     return requirement
 
@@ -6103,10 +6462,55 @@ def _context_backed_fulfillment(
     if not missing:
         if req.get("artifact_attached"):
             carrier = session.get(f"_objective_evidence_{execution_id}")
-            if not _comparison_carrier_complete(carrier):
-                # both inputs available ≠ the comparison was performed
+            _carrier = carrier if isinstance(carrier, dict) else None
+            _carrier_outcomes = [
+                o for o in (((_carrier or {}).get("coverage") or {})
+                            .get("outcomes") or [])
+                if isinstance(o, dict)]
+            _carrier_fields = {
+                str(f).strip().lower()
+                for f in (((_carrier or {}).get("coverage") or {})
+                          .get("requested_fields") or [])
+                if str(f or "").strip()}
+            if not _carrier_fields:
+                _carrier_fields = {
+                    str(o.get("field") or "").strip().lower()
+                    for o in _carrier_outcomes
+                    if str(o.get("field") or "").strip()}
+            if (not (
+                    _comparison_carrier_complete(_carrier)
+                    if req.get("broader_comparison")
+                    else _comparison_carrier_request_complete(
+                        _carrier, fields))
+                    or not _comparison_carrier_covers_fields(
+                        _carrier, fields)):
+                # both inputs available ≠ the comparison was performed.
+                # Name the comparison fields the recorded carrier did not
+                # cover; a partial carrier is an unmet obligation, not an
+                # absent comparison. A broad request may legitimately
+                # assess fields beyond the explicit typed fields.
+                _applicable = set(fields)
+                if req.get("broader_comparison"):
+                    _applicable |= _carrier_fields
+                _unmet_comparison_fields = []
+                for outcome in _carrier_outcomes:
+                    field = str(outcome.get("field") or "").strip().lower()
+                    if not field or field not in _applicable:
+                        continue
+                    status = str(outcome.get("status") or "unresolved")
+                    reasons = {str(r) for r in
+                               (outcome.get("reasons") or [])}
+                    if (status in _COMPARISON_UNCOVERED_STATUSES
+                            or ({"field_missing", "evidence_missing"}
+                                & reasons)):
+                        if field not in _unmet_comparison_fields:
+                            _unmet_comparison_fields.append(field)
                 return {"state": "partial", "supplied_fields": supplied,
-                        "missing_comparison": True, "matched": matched_ids}
+                        "missing_comparison": True,
+                        "comparison_recorded": bool(_carrier),
+                        "missing_comparison_fields":
+                            _unmet_comparison_fields[:4],
+                        "matched": matched_ids}
         return {"state": "completed", "supplied_fields": supplied,
                 "matched": matched_ids}
     if supplied:
@@ -6138,6 +6542,32 @@ def _recorded_context_fulfillment(
     if not isinstance(cf, dict) or cf.get("state") != "completed":
         return None
     return cf
+
+
+_COMPARISON_CLAIM_RE = re.compile(
+    r"\b(?:compar(?:e|ed|ison)|match(?:es|ed)?|differ(?:s|ed|ence|ences)?|"
+    r"consistent|inconsistent|equal|same|changed)\b", re.IGNORECASE)
+
+
+def _comparison_claims_result(text: str) -> bool:
+    """True when prose asserts a comparison result/difference.
+
+    A reply that already states the comparison was not recorded is a
+    limitation, not a claim, and is left alone.
+    """
+    lower = str(text or "").casefold()
+    if any(marker in lower for marker in (
+            "not recorded", "cannot confirm", "broader comparison "
+            "obligation: open", "could not establish")):
+        return False
+    return bool(_COMPARISON_CLAIM_RE.search(str(text or "")))
+
+
+def _first_tool_source_label(tool_block: Optional[str]) -> str:
+    match = re.search(
+        r"^\s*-\s*\[[^\]]+\]\s*([^:]+):", str(tool_block or ""),
+        re.MULTILINE)
+    return str(match.group(1)).strip() if match else ""
 
 
 def _fallback_turn_outcome(
@@ -6449,18 +6879,39 @@ def _fallback_turn_outcome(
                 session, execution_id, workspace_id)
         except Exception:  # noqa: BLE001 — additive; never blocks the turn
             context_fulfillment = None
-        if context_fulfillment and not validated:
+        if context_fulfillment:
             _cf_state = str(context_fulfillment.get("state") or "")
             if _cf_state == "completed":
                 validated = True
             elif _cf_state == "partial":
                 # Delivered answer with a named gap: the supplied fields
                 # are usable work; the missing ones stay obligations.
+                # PROCESS THE GAPS EVEN WHEN ANOTHER PATH ALREADY
+                # VALIDATED DELIVERY. A verified search receipt (or any
+                # other delivered result) proves the operation executed;
+                # it does not erase this request's unmet comparison
+                # obligations. The state map resolves validated+open_work
+                # to partial.
                 validated = True
                 if context_fulfillment.get("missing_comparison"):
-                    open_work.append(
-                        "the comparison itself was not recorded this "
-                        "turn — only its inputs were available")
+                    _cmp_missing = [
+                        str(f) for f in (
+                            context_fulfillment.get(
+                                "missing_comparison_fields") or [])][:3]
+                    if _cmp_missing:
+                        open_work.append(
+                            "the requested comparison fields "
+                            + ", ".join(_cmp_missing)
+                            + " — not verified as an explicit outcome "
+                              "this turn")
+                    elif context_fulfillment.get("comparison_recorded"):
+                        open_work.append(
+                            "the recorded comparison is incomplete for "
+                            "this request")
+                    else:
+                        open_work.append(
+                            "the comparison itself was not recorded this "
+                            "turn — only its inputs were available")
                 _cf_missing = [
                     str(f) for f in (
                         context_fulfillment.get("missing_fields") or [])][:3]
@@ -6662,6 +7113,31 @@ def _fallback_turn_outcome(
             pass
         if record is not None and not work_turn:
             work_turn = True
+
+        # AN UNDISPATCHED LOOKUP IS AN OPEN OBLIGATION, NOT A FAILED
+        # EXECUTION (composed S7, 2026-10-20). `not_dispatched` is the
+        # task ledger's vocabulary for "the read never ran" (planner
+        # relevance decline, missing capability/time) — it is distinct
+        # from `read_failed`/`search_failed` by construction. When this
+        # turn ALSO delivered a validated result (a covered verified
+        # comparison, a complete search, a bound delivery), the
+        # undispatched attempt must not negate that delivery: it stays
+        # open work and resolves the turn to `partial` (the state map
+        # below), never to `failed`. Hard failures and an explicit
+        # failed operation status still resolve `failed`.
+        if (recorded_failure and validated
+                and any(_operation_outcome(op) == "not_dispatched"
+                        for op in this_ops)
+                and not any(
+                    str(op.get("status") or "") == "failed"
+                    or _operation_outcome(op) in {
+                        "read_failed", "search_failed"}
+                    for op in this_ops)):
+            logger.info(
+                "[outcome] undispatched lookup(s) do not negate a "
+                "validated delivery (execution=%s open_work=%s)",
+                str(execution_id)[:8], len(open_work))
+            recorded_failure = False
 
         # Map to the state. THE EDIT-DECLINE CARRIER (F3) maps BEFORE
         # the generic branches: a named decline with a delivered reply
@@ -8105,6 +8581,27 @@ class ChatOrchestrator:
                     f"_objective_evidence_{execution_id}")
                 if isinstance(_carrier_cmp, dict):
                     comparison = _carrier_cmp
+            # REQUEST-BOUND COMPARISON (owner work order 2026-10-19): an
+            # incidental canvas/workbook carrier is not this request's
+            # comparison. Bind the carrier to the accepted requirement's
+            # fields (or an explicitly attached/broad comparison request)
+            # before letting it gate completion.
+            _req_for_comparison = (
+                session.get(f"_evidence_requirement_{execution_id}")
+                if isinstance(session, dict) and execution_id else {})
+            _req_fields_for_comparison = [
+                str(f).strip().lower()
+                for f in ((_req_for_comparison or {}).get("fields") or [])
+                if str(f or "").strip()]
+            _request_bound_comparison = bool(
+                comparison and (
+                    (_req_fields_for_comparison
+                     and _comparison_carrier_covers_fields(
+                         comparison, _req_fields_for_comparison))
+                    or bool(
+                        (_req_for_comparison or {}).get("artifact_attached")
+                        or (_req_for_comparison or {}).get(
+                            "broader_comparison"))))
             comparison_coverage = comparison.get("coverage") or {}
             comparison_outcomes = [
                 item
@@ -8138,8 +8635,22 @@ class ChatOrchestrator:
             # branch excludes it. A comparison whose source field was
             # never found is not a delivered result on ANY lane; the
             # two resolvers now state one contract.
+            # COMPARISON COMPLETION CONSUMES THE SAME REQUEST-BOUND
+            # PREDICATE as the resolver: every outcome covered AND the
+            # carrier's own request_complete/coverage verdict AND the
+            # accepted requirement's fields present. A numeric-incomparable
+            # outcome or a price-only carrier cannot certify a date request.
             comparison_complete = bool(
-                comparison_total and comparison_covered == comparison_total
+                comparison_total
+                and comparison_covered == comparison_total
+                and (
+                    _comparison_carrier_complete(comparison)
+                    if (_req_for_comparison or {}).get(
+                        "broader_comparison")
+                    else _comparison_carrier_request_complete(
+                        comparison, _req_fields_for_comparison))
+                and _comparison_carrier_covers_fields(
+                    comparison, _req_fields_for_comparison)
             )
             comparison_ledger = {
                 "known": sum(
@@ -8566,6 +9077,13 @@ class ChatOrchestrator:
                 and _receipts_carry_verified_complete_search(
                     session.get(f"_planner_tool_receipts_{execution_id}")
                     if isinstance(session, dict) else None)
+                # ONE REQUEST-BOUND SETTLEMENT DECISION (owner work order
+                # 2026-10-19): a completed search proves useful execution,
+                # not completion of a comparison. Only a request-bound
+                # comparison (the accepted requirement's fields or an
+                # explicitly attached/broad comparison) blocks this branch;
+                # an incidental canvas carrier does not.
+                and not _request_bound_comparison
             ):
                 objective_met = True
             elif _cf_record:
@@ -8587,7 +9105,22 @@ class ChatOrchestrator:
                 objective_met = True
             elif comparison_complete and delivered:
                 objective_met = True
-            elif deterministic and retrieval_complete:
+            elif (
+                deterministic and retrieval_complete
+                and not _request_bound_comparison
+                # The deterministic retrieval branch must consume the
+                # resolver's request-bound decision too. Without a
+                # comparison carrier, a partial context verdict (e.g.
+                # inputs available but no comparison performed) is still
+                # recorded state=partial and must not become objective_met.
+                and isinstance(response.get("_recorded_outcome"), dict)
+                and response["_recorded_outcome"].get("state") == "completed"
+                and response["_recorded_outcome"].get("delivered") is True
+                and str(execution_id or "") in {
+                    str(e) for e in (
+                        response["_recorded_outcome"].get("execution_ids")
+                        or [])}
+            ):
                 objective_met = True
             elif (
                 canvas_edit.get("updated") is True
@@ -10090,6 +10623,7 @@ class ChatOrchestrator:
                 if os.getenv("ATOM_TURN_DECISION_ROUTING", "1").lower() not in ("0", "off", "false"):
                     try:
                         from core.turn_decision import (
+                            apply_interpretation_references,
                             build_turn_decision,
                             interpret_turn_request,
                         )
@@ -10109,27 +10643,88 @@ class ChatOrchestrator:
                         # request_scope) so executor inputs stop being
                         # re-derived by independent miners.
                         try:
-                            _td_interpretation = (
-                                await interpret_turn_request(
-                                    message, session, history or [],
-                                    context or {}, session_id=session_id,
-                                    request_id=str(
-                                        (context or {}).get("request_id")
-                                        or ""),
-                                    # The REQUEST-scoped service (_scope_llm
-                                    # above), never self.llm_service: the
-                                    # public route serves every user through
-                                    # ONE default-scoped orchestrator, so
-                                    # constructor scope is not authenticated
-                                    # request scope (verifier correction
-                                    # 2026-10-16).
-                                    llm_service=_scope_llm))
-                        except Exception as _interp_err:  # noqa: BLE001
+                            _interp_wait = _interpretation_wait_seconds(
+                                _deadline.remaining())
+                            _interp_request_id = str(
+                                (context or {}).get("request_id") or "")
+                            logger.info(
+                                "[turn-interpretation] bounded wait=%.1fs "
+                                "(remaining=%.1fs reserve=%.1fs)",
+                                _interp_wait, _deadline.remaining(),
+                                _TURN_REPLY_RESERVE_SECONDS)
+                            if _interp_wait <= 0.0:
+                                from core.turn_decision import (
+                                    interpretation_budget_unresolved,
+                                )
+                                _td_interpretation = (
+                                    interpretation_budget_unresolved(
+                                        message, _interp_request_id, _td))
+                                logger.warning(
+                                    "[turn-interpretation] skipped — stage "
+                                    "budget exhausted (remaining=%.1fs "
+                                    "reserve=%.1fs); deterministic floor "
+                                    "retained", _deadline.remaining(),
+                                    _TURN_REPLY_RESERVE_SECONDS)
+                            else:
+                                try:
+                                    _td_interpretation = (
+                                        await asyncio.wait_for(
+                                            interpret_turn_request(
+                                                message, session,
+                                                history or [], context or {},
+                                                session_id=session_id,
+                                                request_id=_interp_request_id,
+                                                # The REQUEST-scoped service
+                                                # (_scope_llm above), never
+                                                # self.llm_service: the public
+                                                # route serves every user
+                                                # through ONE default-scoped
+                                                # orchestrator, so
+                                                # constructor scope is not
+                                                # authenticated request scope
+                                                # (verifier correction
+                                                # 2026-10-16).
+                                                llm_service=_scope_llm),
+                                            timeout=_interp_wait))
+                                except asyncio.TimeoutError:
+                                    from core.turn_decision import (
+                                        interpretation_budget_unresolved,
+                                    )
+                                    _td_interpretation = (
+                                        interpretation_budget_unresolved(
+                                            message, _interp_request_id, _td))
+                                    logger.warning(
+                                        "[turn-interpretation] wait %.1fs "
+                                        "expired — preserving explicit "
+                                        "stage_budget_exhausted and the "
+                                        "deterministic floor", _interp_wait)
+                                except Exception as _interp_err:  # noqa: BLE001
+                                    _td_interpretation = None
+                                    logger.debug(
+                                        "[turn-interpretation] invocation "
+                                        "failed (floor retained): %r",
+                                        _interp_err)
+                        except Exception as _interp_outer_err:  # noqa: BLE001
                             _td_interpretation = None
                             logger.debug(
-                                "[turn-interpretation] invocation "
+                                "[turn-interpretation] outer budget seam "
                                 "failed (floor retained): %r",
-                                _interp_err)
+                                _interp_outer_err)
+                        # L2 repair (2026-10-18): CONSUME the resolved
+                        # interpretation's source references when the
+                        # deterministic floor found none. A continuation
+                        # ask that references an earlier source by
+                        # description ("does it still match the approved
+                        # record?") carries no source noun, so the
+                        # evidence obligation used to be lost and the
+                        # turn's verified retrieval could not certify
+                        # (S7: correct content, outcome_unconfirmed).
+                        # Fail-closed: a degraded interpretation, an
+                        # existing floor capture, or an unresolvable
+                        # reference changes nothing.
+                        _td = apply_interpretation_references(
+                            _td, _td_interpretation, session)
+                        _td_decision = _td
                         _td_sources = ((_td.get("references")
                                         or {}).get("sources")) or []
                         for _a in _td.get("requested_actions") or []:
@@ -13053,6 +13648,36 @@ class ChatOrchestrator:
                                     _resume_plan_wait_seconds))
                         except Exception:  # noqa: BLE001 — declaration is optional
                             _wait_token = None
+                    # ACCEPTED-REQUIREMENT CARRY (L3 repair, 2026-10-18):
+                    # this task is created BEFORE the F-C2 stash records
+                    # (it runs alongside the turn), so it cannot read the
+                    # execution-keyed carrier — it builds the requirement
+                    # from the SAME accepted decision the stash consumes.
+                    # None when the decision layer is absent (unchanged
+                    # behavior for the requirement-less path).
+                    _plan_evidence_req: Optional[Dict[str, Any]] = None
+                    try:
+                        if isinstance(_td_decision, dict):
+                            from core.turn_decision import (
+                                turn_evidence_required as _ter_plan,
+                            )
+
+                            try:
+                                _req_canvas_attached = bool(_canvas_ctx)
+                            except NameError:
+                                _req_canvas_attached = False
+                            _plan_evidence_req = _build_evidence_requirement(
+                                _td_decision, _plan_msg,
+                                _ter_plan(_td_decision),
+                                workspace_id=(context or {}).get(
+                                    "workspace_id"),
+                                canvas_attached=_req_canvas_attached)
+                    except Exception:  # noqa: BLE001 — carry is additive
+                        _plan_evidence_req = None
+                    _plan_task_wait = (
+                        _resume_plan_wait_seconds
+                        if _pending_file_task
+                        else _TOOL_PLAN_WAIT_SECONDS)
                     try:
                         return await plan_tool_use(
                             _plan_msg, _plan_hist, user_id, _scope_llm,
@@ -13061,6 +13686,11 @@ class ChatOrchestrator:
                                 _canvas_edit_shaped(
                                     message, {"canvas": _canvas_ctx})
                                 or _canvas_referencing_message(message)),
+                            evidence_requirement=_plan_evidence_req,
+                            planning_timeout=max(
+                                1.0,
+                                _plan_task_wait
+                                - _REQUIRED_READ_PLAN_RESERVE_SECONDS),
                         )
                     finally:
                         if _wait_token is not None:
@@ -13942,7 +14572,8 @@ class ChatOrchestrator:
                         or resolve_user_workspace(
                             locals().get("user_id")
                             or (session or {}).get("user_id"))),
-                    canvas_attached=bool(locals().get("_canvas_ctx")))
+                    canvas_attached=bool(locals().get("_canvas_ctx")),
+                    accepted_request=_td_interpretation)
             except Exception:  # noqa: BLE001 — additive, never blocks
                 pass
             _shared_tool: Dict[str, Any] = {
@@ -15749,9 +16380,15 @@ class ChatOrchestrator:
                 else:
                     try:
                         with _deadline.stage("legacy-features"):
+                            _feature_req = (
+                                session.get(
+                                    f"_evidence_requirement_{_execution_id}")
+                                if isinstance(session, dict) and _execution_id
+                                else None)
                             feature_responses = await asyncio.wait_for(
                                 self._route_to_features(
-                                    message, intent_analysis, session, context),
+                                    message, intent_analysis, session, context,
+                                    evidence_requirement=_feature_req),
                                 timeout=_features_left,
                             )
                     except asyncio.TimeoutError:
@@ -15776,6 +16413,73 @@ class ChatOrchestrator:
                 )
 
                 main_message = ai_response["content"]
+
+                # VERIFIED-FIELD NARRATION GUARD (L2 narration defect,
+                # 2026-10-19): when this turn compared a typed field on
+                # the attached canvas against the retrieved source's
+                # recorded field association, the verified values are
+                # rendered deterministically and free-form narration
+                # cannot replace them. A reply that does not carry every
+                # verified value is replaced by the comparison; a reply
+                # that does is kept and the comparison appended. No
+                # date-specific rule — the typed-field comparison
+                # machinery and the retrieved associations are the
+                # authority.
+                try:
+                    from core.workbook_read_artifact import (
+                        verified_comparison_reply,
+                    )
+
+                    _verified_requirement = session.get(
+                        f"_evidence_requirement_{_execution_id}") or {}
+                    _verified_observations = session.get(
+                        f"_retrieval_source_observations_{_execution_id}") \
+                        or []
+                    _verified = None
+                    if (not _is_llm_error_text(str(main_message or ""))
+                            and not ai_response.get("verified_comparison")):
+                        _verified = verified_comparison_reply(
+                            message=message,
+                            reply=str(main_message or ""),
+                            canvas=(
+                                _canvas_ctx
+                                if isinstance(_canvas_ctx, dict) else {}),
+                            source_observations=_verified_observations,
+                            requirement=_verified_requirement,
+                        )
+                    if _verified and _verified.get("reply"):
+                        main_message = _verified["reply"]
+                        ai_response["content"] = main_message
+                        _verified_comparison = _verified.get("comparison")
+                        ai_response["verified_comparison"] = (
+                            _verified_comparison)
+                        _coverage = ((_verified_comparison or {}).get(
+                            "coverage") or {})
+                        # The durable outcome consumes the same carrier
+                        # the workbook comparison path uses, so delivered
+                        # text and settlement agree. Don't overwrite a
+                        # more complete carrier recorded earlier.
+                        if (isinstance(_verified_comparison, dict)
+                                and _execution_id):
+                            _existing_carrier = session.get(
+                                f"_objective_evidence_{_execution_id}")
+                            if (not _existing_carrier
+                                    or _coverage.get("complete")):
+                                session[
+                                    f"_objective_evidence_{_execution_id}"
+                                ] = _verified_comparison
+                        ai_response["deterministic_delivery"] = True
+                        logger.info(
+                            "[verified-comparison] narration %s "
+                            "(session=%s execution=%s fields=%s)",
+                            "replaced" if _verified.get("replaced")
+                            else "appended",
+                            session_id, str(_execution_id)[:8],
+                            (_verified_requirement or {}).get("fields"))
+                except Exception:  # noqa: BLE001 — guard is additive
+                    logger.debug(
+                        "[verified-comparison] guard skipped: %r",
+                        sys.exc_info()[1])
 
                 # TRUTHFULNESS ENFORCEMENT (owner directive 2026-10-12,
                 # beyond the prompt envelope): a seek-shaped turn with NO
@@ -17998,6 +18702,11 @@ class ChatOrchestrator:
             workspace_id=_llm_scope.get("workspace_id", "default"),
             tenant_id=_llm_scope.get("tenant_id", "default"),
         )
+        # Request-scoped chain query. It is assigned only on the
+        # resolved-work branch below; an unbound local previously killed the
+        # entire conversational response (S3 replay: "I'll manage those
+        # tasks" fallback). Empty means "no resolved work to chain".
+        _chain_query = ""
 
         try:
             # Build messages from history
@@ -18135,6 +18844,23 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     "'Operation status' section, generated from operation "
                     "evidence — never state them yourself."
                 )
+
+            # ACCEPTED ANSWER SCOPE (this turn's structured contract, not
+            # a fixture phrase list): the generation prompt names the
+            # subjects/fields the user actually requested and tells the
+            # model not to volunteer unrelated facts. A request that
+            # explicitly asks about differences/decoys gets the comparison
+            # variant instead.
+            try:
+                _scope_req = (
+                    (session or {}).get(
+                        f"_evidence_requirement_{execution_id}")
+                    if isinstance(session, dict) and execution_id else None)
+                _scope_rule = _answer_scope_instruction(_scope_req)
+                if _scope_rule:
+                    system_prompt += "\n\n" + _scope_rule
+            except Exception:  # noqa: BLE001 — prompt addendum only
+                pass
 
             messages = [
                 {
@@ -18454,7 +19180,7 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
             # family. The confirmed read deserves a longer, deadline-
             # bounded wait (execute + reply keep their shares); ordinary
             # turns keep the 25s interactive contract.
-            _plan_wait_seconds = 25.0
+            _plan_wait_seconds = _TOOL_PLAN_WAIT_SECONDS
             if _resume_original:
                 try:
                     _remaining = deadline.remaining() if deadline else None
@@ -18830,10 +19556,11 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 turn failure.
                 """
                 _left = _remaining_budget(_plan_t0, _turn_budget)
-                if _left <= 0:
+                if _left <= max(_VERIFY_PANEL_RESERVE_SECONDS,
+                                _VERIFY_PANEL_MIN_REMAINING_SECONDS):
                     logger.warning(
-                        "[verify-panel] skipped — turn budget exhausted; the "
-                        "reply ships unverified rather than late"
+                        "[verify-panel] skipped — only %.1fs remains; the "
+                        "reply ships unverified rather than late", _left
                     )
                     # Close the un-run coroutine: returning without awaiting it
                     # leaves a never-awaited coroutine on every skipped panel
@@ -18842,8 +19569,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # never started.
                     _coro.close()
                     return {"ran": False, "error": "turn_budget_exhausted"}
-                _cap = min(_left, _VERIFY_PANEL_MAX_SECONDS) \
-                    if _VERIFY_PANEL_MAX_SECONDS > 0 else _left
+                _usable = max(
+                    0.0, _left - _VERIFY_PANEL_RESERVE_SECONDS)
+                _cap = min(_usable, _VERIFY_PANEL_MAX_SECONDS) \
+                    if _VERIFY_PANEL_MAX_SECONDS > 0 else _usable
+                if _cap <= 1.0:
+                    logger.warning(
+                        "[verify-panel] skipped — %.1fs is below the "
+                        "finalization reserve; reply ships unverified",
+                        _left)
+                    _coro.close()
+                    return {"ran": False, "error": "verify_panel_budget"}
                 try:
                     return await asyncio.wait_for(_coro, timeout=_cap)
                 except asyncio.TimeoutError:
@@ -19261,6 +19997,58 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                     # A pre-started plan task means the caller overlapped this
                     # plan with the canvas-edit plan — just await it.
                     _plan_t0 = time.monotonic()
+
+                    async def _await_plan_with_required_read(
+                            _plan_awaitable, _wait_seconds):
+                        """Await the optional planner, but never let its own
+                        timeout discard an already-accepted required read.
+
+                        Only this call's timeout is caught. CancelledError
+                        from the enclosing turn is deliberately NOT caught:
+                        the turn's own cancellation must still win. If no
+                        deterministic required read is available, the
+                        original timeout is re-raised so the existing
+                        no-tool fallback keeps its behavior.
+                        """
+                        try:
+                            return await asyncio.wait_for(
+                                _plan_awaitable, timeout=_wait_seconds)
+                        except asyncio.TimeoutError as _plan_timeout:
+                            _fallback_req = None
+                            try:
+                                if isinstance(session, dict) and execution_id:
+                                    _fallback_req = session.get(
+                                        f"_evidence_requirement_{execution_id}")
+                            except Exception:  # noqa: BLE001 — optional read
+                                _fallback_req = None
+                            _fallback_plan = None
+                            try:
+                                from core.chat_tool_planner import (
+                                    enforce_required_read,
+                                    get_connected_services,
+                                )
+
+                                _fallback_plan = enforce_required_read(
+                                    None,
+                                    evidence_requirement=_fallback_req,
+                                    connected=get_connected_services(user_id),
+                                    message=message,
+                                )
+                            except Exception as _fallback_err:  # noqa: BLE001
+                                logger.warning(
+                                    "[tool-plan] required-read fallback "
+                                    "failed: %r", _fallback_err)
+                                _fallback_plan = None
+                            if _fallback_plan is None:
+                                raise _plan_timeout
+                            logger.warning(
+                                "[tool-plan] planner timed out after %.1fs; "
+                                "executing the accepted required read via "
+                                "%s.%s instead of skipping tools",
+                                _wait_seconds, _fallback_plan.service,
+                                _fallback_plan.intent)
+                            return _fallback_plan
+
                     if tool_plan_task is not None:
                         # TIMELINE ATTRIBUTION: how long the reply actually
                         # waited for the planner, and whether it had already
@@ -19268,8 +20056,8 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # the pre-reply cost is a single opaque stage number.
                         _plan_was_done = tool_plan_task.done()
                         _plan_wait_t0 = time.monotonic()
-                        _plan = await asyncio.wait_for(
-                            tool_plan_task, timeout=_plan_wait_seconds)
+                        _plan = await _await_plan_with_required_read(
+                            tool_plan_task, _plan_wait_seconds)
                         logger.info(
                             "[timeline] planner awaited by the reply builder: "
                             "%.1fs (already done when awaited: %s)",
@@ -19316,16 +20104,33 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                         _plan_wait_seconds))
                             except Exception:  # noqa: BLE001 — optional
                                 _fresh_wait_token = None
+                        # ACCEPTED-REQUIREMENT CARRY (L3 repair, 2026-10-18):
+                        # the reply leg runs after the F-C2 stash recorded
+                        # this execution's requirement — read the SAME
+                        # execution-keyed carrier the outcome resolver
+                        # consumes, so planner eligibility and settlement
+                        # share one authority. None (no stash/decision) keeps
+                        # the message-derived behavior.
+                        _plan_evidence_req = (
+                            session.get(
+                                f"_evidence_requirement_{execution_id}")
+                            if isinstance(session, dict) and execution_id
+                            else None)
                         try:
-                            _plan = await asyncio.wait_for(
+                            _plan = await _await_plan_with_required_read(
                                 plan_tool_use(
                                     message, planner_history or history, user_id,
                                     _scope_llm, canvas=canvas_context,
                                     provenance=_prov,
                                     allow_canvas_target=_canvas_edit_shaped(
                                         message, {"canvas": canvas_context}),
+                                    evidence_requirement=_plan_evidence_req,
+                                    planning_timeout=max(
+                                        1.0,
+                                        _plan_wait_seconds
+                                        - _REQUIRED_READ_PLAN_RESERVE_SECONDS),
                                 ),
-                                timeout=_plan_wait_seconds,
+                                _plan_wait_seconds,
                             )
                         finally:
                             if _fresh_wait_token is not None:
@@ -21036,6 +21841,17 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                 # the observation run: '[planner-boundary]
                                 # replan failed: NameError(_canvas_ctx)'.
                                 canvas=canvas_context, provenance=None,
+                                # ACCEPTED-REQUIREMENT CARRY (L3 repair,
+                                # 2026-10-18): the recovery replan serves the
+                                # SAME accepted obligation as the first plan
+                                # — the execution-keyed requirement rides
+                                # along so eligibility cannot re-derive it.
+                                evidence_requirement=(
+                                    session.get(
+                                        f"_evidence_requirement_"
+                                        f"{execution_id}")
+                                    if isinstance(session, dict)
+                                    and execution_id else None),
                             ),
                             timeout=_replan_wait,
                         )
@@ -24209,6 +25025,62 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 from core.chat_tool_planner import (
                     _explicit_web_research_requested,
                 )
+                # VERIFIED COMPARISON BEFORE CORRECTIVE GUARDS (L2 guard-
+                # order repair, 2026-10-19): when the turn's own typed-field
+                # requirement + retrieved observations + attached canvas
+                # produce a COMPLETE verified comparison, deliver that
+                # deterministic answer NOW, before the grounding/absence/
+                # search-narration guards can spend the remaining turn
+                # budget regenerating prose. Partial/limitation comparisons
+                # fall through to the existing guarded processing.
+                try:
+                    from core.workbook_read_artifact import (
+                        verified_comparison_reply,
+                    )
+
+                    _vfy_requirement = (
+                        (session or {}).get(
+                            f"_evidence_requirement_{execution_id}") or {})
+                    _vfy_observations = (
+                        (session or {}).get(
+                            f"_retrieval_source_observations_{execution_id}")
+                        or [])
+                    _vfy = verified_comparison_reply(
+                        message=message,
+                        reply=_content,
+                        canvas=(canvas_context
+                                if isinstance(canvas_context, dict) else {}),
+                        source_observations=_vfy_observations,
+                        requirement=_vfy_requirement,
+                    )
+                    _vfy_coverage = (((_vfy or {}).get("comparison") or {})
+                                     .get("coverage") or {})
+                    if (_vfy and _vfy.get("reply")
+                            and not _is_llm_error_text(_content)
+                            and not _canvas_edit_shaped(
+                                message, {"canvas": canvas_context})):
+                        response_data = dict(response_data or {})
+                        response_data["content"] = _vfy["reply"]
+                        response_data["verified_comparison"] = (
+                            _vfy.get("comparison"))
+                        response_data["deterministic_delivery"] = True
+                        if (isinstance(session, dict) and execution_id):
+                            # This path only runs on a COMPLETE comparison;
+                            # it is authoritative over any earlier partial
+                            # carrier for the same execution.
+                            session[
+                                f"_objective_evidence_{execution_id}"
+                            ] = _vfy.get("comparison")
+                        logger.info(
+                            "[verified-comparison] deterministic replacement "
+                            "BEFORE corrective guards (execution=%s fields=%s)",
+                            str(execution_id)[:8],
+                            (_vfy_requirement or {}).get("fields"))
+                        return response_data
+                except Exception:  # noqa: BLE001 — guard is additive
+                    logger.debug(
+                        "[verified-comparison] pre-guard replacement "
+                        "skipped: %r", sys.exc_info()[1])
                 # GROUNDING GUARD (non-streaming path): same wobble guard as
                 # the streaming path — one grounded regeneration when the
                 # reply denies having data that a LIVE TOOL RESULT provided.
@@ -24880,7 +25752,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                 ) and not _calc_evidence:
                     _grounding_ran = False
                     try:
-                        from core.chat_tool_planner import _unsupported_figures
+                        from core.chat_tool_planner import (
+                            figure_issues, serialize_canvas_evidence,
+                        )
 
                         # THE OPEN CANVAS IS EVIDENCE (2026-10-03, the
                         # 8-machine replay): narration echoing the user's OWN
@@ -24890,21 +25764,37 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         # regeneration that then lost the reply's table. The
                         # canvas the user is looking at is ground truth for
                         # what its own text says.
-                        _canvas_evidence = ""
-                        try:
-                            from core.chat_canvas_editor import (
-                                _serialize_content as _canvas_serialize,
-                            )
-
-                            if isinstance(_canvas_ctx, dict):
-                                _canvas_evidence = str(_canvas_serialize(
-                                    _canvas_ctx.get("content")))[:24000]
-                        except Exception:  # noqa: BLE001 — additive evidence
-                            _canvas_evidence = ""
-                        _unsupported = _unsupported_figures(
+                        #
+                        # ATTEMPT-4 S3: the route resolved the canvas and
+                        # passed it as ``canvas_context``, but this guard read
+                        # the local ``_canvas_ctx`` (None for a fresh
+                        # comparison conversation), so the draft's
+                        # $48,000.00 looked unsupported and spent the last
+                        # 2.9 s of the 95 s turn on a regeneration. Read both
+                        # and fall back to the resolved parameter.
+                        _canvas_evidence = serialize_canvas_evidence(
+                            _canvas_ctx, canvas_context)
+                        _issues = figure_issues(
                             _content,
-                            f"{_tool_block}\n{message}\n{_canvas_evidence}",
+                            canvas_text=_canvas_evidence,
+                            tool_text=_tool_block,
+                            message=message,
                         )
+                        _unsupported = [
+                            issue["figure"] for issue in _issues
+                            if issue.get("kind") in (
+                                "unsupported", "misattributed_to_source",
+                                "misattributed_to_draft")]
+                        _fig_issue_kinds = [
+                            str(issue.get("kind")) for issue in _issues]
+                        logger.info(
+                            "[figure-grounding] trace canvas_ctx=%s "
+                            "canvas_passed=%s evidence_len=%d tool_len=%d "
+                            "reply_len=%d issues=%s",
+                            isinstance(_canvas_ctx, dict),
+                            isinstance(canvas_context, dict),
+                            len(_canvas_evidence), len(_tool_block or ""),
+                            len(_content), _fig_issue_kinds)
                         _grounding_ran = True
                     except Exception as _fig_err:  # noqa: BLE001
                         logger.debug(f"figure grounding skipped: {_fig_err}")
@@ -24942,8 +25832,9 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                             logger.debug(f"grounding-pass signal skipped: {_gp_err}")
                     if _unsupported:
                         logger.warning(
-                            "[figure-grounding] reply states figures the evidence "
-                            "does not contain: " + ", ".join(_unsupported[:6])
+                            "[figure-grounding] reply states figures the "
+                            "attributed evidence does not contain: "
+                            + ", ".join(_unsupported[:6])
                             + " — grounded regeneration")
                         # ROUTING SIGNAL: record the fabrication against the model
                         # that produced it, so per-model predictors learn it and
@@ -25022,14 +25913,16 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                                     "calculation fallback applied (%d "
                                     "chars)", len(_det))
                         messages.append({"role": "system", "content": (
-                            "FIGURE GROUNDING FAILURE: these figures in your reply "
-                            "appear in NO retrieved evidence and no user message: "
+                            "FIGURE GROUNDING/ATTRIBUTION FAILURE: these "
+                            "figures in your reply are not supported by the "
+                            "evidence they are attributed to: "
                             + ", ".join(_unsupported[:6])
                             + ". Do NOT present arithmetic steps, intermediate "
                             "values or add-ons that are not literally present in "
-                            "the evidence. Open the cited source "
-                            "(documents.cat on the 'full:'/'open:' path) and quote "
-                            "its actual cells, or say the derivation cannot be "
+                            "the evidence. Attribute each figure only to the "
+                            "source that literally contains it (the open "
+                            "draft/canvas or the cited retrieved source); if "
+                            "neither carries it, say the derivation cannot be "
                             "confirmed from the stored copy."
                         )})
                         # BOUNDED (same rule as every other corrective regeneration):
@@ -25392,6 +26285,64 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
                         )
                     except Exception:
                         pass
+                # USER-FACING ANSWER BOUNDARY (attempt-4 L3): the internal
+                # LIVE TOOL RESULTS envelope is evidence, not prose. Some
+                # reply models echo it before the answer; strip that echo
+                # here so the user sees the requested fact and its source,
+                # while the full evidence remains on the turn.
+                try:
+                    from core.answer_boundary import present_answer
+
+                    _content = present_answer(_content, _tool_block, message)
+                except Exception as _ab_err:  # noqa: BLE001 — never gate
+                    logger.debug("[answer-boundary] skipped: %r", _ab_err)
+                # COMPARISON-MISSING LIMITATION (attempt-5 S3): the turn
+                # retrieved the source and has an attached draft, but the
+                # comparison itself was not recorded. A model reply that
+                # asserts a match/difference is unsupported; deliver the
+                # deterministic limitation (draft value + open obligation)
+                # instead of a fabricated source value. This uses the same
+                # recorded context-fulfillment verdict the settlement uses.
+                try:
+                    from core.workbook_read_artifact import (
+                        comparison_missing_limitation,
+                        comparison_request_shaped,
+                    )
+
+                    _req_for_guard = (
+                        (session or {}).get(
+                            f"_evidence_requirement_{execution_id}")
+                        if isinstance(session, dict) and execution_id
+                        else None)
+                    if (_req_for_guard
+                            and comparison_request_shaped(message)
+                            and _comparison_claims_result(_content)
+                            and not (response_data or {}).get(
+                                "verified_comparison")):
+                        _cf_guard = _context_backed_fulfillment(
+                            session, execution_id, workspace_id)
+                        if (_cf_guard
+                                and _cf_guard.get("missing_comparison")):
+                            _limitation = comparison_missing_limitation(
+                                canvas=canvas_context or {},
+                                requirement=_req_for_guard,
+                                source_label=(
+                                    _first_tool_source_label(_tool_block)
+                                    or "the retrieved source"))
+                            if _limitation:
+                                _content = _limitation
+                                response_data = dict(response_data or {})
+                                response_data["content"] = _limitation
+                                response_data["comparison_missing"] = True
+                                logger.info(
+                                    "[comparison-missing] replaced an "
+                                    "unsupported comparison claim with the "
+                                    "draft/open-obligation limitation "
+                                    "(execution=%s)",
+                                    str(execution_id)[:8])
+                except Exception as _cmp_err:  # noqa: BLE001 — never gate
+                    logger.debug(
+                        "[comparison-missing] guard skipped: %r", _cmp_err)
                 _claimed_content = await self._canvas_claim_correction(
                     _content, canvas_context, session_id, user_id,
                     async_continuation_forked,
@@ -28869,9 +29820,18 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         message: str,
         intent_analysis: Dict[str, Any],
         session: Dict,
-        context: Optional[Dict]
+        context: Optional[Dict],
+        evidence_requirement: Optional[Dict[str, Any]] = None,
     ) -> Dict[FeatureType, Any]:
-        """Route message to appropriate feature handlers"""
+        """Route message to appropriate feature handlers.
+
+        A resolved document-only obligation is served by its required
+        authorized read. The older SEARCH_REQUEST mapping also offers a
+        synchronous entity-registry scan and a placeholder analytics
+        handler; those are unrelated to a document read and must not run
+        merely because the legacy label says SEARCH_REQUEST. Multi-source
+        requests keep the mapped features.
+        """
         feature_responses = {}
         primary_intent = intent_analysis["primary_intent"]
 
@@ -28894,6 +29854,30 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
         }
 
         target_features = intent_to_features.get(primary_intent, [FeatureType.SEARCH])
+
+        _req_sources = {
+            str(source).strip().lower()
+            for source in ((evidence_requirement or {}).get("sources") or [])
+            if str(source or "").strip()}
+        if ((evidence_requirement or {}).get("required") is True
+                and _req_sources == {"document"}):
+            _before = list(target_features)
+            # A document-only obligation is owned by its required
+            # authorized read. The legacy feature fan-out is unrelated
+            # (entity search / placeholder analytics / agent fallback);
+            # none of it may run merely because an older intent label
+            # selected the turn. Multi-source requests keep their mapped
+            # features.
+            target_features = []
+            if _before:
+                logger.info(
+                    "[feature-routing] document-only required read owns "
+                    "the turn; skipped %s", [
+                        feature.value for feature in _before])
+            # Do not fall through to the generic/agent fallback: the
+            # accepted document read is the whole capability this turn
+            # needs, and it has already been dispatched.
+            return {}
 
         # AN ENTITY-SET EDIT IS NOT A REQUEST TO CREATE A TASK (2026-09-27).
         #
@@ -29177,11 +30161,29 @@ When users ask to fetch live data (like CRM leads), acknowledge that the integra
     ) -> Dict[str, Any]:
         """Handle search requests across all platforms"""
         try:
-            # Use AI data intelligence for unified search
+            # Use AI data intelligence for unified search. The legacy
+            # implementation is SYNCHRONOUS (registry + attribute scan);
+            # run it off the event loop and bound the wait so a slow
+            # registry can never silently consume the whole request.
+            # The worker thread may finish after timeout; the request
+            # returns a visible search_timeout instead of stalling.
             if "data_intelligence" in self.ai_engines:
-                search_results = self.ai_engines["data_intelligence"].search_unified_entities(
-                    message
-                )
+                try:
+                    search_results = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self.ai_engines["data_intelligence"]
+                            .search_unified_entities, message),
+                        timeout=_SEARCH_HANDLER_TIMEOUT_SECONDS)
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "[feature-search] synchronous entity search "
+                        "exceeded %.1fs; returning search_timeout",
+                        _SEARCH_HANDLER_TIMEOUT_SECONDS)
+                    return {
+                        "success": False,
+                        "error": "search_timeout",
+                        "data": {"results": [], "query": message},
+                    }
             else:
                 search_results = []
 

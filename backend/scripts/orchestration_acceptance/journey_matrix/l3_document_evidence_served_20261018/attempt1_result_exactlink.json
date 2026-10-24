@@ -1,0 +1,65 @@
+{
+  "chain": {
+    "assistant_content_head": "I've searched your uploaded documents using tools, and here's what I found:\n\nLIVE TOOL RESULTS (documents.search, query='Zephyr-9 launch code') \u2014 hybrid search over the workspace's ingested documents:",
+    "assistant_meta_outcome": "completed",
+    "assistant_meta_success": true,
+    "assistant_row_found": true,
+    "conversations": [
+      "61d79c59-38bf-4b39-b8ae-2019519732e0"
+    ],
+    "delivery": {
+      "channel": "chat",
+      "delivered": true,
+      "deterministic": false,
+      "model": "llama3.1:8b"
+    },
+    "documents_receipts": [
+      {
+        "outcome": "status=ok match_count=1",
+        "refs": [
+          {
+            "coverage": "complete",
+            "match_count": 1,
+            "query": "Zephyr-9 launch code",
+            "truncated": null
+          }
+        ],
+        "tool": "documents.search",
+        "verified": true
+      }
+    ],
+    "execution_row_found": true,
+    "execution_row_id": "f6203e01-9959-4037-b877-ccc44e43bbd0",
+    "objective_met": true,
+    "response_execution_id": "f6203e01-9959-4037-b877-ccc44e43bbd0",
+    "response_session_id": "61d79c59-38bf-4b39-b8ae-2019519732e0",
+    "row_session_id": "61d79c59-38bf-4b39-b8ae-2019519732e0",
+    "row_user_id": "f342a0fa-7983-48cf-99db-867a3f1ee535",
+    "row_workspace_id": "224d9826-83f6-4b7d-bfda-40d60d9cfb7d",
+    "task_outcome_execution_id": "f6203e01-9959-4037-b877-ccc44e43bbd0",
+    "task_outcome_turn_id": "61d79c59-38bf-4b39-b8ae-2019519732e0",
+    "tool_outcomes_tools": [
+      "documents.search",
+      "context_assembly"
+    ],
+    "upload_doc_id": "doc_ee4153d4a4ff67b28359e186",
+    "upload_file_name": "l3_zephyr9_fixture.txt",
+    "upload_preview_has_code": true,
+    "upload_row_found": true,
+    "upload_workspace_id": "224d9826-83f6-4b7d-bfda-40d60d9cfb7d"
+  },
+  "checks": {
+    "answer_contains_code": true,
+    "documents_receipt_executed": true,
+    "history_nonnull_agreement": true,
+    "objective_met_true": true,
+    "planner_dispatch_real": true,
+    "receipt_bound_to_current_request": true,
+    "receipt_verified_complete_coverage": true,
+    "successful_response": true,
+    "upload_through_product": true
+  },
+  "owner_improvement": "receipt_bound_to_current_request now binds through the response's own execution_id (exact row lookup) instead of a query-word check over a recently-ordered execution; the query text is recorded as supporting evidence",
+  "pass": true,
+  "rescored_from": "attempt1_result.json (raw attempt preserved, unmodified; no model call, no new request)"
+}
