@@ -14,8 +14,8 @@ untouched.**
   `ENABLE_INGESTION_SYNC=false`, `TELEGRAM_POLLING_ENABLED=false`,
   `ATOM_ORG_SHARING_ENABLED=false`; no outbound pollers.
 - Server: instrumented FastAPI app on `127.0.0.1:8120`, runtime identity
-  `324a85637054` (worktree with the diagnosis edits; product tree based
-  on `910bf85a6`); health 200.
+  `ff601821274f` (clean worktree HEAD `ff6018212`; product tree
+  `241d0f8e6`); health 200, `dirty=false`.
 - Provider registered before the first measured request: authorized
   DeepSeek operator credential through the product.
 - Pilot `:8001`/`:3000` was not used or changed.
@@ -98,8 +98,9 @@ cause. It is removed for a document-only requirement below.
    built the lifecycle with the `"default"` workspace because the
    response omitted `workspace_id`, while the run lived in the user's
    workspace (GoalRunService is correctly workspace-scoped). The helper
-   now resolves tenant/workspace from the execution row, then the run row
-   itself; the live-world run's delivery is recorded.
+   now resolves tenant/workspace from the response, then the supplied
+   chat/execution row, then the run row itself; the live-world run's
+   delivery is recorded.
 5. **Required-read query/lane.** The deterministic read query no longer
    appends a typed field that the request never mentioned (the spurious
    `version` made `documents.search` fail relevance). A resolved file
@@ -107,41 +108,30 @@ cause. It is removed for a document-only requirement below.
    documents lane. The live-world read now executes
    `documents.search` and cites the uploaded record.
 
-## Measured after the repair
+## Measured after the repair (clean frozen tree)
 
-With the same isolated live-world copy and the intended provider
-registered before the request:
-
-| Event | Time |
-|---|---|
-| turn interpretation (DeepSeek) | 46.96 s |
-| required read enforced | `documents.read` at 51.95 s |
-| reply leg | 5.72 s |
-| feature routing | 0.1 s (skipped) |
-| total | **53.7 s** (prose-only; delivery failed) |
-
-That run's prose was correct, but its delivery ledger was
-`failed/TaskLifecycleError`; it was **not** a clean delivered answer.
-After the delivery-scope fix and the query/lane fix, the same isolated
-live-world request returned:
+With the same isolated live-world copy, the intended provider registered
+before the request, and the clean frozen product tree:
 
 | Event | Time |
 |---|---|
-| turn interpretation (DeepSeek) | ~50 s (varies) |
-| tool planner optional wait | 20.0 s, then required-read floor |
-| required read | `documents.search` on the uploaded record |
-| total | **87.1 s** (within the 95 s budget) |
+| turn interpretation (DeepSeek) | 43.75 s |
+| reply leg | 6.6 s |
+| feature routing | 0.0 s (skipped) |
+| total turn | **51.18 s** (wall 51.6 s) |
 | delivery | **recorded** (`delivery_id` present) |
 | persistence | **persisted** |
 
 Answer: `SMOKE-42` from `release_smoke_record.txt`, with the correct
 source; no decoy. The requirement is
-`required=true, sources=["document"], identity=resolved`.
+`required=true, sources=["document"], identity=resolved`; the required
+read executed `documents.search`.
 
-The event-loop heartbeat showed no 53 s block; the dominant remaining
-cost is the DeepSeek turn-interpretation call (28–50 s). The 95 s budget
-is not widened. The latest clean run used 87.1 s, so the margin is thin
-and must be measured again in the full composed rehearsal.
+An earlier prose-only run (53.7 s) had the correct words but
+`delivery=failed/TaskLifecycleError`; it is **not** counted as clean.
+The delivery-scope fix made the ledger record, and the query/lane fixes
+made the read land on the uploaded document. The event-loop heartbeat
+showed no 53 s block.
 
 ## Provider/config parity finding
 
