@@ -522,5 +522,22 @@
    "commit": "c0cbea9f191a9c41d67db7cddf3446f17318884d",
    "dirty_tracked": ""
   }
+ },
+ "RELEASE.pilot": {
+  "status": "candidate-ready-deploy-held",
+  "candidate": "910bf85a6dd32f7026f28df2e4380110bd463c50",
+  "export_head": "4d6aaffb14d24655311df4d42b67be4859f1799b",
+  "verified_attempt": 7,
+  "verified_checks": "59/59",
+  "clean_export": true,
+  "clean_backend_health": true,
+  "frontend_build": true,
+  "browser_signin": true,
+  "pilot_before": "8c593e57031e-dirty (backend :8001 pid 81067), frontend :3000, untouched",
+  "deployment": "held \u2014 one explicit cutover approval required",
+  "release_doc": "docs/acceptance/RELEASE_CANDIDATE_2026-10-23.md",
+  "support_statement": "docs/acceptance/SUPPORT_STATEMENT_2026-10-23.md",
+  "evidence": "docs/acceptance/release_evidence_20261023/",
+  "notes": "Verified release candidate; not deployed. Clean export backend health 200, Next.js production build, real Chromium registration/dashboard. Live pilot remains the old build under the explicit hold."
  }
 }
