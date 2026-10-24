@@ -524,39 +524,57 @@
   }
  },
  "RELEASE.pilot": {
-  "status": "local-batch-in-progress-no-cutover",
-  "candidate": "f09766d5c578d3d299a3b5c020f627ee53bfb32d",
+  "status": "live-world-verified-60of60-cutover-approval-pending",
+  "candidate": "264677107d23196fcd77e2ccedf97c511fc6f32f",
   "export_head": "4d6aaffb14d24655311df4d42b67be4859f1799b",
   "verified_attempt": 7,
   "verified_checks": "59/59",
-  "clean_export": "1508955bf",
+  "clean_export": "06b213c79b66",
   "clean_backend_health": true,
   "frontend_build": true,
   "browser_signin": true,
   "pilot_before": "8c593e57031e-dirty (backend :8001 pid 81067), frontend :3000, untouched",
-  "deployment": "hold \u2014 prior approval NOT executed; reply-route parity still blocked",
+  "deployment": "hold \u2014 one explicit cutover approval required for product 264677107 / export 06b213c79",
   "release_doc": "docs/acceptance/RELEASE_CANDIDATE_LIVE_WORLD_2026-10-23.md",
   "support_statement": "docs/acceptance/SUPPORT_STATEMENT_LIVE_WORLD_2026-10-23.md",
   "evidence": "docs/acceptance/release_evidence_20261023/",
-  "notes": "Approval was received for product f09766d5c, but attempt 4 showed L3/S3 Ollama streams produce no tokens and fall back to DeepSeek; S7 alone used Ollama. All functional checks passed, but the declared reply route is not proven. Cutover was NOT executed; pilot remains 8c593e57031e; fresh backup package remains staged. No deadline, provider switch, corpus, or integration change was made.",
+  "notes": "Live-world composed rehearsal passed 60/60 on the isolated 786MB snapshot with product 264677107, live gate 6d66d0b8, runtime 06b213c79. Actual replies L3/S3/S7 all Ollama; structured DeepSeek; no fallback needed. L3 exact answer/source, no decoy/excerpt; S3/S7/restart passed; all legs under 95s. Pilot untouched; no cutover yet. Fresh final backup and clean export startup staged; one explicit approval required.",
   "cutover_attempt": "docs/acceptance/CUTOVER_ATTEMPT_2026-10-23.md",
   "cutover_evidence": "docs/acceptance/release_evidence_20261023/cutover_attempt/",
   "pilot_after_rollback": "8c593e57031e clean backend :8001 health 200; main-checkout next dev :3000 /login 200; DB/BYOK restored",
   "live_rehearsal": {
-   "status": "failed_provider_parity",
-   "attempt": 4,
-   "checks": "59 functional true; provider_reply_parity false",
-   "product": "f09766d5c578d3d299a3b5c020f627ee53bfb32d",
-   "runtime": "9cffe4fcb8db",
-   "l3_reply": "deepseek/deepseek-v4-pro",
-   "s3_reply": "deepseek/deepseek-flash",
-   "s7_reply": "ollama/llama3.1:8b",
-   "evidence": "docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT4.md",
-   "report": "docs/acceptance/release_evidence_20261023/live_world_rehearsal_attempt4/"
+   "status": "passed",
+   "attempt": 6,
+   "checks": "60/60",
+   "first_failure": null,
+   "product": "264677107d23196fcd77e2ccedf97c511fc6f32f",
+   "runtime": "06b213c79b66",
+   "gate": "successor_gates_live.py 6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2",
+   "world": "verified 786MB pre-cutover snapshot; isolated auxiliary stores; writers disabled",
+   "latencies": {
+    "l3": 74.07,
+    "edit": 38.6,
+    "reask": 42.39,
+    "comparison": 76.14,
+    "continuation": 55.77
+   },
+   "provider_routes": {
+    "structured": "deepseek/deepseek-v4-pro",
+    "reply_actual": {
+     "l3": "ollama",
+     "s3": "ollama",
+     "s7": "ollama"
+    },
+    "streams": [
+     "ollama/llama3.1:8b"
+    ]
+   },
+   "evidence": "docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT6.md",
+   "report": "docs/acceptance/release_evidence_20261023/live_world_rehearsal_attempt6/"
   },
-  "clean_export_head": "1508955bf",
-  "backup_package": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-live-world-20261023/",
-  "release_evidence": "docs/acceptance/release_evidence_20261023/live_world_release/",
+  "clean_export_head": "06b213c79b66",
+  "backup_package": "/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/atom-cutover-final-20261024/",
+  "release_evidence": "docs/acceptance/release_evidence_20261023/live_world_release_final/",
   "local_batch": {
    "product": "64fd750bcbcf3204a1edf8502413181e8c4354be",
    "report": "docs/acceptance/LOCAL_BATCH_L3_S3_2026-10-24.md",

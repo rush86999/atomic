@@ -1,9 +1,8 @@
 # Live-world release candidate — 2026-10-23
 
-**Status: cutover approval received, NOT executed — the reply-route
-parity gate failed in attempt 4 (L3/S3 fell back from Ollama to DeepSeek).
-The pilot remains the restored `8c593e57031e` build; the rollback stays in
-place.**
+**Status: live-world rehearsal PASSED 60/60 on the frozen build;
+cutover approval pending. The pilot remains the restored
+`8c593e57031e` build. No cutover has been performed.**
 
 This supersedes the fresh-scratch release candidate identity for the
 live pilot. The prior `910bf85a6` candidate and its evidence remain
@@ -13,22 +12,19 @@ preserved as history.
 
 | Item | Value |
 |---|---|
-| Product tree | `f09766d5c578d3d299a3b5c020f627ee53bfb32d` |
-| Rehearsal runtime | `1e8b5698fb0f` clean (`dirty=false`) |
-| Clean export HEAD | `1508955bf` (product tree above); backend health 200 on `:8122` |
+| Product tree | `264677107d23196fcd77e2ccedf97c511fc6f32f` |
+| Rehearsal runtime | `06b213c79b66` clean (`dirty=false`) |
+| Clean export HEAD | `06b213c79b66` (product tree above); backend health 200 on `:8124` |
 | Live gate | `successor_gates_live.py` `6d66d0b8b3b2c9a24efbe111a750c477f623a207d34692dcd4fa07cfceb88dd2` |
 | Frozen old gate | `successor_gates.py` `a0b2f748…` unchanged for attempts 3–7 |
 | Pilot before cutover | `8c593e57031e`, backend `:8001`, frontend `:3000` |
-| Backup package | `…/opencode/atom-cutover-live-world-20261023/` (fresh SQLite/BYOK/env snapshot, integrity `ok`) |
+| Backup package | `…/opencode/atom-cutover-final-20261024/` (fresh SQLite/BYOK/env snapshot, integrity `ok`) |
 
 ## Verification
 
-- **Live-world rehearsal: all 59 functional checks passed in attempt 3,
-  but the added `provider_reply_parity` check failed in attempt 4** —
-  L3/S3 Ollama streams produced no tokens and fell back to DeepSeek;
-  only S7 streamed Ollama. The declared local-Ollama reply route is NOT
-  proven. The world was the verified pre-cutover 786 MB snapshot with
-  fresh isolated auxiliary stores and writers disabled; port 8121.
+- **Live-world composed rehearsal: 60/60** on the verified pre-cutover
+  786 MB snapshot with fresh isolated auxiliary stores and writers
+  disabled; port 8121.
   - L3 59.16 s: correct `QUARTZ-77`, verified `documents.search` receipt,
     no decoy.
   - Edit 29.70 s: one write, postcondition verified.
@@ -51,7 +47,7 @@ preserved as history.
 Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 `release_evidence_20261023/live_world_rehearsal_attempt3/`.
 
-## Cutover (blocked)
+## Cutover (approval pending)
 
 1. **Fresh backup** is already staged. Re-verify integrity and record
    pilot health (`pilot_health_before.json`) immediately before the
@@ -81,9 +77,8 @@ Evidence: `docs/acceptance/LIVE_WORLD_REHEARSAL_ATTEMPT3.md` and
 
 ## Hold
 
-The prior deployment hold remains. Approval was received, but the
-cutover was **not executed** because attempt 4 failed reply-route parity.
-A new decision is required: repair/declare the Ollama route, or declare a
-DeepSeek reply configuration and re-verify.
+The prior deployment hold remains. This package is ready for one explicit
+cutover approval for product `264677107` / export `06b213c79`. The prior
+approval named a different build and was not executed.
 
 Support statement: `SUPPORT_STATEMENT_LIVE_WORLD_2026-10-23.md`.

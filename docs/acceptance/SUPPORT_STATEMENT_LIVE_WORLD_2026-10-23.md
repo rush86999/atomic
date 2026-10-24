@@ -1,11 +1,10 @@
 # Atom live-world pilot support statement — 2026-10-23
 
-**Build:** `f09766d5c578d3d299a3b5c020f627ee53bfb32d`
-(clean export `1508955bf`; rehearsal runtime `1e8b5698fb0f`)
+**Build:** `264677107d23196fcd77e2ccedf97c511fc6f32f`
+(clean export `06b213c79b66`; rehearsal runtime `06b213c79b66`)
 **Scope:** single-tenant local Atom pilot on the declared configuration
-**Status:** cutover approval received but **not executed**; the
-reply-route parity gate failed (L3/S3 Ollama→DeepSeek fallback). The old
-pilot `8c593e57031e` remains in service; the hold is re-engaged.
+**Status:** live-world rehearsal passed 60/60; **cutover approval
+pending**. The old pilot `8c593e57031e` remains in service.
 
 ## Supported
 
@@ -19,12 +18,11 @@ local Ollama reply, local fastembed, SQLite/LanceDB/BYOK):
 - ask a follow-up and reload/restart without losing or contradicting the
   saved result.
 
-The live-world rehearsal passed all 59 functional checks on the verified
+The live-world composed rehearsal passed 60/60 on the verified
 pre-cutover 786 MB snapshot with isolated auxiliary stores and writers
-disabled. The added reply-parity check then failed: L3/S3 Ollama streams
-produced no tokens and fell back to DeepSeek; only S7 streamed Ollama.
-The declared local-Ollama reply route is therefore NOT proven, and no
-cutover was executed.
+disabled. Actual replies for L3/S3/S7 were all `ollama/llama3.1:8b`;
+structured interpretation was `deepseek/deepseek-v4-pro`. The declared
+profile allows a DeepSeek fallback but this run did not need it.
 
 Evidence: `LIVE_WORLD_REHEARSAL_ATTEMPT3.md`,
 `RELEASE_CANDIDATE_LIVE_WORLD_2026-10-23.md`, and
