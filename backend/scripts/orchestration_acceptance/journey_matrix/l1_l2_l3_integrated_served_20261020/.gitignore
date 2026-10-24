@@ -43,3 +43,13 @@ attempt6_observation_*.jsonl
 attempt6_interpreter_freeze.txt
 attempt6_preflight.json
 attempt6_*.tmp
+# Attempt-7 successor artifacts (line-numbered carrier removal).
+attempt7_config.json
+attempt7_result.json
+attempt7_summary.json
+attempt7_run.log
+attempt7_server_*.log
+attempt7_observation_*.jsonl
+attempt7_interpreter_freeze.txt
+attempt7_preflight.json
+attempt7_*.tmp
