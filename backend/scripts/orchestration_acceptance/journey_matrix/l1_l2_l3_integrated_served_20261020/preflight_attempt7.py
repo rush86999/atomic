@@ -39,8 +39,8 @@ PREFLIGHT = HERE / "attempt7_preflight.json"
 
 PRODUCT_SHA = "910bf85a6dd32f7026f28df2e4380110bd463c50"
 OBSOLETE_SHA = "e994138432164dbec1befbec17306ade21118450"
-OBSOLETE_CHAT_HASH = (
-    "8a44f874a5e51efb310652671cd86db0c3034633ba05436598f414caa75d4a97")
+OBSOLETE_ANSWER_HASH = (
+    "f3c0c97809d2e4a9671d8b44ef89aeac67a2dd9aad26bd4a644ea2b5f31b89ad")
 GATE_COMMIT = "f2f8329971129bc14e9f107aa234b98db7f18379"
 
 S3_CHECK_KEYS = (
@@ -213,11 +213,11 @@ def main() -> int:
     check(report, "constant_gate_commit",
           runner.HARNESS_GATE_COMMIT == GATE_COMMIT,
           {"gate_commit": runner.HARNESS_GATE_COMMIT})
-    check(report, "constant_chat_hash",
-          runner.EXPECTED_SOURCE_SHA256.get("chat_orchestrator")
-          != OBSOLETE_CHAT_HASH,
+    check(report, "constant_answer_hash",
+          runner.EXPECTED_SOURCE_SHA256.get("answer_boundary")
+          != OBSOLETE_ANSWER_HASH,
           {"new_hash": runner.EXPECTED_SOURCE_SHA256.get(
-              "chat_orchestrator")})
+              "answer_boundary")})
     check(report, "constant_port", runner.PORT == 8117, runner.PORT)
     check(report, "constant_scratch",
           str(runner.SCRATCH).endswith(
@@ -370,13 +370,15 @@ def main() -> int:
         if line.strip()]
     check(report, "obsolete_pin_rejected",
           bool(obsolete_names)
-          and "backend/integrations/chat_orchestrator.py" in obsolete_names,
+          and "backend/core/answer_boundary.py" in obsolete_names,
           {"obsolete_diff": obsolete_names})
-    old_hash = sha256_file(
+    chat_hash = sha256_file(
         BACKEND / "integrations" / "chat_orchestrator.py")
+    answer_hash = sha256_file(
+        BACKEND / "core" / "answer_boundary.py")
     check(report, "obsolete_hash_rejected",
-          old_hash != OBSOLETE_CHAT_HASH,
-          {"actual": old_hash, "obsolete": OBSOLETE_CHAT_HASH})
+          answer_hash != OBSOLETE_ANSWER_HASH,
+          {"actual": answer_hash, "obsolete": OBSOLETE_ANSWER_HASH})
     status = git("status", "--porcelain").stdout.strip()
     check(report, "worktree_clean", status == "", status or "clean")
     gate_hash = sha256_file(HERE / "successor_gates.py")
@@ -387,9 +389,8 @@ def main() -> int:
     source_hashes = {
         "chat_tool_planner": sha256_file(
             BACKEND / "core" / "chat_tool_planner.py"),
-        "chat_orchestrator": old_hash,
-        "answer_boundary": sha256_file(
-            BACKEND / "core" / "answer_boundary.py"),
+        "chat_orchestrator": chat_hash,
+        "answer_boundary": answer_hash,
         "chat_canvas_editor": sha256_file(
             BACKEND / "core" / "chat_canvas_editor.py"),
         "workbook_read_artifact": sha256_file(
