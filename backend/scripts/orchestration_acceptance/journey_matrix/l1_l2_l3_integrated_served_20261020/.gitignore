@@ -33,3 +33,13 @@ attempt5_observation_*.jsonl
 attempt5_interpreter_freeze.txt
 attempt5_preflight.json
 attempt5_*.tmp
+# Attempt-6 successor artifacts (comparison truthfulness).
+attempt6_config.json
+attempt6_result.json
+attempt6_summary.json
+attempt6_run.log
+attempt6_server_*.log
+attempt6_observation_*.jsonl
+attempt6_interpreter_freeze.txt
+attempt6_preflight.json
+attempt6_*.tmp
