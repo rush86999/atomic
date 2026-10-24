@@ -1,16 +1,16 @@
 {
  "SPINE.integrated-composed": {
   "status": "blocked",
-  "evidence": "journey_matrix/l1_l2_l3_integrated_served_20261020/attempt5_summary.json",
-  "notes": "Integrated L1+L2+L3 composed served ATTEMPT 5 on the repaired runtime: product 22af424a07d84a21c62eb7bb97046d98a01d3d14 (simplified answer boundary + canvas evidence fix) with gate harness f2f8329971129bc14e9f107aa234b98db7f18379 and launch HEAD 8528ad03c8aa49d1d6fac7019d3c12d99099cf71; scratch :8115; same DeepSeek-direct/Ollama/fastembed configuration, requests, fixtures, distractor and deadlines. 57/59 checks; first failure comparison_broader_not_open. L3 answer contract PASSED (QUARTZ-77, no BASALT-13, verified grep receipt/objective/settlement) but the reply still carries the em-dash 'LIVE TOOL RESULTS \u2014 regex scan...' internal envelope (parenthesis-only boundary match); no decoy leaked. Edit/re-ask passed. S3 failed the broader-obligation and requirement-capture gates and fabricated the approved valid-until date as 2027-03-31 while the approved record says 2026-12-31; comparison_truthful_date/no_false_date are a gate false positive because the predeclared wrong-date set does not include that value. S7 PASSED the repaired gates: per-run prior obligation captured from the durable record between S3 and S7 (expected_prior_source=durable_task_record_before_s7, expected_prior_count=1, structured open=1); honest partial date 2026-12-31 accepted; source/settlement/history true. Restart PASSED exact partial-aware agreement, zero-write, canvas unchanged, execution persists. Live DB unchanged and isolated; pilot untouched. No retry, provider switch, deadline increase, or gate relaxation. Deployment remains held; no promotion, merge, or publication to main. Attempt 3/4 evidence remains unchanged. Next correction batch: S3 scope/date grounding plus the grep-header boundary shape.",
-  "campaign": "2026-10-23-l1-l2-l3-attempt5",
-  "recorded_at": "2026-10-23T20:05:00-04:00",
-  "tested_candidate": "22af424a07d84a21c62eb7bb97046d98a01d3d14",
-  "tested_config": "isolated scratch served world (:8115): ATOM_TURN_INTERPRETATION=1; ATOM_TURN_INTERPRET_PIN=deepseek:deepseek-v4-pro; DeepSeek operator credential registered through the product; local Ollama reply; local fastembed embeddings; scratch SQLite/LanceDB/BYOK stores; pilot :8001 untouched",
+  "evidence": "journey_matrix/l1_l2_l3_integrated_served_20261020/attempt6_summary.json",
+  "notes": "Integrated L1+L2+L3 composed served ATTEMPT 6 on product e994138432164dbec1befbec17306ade21118450 (broad comparison-scope recovery + draft-grounded missing-comparison limitation + all carrier header shapes) with gate harness f2f832997 and launch HEAD d8654cf0093910f5d7ce8ee17d4860eb93ac458c; scratch :8116. 58/59 checks; only failure l3_answer_correct (the reply echoed the line-numbered VFS full text including the BASALT-13 decoy; the model's conclusion was QUARTZ-77). S3 PASSED all comparison gates with the truthful draft-grounded limitation (draft expiration 2026-12-31; broader comparison OPEN); S7 PASSED per-run prior capture and honest partial; restart PASSED partial-aware exact agreement/zero-write/persistence; edit and re-ask passed. Live DB unchanged/isolated; pilot untouched. No retry/provider switch/deadline increase/gate relaxation. Deployment held; no promotion, merge, or publication to main. Attempts 3\u20135 preserved. Next local correction: line-numbered VFS full-text carrier removal (DONE in product 910bf85a6; attempt 7 pending).",
+  "campaign": "2026-10-23-l1-l2-l3-attempt6",
+  "recorded_at": "2026-10-23T20:25:00-04:00",
+  "tested_candidate": "e994138432164dbec1befbec17306ade21118450",
+  "tested_config": "isolated scratch served world (:8116): ATOM_TURN_INTERPRETATION=1; ATOM_TURN_INTERPRET_PIN=deepseek:deepseek-v4-pro; DeepSeek operator credential registered through the product; local Ollama reply; local fastembed embeddings; scratch SQLite/LanceDB/BYOK stores; pilot :8001 untouched",
   "evidence_path": "journey_matrix/l1_l2_l3_integrated_served_20261020/",
   "identity": {
-   "commit": "22af424a07d84a21c62eb7bb97046d98a01d3d14",
-   "run_head": "8528ad03c8aa49d1d6fac7019d3c12d99099cf71",
+   "commit": "e994138432164dbec1befbec17306ade21118450",
+   "run_head": "d8654cf0093910f5d7ce8ee17d4860eb93ac458c",
    "dirty_tracked": ""
   }
  },
