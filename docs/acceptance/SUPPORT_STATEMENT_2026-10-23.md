@@ -3,9 +3,10 @@
 **Build:** `910bf85a6dd32f7026f28df2e4380110bd463c50`
 (clean export `4d6aaffb14d24655311df4d42b67be4859f1799b`; docs/evidence HEAD `99350c53d`; product tree unchanged)
 **Scope:** single-tenant local Atom pilot, one declared configuration
-**Status:** verified release candidate; live pilot cutover pending one
-explicit approval. The old pilot (`8c593e57031e`) remains in service
-until then.
+**Status:** verified release candidate; a live cutover was attempted on
+2026-10-23 and rolled back after the live sourced-answer smoke failed.
+The old pilot (`8c593e57031e`) is back in service; the deployment hold is
+re-engaged. This candidate is not certified for live-scale data.
 
 ## What this build supports
 
@@ -46,6 +47,10 @@ Evidence: `backend/scripts/orchestration_acceptance/journey_matrix/l1_l2_l3_inte
 - The clean-export frontend build reused the local dependency cache
   rather than a fresh `npm ci`; startup/build parity is verified, network
   dependency resolution is not.
+- Live-scale latency is **not** certified. The cutover candidate passed
+  the fresh-scratch workflow but the live 786 MB corpus/integration-heavy
+  world spent 77.7 s before the reply, leaving 17.3 s and failing the
+  sourced question. No deadline increase or gate relaxation was used.
 
 ## Operation
 

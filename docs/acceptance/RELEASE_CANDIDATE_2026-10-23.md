@@ -1,7 +1,9 @@
 # Release candidate — 2026-10-23 (product 910bf85a6)
 
-**Status: verified local release candidate; not deployed. The live pilot
-cutover still requires one explicit approval under the standing hold.**
+**Status: verified local release candidate. A cutover was attempted on
+2026-10-23 and rolled back after the live sourced-answer smoke failed;
+the pre-cutover pilot is restored and the deployment hold is re-engaged.
+See `docs/acceptance/CUTOVER_ATTEMPT_2026-10-23.md`.**
 
 ## Exact identity
 
@@ -15,7 +17,8 @@ cutover still requires one explicit approval under the standing hold.**
 | Attempt 7 result | `59/59`; `verified_l1_l2_l3_composed_workflow` |
 | Preflight | 44/44 checks; 80 focused tests |
 | Clean export | 11,173 files; backend health 200; frontend production build; Chromium sign-in/dashboard |
-| Pilot before cutover | `8c593e57031e` dirty, pid 81067, cwd `main/backend`; frontend `:3000`; untouched |
+| Pilot before cutover | `8c593e57031e` dirty, pid 81067, cwd `main/backend`; frontend `:3000` |
+| Pilot after rollback | `8c593e57031e` clean backend code, `:8001` health 200; old frontend `next dev` `:3000`, `/login` 200 |
 
 Evidence: `backend/scripts/orchestration_acceptance/journey_matrix/l1_l2_l3_integrated_served_20261020/ATTEMPT7_RESULT.md`,
 `CHECKSUMS_ATTEMPT7.sha256`, `journey_status.json`, and
@@ -51,6 +54,19 @@ Single-tenant local pilot, one integrated build:
   registration/dashboard with zero page errors (screenshot preserved).
 - Historical attempts 3–6 remain preserved and non-passing; attempt 7
   does not rewrite them.
+
+## Cutover result (2026-10-23)
+
+The approved cutover was attempted and **rolled back**. The candidate
+backend/frontend and browser sign-in worked, but the live sourced
+question failed: 77.7 s in legacy features left only 17.3 s of the 95 s
+budget; the reply leg returned a provider failure (DeepSeek after the
+authorized credential was registered; OpenCode-Go before). The live
+786 MB corpus/integration-heavy world did not reproduce the fresh-scratch
+latency. The DB/BYOK backups were restored, candidate test data removed,
+and the old pilot backend/frontend restarted. This candidate must not be
+re-cut-over without a new local latency diagnosis and a new explicit
+approval.
 
 ## Deploy on approval (reversible, narrow)
 

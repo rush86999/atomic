@@ -524,7 +524,7 @@
   }
  },
  "RELEASE.pilot": {
-  "status": "candidate-ready-deploy-held",
+  "status": "candidate-verified-live-cutover-rolled-back",
   "candidate": "910bf85a6dd32f7026f28df2e4380110bd463c50",
   "export_head": "4d6aaffb14d24655311df4d42b67be4859f1799b",
   "verified_attempt": 7,
@@ -534,10 +534,13 @@
   "frontend_build": true,
   "browser_signin": true,
   "pilot_before": "8c593e57031e-dirty (backend :8001 pid 81067), frontend :3000, untouched",
-  "deployment": "held \u2014 one explicit cutover approval required",
+  "deployment": "hold re-engaged \u2014 live sourced-answer smoke failed after 77.7s legacy features; pilot restored",
   "release_doc": "docs/acceptance/RELEASE_CANDIDATE_2026-10-23.md",
   "support_statement": "docs/acceptance/SUPPORT_STATEMENT_2026-10-23.md",
   "evidence": "docs/acceptance/release_evidence_20261023/",
-  "notes": "Verified release candidate; not deployed. Clean export backend health 200, Next.js production build, real Chromium registration/dashboard. Live pilot remains the old build under the explicit hold."
+  "notes": "Verified release candidate (59/59 on fresh scratch) but NOT live-deployed. The approved cutover started the candidate on the live DB/BYOK: health 200, browser signup/dashboard passed, but the live sourced question failed after 77.7s in legacy features (17.3s left; provider failure). Rolled back to 8c593e, restored DB/BYOK, removed candidate test data. No deadline/provider/gate change. Hold re-engaged.",
+  "cutover_attempt": "docs/acceptance/CUTOVER_ATTEMPT_2026-10-23.md",
+  "cutover_evidence": "docs/acceptance/release_evidence_20261023/cutover_attempt/",
+  "pilot_after_rollback": "8c593e57031e clean backend :8001 health 200; main-checkout next dev :3000 /login 200; DB/BYOK restored"
  }
 }
