@@ -8,7 +8,8 @@ cutover still requires one explicit approval under the standing hold.**
 | Item | Value |
 |---|---|
 | Product commit | `910bf85a6dd32f7026f28df2e4380110bd463c50` |
-| Branch HEAD / clean export | `4d6aaffb14d24655311df4d42b67be4859f1799b` |
+| Clean export / verified-record HEAD | `4d6aaffb14d24655311df4d42b67be4859f1799b` |
+| Docs/evidence HEAD | `99350c53d` (product tree unchanged from `910bf85a6`) |
 | Gate harness | `f2f8329971129bc14e9f107aa234b98db7f18379` |
 | Verified run HEAD | `c2f8994956a488fbe399e80177d3755703847846` |
 | Attempt 7 result | `59/59`; `verified_l1_l2_l3_composed_workflow` |

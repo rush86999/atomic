@@ -1,7 +1,7 @@
 # Atom pilot support statement — 2026-10-23
 
 **Build:** `910bf85a6dd32f7026f28df2e4380110bd463c50`
-(branch HEAD `4d6aaffb14d24655311df4d42b67be4859f1799b`)
+(clean export `4d6aaffb14d24655311df4d42b67be4859f1799b`; docs/evidence HEAD `99350c53d`; product tree unchanged)
 **Scope:** single-tenant local Atom pilot, one declared configuration
 **Status:** verified release candidate; live pilot cutover pending one
 explicit approval. The old pilot (`8c593e57031e`) remains in service
