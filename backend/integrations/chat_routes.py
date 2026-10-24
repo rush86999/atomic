@@ -1499,8 +1499,10 @@ def _lifecycle_scope_for_run(
     live-world diagnosis: it did not, so the lifecycle was built with the
     "default" workspace and GoalRunService.get_run correctly hid the run
     in the user's workspace -> TaskLifecycleError). Resolve from the
-    execution row first, then the run row itself; never guess "default"
-    when the run names a scope.
+    response, then the supplied row (execution or chat-message scope),
+    then the run row itself; never guess "default" when the run names a
+    scope. ChatMessage carries tenant_id but no workspace_id, so the
+    GoalRun fallback is load-bearing for the chat route.
     """
     data = response.get("data") if isinstance(response, dict) else None
     data = data if isinstance(data, dict) else {}

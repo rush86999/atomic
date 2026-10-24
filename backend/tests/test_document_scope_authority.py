@@ -185,3 +185,39 @@ def test_resolved_document_overrides_a_dataset_proposal():
     assert plan.service == "documents"
     assert "release smoke code" in plan.query.casefold()
     assert "version" not in plan.query.casefold()
+
+
+def test_delivery_scope_falls_back_to_goal_run(monkeypatch):
+    import core.database as _db
+    from integrations.chat_routes import _lifecycle_scope_for_run
+
+    class _Run:
+        tenant_id = "tenant-run"
+        workspace_id = "workspace-run"
+
+    class _Query:
+        def filter(self, *args, **kwargs):
+            return self
+
+        def first(self):
+            return _Run()
+
+    class _Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def query(self, *args, **kwargs):
+            return _Query()
+
+    monkeypatch.setattr(_db, "get_db_session", lambda: _Session())
+
+    class _ChatMessage:
+        tenant_id = "tenant-chat"
+        # ChatMessage has no workspace_id — the run must supply it.
+
+    assert _lifecycle_scope_for_run(
+        "run-1", {"data": {}}, _ChatMessage()) == (
+            "tenant-chat", "workspace-run")
