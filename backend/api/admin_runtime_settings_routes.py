@@ -224,6 +224,14 @@ async def update_setting(
 
     try:
         coerced = _coerce(payload.value, spec.type)
+        if key == "ATOM_LLM_PROVIDER_POLICY":
+            # The generic JSON type is not enough: this value controls
+            # whether provider content may be sent. Reject unknown ids,
+            # bad modes, and preferred-outside-allowed here as well as on
+            # the dedicated policy endpoint.
+            from core.llm.provider_policy import validate_provider_policy
+
+            coerced = validate_provider_policy(coerced)
     except Exception as exc:
         raise HTTPException(
             status_code=400,

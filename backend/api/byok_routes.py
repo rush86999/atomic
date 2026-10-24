@@ -16,7 +16,13 @@ logger = logging.getLogger(__name__)
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
 from core.auth import get_current_user, User
-from core.models import Tenant, TenantSetting
+from core.models import (
+    RuntimeSetting,
+    SettingChangeAudit,
+    Tenant,
+    TenantSetting,
+    UserRole,
+)
 from core.database import get_db
 from core.auth import get_current_tenant
 from core.byok_endpoints import sanitize_key_label
@@ -129,6 +135,16 @@ class ProviderUsage:
     last_used: Optional[datetime] = None
     rate_limit_remaining: int = 0
     rate_limit_reset: Optional[datetime] = None
+    # The LAST bounded connection check for this provider, if one was run.
+    # "active" alone is not a successful inference test; the UI reads these
+    # fields to distinguish Key saved / Not checked / Ready / auth / quota.
+    last_check_at: Optional[datetime] = None
+    last_check_ok: Optional[bool] = None
+    last_check_status: Optional[str] = None
+    last_check_message: Optional[str] = None
+    last_check_provider: Optional[str] = None
+    last_check_model: Optional[str] = None
+    last_check_latency_ms: Optional[int] = None
 
 
 @dataclass
@@ -1287,45 +1303,203 @@ async def get_ai_provider(
         raise HTTPException(status_code=404, detail="Internal error")
 
 
+_POLICY_ADMIN_ROLES = {
+    UserRole.SUPER_ADMIN.value,
+    UserRole.OWNER.value,
+    UserRole.ADMIN.value,
+    UserRole.WORKSPACE_ADMIN.value,
+}
+
+
+def _require_policy_admin(current_user: User = Depends(get_current_user)) -> User:
+    role = getattr(current_user, "role", None)
+    role_value = getattr(role, "value", role)
+    if role_value not in _POLICY_ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return current_user
+
+
+@router.get("/api/ai/provider-policy")
+async def get_provider_policy(
+    current_user: User = Depends(get_current_user),
+    byok_manager: BYOKManager = Depends(get_byok_manager),
+):
+    """Effective installation provider policy (credentials stay masked)."""
+    from core.llm.provider_policy import resolve_provider_policy
+
+    policy = resolve_provider_policy()
+    return ApiResponse(success=True, data={
+        "policy": policy.public_dict(),
+        "providers": [
+            {"id": pid, "name": getattr(prov, "name", pid)}
+            for pid, prov in sorted(byok_manager.providers.items())
+        ],
+    })
+
+
+@router.put("/api/ai/provider-policy")
+async def update_provider_policy(
+    payload: Dict[str, Any],
+    admin: User = Depends(_require_policy_admin),
+    byok_manager: BYOKManager = Depends(get_byok_manager),
+    db: Session = Depends(get_db),
+):
+    """Save the installation policy. Env override is authoritative.
+
+    The stored BYOK keys are never touched. A malformed or unknown-provider
+    policy is rejected before persistence; an explicitly empty selected
+    policy is accepted and means "no routes".
+    """
+    from core.llm.provider_policy import (
+        PROVIDER_POLICY_KEY,
+        ProviderPolicyError,
+        resolve_provider_policy,
+        validate_provider_policy,
+    )
+    from core.runtime_settings import invalidate_settings_cache
+
+    if os.environ.get(PROVIDER_POLICY_KEY) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=("Provider policy is managed by the installation "
+                    "environment; conflicting UI saves are disabled."),
+        )
+    try:
+        canonical = validate_provider_policy(
+            payload, known_ids=set(byok_manager.providers.keys()))
+    except ProviderPolicyError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    old_row = db.get(RuntimeSetting, PROVIDER_POLICY_KEY)
+    old_value = old_row.value_json if old_row is not None else None
+    try:
+        if old_row is None:
+            old_row = RuntimeSetting(
+                key=PROVIDER_POLICY_KEY,
+                value_json=canonical,
+                updated_by=getattr(admin, "email", None),
+            )
+            db.add(old_row)
+        else:
+            old_row.value_json = canonical
+            old_row.updated_by = getattr(admin, "email", None)
+        db.add(SettingChangeAudit(
+            setting_key=PROVIDER_POLICY_KEY,
+            old_value_json=old_value,
+            new_value_json=canonical,
+            changed_by=getattr(admin, "email", None),
+        ))
+        db.commit()
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        logger.error("provider policy write failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Policy write failed") from exc
+
+    invalidate_settings_cache()
+    # Re-resolve from the persisted row (not from the request) so the
+    # response is the effective value, including any operator env override.
+    policy = resolve_provider_policy()
+    return ApiResponse(success=True, data={
+        "policy": policy.public_dict(),
+        "providers": [
+            {"id": pid, "name": getattr(prov, "name", pid)}
+            for pid, prov in sorted(byok_manager.providers.items())
+        ],
+    })
+
+
+def _classify_probe_error(exc: BaseException) -> tuple[str, str]:
+    """Turn a provider probe failure into an honest, actionable class."""
+    text = f"{type(exc).__name__} {exc}".lower()
+    if any(k in text for k in ("401", "403", "unauthorized", "forbidden",
+                               "invalid api key", "authentication", "auth")):
+        return "authentication_failed", "The provider rejected the saved credential."
+    if any(k in text for k in ("429", "rate limit", "quota", "credit",
+                               "billing", "insufficient", "402")):
+        return "usage_limit", "The provider reports a rate, quota, or billing limit."
+    if any(k in text for k in ("timeout", "timed out", "connect", "network",
+                               "dns", "unreachable")):
+        return "unavailable", "The provider could not be reached from this installation."
+    return "unavailable", "The provider probe did not complete successfully."
+
+
 @router.post("/api/ai/providers/{provider_id}/test")
 async def test_provider_key(
     provider_id: str,
     current_user: User = Depends(get_current_user),
     tenant: Tenant = Depends(get_current_tenant),
+    byok_manager: BYOKManager = Depends(get_byok_manager),
     db: Session = Depends(get_db)
 ):
-    """Probe stored credentials with a cheap models-list call.
+    """Run one bounded models-list probe and record its actual result.
 
-    R83: the Settings→AI "Test" button posted here but no route existed —
-    every test reported failure even for valid keys. Reuses BYOKHandler's
-    own client construction so per-provider base URLs apply.
+    A saved key is not a successful inference test. The response and the
+    persisted ``last_check_*`` usage fields distinguish authentication,
+    quota/rate, network-unavailable, and successful checks with a timestamp.
+    The probe is only run when the operator clicks Test; page loads do not
+    probe every configured provider.
     """
-    try:
-        from starlette.concurrency import run_in_threadpool
+    from datetime import datetime, timezone
+    from starlette.concurrency import run_in_threadpool
 
+    usage_map = byok_manager.get_tenant_usage(tenant.id)
+    usage = usage_map.get(provider_id)
+    if usage is None:
+        usage = ProviderUsage(provider_id=provider_id)
+        usage_map[provider_id] = usage
+    provider = byok_manager.providers.get(provider_id)
+    model = str(getattr(provider, "model", "") or "")
+    started = datetime.now(timezone.utc)
+    result: Dict[str, Any]
+    try:
         def _probe() -> Dict[str, Any]:
             from core.llm.byok_handler import BYOKHandler
 
-            handler = BYOKHandler()
+            handler = BYOKHandler(
+                workspace_id=getattr(current_user, "workspace_id", None) or "default",
+                tenant_id=tenant.id,
+                user_id=getattr(current_user, "id", None),
+            )
             client = handler.clients.get(provider_id)
             if client is None:
-                return {"ok": False, "reason": "provider_not_configured"}
+                raise RuntimeError("provider_not_configured")
             models = client.models.list()
             return {
                 "ok": True,
-                "sample_models": [m.id for m in getattr(models, "data", [])][:5],
+                "sample_models": [
+                    m.id for m in getattr(models, "data", [])][:5],
             }
 
         result = await run_in_threadpool(_probe)
-        ok = bool(result.get("ok"))
-        return ApiResponse(
-            success=ok,
-            data=result,
-            message="Key validated" if ok else "Provider not configured or probe unsupported",
-        )
-    except Exception as e:
-        logger.error(f"Provider key test failed: {e}")
-        return ApiResponse(success=False, message="Key validation failed")
+        status = "ready"
+        message = "Provider answered a bounded models-list check."
+        ok = True
+    except Exception as exc:  # noqa: BLE001 — probe boundary
+        logger.warning("Provider key test failed for %s: %s", provider_id, exc)
+        status, message = _classify_probe_error(exc)
+        result = {"ok": False, "status": status, "message": message}
+        ok = False
+
+    checked_at = datetime.now(timezone.utc)
+    usage.last_check_at = checked_at
+    usage.last_check_ok = ok
+    usage.last_check_status = status
+    usage.last_check_message = message
+    usage.last_check_provider = provider_id
+    usage.last_check_model = model
+    usage.last_check_latency_ms = int(
+        (checked_at - started).total_seconds() * 1000)
+    return ApiResponse(
+        success=ok,
+        data={
+            **result,
+            "provider": provider_id,
+            "model": model,
+            "checked_at": checked_at.isoformat(),
+            "latency_ms": usage.last_check_latency_ms,
+        },
+        message=message,
+    )
 
 
 @router.post("/api/ai/providers/{provider_id}/keys")

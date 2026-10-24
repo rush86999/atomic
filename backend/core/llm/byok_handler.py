@@ -1495,6 +1495,27 @@ class BYOKHandler:
         self.async_clients: Dict[str, Any] = {}
         self.byok_manager = get_byok_manager()
 
+        # Installation provider policy: saved credentials are permission to
+        # STORE a key, not permission to send every request there. Resolve
+        # once per handler; fail closed on invalid/unreadable restrictive
+        # configuration. Enforcement is repeated immediately before every
+        # transport attempt (see _dispatch_catalog_admits), not only here.
+        from core.llm.provider_policy import ProviderPolicy, resolve_provider_policy
+        self.provider_policy = resolve_provider_policy(
+            workspace_id=self.workspace_id, tenant_id=self.tenant_id)
+        if self.provider_policy.error:
+            logger.error(
+                "provider policy is invalid for workspace=%s tenant=%s — "
+                "all AI dispatch is denied until fixed: %s",
+                self.workspace_id, self.tenant_id,
+                self.provider_policy.error)
+        elif self.provider_policy.enforced:
+            logger.info(
+                "provider policy selected: allowed=%s preferred=%s revision=%s",
+                sorted(self.provider_policy.allowed_providers),
+                self.provider_policy.preferred,
+                self.provider_policy.revision)
+
         # OAuth: Initialize credential service for unified credential resolution
         self.credential_service = LLMCredentialService(
             user_id=user_id,
@@ -1677,6 +1698,20 @@ class BYOKHandler:
         when the caller explicitly named it: being first in a ranked list
         is not evidence of an operator override.
         """
+        # PROVIDER POLICY GATE (2026-10-24): the hard boundary. This runs
+        # before the explicit-override/catalog branches so no pin, default,
+        # retry, streaming fallback or capability fail-open can widen the
+        # provider set. Policy denial is final for this route.
+        policy = getattr(self, "provider_policy", None)
+        if policy is None or not policy.allows(attempt_provider_id, model):
+            logger.warning(
+                "[provider-policy] BLOCKED %s/%s operation=%s "
+                "(allowed=%s revision=%s error=%s)",
+                attempt_provider_id, model, operation,
+                sorted(getattr(policy, "allowed_providers", []) or []),
+                getattr(policy, "revision", "?"),
+                getattr(policy, "error", None))
+            return False
         if self._protocol_incompatible(
                 attempt_provider_id, model, operation):
             logger.info(
@@ -1888,6 +1923,31 @@ class BYOKHandler:
         """
         # All available providers that have clients initialized
         available_providers = list(self.clients.keys())
+
+        # Provider policy first: fallback/cascade may only choose from the
+        # allowed set. This is the streaming/non-streaming provider_order
+        # boundary; _dispatch_catalog_admits rechecks every actual attempt.
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None:
+            available_providers = [
+                p for p in available_providers if policy.allows_provider(p)]
+            if not available_providers:
+                logger.warning(
+                    "[provider-policy] no allowed provider has a client "
+                    "(allowed=%s revision=%s error=%s)",
+                    sorted(getattr(policy, "allowed_providers", []) or []),
+                    getattr(policy, "revision", "?"),
+                    getattr(policy, "error", None))
+                return []
+            preferred_provider = (
+                policy.preferred[0] if policy.preferred else None)
+            if (preferred_provider in available_providers
+                    and primary_provider not in available_providers):
+                available_providers = [
+                    preferred_provider,
+                    *[p for p in available_providers
+                      if p != preferred_provider],
+                ]
 
         # Same availability rule as ranking: a local runtime that isn't
         # answering stays out of the fallback chain — mid-request fallback
@@ -4383,6 +4443,22 @@ class BYOKHandler:
                 min_quality = min(min_quality, max_quality)
             
             available_providers = list(self.clients.keys())
+            # PROVIDER POLICY BEFORE RANKING: forbidden providers must not
+            # influence BPC scores or survive as candidates. Dispatch still
+            # rechecks the same policy immediately before transport.
+            policy = getattr(self, "provider_policy", None)
+            if policy is not None:
+                available_providers = [
+                    p for p in available_providers
+                    if policy.allows_provider(p)]
+                if not available_providers:
+                    logger.warning(
+                        "[provider-policy] BPC has no allowed provider "
+                        "(allowed=%s revision=%s error=%s)",
+                        sorted(getattr(policy, "allowed_providers", []) or []),
+                        getattr(policy, "revision", "?"),
+                        getattr(policy, "error", None))
+                    return []
 
             # EXECUTABLE-ROUTES GATE (2026-09-16): BPC consults BYOK's
             # credential and catalog state BEFORE ranking, not at dispatch.
@@ -5149,6 +5225,9 @@ class BYOKHandler:
                 )
                 ranked_options = [(c["provider"], c["model"]) for c in candidates]
 
+            policy = getattr(self, "provider_policy", None)
+            if policy is not None:
+                ranked_options = policy.filter_routes(ranked_options)
             if ranked_options:
                 logger.info(f"BPC Ranking Successful for {getattr(complexity, 'value', complexity)}: Top model {ranked_options[0][1]} (Value: {candidates[0]['value_score']:.2f})")
                 # Hand the ranking-stage skips to the correlated exhaustion
@@ -5179,6 +5258,20 @@ class BYOKHandler:
         provider_priority = [
             p for p in provider_priority
             if not _local_only_blocks_provider(p, self._local_routes)]
+        # The static fallback rotation is a route source, not a policy
+        # exemption. A forbidden provider cannot re-enter through a cache
+        # miss or an exception in the dynamic ranker.
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None:
+            provider_priority = [
+                p for p in provider_priority if policy.allows_provider(p)]
+            if not provider_priority:
+                logger.warning(
+                    "[provider-policy] static fallback has no allowed "
+                    "provider (allowed=%s revision=%s)",
+                    sorted(getattr(policy, "allowed_providers", []) or []),
+                    getattr(policy, "revision", "?"))
+                return []
         
         capability_blocked_options: List[tuple] = []
 
@@ -5340,6 +5433,9 @@ class BYOKHandler:
         except Exception:  # noqa: BLE001 — observability only
             pass
 
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None:
+            ranked_options = policy.filter_routes(ranked_options)
         reconciled = self._reconcile_ranked_routes(ranked_options)
         # INSTALLATION-LEVEL PREFERENCE (2026-10-08, owner correction 2):
         # ATOM_PREFERRED_LLM_PROVIDER / ATOM_PREFERRED_LLM_MODEL (env or
@@ -5366,7 +5462,16 @@ class BYOKHandler:
     _PREF_LAST_DIAGNOSIS: str = ""
 
     def _preference_pair(self) -> Optional[tuple]:
-        """The configured installation-level (provider, model), or None."""
+        """The configured installation-level (provider, model), or None.
+
+        The saved provider policy's preferred pair is the first source;
+        the legacy env/catalog pair remains the fallback. A preference is
+        still only an ordering hint and is rechecked against the policy
+        before it can be inserted.
+        """
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None and policy.preferred:
+            return policy.preferred
         provider = str(os.getenv("ATOM_PREFERRED_LLM_PROVIDER",
                                  "") or "").strip()
         model = str(os.getenv("ATOM_PREFERRED_LLM_MODEL", "") or "").strip()
@@ -5394,6 +5499,14 @@ class BYOKHandler:
             BYOKHandler._PREF_LAST_DIAGNOSIS = ""
             return options
         provider_id, model = pair
+        policy = getattr(self, "provider_policy", None)
+        if policy is not None and not policy.allows(provider_id, model):
+            BYOKHandler._PREF_LAST_DIAGNOSIS = (
+                f"preferred route {provider_id}/{model} is outside the "
+                f"provider policy (revision {policy.revision})")
+            logger.warning("[provider-policy] %s",
+                           BYOKHandler._PREF_LAST_DIAGNOSIS)
+            return options
         if (provider_id, model) in [tuple(o) for o in options[:1]]:
             BYOKHandler._PREF_LAST_DIAGNOSIS = ""
             return options  # already primary — nothing to do
@@ -7481,7 +7594,22 @@ class BYOKHandler:
             # used to bypass every context check, and a learning-heavy prompt
             # overflowed it where the ranker would have chosen a bigger model.
             if provider_model is not None:
-                if _local_only_blocks_provider(
+                _policy = getattr(self, "provider_policy", None)
+                if _policy is not None and not _policy.allows(
+                        provider_model[0], provider_model[1]):
+                    # The pin arrived by a path that did not pass the pin
+                    # gate. Never dispatch it; the ranked (already policy-
+                    # filtered) options govern instead.
+                    logger.warning(
+                        "[provider-policy] refusing pin %s/%s — outside "
+                        "the allowed set (revision %s); re-ranking within "
+                        "the policy",
+                        provider_model[0], provider_model[1],
+                        getattr(_policy, "revision", "?"))
+                    provider_model = None
+                if provider_model is None:
+                    pass
+                elif _local_only_blocks_provider(
                         provider_model[0], self._local_routes):
                     # LOCAL-ONLY PROVIDER BOUNDARY (owner directive
                     # 2026-10-15): the pin arrived by some path that did
