@@ -10,7 +10,7 @@ preserved.
 
 - Worktree: `/private/var/folders/sq/kf_272b520nc5wnsp27hq1h00000gn/T/opencode/l3-required-read-timeout`
 - Branch: `fix/l3-required-read-timeout`
-- Frozen product commit: `c942cd7f8fbdf92b4e27dcfd1cffed6686110091`
+- Frozen product commit: `264677107d23196fcd77e2ccedf97c511fc6f32f`
   (`fix(chat): treat line-numbered VFS full text as internal evidence`), built
   on `b0bee5dbf` (the attempt-3 pin `2a113d1a3` plus the reviewed S7
   settlement correction).
@@ -41,7 +41,7 @@ preserved.
   - `backend/integrations/chat_orchestrator.py`
     `8a44f874a5e51efb310652671cd86db0c3034633ba05436598f414caa75d4a97`
   - `backend/core/answer_boundary.py`
-    `2c6a7a044b246da7398c00d5c456626a31f6fdec819d923778f8ec0acbd42ffd`
+    `c6dc85ac54c823e03711202e1f99b377e5723677d7f301ea2bf1cf21765bd522`
   - `backend/integrations/chat_routes.py`
     `d86d0be9334e8927c6811b998a5cc8c28a3b535d03cace57e8f9529679ffa0e0`
   - `backend/core/chat_canvas_editor.py`
