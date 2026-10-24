@@ -64,7 +64,10 @@ deadline.remaining() - 35 s reply/finish reserve)`.
 The 35 s reserve is measured from the live-world S3 (interpretation 50.7 s,
 total 83.95 s) and L3/S7 traces. The cap prevents interpretation from
 starving reply/finalization; it does not make a slow route adequate and
-does not extend the 95 s deadline. No nested retry gets a fresh budget.
+does not extend the 95 s deadline. The outer wait bounds **waiting only**;
+synchronous HTTP workers may continue after cancellation (the logs record
+`worker_may_still_run=true`). It does not establish that workers stop or
+that every nested retry is budgeted.
 
 ## Configuration parity — unresolved blocker
 

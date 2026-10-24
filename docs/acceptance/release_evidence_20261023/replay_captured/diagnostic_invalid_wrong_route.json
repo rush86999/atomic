@@ -1,0 +1,7 @@
+{
+  "status": "diagnostic-invalid",
+  "reason": "manual scratch replay selected OpenRouter instead of the declared DeepSeek route",
+  "observed": "OpenRouter z-ai/glm-5.3-flash returned HTTP 402 / insufficient credits; result was not counted",
+  "source": "manual replay recorded earlier in this session; no secret values preserved",
+  "action": "retained as invalid evidence; the configured replay harness above is the valid run"
+}
