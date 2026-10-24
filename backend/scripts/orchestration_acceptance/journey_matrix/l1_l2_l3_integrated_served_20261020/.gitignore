@@ -53,3 +53,13 @@ attempt7_observation_*.jsonl
 attempt7_interpreter_freeze.txt
 attempt7_preflight.json
 attempt7_*.tmp
+# Live-world rehearsal artifacts (not fresh scratch).
+live_rehearsal_config.json
+live_rehearsal_result.json
+live_rehearsal_summary.json
+live_rehearsal_run.log
+live_rehearsal_server_*.log
+live_rehearsal_observation_*.jsonl
+live_rehearsal_interpreter_freeze.txt
+live_rehearsal_preflight.json
+live_rehearsal_*.tmp
