@@ -36,6 +36,25 @@ _LINE_NUMBERED = re.compile(r"^\s*L\d+:\s")
 _FULL_TEXT_LEAD = re.compile(
     r"(?:full text|top hit|source excerpt|excerpt|stored document)",
     re.IGNORECASE)
+_RETRIEVED_PARAGRAPH = re.compile(
+    r"^\s*\d+\.\s*\[(?:ingested|vector|communication|memory|"
+    r"documents?|knowledge)\]", re.IGNORECASE)
+
+
+def _strip_retrieved_excerpt(text: str) -> str:
+    """Drop a leading retrieved-source paragraph from the answer.
+
+    Some models open with a numbered ``[ingested]`` excerpt (the whole
+    document region) and only then answer. That paragraph is an internal
+    evidence carrier; the actual answer follows it. Only a paragraph whose
+    first line has that numbered source form is removed; ordinary prose and
+    a user-requested comparison are untouched.
+    """
+    paragraphs = re.split(r"\n\s*\n", text)
+    if not paragraphs:
+        return text
+    kept = [p for p in paragraphs if not _RETRIEVED_PARAGRAPH.match(p.strip())]
+    return "\n\n".join(kept).strip()
 
 
 def _strip_line_numbered_excerpt(text: str) -> str:
@@ -95,7 +114,8 @@ def strip_internal_tool_envelope(
     if text.upper().startswith(_INTERNAL_HEADER):
         paragraphs = re.split(r"\n\s*\n", text, maxsplit=1)
         text = paragraphs[1].strip() if len(paragraphs) == 2 else ""
-    return _strip_line_numbered_excerpt(text.strip())
+    text = _strip_line_numbered_excerpt(text.strip())
+    return _strip_retrieved_excerpt(text)
 
 
 def _unique_fact(facts: Optional[Iterable[dict]]) -> Optional[dict]:

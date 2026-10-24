@@ -469,3 +469,17 @@ def test_attempt4_remains_non_passing():
     assert CAPTURED["pass"] is False
     assert CAPTURED["first_failure"] == "l3_untruthful_answer"
     assert CAPTURED["checks"]["comparison_truthful_date"] is False
+
+
+def test_captured_attempt5_leading_ingested_excerpt_is_stripped():
+    text = (
+        "1. [ingested] l3_zephyr9_fixture.txt: ATOM PHASE D FIXTURE — "
+        "internal notes.\nProject Zephyr-9 launch planning.\nThe launch "
+        "code for project Zephyr-9 is QUARTZ-77.\nOwner: R. Parikh. "
+        "Team: acceptance.\n\nThe launch code for project Zephyr-9 was "
+        "found in the document \"l3_zephyr9_fixture.txt\" as QUARTZ-77.")
+    clean = present_answer(text, None, L3_ASK)
+    assert "Owner:" not in clean
+    assert "Team:" not in clean
+    assert "QUARTZ-77" in clean
+    assert "l3_zephyr9_fixture.txt" in clean
