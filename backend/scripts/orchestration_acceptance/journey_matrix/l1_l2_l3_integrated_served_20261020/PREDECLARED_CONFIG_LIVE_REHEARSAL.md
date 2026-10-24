@@ -26,9 +26,11 @@ preserved.
 - Provider/config parity: the acceptance declared env (DeepSeek
   structured interpretation + local Ollama reply, fastembed, scratch
   BYOK). The authorized DeepSeek operator credential is registered
-  through the product before the first ask. Effective reply route must be
-  recorded; if it differs from Ollama, that is a parity finding, not a
-  pass.
+  through the product before the first ask. The local Ollama model is
+  warmed before the first turn, and a new `provider_reply_parity` check
+  requires L3/S3/S7 replies and all streamed reply routes to use Ollama;
+  a DeepSeek fallback is a parity failure, not a pass (the attempt-3
+  trace exposed cold-start fallback).
 - Launch HEAD: the harness commit that contains this declaration; the
   runner records the actual `head_at_launch` and `harness_commit`.
 - Product source hashes (the runner aborts on any mismatch):
@@ -55,7 +57,9 @@ preserved.
 
 The experiment is unchanged: same DeepSeek-direct structured route,
 DeepSeek edit planning, local Ollama reply, local fastembed embeddings,
-same requests, fixtures, distractor document, and deadlines. The
+same requests, fixtures, distractor document, and deadlines. The live
+rehearsal now has a 60th check for reply-route parity plus an Ollama
+warm-up before the first turn. The
 successor adds only the reviewed repairs from attempt 5:
 
 - **S7 prior identity is captured per run.** Between S3 and S7 the runner

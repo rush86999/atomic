@@ -1134,6 +1134,39 @@ def main() -> int:
             result["pass"] = False
             return finish_result()
 
+        # Provider parity is part of the declared configuration. Warm the
+        # local Ollama model BEFORE the first user turn; the live-world
+        # attempt-3 trace showed L3/S3 cold-start streaming produced no
+        # tokens after 10 s and silently fell back to DeepSeek. A warm-up is
+        # readiness, not a provider switch; the parity check below still
+        # rejects any turn that falls back.
+        try:
+            _warm_t0 = time.monotonic()
+            _warm = httpx.post(
+                "http://127.0.0.1:11434/api/generate",
+                json={"model": "llama3.1:8b",
+                      "prompt": "Reply with the single word OK.",
+                      "stream": False,
+                      "options": {"num_predict": 8}},
+                timeout=180, trust_env=False)
+            result["steps"]["ollama_warmup"] = {
+                "http": _warm.status_code,
+                "duration_s": round(time.monotonic() - _warm_t0, 2),
+                "has_response": bool(
+                    (_warm.json() or {}).get("response"))
+                if _warm.status_code == 200 else False,
+            }
+        except Exception as _warm_err:  # noqa: BLE001
+            result["steps"]["ollama_warmup"] = {
+                "error": type(_warm_err).__name__,
+            }
+        if not (result["steps"]["ollama_warmup"].get("http") == 200
+                and result["steps"]["ollama_warmup"].get(
+                    "has_response") is True):
+            result["classification"] = "ollama_warmup_failed"
+            result["pass"] = False
+            return finish_result()
+
         email = f"l1l2l3_{uuid.uuid4().hex[:10]}@example.com"
         password = "L1L2L3-" + uuid.uuid4().hex[:12] + "A1"
         reg = httpx.post(f"{BASE}/api/auth/register",
@@ -1872,6 +1905,19 @@ def main() -> int:
         s3_summary = stage_summary(s3, log_text)
         s7_summary = stage_summary(s7, log_text)
 
+        _reply_providers = [
+            (l3.get("initial_response") or {}).get("provider"),
+            (s3.get("initial_response") or {}).get("provider"),
+            (s7.get("initial_response") or {}).get("provider"),
+        ]
+        _reply_streams = list(reply_routes or [])
+        _reply_parity = bool(
+            all(str(p or "").casefold().startswith("ollama")
+                for p in _reply_providers)
+            and _reply_streams
+            and all(str(r).casefold().startswith("ollama/")
+                    for r in _reply_streams))
+
         checks = {
             "runtime_identity": bool(
                 result["steps"]["runtime_identity"]["candidate_cwd_ok"]
@@ -1944,6 +1990,7 @@ def main() -> int:
                 dispatch_models
                 and any(m.startswith("deepseek/")
                         for m in dispatch_models)),
+            "provider_reply_parity": _reply_parity,
         }
 
         # Guards, captured before the pass/fail decision.
@@ -2161,6 +2208,7 @@ def main() -> int:
              "restart_execution_missing"),
             ("provider_structured_deepseek",
              "structured_route_not_deepseek"),
+            ("provider_reply_parity", "reply_route_not_parity"),
             ("live_db_isolated", "live_db_isolated_failed"),
             ("pilot_untouched", "pilot_touched"),
         ]
